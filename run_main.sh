@@ -1,0 +1,1 @@
+uv run python src/plant_model/main.py
