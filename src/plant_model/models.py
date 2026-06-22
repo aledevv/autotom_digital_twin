@@ -57,11 +57,11 @@ class InternodeNode(OrganNode):
 class LeafNode(OrganNode):
     """Compound leaf with petiole, rachis and leaflets."""
     length_petiole: float = 0.0
-    diameter_petiole: float = 0.0
+    diameter_petiole: float = 0.003
     angle_petiole: float = 0.0
     ccw_orientation: float = 0.0
     curvature: float = 0.0
-    blades_nr: int = 0
+    blades_nr: int = 1
     area_blades_total: float = 0.0
     rachis_length: float = 0.0
 
@@ -73,7 +73,7 @@ class FruitsNode(OrganNode):
     fruit_radii: list[float] = field(default_factory=list)
     fruit_age_dd: list[float] = field(default_factory=list)
     ripening_dd: float = 0.0
-    truss_angle: float = 0.0
+    truss_angle: float = 9.0
 
 
 @dataclass

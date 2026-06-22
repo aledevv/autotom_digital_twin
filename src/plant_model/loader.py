@@ -3,8 +3,14 @@ from pathlib import Path
 from .models import OrganKey, OrganNode, InternodeNode, LeafNode, FruitsNode, RootNode, PlantSnapshot
 
 def load_snapshot(csv_path: str | Path, day: int, plant_id: int) -> PlantSnapshot:
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, skipinitialspace=True)  # manages spaces between headers
+    df.columns = df.columns.str.strip()
     df = df[(df["day"] == day) & (df["plant_id"] == plant_id)].copy()
+    
+    # Strip trailing spaces on string colimns (after filtering, on less rows)
+    str_cols = df.select_dtypes(include="object").columns
+    df[str_cols] = df[str_cols].apply(lambda col: col.str.strip())
+    
 
     if df.empty:
         raise ValueError(f"No data found for day {day} and plant_id {plant_id}")
@@ -17,7 +23,7 @@ def load_snapshot(csv_path: str | Path, day: int, plant_id: int) -> PlantSnapsho
             plant_id=plant_id, 
             order=int(row["order"]), 
             rank=int(row["rank"]), 
-            organ_class=row["organ_class"],
+            organ_class = str(row["organ_class"]).strip(),
             organ_index=int(row["organ_index"]),
         )
 
