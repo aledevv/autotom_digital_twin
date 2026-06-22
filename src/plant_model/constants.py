@@ -28,3 +28,10 @@ STATIC_RGR: float = 0.04  # assumed relative growth rate in static mode (dd⁻¹
 # --- Root and others ---
 ROOT_SPHERE_RADIUS = 0.005  # m — visual marker, placed at z=-ROOT_SPHERE_RADIUS
 PHYLLOTAXIS    = 137.5   # deg — azimuth of the truss w.r.t. the stem
+
+# --- PHYSICS: Joint chain physics ---
+JOINT_STIFFNESS_BASE: float  = 800.0   # N·m/rad — stelo maturo (rank basso)
+JOINT_STIFFNESS_TIP: float   = 200.0   # N·m/rad — stelo giovane (rank alto)
+JOINT_DAMPING: float         = 50.0    # N·m·s/rad
+JOINT_MAX_ANGLE_DEG: float   = 25.0    # escursione massima (simmetrica)
+STEM_DENSITY_KG_M3: float    = 900.0   # densità approssimata tessuto vegetale

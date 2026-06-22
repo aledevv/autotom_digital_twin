@@ -1,6 +1,6 @@
 import math
 import numpy as np
-from pxr import Usd, UsdGeom, Gf, Sdf
+from pxr import Usd, UsdGeom, UsdPhysics, Gf, Sdf
 
 from .models import (
     PlantSnapshot, OrganNode, InternodeNode, RootNode, LeafNode, FruitsNode
@@ -11,7 +11,9 @@ from .constants import (
     INTERNODE_TRUSS_DIAMETER_M,
     ANGLE_AMONG_SUBSEQUENT_FRUITS_DEG,
     FRUIT_PAIRING, ROOT_SPHERE_RADIUS,
-    TRUSS_LENGTH, TRUSS_RADIUS, PHYLLOTAXIS
+    TRUSS_LENGTH, TRUSS_RADIUS, PHYLLOTAXIS,
+    JOINT_STIFFNESS_BASE, JOINT_STIFFNESS_TIP,
+    JOINT_DAMPING, JOINT_MAX_ANGLE_DEG, STEM_DENSITY_KG_M3,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -291,8 +293,9 @@ def _blade_transform(bx, by, bz, ax, ay, az_,
     m[2, 3]  = cz
     return m
         
-        
-# Material creation helpers
+# -------------------------        
+# MATERIALS creation helpers
+# -------------------------
 def _make_material(stage, path: str, color: tuple, roughness: float = 0.6, metallic: float = 0.0):
     """
     Crea un materiale UsdPreviewSurface con colore RGB (0-1).
@@ -316,6 +319,47 @@ def _bind_material(prim, mat):
     from pxr import UsdShade
     UsdShade.MaterialBindingAPI(prim).Bind(mat)
 
+
+# ----------------------------
+# PHYSICS: Rigitd body helpers
+# ----------------------------
+def _apply_rigid_body(stage, prim_path: str, mass_kg: float):
+    """It applies RigidBodyAPI + MassAPI + CollisionAPI to an existing prim."""
+    prim = stage.GetPrimAtPath(prim_path)
+    UsdPhysics.RigidBodyAPI.Apply(prim)
+    mass_api = UsdPhysics.MassAPI.Apply(prim)
+    mass_api.GetMassAttr().Set(mass_kg)
+    UsdPhysics.CollisionAPI.Apply(prim)
+
+def _make_stem_joint(stage, joint_path: str,
+                     body0_path: str, body1_path: str,
+                     pivot_z: float, stiffness: float):
+    """
+    SphericalJoint between body0 (lower internode) and body1 (upper).
+    The pivot is at body0's tip = body1's base, in world space Z = pivot_z.
+    """
+    joint = UsdPhysics.SphericalJoint.Define(stage, joint_path)
+
+    joint.GetBody0Rel().SetTargets([Sdf.Path(body0_path)])
+    joint.GetBody1Rel().SetTargets([Sdf.Path(body1_path)])
+
+    # Pivot in body0's local space: tip = (0, 0, +height/2) already centered
+    joint.GetLocalPos0Attr().Set(Gf.Vec3f(0.0, 0.0, pivot_z))
+    joint.GetLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+
+    # symmetrical angular limits
+    cone_api = UsdPhysics.SphericalJoint(joint)
+    lim = math.radians(JOINT_MAX_ANGLE_DEG)
+    joint.GetConeAngle0LimitAttr().Set(math.degrees(lim))
+    joint.GetConeAngle1LimitAttr().Set(math.degrees(lim))
+
+    # Drive (spring + damper) on both axes
+    for axis in ("rotX", "rotY"):
+        drive = UsdPhysics.DriveAPI.Apply(joint.GetPrim(), axis)
+        drive.GetTypeAttr().Set("force")
+        drive.GetStiffnessAttr().Set(stiffness)
+        drive.GetDampingAttr().Set(JOINT_DAMPING)
+        drive.GetTargetPositionAttr().Set(0.0)  # it "wants" to stay straight
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -399,6 +443,46 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
         current_z += L   # tip of this internode = base of next
         
         _bind_material(cyl, materials["stem"])
+        
+
+    # ── Physics: joint chain ─────────────────────────────────────────────────
+    joints_path = f"{plant_path}/Joints"
+    UsdGeom.Xform.Define(stage, joints_path)
+
+    # Still rank 0 to ground
+    if internodes:
+        anchor_path = f"{stem_path}/Internode_r{internodes[0].key.rank}"
+        fixed = UsdPhysics.FixedJoint.Define(stage, f"{joints_path}/GroundAnchor")
+        fixed.GetBody1Rel().SetTargets([Sdf.Path(anchor_path)])
+
+    n_ranks = len(internodes)
+
+    for i, node in enumerate(internodes):
+        L = node.length
+        R = node.width_m / 2.0
+        path = f"{stem_path}/Internode_r{node.key.rank}"
+
+        # Mass: cylinder volume * density
+        mass = math.pi * R**2 * L * STEM_DENSITY_KG_M3
+        _apply_rigid_body(stage, path, mass)
+
+        # Stiffness linearly decreases from bottom to the top
+        t = i / max(n_ranks - 1, 1)
+        stiffness = JOINT_STIFFNESS_BASE + t * (JOINT_STIFFNESS_TIP - JOINT_STIFFNESS_BASE)
+
+        # Joint with previous
+        if i > 0:
+            prev_path = f"{stem_path}/Internode_r{internodes[i-1].key.rank}"
+            _make_stem_joint(
+                stage,
+                joint_path=f"{joints_path}/Joint_r{node.key.rank}",
+                body0_path=prev_path,
+                body1_path=path,
+                pivot_z=internodes[i-1].length / 2.0,
+                stiffness=stiffness,
+            )
+        
+        
 
     # ── Leaves ───────────────────────────────────────────────────────────────
     leaves = [n for n in snapshot.organs if isinstance(n, LeafNode)
