@@ -75,7 +75,7 @@ def _make_sphere(stage, path: str, radius: float, cx: float, cy: float, cz: floa
 
     return sph
 
-def _make_leaf(stage, leaf_group: str, node, tip_z: float):
+def _make_leaf(stage, leaf_group: str, node, tip_z: float, materials: dict):
     """
     Leaf = Petiole cylinder + Rachis cylinder + N blade quads.
     All geometry is in the XZ plane rotated by ccw_orientation around Z.
@@ -206,9 +206,9 @@ def _make_leaf(stage, leaf_group: str, node, tip_z: float):
         mesh.GetSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
         _set_transform(mesh, blade_mat)
         
-        # _bind_material(pet, mat_leaf)   # petiole
-        # _bind_material(rac, mat_leaf)   # rachis
-        # _bind_material(mesh, mat_leaf)  # blade
+        _bind_material(pet, materials["leaf"])   # petiole
+        _bind_material(rac, materials["leaf"])   # rachis
+        _bind_material(mesh, materials["leaf"])  # blade
 
         print(f"  [Blade {i}] pos=({bx:.4f},{by:.4f},{bz:.4f}) "
               f"size={blade_width:.4f}x{blade_length:.4f}m")
@@ -346,6 +346,14 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
     mat_leaf    = _make_material(stage, f"{mats_path}/Leaf",       (0.15, 0.55, 0.10))  # green
     mat_pedicel = _make_material(stage, f"{mats_path}/Pedicel",    (0.20, 0.50, 0.10))  # dark green
     mat_fruit   = _make_material(stage, f"{mats_path}/Fruit",      (0.90, 0.15, 0.05))  # tomato red
+    
+    materials = {
+        "stem":    mat_stem,
+        "root":    mat_root,
+        "leaf":    mat_leaf,
+        "pedicel": mat_pedicel,
+        "fruit":   mat_fruit,
+    }
 
     # ── Separate organs ──────────────────────────────────────────────────────
     root_node = next((n for n in snapshot.organs if isinstance(n, RootNode)), None)
@@ -370,7 +378,7 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
             cx=0.0, cy=0.0, cz=-ROOT_SPHERE_RADIUS,
         )
         
-        _bind_material(sph, mat_root)
+        _bind_material(sph, materials["root"])
 
     # ── Internode chain — each starts where the previous ended ────────────────
     current_z = 0.0   # base of first internode = ground level z=0
@@ -390,7 +398,7 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
         )
         current_z += L   # tip of this internode = base of next
         
-        _bind_material(cyl, mat_stem)
+        _bind_material(cyl, materials["stem"])
 
     # ── Leaves ───────────────────────────────────────────────────────────────
     leaves = [n for n in snapshot.organs if isinstance(n, LeafNode)
@@ -414,7 +422,7 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
 
         print(f"\n[LEAF rank={node.key.rank} idx={node.key.organ_index}] "
                 f"attaches at z={tip_z:.4f}m")
-        _make_leaf(stage, leaf_group, node, tip_z)
+        _make_leaf(stage, leaf_group, node, tip_z, materials)
         
         
     # ── Fruits ───────────────────────────────────────────────────────────────────
@@ -459,7 +467,7 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
         ped.GetAxisAttr().Set(UsdGeom.Tokens.z)
         _set_transform(ped, pedicel_mat)
         
-        _bind_material(ped, mat_pedicel)
+        _bind_material(ped, materials["pedicel"])
 
         offset = GAP
         for fi, r in enumerate(radii):
@@ -469,7 +477,7 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
             fz = tip_z + pdz * offset
 
             sph = _make_sphere(stage, f"{truss_group}/Fruit_{fi}", r, fx, fy, fz)
-            _bind_material(sph, mat_fruit)
+            _bind_material(sph, materials["fruit"])
 
             print(f"  [Fruit {fi}] r={r:.4f}m centre=({fx:.4f},{fy:.4f},{fz:.4f})")
             offset += r + GAP   # gap between fruits
