@@ -60,6 +60,8 @@ def load_snapshot(csv_path: str | Path, day: int, plant_id: int) -> PlantSnapsho
                 area_blades_total=float(row["leaf_area_blades_total"]),
                 rachis_length=float(row["leaf_rachis_length"]),
             )
+            if node.area_blades_total <= 1e-9: # filter primordia
+                continue
         elif organ_class == "Fruits":
             node = FruitsNode(
                 **base_kwargs,

@@ -1,13 +1,18 @@
 import math
 import numpy as np
-from pxr import Usd, UsdGeom, Gf
+from pxr import Usd, UsdGeom, Gf, Sdf
 
 from .models import (
-    PlantSnapshot, OrganNode, InternodeNode, RootNode, LeafNode
+    PlantSnapshot, OrganNode, InternodeNode, RootNode, LeafNode, FruitsNode
 )
 
-ROOT_SPHERE_RADIUS = 0.005  # m — visual marker, placed at z=-ROOT_SPHERE_RADIUS
-
+from .constants import (
+    INTERNODE_TRUSS_LENGTH_M,
+    INTERNODE_TRUSS_DIAMETER_M,
+    ANGLE_AMONG_SUBSEQUENT_FRUITS_DEG,
+    FRUIT_PAIRING, ROOT_SPHERE_RADIUS,
+    TRUSS_LENGTH, TRUSS_RADIUS, PHYLLOTAXIS
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Matrix helpers
@@ -151,15 +156,44 @@ def _make_leaf(stage, leaf_group: str, node, tip_z: float):
             bz = rtz + dz * Lr * t
             insertion_angle = 45.0 if i < n - 1 else 20.0
 
-        # Alternate blades left/right (±perp), last blade is centred (terminal)
-        side = 1.0 if (i % 2 == 0 and i < n - 1) else (-1.0 if i < n - 1 else 0.0)
-        blade_mat = _blade_transform(
-            bx, by, bz,
-            dx, dy, dz,
-            perp_x * side, perp_y * side, perp_z,
-            insertion_angle,
-            blade_width, blade_length
-        )
+        # Graphical orientation of Terminal Leaf
+        is_terminal = (i == n - 1)   # ← True per l'ultima blade
+
+        if is_terminal:
+            # Big terminal leaf: coplanar to rachidid, pivot on edge
+            rachis_dir = np.array([dx, dy, dz])
+            world_up   = np.array([0.0, 0.0, 1.0])
+
+            # world_up component orthogonal to rachidis → set blad "upwards"
+            blade_z = world_up - np.dot(world_up, rachis_dir) * rachis_dir
+            if np.linalg.norm(blade_z) < 1e-9:
+                blade_z = np.array([1.0, 0.0, 0.0])
+            blade_z /= np.linalg.norm(blade_z)
+
+            up = np.array([1.0, 0.0, 0.0]) if abs(blade_z[2]) > 0.999 else np.array([0.0, 0.0, 1.0])
+            bx_ax = np.cross(up, blade_z); bx_ax /= np.linalg.norm(bx_ax)
+            by_ax = np.cross(blade_z, bx_ax)
+
+            blade_mat = np.eye(4, dtype=float)
+            blade_mat[:3, 0] = bx_ax
+            blade_mat[:3, 1] = by_ax
+            blade_mat[:3, 2] = blade_z
+            blade_mat[0, 3]  = bx
+            blade_mat[1, 3]  = by
+            blade_mat[2, 3]  = bz
+
+        else:
+            # Lateral Blade — use _blade_transform with pivot on border
+            side = 1.0 if i % 2 == 0 else -1.0
+            insertion_angle = 45.0
+            blade_mat = _blade_transform(
+                bx, by, bz,
+                dx, dy, dz,
+                perp_x * side, perp_y * side, 0.0,
+                insertion_angle,
+                blade_width, blade_length
+            )
+        
 
         mesh = UsdGeom.Mesh.Define(stage, f"{leaf_group}/Blade_{i}")
         hw, hl = blade_width / 2.0, blade_length / 2.0
@@ -171,6 +205,10 @@ def _make_leaf(stage, leaf_group: str, node, tip_z: float):
         mesh.GetFaceVertexIndicesAttr().Set([0, 1, 2, 0, 2, 3])
         mesh.GetSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
         _set_transform(mesh, blade_mat)
+        
+        # _bind_material(pet, mat_leaf)   # petiole
+        # _bind_material(rac, mat_leaf)   # rachis
+        # _bind_material(mesh, mat_leaf)  # blade
 
         print(f"  [Blade {i}] pos=({bx:.4f},{by:.4f},{bz:.4f}) "
               f"size={blade_width:.4f}x{blade_length:.4f}m")
@@ -228,7 +266,7 @@ def _blade_transform(bx, by, bz, ax, ay, az_,
     else:
         p /= np.linalg.norm(p)
 
-    blade_z = a * math.cos(ins) + p * math.sin(ins)
+    blade_z = -a * math.cos(ins) + p * math.sin(ins) # REMOVE - if you want to mirror the leaf along the rachidis
     blade_z /= np.linalg.norm(blade_z)
 
     up = np.array([0.0, 0.0, 1.0])
@@ -237,15 +275,48 @@ def _blade_transform(bx, by, bz, ax, ay, az_,
     bx_ax = np.cross(up, blade_z); bx_ax /= np.linalg.norm(bx_ax)
     by_ax = np.cross(blade_z, bx_ax)
 
+
+    # Graphical fix: translation make leaves to be tangent to the rachidis (otherwise it will intercept in the midle of the leaf)
+    cx = bx + blade_z[0] * height / 2.0
+    cy = by + blade_z[1] * height / 2.0
+    cz = bz + blade_z[2] * height / 2.0
+    
+
     m = np.eye(4, dtype=float)
     m[:3, 0] = bx_ax
     m[:3, 1] = by_ax
     m[:3, 2] = blade_z
-    m[0, 3]  = bx
-    m[1, 3]  = by
-    m[2, 3]  = bz
+    m[0, 3]  = cx
+    m[1, 3]  = cy
+    m[2, 3]  = cz
     return m
         
+        
+# Material creation helpers
+def _make_material(stage, path: str, color: tuple, roughness: float = 0.6, metallic: float = 0.0):
+    """
+    Crea un materiale UsdPreviewSurface con colore RGB (0-1).
+    """
+    from pxr import UsdShade
+    mat = UsdShade.Material.Define(stage, path)
+
+    shader = UsdShade.Shader.Define(stage, f"{path}/Shader")
+    shader.CreateIdAttr("UsdPreviewSurface")
+    shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color))
+    shader.CreateInput("roughness",    Sdf.ValueTypeNames.Float).Set(roughness)
+    shader.CreateInput("metallic",     Sdf.ValueTypeNames.Float).Set(metallic)
+
+    mat.CreateSurfaceOutput().ConnectToSource(
+        shader.ConnectableAPI(), "surface"
+    )
+    return mat
+
+
+def _bind_material(prim, mat):
+    from pxr import UsdShade
+    UsdShade.MaterialBindingAPI(prim).Bind(mat)
+
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Main exporter
@@ -265,6 +336,16 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
     roots_path = f"{plant_path}/Roots"
     UsdGeom.Xform.Define(stage, stem_path)
     UsdGeom.Xform.Define(stage, roots_path)
+    
+    # ── Materials ────────────────────────────────────────────────────────────────
+    mats_path = f"{plant_path}/Materials"
+    UsdGeom.Xform.Define(stage, mats_path)
+
+    mat_stem    = _make_material(stage, f"{mats_path}/Stem",       (0.45, 0.30, 0.10))  # brown
+    mat_root    = _make_material(stage, f"{mats_path}/Root",       (0.55, 0.35, 0.15))  # dark brown
+    mat_leaf    = _make_material(stage, f"{mats_path}/Leaf",       (0.15, 0.55, 0.10))  # green
+    mat_pedicel = _make_material(stage, f"{mats_path}/Pedicel",    (0.20, 0.50, 0.10))  # dark green
+    mat_fruit   = _make_material(stage, f"{mats_path}/Fruit",      (0.90, 0.15, 0.05))  # tomato red
 
     # ── Separate organs ──────────────────────────────────────────────────────
     root_node = next((n for n in snapshot.organs if isinstance(n, RootNode)), None)
@@ -282,12 +363,14 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
     # Placed just below z=0 so it sits at ground level
     if root_node:
         print("[ROOT]")
-        _make_sphere(
+        sph = _make_sphere(
             stage,
             path=f"{roots_path}/Root",
             radius=ROOT_SPHERE_RADIUS,
             cx=0.0, cy=0.0, cz=-ROOT_SPHERE_RADIUS,
         )
+        
+        _bind_material(sph, mat_root)
 
     # ── Internode chain — each starts where the previous ended ────────────────
     current_z = 0.0   # base of first internode = ground level z=0
@@ -298,7 +381,7 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
         rank = node.key.rank
 
         print(f"\n[INTERNODE rank={rank}]")
-        _make_cylinder(
+        cyl = _make_cylinder(
             stage,
             path=f"{stem_path}/Internode_r{rank}",
             height=L,
@@ -307,8 +390,9 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
         )
         current_z += L   # tip of this internode = base of next
         
+        _bind_material(cyl, mat_stem)
 
-        # ── Leaves ───────────────────────────────────────────────────────────────
+    # ── Leaves ───────────────────────────────────────────────────────────────
     leaves = [n for n in snapshot.organs if isinstance(n, LeafNode)
                 and n.key.order == 0]
 
@@ -331,6 +415,64 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
         print(f"\n[LEAF rank={node.key.rank} idx={node.key.organ_index}] "
                 f"attaches at z={tip_z:.4f}m")
         _make_leaf(stage, leaf_group, node, tip_z)
+        
+        
+    # ── Fruits ───────────────────────────────────────────────────────────────────
+
+    trusses_path = f"{plant_path}/Trusses"
+    UsdGeom.Xform.Define(stage, trusses_path)
+
+    fruits_nodes = sorted(
+        [n for n in snapshot.organs if isinstance(n, FruitsNode)],
+        key=lambda n: n.key.rank
+    )
+
+    for node in fruits_nodes:
+        tip_z    = rank_tip_z.get(node.key.rank, 0.0)
+        truss_az = math.radians((node.key.rank * PHYLLOTAXIS) % 360)
+        tilt     = math.radians(node.truss_angle)   # from stem (Z), small angle
+
+        #Pedicel orientation: vertical part (+Z), rotated by tild towards azimut
+        pdx = math.sin(tilt) * math.cos(truss_az)
+        pdy = math.sin(tilt) * math.sin(truss_az)
+        pdz = math.cos(tilt)
+
+        radii = [r for r in node.fruit_radii if r > 1e-5][:node.fruit_nr]
+
+        # Pedicel length = sum of fruit diameter + GAP offset
+        GAP = 0.001
+        pedicel_length = sum(r * 2 for r in radii) + GAP * (len(radii) + 1)
+        pedicel_length = max(pedicel_length, TRUSS_LENGTH)  # minimo fisso
+
+        truss_group = f"{trusses_path}/Truss_r{node.key.rank}_i{node.key.organ_index}"
+        UsdGeom.Xform.Define(stage, truss_group)
+
+        # Pedicel: center at tip_z + dir * TRUSS_LENGTH/2
+        pcx = pdx * pedicel_length / 2.0
+        pcy = pdy * pedicel_length / 2.0
+        pcz = tip_z + pdz * pedicel_length / 2.0
+        pedicel_mat = _align_z_to(pdx, pdy, pdz, pcx, pcy, pcz)
+
+        ped = UsdGeom.Cylinder.Define(stage, f"{truss_group}/Pedicel")
+        ped.GetHeightAttr().Set(pedicel_length)
+        ped.GetRadiusAttr().Set(TRUSS_RADIUS)
+        ped.GetAxisAttr().Set(UsdGeom.Tokens.z)
+        _set_transform(ped, pedicel_mat)
+        
+        _bind_material(ped, mat_pedicel)
+
+        offset = GAP
+        for fi, r in enumerate(radii):
+            offset += r   # center first sphere in r from pedicel's tip
+            fx = pdx * offset
+            fy = pdy * offset
+            fz = tip_z + pdz * offset
+
+            sph = _make_sphere(stage, f"{truss_group}/Fruit_{fi}", r, fx, fy, fz)
+            _bind_material(sph, mat_fruit)
+
+            print(f"  [Fruit {fi}] r={r:.4f}m centre=({fx:.4f},{fy:.4f},{fz:.4f})")
+            offset += r + GAP   # gap between fruits
 
     print(f"\n  Total stem height: {current_z:.6f} m\n")
 

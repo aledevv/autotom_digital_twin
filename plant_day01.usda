@@ -14,6 +14,7 @@ def "World"
             {
                 uniform token axis = "Z"
                 double height = 0.0088
+                rel material:binding = </World/Plant_1/Materials/Stem>
                 double radius = 0.00314
                 matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0.0044, 1) )
                 uniform token[] xformOpOrder = ["xformOp:transform"]
@@ -23,6 +24,7 @@ def "World"
             {
                 uniform token axis = "Z"
                 double height = 0.00883
+                rel material:binding = </World/Plant_1/Materials/Stem>
                 double radius = 0.003145
                 matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0.013215000000000001, 1) )
                 uniform token[] xformOpOrder = ["xformOp:transform"]
@@ -32,6 +34,7 @@ def "World"
             {
                 uniform token axis = "Z"
                 double height = 0.0064
+                rel material:binding = </World/Plant_1/Materials/Stem>
                 double radius = 0.002705
                 matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0.02083, 1) )
                 uniform token[] xformOpOrder = ["xformOp:transform"]
@@ -42,9 +45,83 @@ def "World"
         {
             def Sphere "Root"
             {
+                rel material:binding = </World/Plant_1/Materials/Root>
                 double radius = 0.005
                 matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, -0.005, 1) )
                 uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+        }
+
+        def Xform "Materials"
+        {
+            def Material "Stem"
+            {
+                token outputs:surface.connect = </World/Plant_1/Materials/Stem/Shader.outputs:surface>
+
+                def Shader "Shader"
+                {
+                    uniform token info:id = "UsdPreviewSurface"
+                    color3f inputs:diffuseColor = (0.45, 0.3, 0.1)
+                    float inputs:metallic = 0
+                    float inputs:roughness = 0.6
+                    token outputs:surface
+                }
+            }
+
+            def Material "Root"
+            {
+                token outputs:surface.connect = </World/Plant_1/Materials/Root/Shader.outputs:surface>
+
+                def Shader "Shader"
+                {
+                    uniform token info:id = "UsdPreviewSurface"
+                    color3f inputs:diffuseColor = (0.55, 0.35, 0.15)
+                    float inputs:metallic = 0
+                    float inputs:roughness = 0.6
+                    token outputs:surface
+                }
+            }
+
+            def Material "Leaf"
+            {
+                token outputs:surface.connect = </World/Plant_1/Materials/Leaf/Shader.outputs:surface>
+
+                def Shader "Shader"
+                {
+                    uniform token info:id = "UsdPreviewSurface"
+                    color3f inputs:diffuseColor = (0.15, 0.55, 0.1)
+                    float inputs:metallic = 0
+                    float inputs:roughness = 0.6
+                    token outputs:surface
+                }
+            }
+
+            def Material "Pedicel"
+            {
+                token outputs:surface.connect = </World/Plant_1/Materials/Pedicel/Shader.outputs:surface>
+
+                def Shader "Shader"
+                {
+                    uniform token info:id = "UsdPreviewSurface"
+                    color3f inputs:diffuseColor = (0.2, 0.5, 0.1)
+                    float inputs:metallic = 0
+                    float inputs:roughness = 0.6
+                    token outputs:surface
+                }
+            }
+
+            def Material "Fruit"
+            {
+                token outputs:surface.connect = </World/Plant_1/Materials/Fruit/Shader.outputs:surface>
+
+                def Shader "Shader"
+                {
+                    uniform token info:id = "UsdPreviewSurface"
+                    color3f inputs:diffuseColor = (0.9, 0.15, 0.05)
+                    float inputs:metallic = 0
+                    float inputs:roughness = 0.6
+                    token outputs:surface
+                }
             }
         }
 
@@ -76,7 +153,7 @@ def "World"
                     int[] faceVertexIndices = [0, 1, 2, 0, 2, 3]
                     point3f[] points = [(-0.0045, -0.0075, 0), (0.0045, -0.0075, 0), (0.0045, 0.0075, 0), (-0.0045, 0.0075, 0)]
                     uniform token subdivisionScheme = "none"
-                    matrix4d xformOp:transform = ( (0, 1, 0, 0), (0, 0, 1, 0), (1, 0, 0, 0), (0.0141, 0, 0.0088, 1) )
+                    matrix4d xformOp:transform = ( (0, -1, 0, 0), (1, 0, -0, 0), (0, 0, 1, 0), (0.0141, 0, 0.0088, 1) )
                     uniform token[] xformOpOrder = ["xformOp:transform"]
                 }
             }
@@ -107,7 +184,7 @@ def "World"
                     int[] faceVertexIndices = [0, 1, 2, 0, 2, 3]
                     point3f[] points = [(-0.0045, -0.0075, 0), (0.0045, -0.0075, 0), (0.0045, 0.0075, 0), (-0.0045, 0.0075, 0)]
                     uniform token subdivisionScheme = "none"
-                    matrix4d xformOp:transform = ( (-2.897545437445936e-16, -1, 0, 0), (0, 0, 1, 0), (-1, 2.897545437445936e-16, 0, 0), (-0.0141, 1.726751986797768e-18, 0.0088, 1) )
+                    matrix4d xformOp:transform = ( (0, -1, 0, 0), (1, 0, -0, 0), (0, 0, 1, 0), (-0.0141, 1.726751986797768e-18, 0.0088, 1) )
                     uniform token[] xformOpOrder = ["xformOp:transform"]
                 }
             }
@@ -138,7 +215,7 @@ def "World"
                     int[] faceVertexIndices = [0, 1, 2, 0, 2, 3]
                     point3f[] points = [(-0.0054977266, -0.009162878, 0), (0.0054977266, -0.009162878, 0), (0.0054977266, 0.009162878, 0), (-0.0054977266, 0.009162878, 0)]
                     uniform token subdivisionScheme = "none"
-                    matrix4d xformOp:transform = ( (-0.7071067811865476, -0.7071067811865475, 0, 0), (0, 0, 1, 0), (-0.7071067811865475, 0.7071067811865476, 0, 0), (1.2675094371175106e-18, 0.0207, 0.01763, 1) )
+                    matrix4d xformOp:transform = ( (0.7071067811865476, -0.7071067811865475, 0, 0), (0, 0, 1, 0), (-0.7071067811865475, -0.7071067811865476, 0, 0), (-0.006479133172475053, 0.014220866827524945, 0.01763, 1) )
                     uniform token[] xformOpOrder = ["xformOp:transform"]
                 }
 
@@ -148,7 +225,7 @@ def "World"
                     int[] faceVertexIndices = [0, 1, 2, 0, 2, 3]
                     point3f[] points = [(-0.0054977266, -0.009162878, 0), (0.0054977266, -0.009162878, 0), (0.0054977266, 0.009162878, 0), (-0.0054977266, 0.009162878, 0)]
                     uniform token subdivisionScheme = "none"
-                    matrix4d xformOp:transform = ( (-0.9396926207859084, 0.34202014332566877, 0, 0), (0, -0, 1, 0), (0.34202014332566877, 0.9396926207859084, 0, 0), (2.9575220199408582e-18, 0.048299999999999996, 0.01763, 1) )
+                    matrix4d xformOp:transform = ( (0, -1, 0, 0), (1, 0, -0, 0), (0, 0, 1, 0), (2.9575220199408582e-18, 0.048299999999999996, 0.01763, 1) )
                     uniform token[] xformOpOrder = ["xformOp:transform"]
                 }
             }
@@ -179,7 +256,7 @@ def "World"
                     int[] faceVertexIndices = [0, 1, 2, 0, 2, 3]
                     point3f[] points = [(-0.0054977266, -0.009162878, 0), (0.0054977266, -0.009162878, 0), (0.0054977266, 0.009162878, 0), (-0.0054977266, 0.009162878, 0)]
                     uniform token subdivisionScheme = "none"
-                    matrix4d xformOp:transform = ( (0.7071067811865477, 0.7071067811865474, -0, 0), (0, 0, 1, 0), (0.7071067811865474, -0.7071067811865477, 0, 0), (-3.8025283113525315e-18, -0.0207, 0.01763, 1) )
+                    matrix4d xformOp:transform = ( (-0.7071067811865475, 0.7071067811865476, 0, 0), (0, -0, 1, 0), (0.7071067811865476, 0.7071067811865475, 0, 0), (0.006479133172475051, -0.014220866827524947, 0.01763, 1) )
                     uniform token[] xformOpOrder = ["xformOp:transform"]
                 }
 
@@ -189,7 +266,7 @@ def "World"
                     int[] faceVertexIndices = [0, 1, 2, 0, 2, 3]
                     point3f[] points = [(-0.0054977266, -0.009162878, 0), (0.0054977266, -0.009162878, 0), (0.0054977266, 0.009162878, 0), (-0.0054977266, 0.009162878, 0)]
                     uniform token subdivisionScheme = "none"
-                    matrix4d xformOp:transform = ( (0.9396926207859085, 0.3420201433256686, -0, 0), (0, 0, 1.0000000000000002, 0), (0.3420201433256686, -0.9396926207859085, 0, 0), (-8.872566059822573e-18, -0.048299999999999996, 0.01763, 1) )
+                    matrix4d xformOp:transform = ( (0, -1, 0, 0), (1, 0, -0, 0), (0, 0, 1, 0), (-8.872566059822573e-18, -0.048299999999999996, 0.01763, 1) )
                     uniform token[] xformOpOrder = ["xformOp:transform"]
                 }
             }
@@ -220,7 +297,7 @@ def "World"
                     int[] faceVertexIndices = [0, 1, 2, 0, 2, 3]
                     point3f[] points = [(-0.0014764823, -0.0024608038, 0), (0.0014764823, -0.0024608038, 0), (0.0014764823, 0.0024608038, 0), (-0.0014764823, 0.0024608038, 0)]
                     uniform token subdivisionScheme = "none"
-                    matrix4d xformOp:transform = ( (-0.7287394448186828, 0.6847910787717361, 0, 0), (-0.16561313590900145, -0.17624181806439163, 0.9703149544244614, 0), (0.6644630243886748, 0.7071067811865475, 0.24184476264797528, 0), (0.012779819642688353, 0, 0.028681473949229094, 1) )
+                    matrix4d xformOp:transform = ( (-0.7287394448186828, -0.6847910787717361, 0, 0), (-0.16561313590900145, 0.17624181806439163, 0.9703149544244614, 0), (-0.6644630243886748, 0.7071067811865475, -0.24184476264797528, 0), (0.011144706478493964, 0.0017400510848184251, 0.02808634142780551, 1) )
                     uniform token[] xformOpOrder = ["xformOp:transform"]
                 }
 
@@ -230,7 +307,7 @@ def "World"
                     int[] faceVertexIndices = [0, 1, 2, 0, 2, 3]
                     point3f[] points = [(-0.0014764823, -0.0024608038, 0), (0.0014764823, -0.0024608038, 0), (0.0014764823, 0.0024608038, 0), (-0.0014764823, 0.0024608038, 0)]
                     uniform token subdivisionScheme = "none"
-                    matrix4d xformOp:transform = ( (0.7287394448186828, 0.6847910787717361, -0, 0), (-0.16561313590900145, 0.17624181806439163, 0.9703149544244614, 0), (0.6644630243886748, -0.7071067811865475, 0.24184476264797528, 0), (0.026922193585516275, 0, 0.03382887710628041, 1) )
+                    matrix4d xformOp:transform = ( (0.7287394448186828, -0.6847910787717361, 0, 0), (-0.16561313590900145, -0.17624181806439163, 0.9703149544244614, 0), (-0.6644630243886748, -0.7071067811865475, -0.24184476264797528, 0), (0.025287080421321887, -0.0017400510848184251, 0.033233744584856825, 1) )
                     uniform token[] xformOpOrder = ["xformOp:transform"]
                 }
 
@@ -240,7 +317,7 @@ def "World"
                     int[] faceVertexIndices = [0, 1, 2, 0, 2, 3]
                     point3f[] points = [(-0.0014764823, -0.0024608038, 0), (0.0014764823, -0.0024608038, 0), (0.0014764823, 0.0024608038, 0), (-0.0014764823, 0.0024608038, 0)]
                     uniform token subdivisionScheme = "none"
-                    matrix4d xformOp:transform = ( (0, 1, 0, 0), (-0.2537652999538839, 0, 0.9672658231010312, 0), (0.9672658231010312, 0, 0.2537652999538839, 0), (0.0410645675283442, 0, 0.03897628026333172, 1) )
+                    matrix4d xformOp:transform = ( (0, -1, 0, 0), (0.9396926207859084, 0, 0.3420201433256687, 0), (-0.3420201433256687, 0, 0.9396926207859084, 0), (0.0410645675283442, 0, 0.03897628026333172, 1) )
                     uniform token[] xformOpOrder = ["xformOp:transform"]
                 }
             }
@@ -271,7 +348,7 @@ def "World"
                     int[] faceVertexIndices = [0, 1, 2, 0, 2, 3]
                     point3f[] points = [(-0.0014764823, -0.0024608038, 0), (0.0014764823, -0.0024608038, 0), (0.0014764823, 0.0024608038, 0), (-0.0014764823, 0.0024608038, 0)]
                     uniform token subdivisionScheme = "none"
-                    matrix4d xformOp:transform = ( (0.7287394448186827, -0.6847910787717362, 0, 0), (0.16561313590900148, 0.1762418180643916, 0.9703149544244614, 0), (-0.6644630243886749, -0.7071067811865474, 0.24184476264797528, 0), (-0.012779819642688353, 1.5650765219098763e-18, 0.028681473949229094, 1) )
+                    matrix4d xformOp:transform = ( (0.7287394448186829, 0.684791078771736, -0, 0), (0.16561313590900142, -0.17624181806439165, 0.9703149544244614, 0), (0.6644630243886747, -0.7071067811865476, -0.24184476264797528, 0), (-0.011144706478493964, -0.0017400510848184238, 0.02808634142780551, 1) )
                     uniform token[] xformOpOrder = ["xformOp:transform"]
                 }
 
@@ -281,7 +358,7 @@ def "World"
                     int[] faceVertexIndices = [0, 1, 2, 0, 2, 3]
                     point3f[] points = [(-0.0014764823, -0.0024608038, 0), (0.0014764823, -0.0024608038, 0), (0.0014764823, 0.0024608038, 0), (-0.0014764823, 0.0024608038, 0)]
                     uniform token subdivisionScheme = "none"
-                    matrix4d xformOp:transform = ( (-0.7287394448186829, -0.684791078771736, 0, 0), (0.16561313590900142, -0.17624181806439165, 0.9703149544244614, 0), (-0.6644630243886747, 0.7071067811865476, 0.24184476264797528, 0), (-0.026922193585516275, 3.297017820052791e-18, 0.03382887710628041, 1) )
+                    matrix4d xformOp:transform = ( (-0.7287394448186827, 0.6847910787717362, 0, 0), (0.16561313590900148, 0.1762418180643916, 0.9703149544244614, 0), (0.6644630243886749, 0.7071067811865474, -0.24184476264797528, 0), (-0.025287080421321884, 0.0017400510848184282, 0.033233744584856825, 1) )
                     uniform token[] xformOpOrder = ["xformOp:transform"]
                 }
 
@@ -291,7 +368,39 @@ def "World"
                     int[] faceVertexIndices = [0, 1, 2, 0, 2, 3]
                     point3f[] points = [(-0.0014764823, -0.0024608038, 0), (0.0014764823, -0.0024608038, 0), (0.0014764823, 0.0024608038, 0), (-0.0014764823, 0.0024608038, 0)]
                     uniform token subdivisionScheme = "none"
-                    matrix4d xformOp:transform = ( (-1.9988654031407214e-16, -1, 0, 0), (0.5107429685863343, -1.0209064498046119e-16, 0.8597334587182348, 0), (-0.8597334587182348, 1.718491466554391e-16, 0.5107429685863343, 0), (-0.0410645675283442, 5.028959118195706e-18, 0.03897628026333172, 1) )
+                    matrix4d xformOp:transform = ( (1.224646799147353e-16, 1, -0, 0), (-0.9396926207859084, 1.15079156022785e-16, 0.3420201433256687, 0), (0.3420201433256687, -4.188538737676991e-17, 0.9396926207859084, 0), (-0.0410645675283442, 5.028959118195706e-18, 0.03897628026333172, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+            }
+        }
+
+        def Xform "Trusses"
+        {
+            def Xform "Truss_r2_i0"
+            {
+                def Cylinder "Pedicel"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.031
+                    rel material:binding = </World/Plant_1/Materials/Pedicel>
+                    double radius = 0.00075
+                    matrix4d xformOp:transform = ( (0.9961946980917454, 0.08715574274765789, -0, 0), (-0.08608271092777094, 0.9839298882679103, 0.1564344650402308, 0), (0.013634161991913843, -0.1558391846718965, 0.9876883405951378, 0), (0.00021132951087466458, -0.0024155073624143957, 0.03933916927922464, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Sphere "Fruit_0"
+                {
+                    rel material:binding = </World/Plant_1/Materials/Fruit>
+                    double radius = 0.008
+                    matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0.0001227074579272246, -0.0014025526620470687, 0.03291919506535624, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Sphere "Fruit_1"
+                {
+                    rel material:binding = </World/Plant_1/Materials/Fruit>
+                    double radius = 0.006
+                    matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0.00032721988780593224, -0.0037401404321255162, 0.047734520174283306, 1) )
                     uniform token[] xformOpOrder = ["xformOp:transform"]
                 }
             }
