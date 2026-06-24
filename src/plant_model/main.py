@@ -2,11 +2,17 @@
 from plant_model.loader import load_snapshot
 from plant_model.debug_viz import visualize_snapshot
 from plant_model.usd_exporter import export_plant_usd
+from graph_export import export_graph_json
 
-snapshot = load_snapshot("data/dynamic_output/graphs/dummy.csv", day=1, plant_id=1)
-visualize_snapshot(snapshot, "plant_day01.html")
+day = 3
+plant_id = 1
 
-export_plant_usd(snapshot, "plant_day01.usda")
+snapshot = load_snapshot(f"data/dynamic_output/graphs/graph_day_{day}.csv", day=day, plant_id=plant_id)
+visualize_snapshot(snapshot, f"plant_day{day}.html")
+
+export_plant_usd(snapshot, f"plant_day{day}.usda")
+
+export_graph_json(snapshot, f"plant_day{day}.json")
 
 """
 python -m plant_usd_exporter --csv plant_organs.csv --day 10 --plant 1 --out plant_day10.usda

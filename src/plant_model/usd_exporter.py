@@ -522,7 +522,7 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
     for node in fruits_nodes:
         tip_z    = rank_tip_z.get(node.key.rank, 0.0)
         truss_az = math.radians((node.key.rank * PHYLLOTAXIS) % 360)
-        tilt     = math.radians(node.truss_angle)   # from stem (Z), small angle
+        tilt     = math.radians(90 - node.truss_angle)   # from stem (Z), small angle
 
         #Pedicel orientation: vertical part (+Z), rotated by tild towards azimut
         pdx = math.sin(tilt) * math.cos(truss_az)

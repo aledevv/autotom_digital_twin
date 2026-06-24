@@ -44,6 +44,10 @@ def load_snapshot(csv_path: str | Path, day: int, plant_id: int) -> PlantSnapsho
 
         # Create the organ node based on the class
         if organ_class == "Internode":
+            # there could be duplicated internodes, we will skip them
+            if int(row["order"]) == 1 and int(row["organ_index"]) > 0:
+                continue
+            
             node = InternodeNode(
                 **base_kwargs,
                 width_m=float(row["internode_width_m"])
@@ -81,6 +85,8 @@ def load_snapshot(csv_path: str | Path, day: int, plant_id: int) -> PlantSnapsho
             )
         elif organ_class == "Root":
             node = RootNode(**base_kwargs)
+        elif organ_class == "Truss":
+            continue
         else:
             raise ValueError(f"Unknown organ class: {organ_class}")
         
