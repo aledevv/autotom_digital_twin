@@ -64,6 +64,9 @@ class LeafNode(OrganNode):
     blades_nr: int = 1
     area_blades_total: float = 0.0
     rachis_length: float = 0.0
+    leaf_segments_length: list[float] = field(default_factory=list)
+    leaf_area_m2blades: list[float] = field(default_factory=list)
+    leaf_inclination_segments: list[float] = field(default_factory=list)
 
 
 @dataclass

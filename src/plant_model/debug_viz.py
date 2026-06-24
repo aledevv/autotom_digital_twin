@@ -48,8 +48,11 @@ def visualize_snapshot(snapshot: PlantSnapshot, output_path: str | Path = "plant
       "physics": { "hierarchicalRepulsion": { "nodeDistance": 120 } }
     }
     """)
-    net.write_html(str(output_path))
-    print(f"Graph saved to: {output_path}")
+    # FIX: Create parent directory if it doesn't exist
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    net.write_html(str(path))
+    print(f"Graph saved to: {path.resolve()}")
 
 
 def _node_tooltip(node) -> str:

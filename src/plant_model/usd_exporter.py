@@ -1,3 +1,4 @@
+from pathlib import Path
 import math
 import numpy as np
 from pxr import Usd, UsdGeom, UsdPhysics, Gf, Sdf
@@ -15,6 +16,12 @@ from .constants import (
     JOINT_STIFFNESS_BASE, JOINT_STIFFNESS_TIP,
     JOINT_DAMPING, JOINT_MAX_ANGLE_DEG, STEM_DENSITY_KG_M3,
 )
+
+# Optional override for lateral leaflet insertion angle.
+# If set to a float (e.g., 50.0), this angle will be used for all lateral leaflets.
+# If set to None, the exact angle from the CSV ('leaf_inclination_segments') will be used.
+OVERRIDE_LEAF_INCLINATION: float | None = 50.0
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Matrix helpers
@@ -79,18 +86,15 @@ def _make_sphere(stage, path: str, radius: float, cx: float, cy: float, cz: floa
 
 def _make_leaf(stage, leaf_group: str, node, tip_z: float, materials: dict):
     """
-    Leaf = Petiole cylinder + Rachis cylinder + N blade quads.
-    All geometry is in the XZ plane rotated by ccw_orientation around Z.
+    Leaf = Petiole cylinder + Rachis cylinder + Compound blade quads.
     tip_z: world Z where the leaf attaches (top of parent internode).
     """
     import math
 
-    az  = math.radians(node.ccw_orientation)   # azimuth around stem
+    absolute_azimuth = getattr(node, 'world_azimuth', 0.0) + node.ccw_orientation
+    az  = math.radians(absolute_azimuth)   # absolute azimuth around stem
     el  = math.radians(node.angle_petiole)     # elevation from horizontal (90°=horiz)
 
-    # Direction unit vector of petiole in world space
-    # angle_petiole=90° → horizontal → dir = (cos(az), sin(az), 0)
-    # angle_petiole=0°  → vertical   → dir = (0, 0, 1)
     tilt = math.radians(90.0 - node.angle_petiole)  # tilt from horizontal
     dx = math.cos(az) * math.cos(tilt)
     dy = math.sin(az) * math.cos(tilt)
@@ -100,12 +104,10 @@ def _make_leaf(stage, leaf_group: str, node, tip_z: float, materials: dict):
     Rp = max(node.diameter_petiole / 2.0, 1e-4)
 
     # ── Petiole ──────────────────────────────────────────────────────────────
-    # Centre of petiole = attachment + dir * Lp/2
     pcx = dx * Lp / 2.0
     pcy = dy * Lp / 2.0
     pcz = tip_z + dz * Lp / 2.0
 
-    # Rotation matrix to align cylinder Z-axis to (dx, dy, dz)
     petiole_mat = _align_z_to(dx, dy, dz, pcx, pcy, pcz)
 
     pet = UsdGeom.Cylinder.Define(stage, f"{leaf_group}/Petiole")
@@ -117,7 +119,6 @@ def _make_leaf(stage, leaf_group: str, node, tip_z: float, materials: dict):
     print(f"  [Petiole] az={node.ccw_orientation}° el={node.angle_petiole}° "
           f"L={Lp:.4f}m centre=({pcx:.4f},{pcy:.4f},{pcz:.4f})")
 
-    # Tip of petiole = start of rachis
     rtx = dx * Lp
     rty = dy * Lp
     rtz = tip_z + dz * Lp
@@ -131,89 +132,125 @@ def _make_leaf(stage, leaf_group: str, node, tip_z: float, materials: dict):
     rac.GetRadiusAttr().Set(max(Rp * 0.6, 5e-5))
     rac.GetAxisAttr().Set(UsdGeom.Tokens.z)
     _set_transform(rac, rachis_mat)
+    
+    _bind_material(pet, materials["leaf"])
+    _bind_material(rac, materials["leaf"])
 
-    # ── Blades ───────────────────────────────────────────────────────────────
+    # ── Blades (Compound Leaf Logic) ─────────────────────────────────────────
     n = max(node.blades_nr, 1)
-    blade_area   = node.area_blades_total / n if node.area_blades_total > 0 else 4e-4
-    blade_length = math.sqrt(blade_area / 0.6)
-    blade_width  = blade_length * 0.6
+    pairs = n - 1
 
-    # Perpendicular vector to petiole dir, in horizontal plane → blade normal
+    # Extract parsed arrays from CSV
+    area_array = node.leaf_area_m2blades
+    seg_len_array = node.leaf_segments_length
+    incl_array = node.leaf_inclination_segments
+
+    # Terminal leaflet is the last element in GroIMP's area array (index bladesNr-1).
+    # If array is missing, fallback to even distribution.
+    terminal_area = area_array[-1] if len(area_array) >= n else (node.area_blades_total / n if node.area_blades_total > 0 else 4e-4)
+    terminal_length = math.sqrt(terminal_area / 0.6)
+    terminal_width  = terminal_length * 0.6
+
+    # Perpendicular vector to petiole dir, in horizontal plane
     perp_x = -math.sin(az)
     perp_y =  math.cos(az)
     perp_z =  0.0
 
-    for i in range(n):
-        if n == 1:
-            # Single terminal blade at rachis tip
-            bx = rtx + dx * Lr
-            by = rty + dy * Lr
-            bz = rtz + dz * Lr
-            insertion_angle = 30.0   # slight droop
+    mesh_idx = 0
+
+    # 1. Lateral leaflets
+    current_dist = 0.0
+    for j in range(pairs):
+        # We need the segment length to position this pair
+        bx = rtx + dx * current_dist
+        by = rty + dy * current_dist
+        bz = rtz + dz * current_dist
+
+        # Calculate area/length for this pair
+        pair_area = area_array[j] if j < len(area_array) else (node.area_blades_total / n)
+        lat_area = pair_area / 2.0  # GroIMP does area_m2blades[q]/2 for each leaflet
+        lat_length = math.sqrt(lat_area / 0.6)
+        lat_width = lat_length * 0.6
+
+        # Determine insertion angle
+        if OVERRIDE_LEAF_INCLINATION is not None:
+            insertion_angle = OVERRIDE_LEAF_INCLINATION
         else:
-            # Distribute pairs along rachis; last one is terminal
-            t = i / (n - 1)         # 0.0 → 1.0 along rachis
-            bx = rtx + dx * Lr * t
-            by = rty + dy * Lr * t
-            bz = rtz + dz * Lr * t
-            insertion_angle = 45.0 if i < n - 1 else 20.0
+            insertion_angle = incl_array[j] if j < len(incl_array) else 90.0
 
-        # Graphical orientation of Terminal Leaf
-        is_terminal = (i == n - 1)   # ← True per l'ultima blade
-
-        if is_terminal:
-            # Big terminal leaf: coplanar to rachidid, pivot on edge
-            rachis_dir = np.array([dx, dy, dz])
-            world_up   = np.array([0.0, 0.0, 1.0])
-
-            # world_up component orthogonal to rachidis → set blad "upwards"
-            blade_z = world_up - np.dot(world_up, rachis_dir) * rachis_dir
-            if np.linalg.norm(blade_z) < 1e-9:
-                blade_z = np.array([1.0, 0.0, 0.0])
-            blade_z /= np.linalg.norm(blade_z)
-
-            up = np.array([1.0, 0.0, 0.0]) if abs(blade_z[2]) > 0.999 else np.array([0.0, 0.0, 1.0])
-            bx_ax = np.cross(up, blade_z); bx_ax /= np.linalg.norm(bx_ax)
-            by_ax = np.cross(blade_z, bx_ax)
-
-            blade_mat = np.eye(4, dtype=float)
-            blade_mat[:3, 0] = bx_ax
-            blade_mat[:3, 1] = by_ax
-            blade_mat[:3, 2] = blade_z
-            blade_mat[0, 3]  = bx
-            blade_mat[1, 3]  = by
-            blade_mat[2, 3]  = bz
-
-        else:
-            # Lateral Blade — use _blade_transform with pivot on border
-            side = 1.0 if i % 2 == 0 else -1.0
-            insertion_angle = 45.0
+        for side in [1.0, -1.0]:
             blade_mat = _blade_transform(
                 bx, by, bz,
                 dx, dy, dz,
                 perp_x * side, perp_y * side, 0.0,
-                insertion_angle,
-                blade_width, blade_length
+                insertion_angle
             )
-        
+            
+            # Draw petiolule cylinder
+            y_axis = blade_mat[:3, 1]
+            petiolule_len = 0.01  # 1 cm
+            
+            pcx_l = bx + y_axis[0] * petiolule_len / 2.0
+            pcy_l = by + y_axis[1] * petiolule_len / 2.0
+            pcz_l = bz + y_axis[2] * petiolule_len / 2.0
+            
+            pet_mat = _align_z_to(y_axis[0], y_axis[1], y_axis[2], pcx_l, pcy_l, pcz_l)
+            
+            petl = UsdGeom.Cylinder.Define(stage, f"{leaf_group}/Petiolule_{mesh_idx}")
+            petl.GetHeightAttr().Set(petiolule_len)
+            petl.GetRadiusAttr().Set(Rp * 0.4)
+            petl.GetAxisAttr().Set(UsdGeom.Tokens.z)
+            _set_transform(petl, pet_mat)
+            _bind_material(petl, materials["leaf"])
 
-        mesh = UsdGeom.Mesh.Define(stage, f"{leaf_group}/Blade_{i}")
-        hw, hl = blade_width / 2.0, blade_length / 2.0
-        mesh.GetPointsAttr().Set([
-            Gf.Vec3f(-hw, -hl, 0), Gf.Vec3f(hw, -hl, 0),
-            Gf.Vec3f(hw,  hl, 0), Gf.Vec3f(-hw,  hl, 0),
-        ])
-        mesh.GetFaceVertexCountsAttr().Set([3, 3])
-        mesh.GetFaceVertexIndicesAttr().Set([0, 1, 2, 0, 2, 3])
-        mesh.GetSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
-        _set_transform(mesh, blade_mat)
-        
-        _bind_material(pet, materials["leaf"])   # petiole
-        _bind_material(rac, materials["leaf"])   # rachis
-        _bind_material(mesh, materials["leaf"])  # blade
+            # Shift the blade base to start AFTER the petiolule
+            blade_mat[0, 3] += y_axis[0] * petiolule_len
+            blade_mat[1, 3] += y_axis[1] * petiolule_len
+            blade_mat[2, 3] += y_axis[2] * petiolule_len
 
-        print(f"  [Blade {i}] pos=({bx:.4f},{by:.4f},{bz:.4f}) "
-              f"size={blade_width:.4f}x{blade_length:.4f}m")
+            mesh = UsdGeom.Mesh.Define(stage, f"{leaf_group}/Blade_{mesh_idx}")
+            mesh_idx += 1
+            hw, L = lat_width / 2.0, lat_length
+            mesh.GetPointsAttr().Set([
+                Gf.Vec3f(-hw, 0, 0), Gf.Vec3f(hw, 0, 0),
+                Gf.Vec3f(hw,  L, 0), Gf.Vec3f(-hw,  L, 0),
+            ])
+            mesh.GetFaceVertexCountsAttr().Set([3, 3])
+            mesh.GetFaceVertexIndicesAttr().Set([0, 1, 2, 0, 2, 3])
+            mesh.GetSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
+            _set_transform(mesh, blade_mat)
+            _bind_material(mesh, materials["leaf"])
+            
+        # Advance distance for the next pair (or terminal leaflet)
+        seg_len = seg_len_array[j] if j < len(seg_len_array) else (Lr / max(pairs, 1))
+        current_dist += seg_len
+
+    # 2. Terminal leaflet
+    # Positioned exactly after the last segment length
+    bx = rtx + dx * current_dist
+    by = rty + dy * current_dist
+    bz = rtz + dz * current_dist
+
+    blade_mat = _blade_transform(
+        bx, by, bz,
+        dx, dy, dz,
+        perp_x, perp_y, 0.0,
+        0.0  # 0 degree insertion = straight ahead
+    )
+
+    mesh = UsdGeom.Mesh.Define(stage, f"{leaf_group}/Blade_{mesh_idx}")
+    hw, L = terminal_width / 2.0, terminal_length
+    mesh.GetPointsAttr().Set([
+        Gf.Vec3f(-hw, 0, 0), Gf.Vec3f(hw, 0, 0),
+        Gf.Vec3f(hw,  L, 0), Gf.Vec3f(-hw,  L, 0),
+    ])
+    mesh.GetFaceVertexCountsAttr().Set([3, 3])
+    mesh.GetFaceVertexIndicesAttr().Set([0, 1, 2, 0, 2, 3])
+    mesh.GetSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
+    _set_transform(mesh, blade_mat)
+    _bind_material(mesh, materials["leaf"])
+
+    print(f"  [Compound Leaf] {n} segments -> {mesh_idx + 1} leaflets created")
 
 
 def _align_z_to(dx: float, dy: float, dz: float,
@@ -248,11 +285,10 @@ def _align_z_to(dx: float, dy: float, dz: float,
 
 def _blade_transform(bx, by, bz, ax, ay, az_,
                      px, py, pz,
-                     insertion_deg: float,
-                     width: float, height: float) -> np.ndarray:
+                     insertion_deg: float) -> np.ndarray:
     """
     Transform for a leaf blade quad.
-    (bx,by,bz)     = attachment point on rachis
+    (bx,by,bz)     = attachment point on rachis (local origin)
     (ax,ay,az_)    = rachis direction
     (px,py,pz)     = lateral direction (left or right of rachis)
     insertion_deg  = angle of blade from rachis axis
@@ -260,7 +296,6 @@ def _blade_transform(bx, by, bz, ax, ay, az_,
     import math
     ins = math.radians(insertion_deg)
 
-    # Blade normal = rachis_dir rotated toward lateral by insertion_deg
     a = np.array([ax, ay, az_], dtype=float)
     p = np.array([px, py, pz],  dtype=float)
     if np.linalg.norm(p) < 1e-9:
@@ -268,29 +303,28 @@ def _blade_transform(bx, by, bz, ax, ay, az_,
     else:
         p /= np.linalg.norm(p)
 
-    blade_z = -a * math.cos(ins) + p * math.sin(ins) # REMOVE - if you want to mirror the leaf along the rachidis
-    blade_z /= np.linalg.norm(blade_z)
+    # Local Y axis is the direction of growth
+    y_axis = a * math.cos(ins) + p * math.sin(ins)
+    y_axis /= np.linalg.norm(y_axis)
 
+    # Local X axis is perpendicular to growth direction and World Up
     up = np.array([0.0, 0.0, 1.0])
-    if abs(np.dot(blade_z, up)) > 0.999:
+    if abs(np.dot(y_axis, up)) > 0.999:
         up = np.array([1.0, 0.0, 0.0])
-    bx_ax = np.cross(up, blade_z); bx_ax /= np.linalg.norm(bx_ax)
-    by_ax = np.cross(blade_z, bx_ax)
+        
+    x_axis = np.cross(y_axis, up)
+    x_axis /= np.linalg.norm(x_axis)
 
-
-    # Graphical fix: translation make leaves to be tangent to the rachidis (otherwise it will intercept in the midle of the leaf)
-    cx = bx + blade_z[0] * height / 2.0
-    cy = by + blade_z[1] * height / 2.0
-    cz = bz + blade_z[2] * height / 2.0
-    
+    # Local Z axis is the normal to the blade
+    z_axis = np.cross(x_axis, y_axis)
 
     m = np.eye(4, dtype=float)
-    m[:3, 0] = bx_ax
-    m[:3, 1] = by_ax
-    m[:3, 2] = blade_z
-    m[0, 3]  = cx
-    m[1, 3]  = cy
-    m[2, 3]  = cz
+    m[:3, 0] = x_axis
+    m[:3, 1] = y_axis
+    m[:3, 2] = z_axis
+    m[0, 3]  = bx
+    m[1, 3]  = by
+    m[2, 3]  = bz
     return m
         
 # -------------------------        
@@ -369,7 +403,9 @@ def _make_stem_joint(stage, joint_path: str,
 def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
 
     # ── Stage setup ──────────────────────────────────────────────────────────
-    stage = Usd.Stage.CreateNew(output_path)
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    stage = Usd.Stage.CreateNew(str(path))
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)  # set axis z for height
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)  # set meters as length unit
 
@@ -401,9 +437,34 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
 
     # ── Separate organs ──────────────────────────────────────────────────────
     root_node = next((n for n in snapshot.organs if isinstance(n, RootNode)), None)
+    
+    def get_base_z(n) -> float:
+        if n is None or not isinstance(n, InternodeNode): return 0.0
+        if hasattr(n, 'world_base_z'): return n.world_base_z
+        z = get_base_z(n.parent) + n.parent.length if (n.parent and isinstance(n.parent, InternodeNode)) else 0.0
+        n.world_base_z = z
+        return z
+
+    def get_azimuth(n) -> float:
+        if n is None or not isinstance(n, InternodeNode): return 0.0
+        if hasattr(n, 'world_azimuth'): return n.world_azimuth
+        if n.key.order == 0:
+            az = (n.key.rank * PHYLLOTAXIS) % 360.0
+        else:
+            p_az = get_azimuth(n.parent)
+            sign = 1 if (n.key.rank % 2 == 0) else -1
+            az = (p_az + sign * 90.0) % 360.0
+        n.world_azimuth = az
+        return az
+
+    for n in snapshot.organs:
+        if isinstance(n, InternodeNode):
+            get_base_z(n)
+            get_azimuth(n)
+
     internodes = sorted(
         [n for n in snapshot.organs if isinstance(n, InternodeNode)],
-        key=lambda n: n.key.rank   # rank 0 → 1 → 2 ... bottom to top
+        key=lambda n: (n.key.order, n.key.rank)
     )
 
     print(f"\n{'='*50}")
@@ -424,24 +485,24 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
         
         _bind_material(sph, materials["root"])
 
-    # ── Internode chain — each starts where the previous ended ────────────────
-    current_z = 0.0   # base of first internode = ground level z=0
-
+    # ── Internode hierarchical rendering ──────────────────────────────────────
+    max_z = 0.0
     for node in internodes:
         L = node.length
         R = node.width_m / 2.0
         rank = node.key.rank
+        order = node.key.order
+        base_z = getattr(node, 'world_base_z', 0.0)
+        max_z = max(max_z, base_z + L)
 
-        print(f"\n[INTERNODE rank={rank}]")
+        print(f"\n[INTERNODE order={order} rank={rank}]")
         cyl = _make_cylinder(
             stage,
-            path=f"{stem_path}/Internode_r{rank}",
+            path=f"{stem_path}/Internode_o{order}_r{rank}",
             height=L,
             radius=R,
-            base_z=current_z,
+            base_z=base_z,
         )
-        current_z += L   # tip of this internode = base of next
-        
         _bind_material(cyl, materials["stem"])
         
 
@@ -451,7 +512,7 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
 
     # Still rank 0 to ground
     if internodes:
-        anchor_path = f"{stem_path}/Internode_r{internodes[0].key.rank}"
+        anchor_path = f"{stem_path}/Internode_o{internodes[0].key.order}_r{internodes[0].key.rank}"
         fixed = UsdPhysics.FixedJoint.Define(stage, f"{joints_path}/GroundAnchor")
         fixed.GetBody1Rel().SetTargets([Sdf.Path(anchor_path)])
 
@@ -460,7 +521,7 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
     for i, node in enumerate(internodes):
         L = node.length
         R = node.width_m / 2.0
-        path = f"{stem_path}/Internode_r{node.key.rank}"
+        path = f"{stem_path}/Internode_o{node.key.order}_r{node.key.rank}"
 
         # Mass: cylinder volume * density
         mass = math.pi * R**2 * L * STEM_DENSITY_KG_M3
@@ -470,41 +531,38 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
         t = i / max(n_ranks - 1, 1)
         stiffness = JOINT_STIFFNESS_BASE + t * (JOINT_STIFFNESS_TIP - JOINT_STIFFNESS_BASE)
 
-        # Joint with previous
-        if i > 0:
-            prev_path = f"{stem_path}/Internode_r{internodes[i-1].key.rank}"
+        # Joint with parent
+        if node.parent and isinstance(node.parent, InternodeNode):
+            prev_path = f"{stem_path}/Internode_o{node.parent.key.order}_r{node.parent.key.rank}"
             _make_stem_joint(
                 stage,
-                joint_path=f"{joints_path}/Joint_r{node.key.rank}",
+                joint_path=f"{joints_path}/Joint_o{node.key.order}_r{node.key.rank}",
                 body0_path=prev_path,
                 body1_path=path,
-                pivot_z=internodes[i-1].length / 2.0,
+                pivot_z=node.parent.length / 2.0,
                 stiffness=stiffness,
             )
         
         
 
     # ── Leaves ───────────────────────────────────────────────────────────────
-    leaves = [n for n in snapshot.organs if isinstance(n, LeafNode)
-                and n.key.order == 0]
-
-    # Build rank→tip_z map from the internode chain
-    rank_tip_z = {}
-    z = 0.0
-    for node in internodes:          # already sorted by rank
-        z += node.length
-        rank_tip_z[node.key.rank] = z
+    leaves = [n for n in snapshot.organs if isinstance(n, LeafNode)]
 
     leaves_path = f"{plant_path}/Leaves"
     UsdGeom.Xform.Define(stage, leaves_path)
 
     for node in leaves:
-        tip_z = rank_tip_z.get(node.key.rank, 0.0)
-        leaf_id = f"r{node.key.rank}_i{node.key.organ_index}"
+        if node.parent and isinstance(node.parent, InternodeNode):
+            tip_z = getattr(node.parent, 'world_base_z', 0.0) + node.parent.length
+            node.world_azimuth = getattr(node.parent, 'world_azimuth', 0.0)
+        else:
+            tip_z = 0.0
+
+        leaf_id = f"o{node.key.order}_r{node.key.rank}_i{node.key.organ_index}"
         leaf_group = f"{leaves_path}/Leaf_{leaf_id}"
         UsdGeom.Xform.Define(stage, leaf_group)
 
-        print(f"\n[LEAF rank={node.key.rank} idx={node.key.organ_index}] "
+        print(f"\n[LEAF order={node.key.order} rank={node.key.rank} idx={node.key.organ_index}] "
                 f"attaches at z={tip_z:.4f}m")
         _make_leaf(stage, leaf_group, node, tip_z, materials)
         
@@ -520,9 +578,13 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
     )
 
     for node in fruits_nodes:
-        tip_z    = rank_tip_z.get(node.key.rank, 0.0)
-        truss_az = math.radians((node.key.rank * PHYLLOTAXIS) % 360)
-        tilt     = math.radians(90 - node.truss_angle)   # from stem (Z), small angle
+        if node.parent and isinstance(node.parent, InternodeNode):
+            tip_z = getattr(node.parent, 'world_base_z', 0.0) + node.parent.length
+            truss_az = math.radians(getattr(node.parent, 'world_azimuth', 0.0))
+        else:
+            tip_z = 0.0
+            truss_az = math.radians((node.key.rank * PHYLLOTAXIS) % 360)
+        tilt = math.radians(90 - node.truss_angle)   # from stem (Z), small angle
 
         #Pedicel orientation: vertical part (+Z), rotated by tild towards azimut
         pdx = math.sin(tilt) * math.cos(truss_az)
@@ -566,7 +628,7 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
             print(f"  [Fruit {fi}] r={r:.4f}m centre=({fx:.4f},{fy:.4f},{fz:.4f})")
             offset += r + GAP   # gap between fruits
 
-    print(f"\n  Total stem height: {current_z:.6f} m\n")
+    print(f"\n  Max stem height: {max_z:.6f} m\n")
 
     # ── Save ─────────────────────────────────────────────────────────────────
     stage.GetRootLayer().Save()

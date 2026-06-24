@@ -2,11 +2,22 @@ import pandas as pd
 from pathlib import Path
 from .models import OrganKey, OrganNode, InternodeNode, LeafNode, FruitsNode, RootNode, PlantSnapshot
 
+def _parse_float_array(val_str: str) -> list[float]:
+    s = str(val_str).strip()
+    if s in ("0", "0.0", "", "nan", "None"):
+        return []
+    return [float(x) for x in s.split("_")]
+
 def load_snapshot(csv_path: str | Path, day: int, plant_id: int) -> PlantSnapshot:
     df = pd.read_csv(csv_path, skipinitialspace=True)  # manages spaces between headers
     df.columns = df.columns.str.strip()
     df = df[(df["day"] == day) & (df["plant_id"] == plant_id)].copy()
     
+    # GroIMP may export the same organ multiple times if it finds multiple paths in the graph.
+    # We drop these exact duplicates by ignoring 'organ_index' which increments artificially.
+    cols_to_compare = [c for c in df.columns if c not in ("organ_index", "organ_id")]
+    df = df.drop_duplicates(subset=cols_to_compare, keep="first")
+
     # Strip trailing spaces on string colimns (after filtering, on less rows)
     str_cols = df.select_dtypes(include="object").columns
     df[str_cols] = df[str_cols].apply(lambda col: col.str.strip())
@@ -44,10 +55,6 @@ def load_snapshot(csv_path: str | Path, day: int, plant_id: int) -> PlantSnapsho
 
         # Create the organ node based on the class
         if organ_class == "Internode":
-            # there could be duplicated internodes, we will skip them
-            if int(row["order"]) == 1 and int(row["organ_index"]) > 0:
-                continue
-            
             node = InternodeNode(
                 **base_kwargs,
                 width_m=float(row["internode_width_m"])
@@ -63,6 +70,9 @@ def load_snapshot(csv_path: str | Path, day: int, plant_id: int) -> PlantSnapsho
                 blades_nr=int(row["leaf_blades_nr"]),
                 area_blades_total=float(row["leaf_area_blades_total"]),
                 rachis_length=float(row["leaf_rachis_length"]),
+                leaf_segments_length=_parse_float_array(row["leaf_segments_length"]),
+                leaf_area_m2blades=_parse_float_array(row["leaf_area_m2blades"]),
+                leaf_inclination_segments=_parse_float_array(row["leaf_inclination_segments"]),
             )
             if node.area_blades_total <= 1e-9: # filter primordia
                 continue

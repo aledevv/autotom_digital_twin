@@ -52,5 +52,8 @@ def export_graph_json(snapshot: PlantSnapshot, output_path: str | Path) -> None:
         "organs": nodes,
     }
 
-    Path(output_path).write_text(json.dumps(output, indent=2))
-    print(f"[JSON] Saved → {output_path}")
+    p = Path(output_path)
+    # creates the folders if they don't exist
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(output, indent=2))
+    print(f"[JSON] Saved → {p.resolve()}")

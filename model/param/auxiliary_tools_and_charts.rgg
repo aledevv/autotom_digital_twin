@@ -599,6 +599,9 @@ static void exportSensorsBelowCanopyToFile(String file_name) throws IOException 
 }
 
 static String floatArrayToString(float[] array) {
+        if (array == null || array.length == 0) {
+            return "0";
+        }
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < array.length; i++) {
             result.append(array[i]);
@@ -619,6 +622,7 @@ static void exportPlantGraph(String fileName) throws Exception {
         "leaf_length_petiole,leaf_diameter_petiole," +
         "leaf_angle_petiole,leaf_ccw_orientation," +
         "leaf_curvature,leaf_blades_nr,leaf_area_blades_total,leaf_rachis_length," +
+        "leaf_segments_length,leaf_area_m2blades,leaf_inclination_segments," +
         "fruit_nr,fruit_radius_0,fruit_radius_1,fruit_radius_2," +
         "fruit_age_dd_0,fruit_age_dd_1,fruit_age_dd_2," +
         "fruit_ripening_dd,fruit_truss_angle"
@@ -679,6 +683,9 @@ static void exportPlantGraph(String fileName) throws Exception {
             String leaf_blades_nr    = "0";
             String leaf_area_blades  = "0";
             String leaf_rachis       = "0";
+            String leaf_seg_len      = "0";
+            String leaf_area_m2b     = "0";
+            String leaf_inc_seg      = "0";
             String fruit_nr          = "0";
             String fruit_r0          = "0";
             String fruit_r1          = "0";
@@ -703,6 +710,9 @@ static void exportPlantGraph(String fileName) throws Exception {
                 leaf_blades_nr   = "" + l.bladesNr;
                 leaf_area_blades = "" + l.area_m2bladesTotal;
                 leaf_rachis      = "" + l.sum_segments_petiolules_length;
+                leaf_seg_len     = floatArrayToString(l.segmentsLength);
+                leaf_area_m2b    = floatArrayToString(l.area_m2blades);
+                leaf_inc_seg     = floatArrayToString(l.inclinationOnSegmentsPetiolules);
 
             } else if (g instanceof organs.Fruits) {
                 organs.Fruits f = (organs.Fruits) g;
@@ -741,6 +751,9 @@ static void exportPlantGraph(String fileName) throws Exception {
                 leaf_blades_nr               + "," +
                 leaf_area_blades             + "," +
                 leaf_rachis                  + "," +
+                leaf_seg_len                 + "," +
+                leaf_area_m2b                + "," +
+                leaf_inc_seg                 + "," +
                 fruit_nr                     + "," +
                 fruit_r0                     + "," +
                 fruit_r1                     + "," +
