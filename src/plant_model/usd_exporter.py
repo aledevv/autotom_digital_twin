@@ -11,6 +11,7 @@ from .constants import (
     INTERNODE_TRUSS_DIAMETER_M,
     ANGLE_AMONG_SUBSEQUENT_FRUITS_DEG,
     FRUIT_PAIRING, ROOT_SPHERE_RADIUS,
+    PETIOLE_LENGTH_M,
     TRUSS_LENGTH, TRUSS_RADIUS, PHYLLOTAXIS,
     JOINT_STIFFNESS_BASE, JOINT_STIFFNESS_TIP,
     JOINT_DAMPING, JOINT_MAX_ANGLE_DEG, STEM_DENSITY_KG_M3,
@@ -425,18 +426,20 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
     mats_path = f"{plant_path}/Materials"
     UsdGeom.Xform.Define(stage, mats_path)
 
-    mat_stem    = _make_material(stage, f"{mats_path}/Stem",       (0.45, 0.30, 0.10))  # brown
-    mat_root    = _make_material(stage, f"{mats_path}/Root",       (0.55, 0.35, 0.15))  # dark brown
-    mat_leaf    = _make_material(stage, f"{mats_path}/Leaf",       (0.15, 0.55, 0.10))  # green
-    mat_pedicel = _make_material(stage, f"{mats_path}/Pedicel",    (0.20, 0.50, 0.10))  # dark green
-    mat_fruit   = _make_material(stage, f"{mats_path}/Fruit",      (0.90, 0.15, 0.05))  # tomato red
+    mat_stem         = _make_material(stage, f"{mats_path}/Stem",         (0.45, 0.30, 0.10))  # brown
+    mat_root         = _make_material(stage, f"{mats_path}/Root",         (0.55, 0.35, 0.15))  # dark brown
+    mat_leaf         = _make_material(stage, f"{mats_path}/Leaf",         (0.15, 0.55, 0.10))  # green
+    mat_pedicel      = _make_material(stage, f"{mats_path}/Pedicel",      (0.20, 0.50, 0.10))  # dark green
+    mat_fruit_ripe   = _make_material(stage, f"{mats_path}/FruitRipe",    (0.90, 0.17, 0.10))  # ripe tomato red (from GroIMP spectra)
+    mat_fruit_unripe = _make_material(stage, f"{mats_path}/FruitUnripe",  (0.45, 0.58, 0.25))  # unripe green-yellowish (from GroIMP spectra)
     
     materials = {
-        "stem":    mat_stem,
-        "root":    mat_root,
-        "leaf":    mat_leaf,
-        "pedicel": mat_pedicel,
-        "fruit":   mat_fruit,
+        "stem":         mat_stem,
+        "root":         mat_root,
+        "leaf":         mat_leaf,
+        "pedicel":      mat_pedicel,
+        "fruit_ripe":   mat_fruit_ripe,
+        "fruit_unripe": mat_fruit_unripe,
     }
 
     # ── Separate organs ──────────────────────────────────────────────────────
@@ -558,6 +561,12 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
         
         
     # ── Fruits ───────────────────────────────────────────────────────────────────
+    # Replicate GroIMP truss structure:
+    #   - A main rachis made of INTERNODETRUSSLENGTH segments, tilting by
+    #     internodeTrussAngle (9°) between each fruit.
+    #   - Lateral pedicels (PETIOLELENGTH) branching off alternately (RU ±90°)
+    #     from each rachis node, with a fruit sphere at the tip.
+    #   - The last fruit sits at the terminal end of the rachis.
 
     trusses_path = f"{plant_path}/Trusses"
     UsdGeom.Xform.Define(stage, trusses_path)
@@ -567,55 +576,127 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
         key=lambda n: n.key.rank
     )
 
+    RACHIS_SEG   = INTERNODE_TRUSS_LENGTH_M   # 0.012 m — rachis segment length
+    PEDICEL_LEN  = PETIOLE_LENGTH_M           # 0.003 m — lateral pedicel length
+    PEDICEL_R    = TRUSS_RADIUS               # 0.00075 m
+    INITIAL_TILT = 45.0                        # GroIMP: RL(45) at start
+
     for node in fruits_nodes:
         if node.parent and isinstance(node.parent, InternodeNode):
-            tip_z = getattr(node.parent, 'world_base_z', 0.0) + node.parent.length
+            attach_z = getattr(node.parent, 'world_base_z', 0.0) + node.parent.length
         else:
-            tip_z = 0.0
-        truss_az = math.radians((node.key.rank * PHYLLOTAXIS) % 360)
-        tilt     = math.radians(90 - node.truss_angle)   # from stem (Z), small angle
+            attach_z = 0.0
 
-        #Pedicel orientation: vertical part (+Z), rotated by tild towards azimut
-        pdx = math.sin(tilt) * math.cos(truss_az)
-        pdy = math.sin(tilt) * math.sin(truss_az)
-        pdz = math.cos(tilt)
+        truss_az = math.radians((node.key.rank * PHYLLOTAXIS) % 360)
+        bend_per_fruit = node.truss_angle   # 9° per segment
 
         radii = [r for r in node.fruit_radii if r > 1e-5][:node.fruit_nr]
-
-        # Pedicel length = sum of fruit diameter + GAP offset
-        GAP = 0.001
-        pedicel_length = sum(r * 2 for r in radii) + GAP * (len(radii) + 1)
-        pedicel_length = max(pedicel_length, TRUSS_LENGTH)  # minimo fisso
+        n_fruits = len(radii)
+        if n_fruits == 0:
+            continue
 
         truss_group = f"{trusses_path}/Truss_r{node.key.rank}_i{node.key.organ_index}"
         UsdGeom.Xform.Define(stage, truss_group)
 
-        # Pedicel: center at tip_z + dir * TRUSS_LENGTH/2
-        pcx = pdx * pedicel_length / 2.0
-        pcy = pdy * pedicel_length / 2.0
-        pcz = tip_z + pdz * pedicel_length / 2.0
-        pedicel_mat = _align_z_to(pdx, pdy, pdz, pcx, pcy, pcz)
+        print(f"\n[TRUSS rank={node.key.rank}] {n_fruits} fruits, attach_z={attach_z:.4f}m")
 
-        ped = UsdGeom.Cylinder.Define(stage, f"{truss_group}/Pedicel")
-        ped.GetHeightAttr().Set(pedicel_length)
-        ped.GetRadiusAttr().Set(TRUSS_RADIUS)
-        ped.GetAxisAttr().Set(UsdGeom.Tokens.z)
-        _set_transform(ped, pedicel_mat)
-        
-        _bind_material(ped, materials["pedicel"])
+        # Current tip of the rachis — starts at attachment point on stem
+        # Direction: initially tilted INITIAL_TILT° from Z towards the azimuth
+        tilt_from_z = math.radians(INITIAL_TILT)
+        # Rachis direction vector (in world coords)
+        rach_dx = math.sin(tilt_from_z) * math.cos(truss_az)
+        rach_dy = math.sin(tilt_from_z) * math.sin(truss_az)
+        rach_dz = math.cos(tilt_from_z)
 
-        offset = GAP
-        for fi, r in enumerate(radii):
-            offset += r   # center first sphere in r from pedicel's tip
-            fx = pdx * offset
-            fy = pdy * offset
-            fz = tip_z + pdz * offset
+        cur_x, cur_y, cur_z = 0.0, 0.0, attach_z
+
+        # Lateral direction for pedicels: perpendicular to rachis in the
+        # horizontal plane. We alternate sign for RU(±90).
+        lat_dx = -math.sin(truss_az)
+        lat_dy =  math.cos(truss_az)
+        lat_dz = 0.0
+
+        seg_idx = 0
+
+        for fi in range(n_fruits):
+            r = radii[fi]
+            is_last = (fi == n_fruits - 1)
+
+            if fi == 0:
+                # First segment: rachis from attachment point
+                seg_len = RACHIS_SEG
+            elif is_last:
+                # Terminal fruit: no rachis segment, just a pedicel from tip
+                seg_len = 0.0
+            else:
+                # Intermediate: rachis continues with a bend
+                # Apply cumulative bend (RL in GroIMP = tilt further from Z)
+                tilt_from_z += math.radians(bend_per_fruit)
+                rach_dx = math.sin(tilt_from_z) * math.cos(truss_az)
+                rach_dy = math.sin(tilt_from_z) * math.sin(truss_az)
+                rach_dz = math.cos(tilt_from_z)
+                seg_len = RACHIS_SEG
+
+            # Draw rachis segment (if any)
+            if seg_len > 0:
+                seg_cx = cur_x + rach_dx * seg_len / 2.0
+                seg_cy = cur_y + rach_dy * seg_len / 2.0
+                seg_cz = cur_z + rach_dz * seg_len / 2.0
+                seg_mat = _align_z_to(rach_dx, rach_dy, rach_dz, seg_cx, seg_cy, seg_cz)
+
+                seg_prim = UsdGeom.Cylinder.Define(
+                    stage, f"{truss_group}/Rachis_{seg_idx}")
+                seg_prim.GetHeightAttr().Set(seg_len)
+                seg_prim.GetRadiusAttr().Set(PEDICEL_R)
+                seg_prim.GetAxisAttr().Set(UsdGeom.Tokens.z)
+                _set_transform(seg_prim, seg_mat)
+                _bind_material(seg_prim, materials["pedicel"])
+                seg_idx += 1
+
+                # Advance tip
+                cur_x += rach_dx * seg_len
+                cur_y += rach_dy * seg_len
+                cur_z += rach_dz * seg_len
+
+            # Pedicel branch to the fruit
+            if is_last and n_fruits > 1:
+                # Terminal fruit: pedicel continues in rachis direction
+                ped_dx, ped_dy, ped_dz = rach_dx, rach_dy, rach_dz
+            else:
+                # Lateral pedicel: alternate sides (RU ±90°)
+                sign = -1.0 if (fi % 2 == 0) else 1.0
+                ped_dx = sign * lat_dx
+                ped_dy = sign * lat_dy
+                ped_dz = sign * lat_dz
+
+            ped_cx = cur_x + ped_dx * PEDICEL_LEN / 2.0
+            ped_cy = cur_y + ped_dy * PEDICEL_LEN / 2.0
+            ped_cz = cur_z + ped_dz * PEDICEL_LEN / 2.0
+            ped_mat = _align_z_to(ped_dx, ped_dy, ped_dz, ped_cx, ped_cy, ped_cz)
+
+            ped_prim = UsdGeom.Cylinder.Define(
+                stage, f"{truss_group}/Pedicel_{fi}")
+            ped_prim.GetHeightAttr().Set(PEDICEL_LEN)
+            ped_prim.GetRadiusAttr().Set(PEDICEL_R * 0.8)
+            ped_prim.GetAxisAttr().Set(UsdGeom.Tokens.z)
+            _set_transform(ped_prim, ped_mat)
+            _bind_material(ped_prim, materials["pedicel"])
+
+            # Fruit sphere at the tip of the pedicel
+            fx = cur_x + ped_dx * (PEDICEL_LEN + r)
+            fy = cur_y + ped_dy * (PEDICEL_LEN + r)
+            fz = cur_z + ped_dz * (PEDICEL_LEN + r)
 
             sph = _make_sphere(stage, f"{truss_group}/Fruit_{fi}", r, fx, fy, fz)
-            _bind_material(sph, materials["fruit"])
 
-            print(f"  [Fruit {fi}] r={r:.4f}m centre=({fx:.4f},{fy:.4f},{fz:.4f})")
-            offset += r + GAP   # gap between fruits
+            # Ripe vs unripe coloring based on fruit age (GroIMP logic)
+            age = node.fruit_age_dd[fi] if fi < len(node.fruit_age_dd) else 0.0
+            is_ripe = age >= node.ripening_dd
+            fruit_mat_key = "fruit_ripe" if is_ripe else "fruit_unripe"
+            _bind_material(sph, materials[fruit_mat_key])
+
+            state = "ripe" if is_ripe else "unripe"
+            print(f"  [Fruit {fi}] r={r:.4f}m {state} (age={age:.0f}/{node.ripening_dd:.0f}dd) at ({fx:.4f},{fy:.4f},{fz:.4f})")
 
     print(f"\n  Max stem height: {max_z:.6f} m\n")
 
