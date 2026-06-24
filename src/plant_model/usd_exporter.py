@@ -1,4 +1,3 @@
-from pathlib import Path
 import math
 import numpy as np
 from pxr import Usd, UsdGeom, UsdPhysics, Gf, Sdf
@@ -91,8 +90,15 @@ def _make_leaf(stage, leaf_group: str, node, tip_z: float, materials: dict):
     """
     import math
 
-    absolute_azimuth = getattr(node, 'world_azimuth', 0.0) + node.ccw_orientation
-    az  = math.radians(absolute_azimuth)   # absolute azimuth around stem
+    # If the CSV provides an explicit orientation (non-zero), use it directly.
+    # Otherwise fall back to cumulative phyllotaxis (rank * 137.5°) to replicate
+    # GroIMP's turtle-based RH rotation that is not captured in the export.
+    if abs(node.ccw_orientation) > 1e-3:
+        azimuth_deg = node.ccw_orientation
+    else:
+        azimuth_deg = (node.key.rank * PHYLLOTAXIS) % 360.0
+
+    az  = math.radians(azimuth_deg)            # azimuth around stem
     el  = math.radians(node.angle_petiole)     # elevation from horizontal (90°=horiz)
 
     tilt = math.radians(90.0 - node.angle_petiole)  # tilt from horizontal
@@ -116,7 +122,7 @@ def _make_leaf(stage, leaf_group: str, node, tip_z: float, materials: dict):
     pet.GetAxisAttr().Set(UsdGeom.Tokens.z)
     _set_transform(pet, petiole_mat)
 
-    print(f"  [Petiole] az={node.ccw_orientation}° el={node.angle_petiole}° "
+    print(f"  [Petiole] az={azimuth_deg:.1f}° el={node.angle_petiole}° "
           f"L={Lp:.4f}m centre=({pcx:.4f},{pcy:.4f},{pcz:.4f})")
 
     rtx = dx * Lp
@@ -403,9 +409,7 @@ def _make_stem_joint(stage, joint_path: str,
 def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
 
     # ── Stage setup ──────────────────────────────────────────────────────────
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    stage = Usd.Stage.CreateNew(str(path))
+    stage = Usd.Stage.CreateNew(output_path)
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)  # set axis z for height
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)  # set meters as length unit
 
@@ -445,22 +449,9 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
         n.world_base_z = z
         return z
 
-    def get_azimuth(n) -> float:
-        if n is None or not isinstance(n, InternodeNode): return 0.0
-        if hasattr(n, 'world_azimuth'): return n.world_azimuth
-        if n.key.order == 0:
-            az = (n.key.rank * PHYLLOTAXIS) % 360.0
-        else:
-            p_az = get_azimuth(n.parent)
-            sign = 1 if (n.key.rank % 2 == 0) else -1
-            az = (p_az + sign * 90.0) % 360.0
-        n.world_azimuth = az
-        return az
-
     for n in snapshot.organs:
         if isinstance(n, InternodeNode):
             get_base_z(n)
-            get_azimuth(n)
 
     internodes = sorted(
         [n for n in snapshot.organs if isinstance(n, InternodeNode)],
@@ -554,7 +545,6 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
     for node in leaves:
         if node.parent and isinstance(node.parent, InternodeNode):
             tip_z = getattr(node.parent, 'world_base_z', 0.0) + node.parent.length
-            node.world_azimuth = getattr(node.parent, 'world_azimuth', 0.0)
         else:
             tip_z = 0.0
 
@@ -580,11 +570,10 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
     for node in fruits_nodes:
         if node.parent and isinstance(node.parent, InternodeNode):
             tip_z = getattr(node.parent, 'world_base_z', 0.0) + node.parent.length
-            truss_az = math.radians(getattr(node.parent, 'world_azimuth', 0.0))
         else:
             tip_z = 0.0
-            truss_az = math.radians((node.key.rank * PHYLLOTAXIS) % 360)
-        tilt = math.radians(90 - node.truss_angle)   # from stem (Z), small angle
+        truss_az = math.radians((node.key.rank * PHYLLOTAXIS) % 360)
+        tilt     = math.radians(90 - node.truss_angle)   # from stem (Z), small angle
 
         #Pedicel orientation: vertical part (+Z), rotated by tild towards azimut
         pdx = math.sin(tilt) * math.cos(truss_az)

@@ -4,7 +4,7 @@ from plant_model.debug_viz import visualize_snapshot
 from plant_model.usd_exporter import export_plant_usd
 from plant_model.graph_export import export_graph_json
 
-day = 10
+day = 15
 plant_id = 1
 
 snapshot = load_snapshot(f"data/dynamic_output/graphs/graph_day_{day}.csv", day=day, plant_id=plant_id)
