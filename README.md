@@ -27,7 +27,7 @@ graph LR
 
 Below is the demo representing the exported USD tomato plant structure and physical dynamics under version 1.5:
 
-<video src="https://github.com/user-attachments/assets/dea1479b-8c71-4847-a253-0b26884dee18" width="100%" controls muted autoplay loop>
+<video src="https://github.com/user-attachments/assets/c0e688ce-e95a-447d-8f5c-63a488afddd2" width="100%" controls muted autoplay loop>
 </video>
 
 ---
