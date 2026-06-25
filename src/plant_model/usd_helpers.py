@@ -405,12 +405,14 @@ def _bind_material(prim, mat):
 
 
 # ----------------------------
-# PHYSICS: Rigitd body helpers
+# PHYSICS: Rigid body helpers
 # ----------------------------
-def _apply_rigid_body(stage, prim_path: str, mass_kg: float):
+def _apply_rigid_body(stage, prim_path: str, mass_kg: float, kinematic: bool = False):
     """It applies RigidBodyAPI + MassAPI + CollisionAPI to an existing prim."""
     prim = stage.GetPrimAtPath(prim_path)
-    UsdPhysics.RigidBodyAPI.Apply(prim)
+    rigid_api = UsdPhysics.RigidBodyAPI.Apply(prim)
+    if kinematic:
+        rigid_api.CreateKinematicEnabledAttr().Set(True)
     mass_api = UsdPhysics.MassAPI.Apply(prim)
     mass_api.GetMassAttr().Set(mass_kg)
     UsdPhysics.CollisionAPI.Apply(prim)

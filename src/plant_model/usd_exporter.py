@@ -16,6 +16,7 @@ from .constants import (
     JOINT_STIFFNESS_BASE, JOINT_STIFFNESS_TIP,
     JOINT_DAMPING, JOINT_MAX_ANGLE_DEG, STEM_DENSITY_KG_M3,
     RACHIS_SEG, PEDICEL_LEN, PEDICEL_R, INITIAL_TILT,
+    ENABLE_STEM_PHYSICS, ENABLE_FRUIT_PHYSICS, FRUIT_DENSITY_KG_M3,
 )
 
 from .usd_helpers import (
@@ -124,42 +125,44 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
         _bind_material(cyl, materials["stem"])
         
 
-    # ── Physics: joint chain ─────────────────────────────────────────────────
-    joints_path = f"{plant_path}/Joints"
-    UsdGeom.Xform.Define(stage, joints_path)
+    # ── Physics: stem joint chain ─────────────────────────────────────────────
+    # Toggle: ENABLE_STEM_PHYSICS in constants.py
+    if ENABLE_STEM_PHYSICS:
+        joints_path = f"{plant_path}/Joints"
+        UsdGeom.Xform.Define(stage, joints_path)
 
-    # Still rank 0 to ground
-    if internodes:
-        anchor_path = f"{stem_path}/Internode_o{internodes[0].key.order}_r{internodes[0].key.rank}"
-        fixed = UsdPhysics.FixedJoint.Define(stage, f"{joints_path}/GroundAnchor")
-        fixed.GetBody1Rel().SetTargets([Sdf.Path(anchor_path)])
+        # Anchor rank-0 to ground
+        if internodes:
+            anchor_path = f"{stem_path}/Internode_o{internodes[0].key.order}_r{internodes[0].key.rank}"
+            fixed = UsdPhysics.FixedJoint.Define(stage, f"{joints_path}/GroundAnchor")
+            fixed.GetBody1Rel().SetTargets([Sdf.Path(anchor_path)])
 
-    n_ranks = len(internodes)
+        n_ranks = len(internodes)
 
-    for i, node in enumerate(internodes):
-        L = node.length
-        R = node.width_m / 2.0
-        path = f"{stem_path}/Internode_o{node.key.order}_r{node.key.rank}"
+        for i, node in enumerate(internodes):
+            L = node.length
+            R = node.width_m / 2.0
+            path = f"{stem_path}/Internode_o{node.key.order}_r{node.key.rank}"
 
-        # Mass: cylinder volume * density
-        mass = math.pi * R**2 * L * STEM_DENSITY_KG_M3
-        _apply_rigid_body(stage, path, mass)
+            # Mass: cylinder volume * density
+            mass = math.pi * R**2 * L * STEM_DENSITY_KG_M3
+            _apply_rigid_body(stage, path, mass)
 
-        # Stiffness linearly decreases from bottom to the top
-        t = i / max(n_ranks - 1, 1)
-        stiffness = JOINT_STIFFNESS_BASE + t * (JOINT_STIFFNESS_TIP - JOINT_STIFFNESS_BASE)
+            # Stiffness linearly decreases from bottom to the top
+            t = i / max(n_ranks - 1, 1)
+            stiffness = JOINT_STIFFNESS_BASE + t * (JOINT_STIFFNESS_TIP - JOINT_STIFFNESS_BASE)
 
-        # Joint with parent
-        if node.parent and isinstance(node.parent, InternodeNode):
-            prev_path = f"{stem_path}/Internode_o{node.parent.key.order}_r{node.parent.key.rank}"
-            _make_stem_joint(
-                stage,
-                joint_path=f"{joints_path}/Joint_o{node.key.order}_r{node.key.rank}",
-                body0_path=prev_path,
-                body1_path=path,
-                pivot_z=node.parent.length / 2.0,
-                stiffness=stiffness,
-            )
+            # Joint with parent
+            if node.parent and isinstance(node.parent, InternodeNode):
+                prev_path = f"{stem_path}/Internode_o{node.parent.key.order}_r{node.parent.key.rank}"
+                _make_stem_joint(
+                    stage,
+                    joint_path=f"{joints_path}/Joint_o{node.key.order}_r{node.key.rank}",
+                    body0_path=prev_path,
+                    body1_path=path,
+                    pivot_z=node.parent.length / 2.0,
+                    stiffness=stiffness,
+                )
         
         
 
@@ -313,6 +316,11 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
             is_ripe = age >= node.ripening_dd
             fruit_mat_key = "fruit_ripe" if is_ripe else "fruit_unripe"
             _bind_material(sph, materials[fruit_mat_key])
+
+            # Physics: fruit collider (toggle: ENABLE_FRUIT_PHYSICS in constants.py)
+            if ENABLE_FRUIT_PHYSICS:
+                fruit_mass = (4.0/3.0) * math.pi * r**3 * FRUIT_DENSITY_KG_M3
+                _apply_rigid_body(stage, f"{truss_group}/Fruit_{fi}", fruit_mass, kinematic=True)
 
             state = "ripe" if is_ripe else "unripe"
             print(f"  [Fruit {fi}] r={r:.4f}m {state} (age={age:.0f}/{node.ripening_dd:.0f}dd) at ({fx:.4f},{fy:.4f},{fz:.4f})")

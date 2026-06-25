@@ -40,3 +40,9 @@ JOINT_STIFFNESS_TIP: float   = 200.0   # N·m/rad — stelo giovane (rank alto)
 JOINT_DAMPING: float         = 50.0    # N·m·s/rad
 JOINT_MAX_ANGLE_DEG: float   = 25.0    # escursione massima (simmetrica)
 STEM_DENSITY_KG_M3: float    = 900.0   # densità approssimata tessuto vegetale
+FRUIT_DENSITY_KG_M3: float   = 1050.0  # tomato density (~water)
+
+# --- PHYSICS TOGGLES ---
+# Comment out any of these lines to disable that physics layer.
+ENABLE_STEM_PHYSICS: bool    = True   # RigidBody + Collider + Joints on internodes
+ENABLE_FRUIT_PHYSICS: bool   = True   # Collider on fruit spheres (for robot sensing)
