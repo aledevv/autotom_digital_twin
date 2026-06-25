@@ -87,3 +87,12 @@ python src/plant_model/main.py
 | **Physics** | Fruits massAPI and complex physics | ❌ | Only static/kinematic colliders; complex dynamic weight/mass physics is missing. |
 | **Physics** | Pedicel & truss rachis physics | ❌ | Treated as static/kinematic structures without dynamic joints. |
 | **Simulation** | Isaac Sim simulation integration | ❌ | Output is exported to USD, but not yet integrated into Isaac Sim simulation scenes. |
+
+---
+
+### Python Stubs for IDE Autocomplition: 'typings' and '.vscode' folders
+This folder contains **USD stubs** to easily work with 'usd-core' python module on your IDE and get **autocomplitions**. In order to make it work, DO NOT delete the .vscode folder (files are already set up).
+
+> ⚠️ This only works in **VSCode**.
+
+If you use another IDE, you can delete these folders. If you face any issue in VSCode, delete the .vscode folder.
