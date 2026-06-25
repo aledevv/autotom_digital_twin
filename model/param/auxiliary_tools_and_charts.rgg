@@ -663,8 +663,12 @@ static void exportPlantGraph(String fileName) throws Exception {
 				parent_organ_class = "Internode";
 			}
 		} else if (g instanceof organs.Internode && g.order > 0) {
-			// Branch: parent is the internode from main stem w.r.t. parent_rank
-			parent_rank_str    = "" + g.parent_rank;
+			// Branch: parent is the internode from main stem ONLY IF it is the first segment
+			if (g.rank == 1) {
+				parent_rank_str    = "" + g.parent_rank;
+			} else {
+				parent_rank_str    = "" + (g.rank - 1);
+			}
 			parent_organ_class = "Internode";
 		} else {
 			// Leaf, Fruits, Truss: parent is internote at the same rank

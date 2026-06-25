@@ -131,9 +131,10 @@ def _link_hierarchy(snapshot: PlantSnapshot) -> None:
             candidates = snapshot.by_position.get(
                 (search_order, node.parent_rank), []
             )
-            parent = next(                  # filter for the correct organ class
+            parent = next(                  # filter for the correct organ class and branch index
                 (c for c in candidates
-                 if c.key.organ_class == node.parent_organ_class),
+                 if c.key.organ_class == node.parent_organ_class and
+                 (search_order != node.key.order or c.key.organ_index == node.key.organ_index)),
                 None
             )
             if parent is not None:  # if parent is found, add the edge and stop searching
