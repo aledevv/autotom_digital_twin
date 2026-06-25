@@ -84,6 +84,49 @@ def _make_sphere(stage, path: str, radius: float, cx: float, cy: float, cz: floa
 
     return sph
 
+
+# TRYING TO MAKE A MORE REALISTIC LEAF MESH
+def _set_leaf_mesh_geometry(mesh, hw: float, L: float):
+    """
+    Sets the points and faces for a 16-point smooth leaf blade mesh.
+    Creates a rounded ovate shape typical for tomato leaflets.
+    """
+    import math
+    points = [Gf.Vec3f(0.0, 0.0, 0.0)]  # 0: base (attachment)
+    
+    n_side = 8
+    # Right side (CCW: base to tip)
+    for i in range(1, n_side):
+        t = i / n_side
+        y = L * t
+        # shape profile: sin(t * pi) gives a symmetric oval. 
+        # multiplying by (1.2 - 0.4*t) makes it slightly wider at the bottom (ovate)
+        x = hw * math.sin(math.pi * t) * (1.2 - 0.4 * t)
+        points.append(Gf.Vec3f(x, y, 0.0))
+        
+    points.append(Gf.Vec3f(0.0, L, 0.0))  # Tip
+    
+    # Left side (CCW: tip back to base)
+    for i in range(n_side - 1, 0, -1):
+        t = i / n_side
+        y = L * t
+        x = hw * math.sin(math.pi * t) * (1.2 - 0.4 * t)
+        points.append(Gf.Vec3f(-x, y, 0.0))
+
+    mesh.GetPointsAttr().Set(points)
+    
+    # Triangulate as a fan from the base (point 0)
+    num_triangles = len(points) - 2
+    mesh.GetFaceVertexCountsAttr().Set([3] * num_triangles)
+    
+    indices = []
+    for i in range(1, len(points) - 1):
+        indices.extend([0, i, i + 1])
+        
+    mesh.GetFaceVertexIndicesAttr().Set(indices)
+    mesh.GetSubdivisionSchemeAttr().Set("none")
+
+
 def _make_leaf(stage, leaf_group: str, node, tip_z: float, materials: dict):
     """
     Leaf = Petiole cylinder + Rachis cylinder + Compound blade quads.
@@ -218,13 +261,7 @@ def _make_leaf(stage, leaf_group: str, node, tip_z: float, materials: dict):
             mesh = UsdGeom.Mesh.Define(stage, f"{leaf_group}/Blade_{mesh_idx}")
             mesh_idx += 1
             hw, L = lat_width / 2.0, lat_length
-            mesh.GetPointsAttr().Set([
-                Gf.Vec3f(-hw, 0, 0), Gf.Vec3f(hw, 0, 0),
-                Gf.Vec3f(hw,  L, 0), Gf.Vec3f(-hw,  L, 0),
-            ])
-            mesh.GetFaceVertexCountsAttr().Set([3, 3])
-            mesh.GetFaceVertexIndicesAttr().Set([0, 1, 2, 0, 2, 3])
-            mesh.GetSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
+            _set_leaf_mesh_geometry(mesh, hw, L)
             _set_transform(mesh, blade_mat)
             _bind_material(mesh, materials["leaf"])
             
@@ -233,10 +270,10 @@ def _make_leaf(stage, leaf_group: str, node, tip_z: float, materials: dict):
         current_dist += seg_len
 
     # 2. Terminal leaflet
-    # Positioned exactly after the last segment length
-    bx = rtx + dx * current_dist
-    by = rty + dy * current_dist
-    bz = rtz + dz * current_dist
+    # Positioned exactly at the tip of the rachis cylinder
+    bx = rtx + dx * Lr
+    by = rty + dy * Lr
+    bz = rtz + dz * Lr
 
     blade_mat = _blade_transform(
         bx, by, bz,
@@ -245,15 +282,31 @@ def _make_leaf(stage, leaf_group: str, node, tip_z: float, materials: dict):
         0.0  # 0 degree insertion = straight ahead
     )
 
+    # Draw terminal petiolule
+    y_axis = blade_mat[:3, 1]
+    petiolule_len = 0.01  # 1 cm
+    
+    pcx_t = bx + y_axis[0] * petiolule_len / 2.0
+    pcy_t = by + y_axis[1] * petiolule_len / 2.0
+    pcz_t = bz + y_axis[2] * petiolule_len / 2.0
+    
+    pet_mat = _align_z_to(y_axis[0], y_axis[1], y_axis[2], pcx_t, pcy_t, pcz_t)
+    
+    petl_t = UsdGeom.Cylinder.Define(stage, f"{leaf_group}/Petiolule_term")
+    petl_t.GetHeightAttr().Set(petiolule_len)
+    petl_t.GetRadiusAttr().Set(Rp * 0.4)
+    petl_t.GetAxisAttr().Set(UsdGeom.Tokens.z)
+    _set_transform(petl_t, pet_mat)
+    _bind_material(petl_t, materials["leaf"])
+
+    # Shift the blade base to start AFTER the petiolule
+    blade_mat[0, 3] += y_axis[0] * petiolule_len
+    blade_mat[1, 3] += y_axis[1] * petiolule_len
+    blade_mat[2, 3] += y_axis[2] * petiolule_len
+
     mesh = UsdGeom.Mesh.Define(stage, f"{leaf_group}/Blade_{mesh_idx}")
     hw, L = terminal_width / 2.0, terminal_length
-    mesh.GetPointsAttr().Set([
-        Gf.Vec3f(-hw, 0, 0), Gf.Vec3f(hw, 0, 0),
-        Gf.Vec3f(hw,  L, 0), Gf.Vec3f(-hw,  L, 0),
-    ])
-    mesh.GetFaceVertexCountsAttr().Set([3, 3])
-    mesh.GetFaceVertexIndicesAttr().Set([0, 1, 2, 0, 2, 3])
-    mesh.GetSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
+    _set_leaf_mesh_geometry(mesh, hw, L)
     _set_transform(mesh, blade_mat)
     _bind_material(mesh, materials["leaf"])
 
