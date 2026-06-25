@@ -1,4 +1,3 @@
-# main.py
 from plant_model.loader import load_snapshot
 from plant_model.debug_viz import visualize_snapshot
 from plant_model.usd_exporter import export_plant_usd
@@ -12,7 +11,7 @@ visualize_snapshot(snapshot, f"./output/day_{day}/plant_day{day}.html")
 
 export_plant_usd(snapshot, f"./output/day_{day}/plant_day{day}.usda")
 
-export_graph_json(snapshot, f"./output/day_{day}/plant_day{day}.json")
+export_graph_json(snapshot, f"./output/day_{day}/plant_day{day}.json") # just for debug
 
 """
 python -m plant_usd_exporter --csv plant_organs.csv --day 10 --plant 1 --out plant_day10.usda

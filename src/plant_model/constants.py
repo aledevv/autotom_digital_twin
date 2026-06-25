@@ -1,4 +1,3 @@
-# constants.py
 # Model constants from organs-5.rgg and auxiliary_tools_and_charts.rgg
 # These are fixed values shared across all organ instances.
 
@@ -9,11 +8,11 @@ INTERNODE_TRUSS_ANGLE_DEG: float = 9.0
 INTERNODE_TRUSS_DIAMETER_M: float = 0.0015
 ANGLE_AMONG_SUBSEQUENT_FRUITS_DEG: float = 0.0
 FRUIT_PAIRING: bool = False
-TRUSS_LENGTH        = 0.012   # m — peduncolo principale
-TRUSS_RADIUS        = 0.00075  # m — raggio cilindro peduncolo
-PEDICEL_LENGTH      = 0.008   # m — pedicellini laterali (frutti 1+)
+TRUSS_LENGTH        = 0.012   # m — main peduncle
+TRUSS_RADIUS        = 0.00075  # m — peduncle cylinder radius
+PEDICEL_LENGTH      = 0.008   # m — lateral pedicels (fruits 1+)
 PEDICEL_RADIUS      = 0.0005  # m
-PEDICEL_SPREAD_DEG  = 35.0    # gradi di apertura dei pedicellini laterali
+PEDICEL_SPREAD_DEG  = 35.0    # degrees of opening of lateral pedicels
 
 RACHIS_SEG   = INTERNODE_TRUSS_LENGTH_M   # 0.012 m — rachis segment length
 PEDICEL_LEN  = PETIOLE_LENGTH_M           # 0.003 m — lateral pedicel length
@@ -35,11 +34,11 @@ ROOT_SPHERE_RADIUS = 0.005  # m — visual marker, placed at z=-ROOT_SPHERE_RADI
 PHYLLOTAXIS    = 137.5   # deg — azimuth of the truss w.r.t. the stem
 
 # --- PHYSICS: Joint chain physics ---
-JOINT_STIFFNESS_BASE: float  = 800.0   # N·m/rad — stelo maturo (rank basso)
-JOINT_STIFFNESS_TIP: float   = 200.0   # N·m/rad — stelo giovane (rank alto)
+JOINT_STIFFNESS_BASE: float  = 800.0   # N·m/rad — mature stem (low rank)
+JOINT_STIFFNESS_TIP: float   = 200.0   # N·m/rad — young stem (high rank)
 JOINT_DAMPING: float         = 50.0    # N·m·s/rad
-JOINT_MAX_ANGLE_DEG: float   = 25.0    # escursione massima (simmetrica)
-STEM_DENSITY_KG_M3: float    = 900.0   # densità approssimata tessuto vegetale
+JOINT_MAX_ANGLE_DEG: float   = 25.0    # Maximum range/fluctuation (symmetric)
+STEM_DENSITY_KG_M3: float    = 900.0   # approximate density of plant tissue
 FRUIT_DENSITY_KG_M3: float   = 1050.0  # tomato density (~water)
 
 # --- PHYSICS TOGGLES ---

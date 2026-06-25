@@ -1,6 +1,5 @@
 # This file contains the data definition of the Tomato Plant
 
-# models.py
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional

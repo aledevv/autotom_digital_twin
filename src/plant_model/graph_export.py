@@ -1,10 +1,13 @@
 import json
 from pathlib import Path
 from plant_model.models import (
-    PlantSnapshot, OrganNode, InternodeNode, RootNode, LeafNode, FruitsNode
+    PlantSnapshot, InternodeNode, LeafNode, FruitsNode
 )
 
 def export_graph_json(snapshot: PlantSnapshot, output_path: str | Path) -> None:
+    """
+    Generates a lightweight JSON representation of the plant graph (for debugging).
+    """
     nodes = []
     for node in snapshot.organs:
         k = node.key
@@ -29,7 +32,7 @@ def export_graph_json(snapshot: PlantSnapshot, output_path: str | Path) -> None:
             "length": node.length,
         }
 
-        # Campi specifici per tipo
+        # Type-specific data
         if isinstance(node, InternodeNode):
             entry["width_m"] = node.width_m
         elif isinstance(node, LeafNode):

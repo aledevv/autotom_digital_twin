@@ -7,7 +7,7 @@ from .constants import (
     PHYLLOTAXIS, JOINT_MAX_ANGLE_DEG, JOINT_DAMPING
 )
 
-# Optional override for lateral leaflet insertion angle.
+# Optional override for lateral leaflet insertion angle (JUST FOR NICER LOOK, NOT FOR PHYSICS OR KINEMATICS)
 # If set to a float (e.g., 50.0), this angle will be used for all lateral leaflets.
 # If set to None, the exact angle from the CSV ('leaf_inclination_segments') will be used.
 OVERRIDE_LEAF_INCLINATION: float | None = 50.0

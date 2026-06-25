@@ -1,34 +1,45 @@
 import pandas as pd
 from pathlib import Path
 from typing import Union
-from .models import OrganKey, OrganNode, InternodeNode, LeafNode, FruitsNode, RootNode, PlantSnapshot
+from .models import OrganKey, InternodeNode, LeafNode, FruitsNode, RootNode, PlantSnapshot
 
 def _parse_float_array(val_str: str) -> list[float]:
+    """
+    Helper function to parse float arrays from CSV strings.
+    Example: "0.1_0.2_0.3" -> [0.1, 0.2, 0.3]
+    """
     s = str(val_str).strip()
     if s in ("0", "0.0", "", "nan", "None"):
         return []
     return [float(x) for x in s.split("_")]
 
 def load_snapshot(csv_path: Union[str, Path], day: int, plant_id: int) -> PlantSnapshot:
+    """
+    Main function to load snapshot from CSV (called by simulator)
+    """
+    # Read csv and clean up headers
     df = pd.read_csv(csv_path, skipinitialspace=True)  # manages spaces between headers
     df.columns = df.columns.str.strip()
+
+    # Filter for specific day and plant (set in main.py)
     df = df[(df["day"] == day) & (df["plant_id"] == plant_id)].copy()
     
     # NOTE: GroIMP's exporter uses IdentityHashMap to prevent true graph-
     # traversal duplicates. We do NOT dedup here because twin branches
     # (different organ_index but identical biomass) are genuine distinct organs.
 
-    # Strip trailing spaces on string colimns (after filtering, on less rows)
+    # Strip trailing spaces on string columns (after filtering, on less rows)
     str_cols = df.select_dtypes(include="object").columns
     df[str_cols] = df[str_cols].apply(lambda col: col.str.strip())
     
-
     if df.empty:
         raise ValueError(f"No data found for day {day} and plant_id {plant_id}")
 
     snapshot = PlantSnapshot(day=day, plant_id=plant_id)
 
+    # Create organ nodes from each row (one row = one organ)
     for _, row in df.iterrows():
+        # Create organ's identity key (immutable, usable as dict key)
         key = OrganKey(
             day=day,
             plant_id=plant_id, 
@@ -77,22 +88,9 @@ def load_snapshot(csv_path: Union[str, Path], day: int, plant_id: int) -> PlantS
             if node.area_blades_total <= 1e-9: # filter primordia
                 continue
         elif organ_class == "Fruits":
-            # Support both old CSV format (fruit_radius_0/1/2) and new
-            # array format (fruit_radii, fruit_age_dd)
-            if "fruit_radii" in row.index:
-                radii = _parse_float_array(row["fruit_radii"])
-                ages  = _parse_float_array(row["fruit_age_dd"])
-            else:
-                radii = [
-                    float(row["fruit_radius_0"]),
-                    float(row["fruit_radius_1"]),
-                    float(row["fruit_radius_2"]),
-                ]
-                ages = [
-                    float(row["fruit_age_dd_0"]),
-                    float(row["fruit_age_dd_1"]),
-                    float(row["fruit_age_dd_2"]),
-                ]
+            radii = _parse_float_array(row["fruit_radii"])
+            ages  = _parse_float_array(row["fruit_age_dd"])
+            
             node = FruitsNode(
                 **base_kwargs,
                 fruit_nr=int(row["fruit_nr"]),
@@ -122,11 +120,15 @@ def load_snapshot(csv_path: Union[str, Path], day: int, plant_id: int) -> PlantS
         
             
 def _link_hierarchy(snapshot: PlantSnapshot) -> None:
+    """
+    Searches for the parent of each organ in the snapshot and adds the
+    necessary child-parent links.
+    """
     for node in snapshot.organs:
         if node.parent_rank == -1:  # root node has no parent
             continue
 
-        for search_order in ([node.key.order] if node.key.order == 0  # if main axis (order=0) look for parent in the main stem
+        for search_order in ([node.key.order] if node.key.order == 0        # if main axis (order=0) look for parent in the main stem
                                               else [node.key.order, 0]):    # else search parent first in the same branch then main stem
             candidates = snapshot.by_position.get(
                 (search_order, node.parent_rank), []

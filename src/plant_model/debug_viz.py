@@ -1,15 +1,14 @@
-# debug_viz.py
 import networkx as nx
 from pyvis.network import Network
 from pathlib import Path
 from .models import PlantSnapshot, InternodeNode, LeafNode, FruitsNode
 
-# Colore per tipo di organo
+# Color for each organ type
 _COLORS = {
-    "Internode": "#4caf50",  # verde
+    "Internode": "#4caf50",  # green
     "Leaf":      "#cddc39",  # lime
-    "Fruits":    "#f44336",  # rosso
-    "Root":      "#795548",  # marrone
+    "Fruits":    "#f44336",  # red
+    "Root":      "#795548",  # brown
 }
 
 def visualize_snapshot(snapshot: PlantSnapshot, output_path: str | Path = "plant_debug.html") -> None:
@@ -29,7 +28,7 @@ def visualize_snapshot(snapshot: PlantSnapshot, output_path: str | Path = "plant
         if node.parent is not None:
             G.add_edge(id(node.parent), id(node))
 
-     # Arco fittizio solo per debug visivo:
+    # Root-to-base_internode dummy edge for visual layout
     roots = [n for n in snapshot.organs if n.key.organ_class == "Root"]
     base_internodes = [
         n for n in snapshot.organs
@@ -48,7 +47,7 @@ def visualize_snapshot(snapshot: PlantSnapshot, output_path: str | Path = "plant
       "physics": { "hierarchicalRepulsion": { "nodeDistance": 120 } }
     }
     """)
-    # FIX: Create parent directory if it doesn't exist
+    # Create parent directory if it doesn't exist
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     net.write_html(str(path))
