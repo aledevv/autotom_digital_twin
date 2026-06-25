@@ -28,7 +28,7 @@ graph LR
 Below is the demo representing the exported USD tomato plant structure and physical dynamics under version 1.5:
 
 <video src="assets/demo_v1_5.mov" width="100%" controls muted autoplay loop>
-  Your browser does not support the video tag. You can view the video file directly at <a href="assets/demo_v1_5.mov">assets/demo_v1_5.mov</a>.
+  Your browser does not support the video tag. You can view the video file directly at <a href="https://github.com/aledevv/autotom_digital_twin/blob/main/assets/demo_v1_5.mov">assets/demo_v1_5.mov</a>.
 </video>
 
 ---
