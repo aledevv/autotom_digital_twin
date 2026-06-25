@@ -1,5 +1,6 @@
 import pandas as pd
 from pathlib import Path
+from typing import Union
 from .models import OrganKey, OrganNode, InternodeNode, LeafNode, FruitsNode, RootNode, PlantSnapshot
 
 def _parse_float_array(val_str: str) -> list[float]:
@@ -8,15 +9,14 @@ def _parse_float_array(val_str: str) -> list[float]:
         return []
     return [float(x) for x in s.split("_")]
 
-def load_snapshot(csv_path: str | Path, day: int, plant_id: int) -> PlantSnapshot:
+def load_snapshot(csv_path: Union[str, Path], day: int, plant_id: int) -> PlantSnapshot:
     df = pd.read_csv(csv_path, skipinitialspace=True)  # manages spaces between headers
     df.columns = df.columns.str.strip()
     df = df[(df["day"] == day) & (df["plant_id"] == plant_id)].copy()
     
-    # GroIMP may export the same organ multiple times if it finds multiple paths in the graph.
-    # We drop these exact duplicates by ignoring 'organ_index' which increments artificially.
-    cols_to_compare = [c for c in df.columns if c not in ("organ_index", "organ_id")]
-    df = df.drop_duplicates(subset=cols_to_compare, keep="first")
+    # NOTE: GroIMP's exporter uses IdentityHashMap to prevent true graph-
+    # traversal duplicates. We do NOT dedup here because twin branches
+    # (different organ_index but identical biomass) are genuine distinct organs.
 
     # Strip trailing spaces on string colimns (after filtering, on less rows)
     str_cols = df.select_dtypes(include="object").columns
@@ -77,19 +77,27 @@ def load_snapshot(csv_path: str | Path, day: int, plant_id: int) -> PlantSnapsho
             if node.area_blades_total <= 1e-9: # filter primordia
                 continue
         elif organ_class == "Fruits":
-            node = FruitsNode(
-                **base_kwargs,
-                fruit_nr=int(row["fruit_nr"]),
-                fruit_radii=[
+            # Support both old CSV format (fruit_radius_0/1/2) and new
+            # array format (fruit_radii, fruit_age_dd)
+            if "fruit_radii" in row.index:
+                radii = _parse_float_array(row["fruit_radii"])
+                ages  = _parse_float_array(row["fruit_age_dd"])
+            else:
+                radii = [
                     float(row["fruit_radius_0"]),
                     float(row["fruit_radius_1"]),
                     float(row["fruit_radius_2"]),
-                ],
-                fruit_age_dd=[
+                ]
+                ages = [
                     float(row["fruit_age_dd_0"]),
                     float(row["fruit_age_dd_1"]),
                     float(row["fruit_age_dd_2"]),
-                ],
+                ]
+            node = FruitsNode(
+                **base_kwargs,
+                fruit_nr=int(row["fruit_nr"]),
+                fruit_radii=radii,
+                fruit_age_dd=ages,
                 ripening_dd=float(row["fruit_ripening_dd"]),
                 truss_angle=float(row["fruit_truss_angle"]),
             )

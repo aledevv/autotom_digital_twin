@@ -623,8 +623,7 @@ static void exportPlantGraph(String fileName) throws Exception {
         "leaf_angle_petiole,leaf_ccw_orientation," +
         "leaf_curvature,leaf_blades_nr,leaf_area_blades_total,leaf_rachis_length," +
         "leaf_segments_length,leaf_area_m2blades,leaf_inclination_segments," +
-        "fruit_nr,fruit_radius_0,fruit_radius_1,fruit_radius_2," +
-        "fruit_age_dd_0,fruit_age_dd_1,fruit_age_dd_2," +
+        "fruit_nr,fruit_radii,fruit_age_dd," +
         "fruit_ripening_dd,fruit_truss_angle"
     );
 
@@ -687,12 +686,8 @@ static void exportPlantGraph(String fileName) throws Exception {
             String leaf_area_m2b     = "0";
             String leaf_inc_seg      = "0";
             String fruit_nr          = "0";
-            String fruit_r0          = "0";
-            String fruit_r1          = "0";
-            String fruit_r2          = "0";
-            String fruit_age0        = "0";
-            String fruit_age1        = "0";
-            String fruit_age2        = "0";
+            String fruit_radii_str   = "0";
+            String fruit_ages_str    = "0";
             String fruit_ripening    = "0";
             String fruit_truss_angle = "0";
 
@@ -717,12 +712,8 @@ static void exportPlantGraph(String fileName) throws Exception {
             } else if (g instanceof organs.Fruits) {
                 organs.Fruits f = (organs.Fruits) g;
                 fruit_nr          = "" + f.fruitNr;
-                fruit_r0          = (f.fruitRadius.length > 0) ? "" + f.fruitRadius[0] : "0";
-                fruit_r1          = (f.fruitRadius.length > 1) ? "" + f.fruitRadius[1] : "0";
-                fruit_r2          = (f.fruitRadius.length > 2) ? "" + f.fruitRadius[2] : "0";
-                fruit_age0        = (f.degreeDaysStorage.length > 0) ? "" + f.degreeDaysStorage[0] : "0";
-                fruit_age1        = (f.degreeDaysStorage.length > 1) ? "" + f.degreeDaysStorage[1] : "0";
-                fruit_age2        = (f.degreeDaysStorage.length > 2) ? "" + f.degreeDaysStorage[2] : "0";
+                fruit_radii_str   = floatArrayToString(f.fruitRadius);
+                fruit_ages_str    = floatArrayToString(f.degreeDaysStorage);
                 fruit_ripening    = "" + f.Ripening_dd;
                 fruit_truss_angle = "" + f.internodeTrussAngle;
             }
@@ -755,12 +746,8 @@ static void exportPlantGraph(String fileName) throws Exception {
                 leaf_area_m2b                + "," +
                 leaf_inc_seg                 + "," +
                 fruit_nr                     + "," +
-                fruit_r0                     + "," +
-                fruit_r1                     + "," +
-                fruit_r2                     + "," +
-                fruit_age0                   + "," +
-                fruit_age1                   + "," +
-                fruit_age2                   + "," +
+                fruit_radii_str              + "," +
+                fruit_ages_str               + "," +
                 fruit_ripening               + "," +
                 fruit_truss_angle
             );
