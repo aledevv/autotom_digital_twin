@@ -15,6 +15,11 @@ PEDICEL_LENGTH      = 0.008   # m — pedicellini laterali (frutti 1+)
 PEDICEL_RADIUS      = 0.0005  # m
 PEDICEL_SPREAD_DEG  = 35.0    # gradi di apertura dei pedicellini laterali
 
+RACHIS_SEG   = INTERNODE_TRUSS_LENGTH_M   # 0.012 m — rachis segment length
+PEDICEL_LEN  = PETIOLE_LENGTH_M           # 0.003 m — lateral pedicel length
+PEDICEL_R    = TRUSS_RADIUS               # 0.00075 m
+INITIAL_TILT = 45.0                        # GroIMP: RL(45) at start
+
 # --- Leaf geometry ---
 BASE_SPACING: float = 1 / 30  # distance between points along leaflet midvein
 
