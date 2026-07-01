@@ -419,25 +419,25 @@ def _apply_rigid_body(stage, prim_path: str, mass_kg: float, kinematic: bool = F
 
 def _make_stem_joint(stage, joint_path: str,
                      body0_path: str, body1_path: str,
-                     pivot_z: float, stiffness: float):
+                     pivot0_z: float, pivot1_z: float,
+                     stiffness: float):
     """
     SphericalJoint between body0 (lower internode) and body1 (upper).
-    The pivot is at body0's tip = body1's base, in world space Z = pivot_z.
+    pivot0_z: local Z in body0 frame (positive = towards tip).
+    pivot1_z: local Z in body1 frame (negative = towards base).
     """
     joint = UsdPhysics.SphericalJoint.Define(stage, joint_path)
 
     joint.GetBody0Rel().SetTargets([Sdf.Path(body0_path)])
     joint.GetBody1Rel().SetTargets([Sdf.Path(body1_path)])
 
-    # Pivot in body0's local space: tip = (0, 0, +height/2) already centered
-    joint.GetLocalPos0Attr().Set(Gf.Vec3f(0.0, 0.0, pivot_z))
-    joint.GetLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+    # Pivot at body0's tip and body1's base (both in their own local frames)
+    joint.GetLocalPos0Attr().Set(Gf.Vec3f(0.0, 0.0, pivot0_z))
+    joint.GetLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, pivot1_z))
 
-    # symmetrical angular limits
-    cone_api = UsdPhysics.SphericalJoint(joint)
-    lim = math.radians(JOINT_MAX_ANGLE_DEG)
-    joint.GetConeAngle0LimitAttr().Set(math.degrees(lim))
-    joint.GetConeAngle1LimitAttr().Set(math.degrees(lim))
+    # Symmetrical angular limits
+    joint.GetConeAngle0LimitAttr().Set(JOINT_MAX_ANGLE_DEG)
+    joint.GetConeAngle1LimitAttr().Set(JOINT_MAX_ANGLE_DEG)
 
     # Drive (spring + damper) on both axes
     for axis in ("rotX", "rotY"):
@@ -447,4 +447,61 @@ def _make_stem_joint(stage, joint_path: str,
         drive.GetDampingAttr().Set(JOINT_DAMPING)
         drive.GetTargetPositionAttr().Set(0.0)  # it "wants" to stay straight
 
+    # ── Collision filter: prevent body0 ↔ body1 from colliding ──
+    prim0 = stage.GetPrimAtPath(body0_path)
+    prim1 = stage.GetPrimAtPath(body1_path)
+    filt0 = UsdPhysics.FilteredPairsAPI.Apply(prim0) if prim0 else None
+    if filt0:
+        rel = filt0.GetFilteredPairsRel()
+        targets = list(rel.GetTargets())
+        targets.append(Sdf.Path(body1_path))
+        rel.SetTargets(targets)
+
+
+# ----------------------------
+# PHYSICS: Leaf helpers
+# ----------------------------
+def _apply_rigid_body_to_leaf(stage, leaf_path: str, mass_kg: float):
+    """Applies RigidBodyAPI to the entire leaf group and CollisionAPI to child geometries."""
+    leaf_prim = stage.GetPrimAtPath(leaf_path)
+    UsdPhysics.RigidBodyAPI.Apply(leaf_prim)
+    mass_api = UsdPhysics.MassAPI.Apply(leaf_prim)
+    mass_api.GetMassAttr().Set(mass_kg)
+    
+    # Apply CollisionAPI to descendant geometries
+    for child in leaf_prim.GetChildren():
+        if child.IsA(UsdGeom.Cylinder):
+            UsdPhysics.CollisionAPI.Apply(child)
+        elif child.IsA(UsdGeom.Mesh):
+            UsdPhysics.CollisionAPI.Apply(child)
+            UsdPhysics.MeshCollisionAPI.Apply(child).GetApproximationAttr().Set("convexHull")
+
+def _make_leaf_joint(stage, joint_path: str,
+                     body0_path: str, body1_path: str,
+                     pivot0_z: float, pivot1_world: Gf.Vec3f,
+                     stiffness: float, damping: float):
+    """
+    SphericalJoint connecting a leaf group (body1) to an internode (body0).
+    pivot1_world is the local position for body1 because body1 (leaf group) has identity transform.
+    """
+    joint = UsdPhysics.SphericalJoint.Define(stage, joint_path)
+
+    joint.GetBody0Rel().SetTargets([Sdf.Path(body0_path)])
+    joint.GetBody1Rel().SetTargets([Sdf.Path(body1_path)])
+
+    joint.GetLocalPos0Attr().Set(Gf.Vec3f(0.0, 0.0, pivot0_z))
+    joint.GetLocalPos1Attr().Set(pivot1_world)
+
+    cone_api = UsdPhysics.SphericalJoint(joint)
+    lim = math.radians(45.0)  # Leaves can oscillate up to 45 degrees
+    joint.GetConeAngle0LimitAttr().Set(math.degrees(lim))
+    joint.GetConeAngle1LimitAttr().Set(math.degrees(lim))
+
+    # Spring/damper to return to 0
+    for axis in ("rotX", "rotY", "rotZ"):
+        drive = UsdPhysics.DriveAPI.Apply(joint.GetPrim(), axis)
+        drive.GetTypeAttr().Set("force")
+        drive.GetStiffnessAttr().Set(stiffness)
+        drive.GetDampingAttr().Set(damping)
+        drive.GetTargetPositionAttr().Set(0.0)
 

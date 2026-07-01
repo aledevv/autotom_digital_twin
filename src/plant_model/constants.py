@@ -45,3 +45,9 @@ FRUIT_DENSITY_KG_M3: float   = 1050.0  # tomato density (~water)
 # Comment out any of these lines to disable that physics layer.
 ENABLE_STEM_PHYSICS: bool    = True   # RigidBody + Collider + Joints on internodes
 ENABLE_FRUIT_PHYSICS: bool   = True   # Collider on fruit spheres (for robot sensing)
+ENABLE_LEAF_PHYSICS: bool    = True   # RigidBody + SphericalJoint on leaves (to make them oscillate)
+
+# --- PHYSICS: Leaf springs ---
+LEAF_MASS_KG: float          = 0.05   # kg
+LEAF_JOINT_STIFFNESS: float  = 5.0    # N·m/rad
+LEAF_JOINT_DAMPING: float    = 0.5    # N·m·s/rad

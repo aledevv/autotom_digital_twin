@@ -17,6 +17,7 @@ from .constants import (
     JOINT_DAMPING, JOINT_MAX_ANGLE_DEG, STEM_DENSITY_KG_M3,
     RACHIS_SEG, PEDICEL_LEN, PEDICEL_R, INITIAL_TILT,
     ENABLE_STEM_PHYSICS, ENABLE_FRUIT_PHYSICS, FRUIT_DENSITY_KG_M3,
+    ENABLE_LEAF_PHYSICS, LEAF_MASS_KG, LEAF_JOINT_STIFFNESS, LEAF_JOINT_DAMPING
 )
 
 from .usd_helpers import (
@@ -25,7 +26,8 @@ from .usd_helpers import (
     _make_cylinder, _make_sphere, _set_leaf_mesh_geometry, _make_leaf,
     _align_z_to, _blade_transform,
     _make_material, _bind_material,
-    _apply_rigid_body, _make_stem_joint
+    _apply_rigid_body, _make_stem_joint,
+    _apply_rigid_body_to_leaf, _make_leaf_joint
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -40,7 +42,8 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)  # set meters as length unit
 
     plant_path = f"/World/Plant_{snapshot.plant_id}"
-    UsdGeom.Xform.Define(stage, plant_path)
+    plant_prim = UsdGeom.Xform.Define(stage, plant_path).GetPrim()
+    UsdPhysics.ArticulationRootAPI.Apply(plant_prim)
 
     stem_path  = f"{plant_path}/Stem"
     roots_path = f"{plant_path}/Roots"
@@ -160,7 +163,8 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
                     joint_path=f"{joints_path}/Joint_o{node.key.order}_r{node.key.rank}",
                     body0_path=prev_path,
                     body1_path=path,
-                    pivot_z=node.parent.length / 2.0,
+                    pivot0_z=node.parent.length / 2.0,
+                    pivot1_z=-node.length / 2.0,
                     stiffness=stiffness,
                 )
         
@@ -185,6 +189,26 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
         print(f"\n[LEAF order={node.key.order} rank={node.key.rank} idx={node.key.organ_index}] "
                 f"attaches at z={tip_z:.4f}m")
         _make_leaf(stage, leaf_group, node, tip_z, materials)
+        
+        if ENABLE_LEAF_PHYSICS:
+            _apply_rigid_body_to_leaf(stage, leaf_group, LEAF_MASS_KG)
+            
+            # Disable collisions between leaf and parent internode to prevent explosion
+            if node.parent and isinstance(node.parent, InternodeNode):
+                parent_path = f"{stem_path}/Internode_o{node.parent.key.order}_r{node.parent.key.rank}"
+                filtered_pairs = UsdPhysics.FilteredPairsAPI.Apply(stage.GetPrimAtPath(leaf_group))
+                filtered_pairs.GetFilteredPairsRel().AddTarget(Sdf.Path(parent_path))
+
+                _make_leaf_joint(
+                    stage,
+                    joint_path=f"{plant_path}/Joints/Joint_Leaf_{leaf_id}",
+                    body0_path=parent_path,
+                    body1_path=leaf_group,
+                    pivot0_z=node.parent.length / 2.0,
+                    pivot1_world=Gf.Vec3f(0.0, 0.0, tip_z),
+                    stiffness=LEAF_JOINT_STIFFNESS,
+                    damping=LEAF_JOINT_DAMPING
+                )
         
         
     # ── Fruits ───────────────────────────────────────────────────────────────────
