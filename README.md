@@ -81,6 +81,7 @@ python src/plant_model/main.py
 | **Physics** | Internode (Stem) rigid body colliders | ✅ | Bounding volume and custom density mass estimation. |
 | **Physics** | Stem Revolute Joints | ✅ | Flexible joint chains with height-interpolated stiffness & damping. |
 | **Debug** | Interactive HTML topology visualizer | ✅ | Explores nodes, orders, and ranks using Pyvis. |
+| **Others** | Random init and growth mutations | ✅ | Seed based random initial conditions + mutation for the shoot. |
 | **Visuals** | Improve visual appearance of leaves and stems | ❌ | Use some model like NeRF to reconstruct the plant shape/meshes from images. |
 | **Physics** | Leaf physics / rigid body colliders | ❌ | Bending and collision models are not supported yet. |
 | **Physics** | Fruits massAPI and complex physics | ❌ | Only static/kinematic colliders; complex dynamic weight/mass physics is missing. |
