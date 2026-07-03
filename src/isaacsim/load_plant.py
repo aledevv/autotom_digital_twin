@@ -31,6 +31,7 @@ my_world = World(stage_units_in_meters=1.0)
 # Add a default ground plane at z = 0
 GroundPlane(prim_path="/World/GroundPlane", z_position=0)
 
+# Setting DEFAULT LIGHTING for the scene
 action_registry = omni.kit.actions.core.get_action_registry()
 
 # Available modes include: set_lighting_mode_stage, set_lighting_mode_camera, set_lighting_mode_default (rig)
