@@ -1,0 +1,1175 @@
+#usda 1.0
+(
+    defaultPrim = "Plant_1"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "Plant_1" (
+    prepend apiSchemas = ["PhysicsArticulationRootAPI"]
+)
+{
+    def Xform "Stem"
+    {
+        def Cylinder "Internode_o0_r0" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            uniform token axis = "Z"
+            double height = 0.009271495
+            rel material:binding = </Plant_1/Materials/Stem>
+            double radius = 0.00322005907192895
+            matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0.0046357475, 1) )
+            uniform token[] xformOpOrder = ["xformOp:transform"]
+        }
+
+        def Cylinder "Internode_o0_r1" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            uniform token axis = "Z"
+            double height = 0.009769856
+            rel material:binding = </Plant_1/Materials/Stem>
+            double radius = 0.0033000052923986
+            matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0.014156423, 1) )
+            uniform token[] xformOpOrder = ["xformOp:transform"]
+        }
+
+        def Cylinder "Internode_o0_r2" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            uniform token axis = "Z"
+            double height = 0.011511718
+            rel material:binding = </Plant_1/Materials/Stem>
+            double radius = 0.00356360463584215
+            matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0.02479721, 1) )
+            uniform token[] xformOpOrder = ["xformOp:transform"]
+        }
+
+        def Cylinder "Internode_o0_r3" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            uniform token axis = "Z"
+            double height = 0.0098814955
+            rel material:binding = </Plant_1/Materials/Stem>
+            double radius = 0.00331761511836205
+            matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0.03549381675, 1) )
+            uniform token[] xformOpOrder = ["xformOp:transform"]
+        }
+
+        def Cylinder "Internode_o0_r4" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            uniform token axis = "Z"
+            double height = 0.0067922366
+            rel material:binding = </Plant_1/Materials/Stem>
+            double radius = 0.002783330859639
+            matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0.0438306828, 1) )
+            uniform token[] xformOpOrder = ["xformOp:transform"]
+        }
+    }
+
+    def Xform "Roots"
+    {
+        def Sphere "Root"
+        {
+            rel material:binding = </Plant_1/Materials/Root>
+            double radius = 0.005
+            matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, -0.005, 1) )
+            uniform token[] xformOpOrder = ["xformOp:transform"]
+        }
+    }
+
+    def Xform "Materials"
+    {
+        def Material "Stem"
+        {
+            token outputs:surface.connect = </Plant_1/Materials/Stem/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.45, 0.3, 0.1)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+        }
+
+        def Material "Root"
+        {
+            token outputs:surface.connect = </Plant_1/Materials/Root/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.55, 0.35, 0.15)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+        }
+
+        def Material "Leaf"
+        {
+            token outputs:surface.connect = </Plant_1/Materials/Leaf/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.15, 0.55, 0.1)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+        }
+
+        def Material "Pedicel"
+        {
+            token outputs:surface.connect = </Plant_1/Materials/Pedicel/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.2, 0.5, 0.1)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+        }
+
+        def Material "FruitRipe"
+        {
+            token outputs:surface.connect = </Plant_1/Materials/FruitRipe/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.9, 0.17, 0.1)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+        }
+
+        def Material "FruitUnripe"
+        {
+            token outputs:surface.connect = </Plant_1/Materials/FruitUnripe/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.45, 0.58, 0.25)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+        }
+    }
+
+    def Xform "Leaves"
+    {
+        def Xform "Leaf_o0_r4_i0" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            prepend rel physics:filteredPairs = </Plant_1/Stem/Internode_o0_r4>
+            float physics:mass = 0.05
+
+            def Cylinder "Petiole" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.013725327
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0013418646
+                matrix4d xformOp:transform = ( (0.17364817766693047, -0.984807753012208, 0, 0), (0.33682408883346515, 0.05939117461388475, 0.9396926207859084, 0), (-0.9254165783983234, -0.16317591116653496, 0.3420201433256687, 0), (-0.006350822574869063, -0.001119821369641822, 0.04957397025386583, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Rachis" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.038219683
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.00080511876
+                matrix4d xformOp:transform = ( (0.17364817766693047, -0.984807753012208, 0, 0), (0.33682408883346515, 0.05939117461388475, 0.9396926207859084, 0), (-0.9254165783983234, -0.16317591116653496, 0.3420201433256687, 0), (-0.03038620928440241, -0.005357908538294207, 0.05845709013649249, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_0" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0005367458399999999
+                matrix4d xformOp:transform = ( (0.8808442376695917, -0.4734061986965059, 0, 0), (0.10407660610058059, 0.19365035568255418, 0.9755345200486781, 0), (-0.4618240888334651, -0.8592939606326491, 0.2198463103929542, 0), (-0.015010765593905451, -0.00653611254244689, 0.053020370959696445, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_0" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.00043521408, 0.00041205404, 0), (0.0007692068, 0.0008241081, 0), (0.00095933455, 0.0012361621, 0), (0.0009889298, 0.0016482162, 0), (0.00086796936, 0.0020602702, 0), (0.000629351, 0.0024723243, 0), (0.00032167998, 0.0028843784, 0), (0, 0.0032964323, 0), (-0.00032167998, 0.0028843784, 0), (-0.000629351, 0.0024723243, 0), (-0.00086796936, 0.0020602702, 0), (-0.0009889298, 0.0016482162, 0), (-0.00095933455, 0.0012361621, 0), (-0.0007692068, 0.0008241081, 0), (-0.00043521408, 0.00041205404, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (-0.8808442376695917, 0.4734061986965059, 0, 0), (-0.4618240888334651, -0.8592939606326491, 0.2198463103929542, 0), (0.10407660610058059, 0.19365035568255418, 0.9755345200486781, 0), (-0.017319886038072777, -0.010832582345610135, 0.054119602511661216, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_1" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0005367458399999999
+                matrix4d xformOp:transform = ( (-0.665808374270465, -0.7461227839647576, 0, 0), (0.1640323411547712, -0.14637551451209285, 0.9755345200486782, 0), (-0.7278685319524434, 0.6495190528383288, 0.2198463103929542, 0), (-0.016340987809500343, 0.0010079525249080002, 0.053020370959696445, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_1" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.00043521408, 0.00041205404, 0), (0.0007692068, 0.0008241081, 0), (0.00095933455, 0.0012361621, 0), (0.0009889298, 0.0016482162, 0), (0.00086796936, 0.0020602702, 0), (0.000629351, 0.0024723243, 0), (0.00032167998, 0.0028843784, 0), (0, 0.0032964323, 0), (-0.00032167998, 0.0028843784, 0), (-0.000629351, 0.0024723243, 0), (-0.00086796936, 0.0020602702, 0), (-0.0009889298, 0.0016482162, 0), (-0.00095933455, 0.0012361621, 0), (-0.0007692068, 0.0008241081, 0), (-0.00043521408, 0.00041205404, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (0.665808374270465, 0.7461227839647576, -0, 0), (-0.7278685319524434, 0.6495190528383288, 0.2198463103929542, 0), (0.1640323411547712, -0.14637551451209285, 0.9755345200486782, 0), (-0.01998033046926256, 0.004255547789099644, 0.054119602511661216, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_2" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0005367458399999999
+                matrix4d xformOp:transform = ( (0.8808442376695917, -0.4734061986965059, 0, 0), (0.10407660610058059, 0.19365035568255418, 0.9755345200486781, 0), (-0.4618240888334651, -0.8592939606326491, 0.2198463103929542, 0), (-0.024678517629689888, -0.008240798069154877, 0.0565934276933881, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_2" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.00043521408, 0.00041205404, 0), (0.0007692068, 0.0008241081, 0), (0.00095933455, 0.0012361621, 0), (0.0009889298, 0.0016482162, 0), (0.00086796936, 0.0020602702, 0), (0.000629351, 0.0024723243, 0), (0.00032167998, 0.0028843784, 0), (0, 0.0032964323, 0), (-0.00032167998, 0.0028843784, 0), (-0.000629351, 0.0024723243, 0), (-0.00086796936, 0.0020602702, 0), (-0.0009889298, 0.0016482162, 0), (-0.00095933455, 0.0012361621, 0), (-0.0007692068, 0.0008241081, 0), (-0.00043521408, 0.00041205404, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (-0.8808442376695917, 0.4734061986965059, 0, 0), (-0.4618240888334651, -0.8592939606326491, 0.2198463103929542, 0), (0.10407660610058059, 0.19365035568255418, 0.9755345200486781, 0), (-0.026987638073857213, -0.012537267872318122, 0.05769265924535287, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_3" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0005367458399999999
+                matrix4d xformOp:transform = ( (-0.665808374270465, -0.7461227839647576, 0, 0), (0.1640323411547712, -0.14637551451209285, 0.9755345200486782, 0), (-0.7278685319524434, 0.6495190528383288, 0.2198463103929542, 0), (-0.02600873984528478, -0.0006967330017999861, 0.0565934276933881, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_3" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.00043521408, 0.00041205404, 0), (0.0007692068, 0.0008241081, 0), (0.00095933455, 0.0012361621, 0), (0.0009889298, 0.0016482162, 0), (0.00086796936, 0.0020602702, 0), (0.000629351, 0.0024723243, 0), (0.00032167998, 0.0028843784, 0), (0, 0.0032964323, 0), (-0.00032167998, 0.0028843784, 0), (-0.000629351, 0.0024723243, 0), (-0.00086796936, 0.0020602702, 0), (-0.0009889298, 0.0016482162, 0), (-0.00095933455, 0.0012361621, 0), (-0.0007692068, 0.0008241081, 0), (-0.00043521408, 0.00041205404, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (0.665808374270465, 0.7461227839647576, -0, 0), (-0.7278685319524434, 0.6495190528383288, 0.2198463103929542, 0), (0.1640323411547712, -0.14637551451209285, 0.9755345200486782, 0), (-0.029648082505046996, 0.002550862262391658, 0.05769265924535287, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_4" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0005367458399999999
+                matrix4d xformOp:transform = ( (0.8808442376695917, -0.4734061986965059, 0, 0), (0.10407660610058059, 0.19365035568255418, 0.9755345200486781, 0), (-0.4618240888334651, -0.8592939606326491, 0.2198463103929542, 0), (-0.03434626966547432, -0.009945483595862862, 0.060166484427079746, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_4" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.00043521408, 0.00041205404, 0), (0.0007692068, 0.0008241081, 0), (0.00095933455, 0.0012361621, 0), (0.0009889298, 0.0016482162, 0), (0.00086796936, 0.0020602702, 0), (0.000629351, 0.0024723243, 0), (0.00032167998, 0.0028843784, 0), (0, 0.0032964323, 0), (-0.00032167998, 0.0028843784, 0), (-0.000629351, 0.0024723243, 0), (-0.00086796936, 0.0020602702, 0), (-0.0009889298, 0.0016482162, 0), (-0.00095933455, 0.0012361621, 0), (-0.0007692068, 0.0008241081, 0), (-0.00043521408, 0.00041205404, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (-0.8808442376695917, 0.4734061986965059, 0, 0), (-0.4618240888334651, -0.8592939606326491, 0.2198463103929542, 0), (0.10407660610058059, 0.19365035568255418, 0.9755345200486781, 0), (-0.036655390109641646, -0.014241953399026109, 0.06126571597904452, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_5" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0005367458399999999
+                matrix4d xformOp:transform = ( (-0.665808374270465, -0.7461227839647576, 0, 0), (0.1640323411547712, -0.14637551451209285, 0.9755345200486782, 0), (-0.7278685319524434, 0.6495190528383288, 0.2198463103929542, 0), (-0.03567649188106921, -0.0024014185285079724, 0.060166484427079746, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_5" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.00043521408, 0.00041205404, 0), (0.0007692068, 0.0008241081, 0), (0.00095933455, 0.0012361621, 0), (0.0009889298, 0.0016482162, 0), (0.00086796936, 0.0020602702, 0), (0.000629351, 0.0024723243, 0), (0.00032167998, 0.0028843784, 0), (0, 0.0032964323, 0), (-0.00032167998, 0.0028843784, 0), (-0.000629351, 0.0024723243, 0), (-0.00086796936, 0.0020602702, 0), (-0.0009889298, 0.0016482162, 0), (-0.00095933455, 0.0012361621, 0), (-0.0007692068, 0.0008241081, 0), (-0.00043521408, 0.00041205404, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (0.665808374270465, 0.7461227839647576, -0, 0), (-0.7278685319524434, 0.6495190528383288, 0.2198463103929542, 0), (0.1640323411547712, -0.14637551451209285, 0.9755345200486782, 0), (-0.03931583454083143, 0.0008461767356836717, 0.06126571597904452, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_term" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0005367458399999999
+                matrix4d xformOp:transform = ( (0.17364817766693047, -0.984807753012208, 0, 0), (0.33682408883346515, 0.05939117461388475, 0.9396926207859084, 0), (-0.9254165783983234, -0.16317591116653496, 0.3420201433256687, 0), (-0.05269785631105831, -0.009292053893137446, 0.06670314158188165, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_6" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.00043529025, 0.00041212616, 0), (0.0007693414, 0.0008242523, 0), (0.0009595024, 0.0012363786, 0), (0.0009891028, 0.0016485046, 0), (0.0008681213, 0.0020606308, 0), (0.0006294612, 0.0024727571, 0), (0.00032173627, 0.0028848832, 0), (0, 0.0032970093, 0), (-0.00032173627, 0.0028848832, 0), (-0.0006294612, 0.0024727571, 0), (-0.0008681213, 0.0020606308, 0), (-0.0009891028, 0.0016485046, 0), (-0.0009595024, 0.0012363786, 0), (-0.0007693414, 0.0008242523, 0), (-0.00043529025, 0.00041212616, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (-0.17364817766693047, 0.984807753012208, 0, 0), (-0.9254165783983234, -0.16317591116653496, 0.3420201433256687, 0), (0.33682408883346515, 0.05939117461388475, 0.9396926207859084, 0), (-0.05732493920304993, -0.010107933448970121, 0.06841324229851, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+        }
+
+        def Xform "Leaf_o0_r3_i0" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            prepend rel physics:filteredPairs = </Plant_1/Stem/Internode_o0_r3>
+            float physics:mass = 0.05
+
+            def Cylinder "Petiole" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.019905996
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.001808956
+                matrix4d xformOp:transform = ( (-0.7933533402912352, 0.6087614290087207, 0, 0), (-0.20820867120070155, -0.2713428231543063, 0.9396926207859084, 0), (0.5720486226585795, 0.7455082795475254, 0.3420201433256687, 0), (0.0056935987972235955, 0.007420042415319961, 0.043838690302480096, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Rachis" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.041813165
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0010853736
+                matrix4d xformOp:transform = ( (-0.7933533402912352, 0.6087614290087207, 0, 0), (-0.20820867120070155, -0.2713428231543063, 0.9396926207859084, 0), (0.5720486226585795, 0.7455082795475254, 0.3420201433256687, 0), (0.02334677931807015, 0.030426115181433323, 0.0543932884480601, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_0" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0007235824000000001
+                matrix4d xformOp:transform = ( (-0.9692550857574936, -0.24605807999989301, 0, 0), (0.05409496103035083, -0.21308715443339138, 0.9755345200486782, 0), (-0.24003815097679487, 0.9455417948891769, 0.2198463103929542, 0), (0.010187006839563216, 0.019567793805085807, 0.04834204765692496, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_0" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0014881176, 0.0014089271, 0), (0.0026301316, 0.0028178543, 0), (0.003280231, 0.0042267814, 0), (0.003381425, 0.0056357086, 0), (0.002967828, 0.0070446357, 0), (0.0021519258, 0.008453563, 0), (0.001099913, 0.00986249, 0), (0, 0.011271417, 0), (-0.001099913, 0.00986249, 0), (-0.0021519258, 0.008453563, 0), (-0.002967828, 0.0070446357, 0), (-0.003381425, 0.0056357086, 0), (-0.003280231, 0.0042267814, 0), (-0.0026301316, 0.0028178543, 0), (-0.0014881176, 0.0014089271, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (0.9692550857574936, 0.24605807999989301, -0, 0), (-0.24003815097679487, 0.9455417948891769, 0.2198463103929542, 0), (0.05409496103035083, -0.21308715443339138, 0.9755345200486782, 0), (0.008986816084679243, 0.024295502779531693, 0.04944127920888973, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_1" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0007235824000000001
+                matrix4d xformOp:transform = ( (-0.013187821517518024, 0.9999130369005207, 0, 0), (-0.21982719187639332, -0.0028992939027471477, 0.9755345200486782, 0), (0.9754496845431657, 0.012865175134579576, 0.2198463103929542, 0), (0.01626444601716302, 0.014904410706312819, 0.04834204765692496, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_1" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0014881176, 0.0014089271, 0), (0.0026301316, 0.0028178543, 0), (0.003280231, 0.0042267814, 0), (0.003381425, 0.0056357086, 0), (0.002967828, 0.0070446357, 0), (0.0021519258, 0.008453563, 0), (0.001099913, 0.00986249, 0), (0, 0.011271417, 0), (-0.001099913, 0.00986249, 0), (-0.0021519258, 0.008453563, 0), (-0.002967828, 0.0070446357, 0), (-0.003381425, 0.0056357086, 0), (-0.003280231, 0.0042267814, 0), (-0.0026301316, 0.0028178543, 0), (-0.0014881176, 0.0014089271, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (0.013187821517518024, -0.9999130369005207, 0, 0), (0.9754496845431657, 0.012865175134579576, 0.2198463103929542, 0), (-0.21982719187639332, -0.0028992939027471477, 0.9755345200486782, 0), (0.021141694439878848, 0.014968736581985716, 0.04944127920888973, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_2" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0007235824000000001
+                matrix4d xformOp:transform = ( (-0.9692550857574936, -0.24605807999989301, 0, 0), (0.05409496103035083, -0.21308715443339138, 0.9755345200486782, 0), (-0.24003815097679487, 0.9455417948891769, 0.2198463103929542, 0), (0.023941367948808256, 0.03749282618987425, 0.05656559434789336, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_2" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0014881176, 0.0014089271, 0), (0.0026301316, 0.0028178543, 0), (0.003280231, 0.0042267814, 0), (0.003381425, 0.0056357086, 0), (0.002967828, 0.0070446357, 0), (0.0021519258, 0.008453563, 0), (0.001099913, 0.00986249, 0), (0, 0.011271417, 0), (-0.001099913, 0.00986249, 0), (-0.0021519258, 0.008453563, 0), (-0.002967828, 0.0070446357, 0), (-0.003381425, 0.0056357086, 0), (-0.003280231, 0.0042267814, 0), (-0.0026301316, 0.0028178543, 0), (-0.0014881176, 0.0014089271, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (0.9692550857574936, 0.24605807999989301, -0, 0), (-0.24003815097679487, 0.9455417948891769, 0.2198463103929542, 0), (0.05409496103035083, -0.21308715443339138, 0.9755345200486782, 0), (0.02274117719392428, 0.04222053516432014, 0.05766482589985813, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_3" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0007235824000000001
+                matrix4d xformOp:transform = ( (-0.013187821517518024, 0.9999130369005207, 0, 0), (-0.21982719187639332, -0.0028992939027471477, 0.9755345200486782, 0), (0.9754496845431657, 0.012865175134579576, 0.2198463103929542, 0), (0.03001880712640806, 0.032829443091101265, 0.05656559434789336, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_3" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0014881176, 0.0014089271, 0), (0.0026301316, 0.0028178543, 0), (0.003280231, 0.0042267814, 0), (0.003381425, 0.0056357086, 0), (0.002967828, 0.0070446357, 0), (0.0021519258, 0.008453563, 0), (0.001099913, 0.00986249, 0), (0, 0.011271417, 0), (-0.001099913, 0.00986249, 0), (-0.0021519258, 0.008453563, 0), (-0.002967828, 0.0070446357, 0), (-0.003381425, 0.0056357086, 0), (-0.003280231, 0.0042267814, 0), (-0.0026301316, 0.0028178543, 0), (-0.0014881176, 0.0014089271, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (0.013187821517518024, -0.9999130369005207, 0, 0), (0.9754496845431657, 0.012865175134579576, 0.2198463103929542, 0), (-0.21982719187639332, -0.0028992939027471477, 0.9755345200486782, 0), (0.03489605554912389, 0.032893768966774165, 0.05766482589985813, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_term" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0007235824000000001
+                matrix4d xformOp:transform = ( (-0.7933533402912352, 0.6087614290087207, 0, 0), (-0.20820867120070155, -0.2713428231543063, 0.9396926207859084, 0), (0.5720486226585795, 0.7455082795475254, 0.3420201433256687, 0), (0.03816660415498601, 0.049739686929964354, 0.06325386150778836, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_4" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0014881176, 0.0014089271, 0), (0.0026301316, 0.0028178543, 0), (0.003280231, 0.0042267814, 0), (0.003381425, 0.0056357086, 0), (0.002967828, 0.0070446357, 0), (0.0021519258, 0.008453563, 0), (0.001099913, 0.00986249, 0), (0, 0.011271417, 0), (-0.001099913, 0.00986249, 0), (-0.0021519258, 0.008453563, 0), (-0.002967828, 0.0070446357, 0), (-0.003381425, 0.0056357086, 0), (-0.003280231, 0.0042267814, 0), (-0.0026301316, 0.0028178543, 0), (-0.0014881176, 0.0014089271, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (0.7933533402912352, -0.6087614290087207, 0, 0), (0.5720486226585795, 0.7455082795475254, 0.3420201433256687, 0), (-0.20820867120070155, -0.2713428231543063, 0.9396926207859084, 0), (0.04102684726827891, 0.05346722832770198, 0.06496396222441671, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+        }
+
+        def Xform "Leaf_o0_r0_i0" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            prepend rel physics:filteredPairs = </Plant_1/Stem/Internode_o0_r0>
+            float physics:mass = 0.05
+
+            def Cylinder "Petiole" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0140959285
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0013708973
+                matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0, 0, 1, 0), (-1, 1.2246467991473532e-16, 0, 0), (-0.00704796425, 8.631266859267476e-19, 0.009271495, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Rachis" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0001
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0008225383799999999
+                matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0, 0, 1, 0), (-1, 1.2246467991473532e-16, 0, 0), (-0.0141459285, 1.732376605849232e-18, 0.009271495, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_term" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.00054835892
+                matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0, 0, 1, 0), (-1, 1.2246467991473532e-16, 0, 0), (-0.0191959285, 2.3508232394186455e-18, 0.009271495, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_0" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.001977589, 0.0018723512, 0), (0.0034952338, 0.0037447023, 0), (0.004359164, 0.0056170537, 0), (0.004493643, 0.0074894046, 0), (0.0039440054, 0.009361756, 0), (0.0028597368, 0.011234107, 0), (0.0014616962, 0.013106458, 0), (0, 0.014978809, 0), (-0.0014616962, 0.013106458, 0), (-0.0028597368, 0.011234107, 0), (-0.0039440054, 0.009361756, 0), (-0.004493643, 0.0074894046, 0), (-0.004359164, 0.0056170537, 0), (-0.0034952338, 0.0037447023, 0), (-0.001977589, 0.0018723512, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (1.2246467991473532e-16, 1, -0, 0), (-1, 1.2246467991473532e-16, 0, 0), (0, 0, 1, 0), (-0.024195928499999998, 2.963146638992322e-18, 0.009271495, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+        }
+
+        def Xform "Leaf_o0_r0_i1" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+
+            def Cylinder "Petiole" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0140959285
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0013708973
+                matrix4d xformOp:transform = ( (0, 1, 0, 0), (0, 0, 1, 0), (1, 0, 0, 0), (0.00704796425, 0, 0, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Rachis" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0001
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0008225383799999999
+                matrix4d xformOp:transform = ( (0, 1, 0, 0), (0, 0, 1, 0), (1, 0, 0, 0), (0.0141459285, 0, 0, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_term" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.00054835892
+                matrix4d xformOp:transform = ( (0, 1, 0, 0), (0, 0, 1, 0), (1, 0, 0, 0), (0.0191959285, 0, 0, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_0" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.001977589, 0.0018723512, 0), (0.0034952338, 0.0037447023, 0), (0.004359164, 0.0056170537, 0), (0.004493643, 0.0074894046, 0), (0.0039440054, 0.009361756, 0), (0.0028597368, 0.011234107, 0), (0.0014616962, 0.013106458, 0), (0, 0.014978809, 0), (-0.0014616962, 0.013106458, 0), (-0.0028597368, 0.011234107, 0), (-0.0039440054, 0.009361756, 0), (-0.004493643, 0.0074894046, 0), (-0.004359164, 0.0056170537, 0), (-0.0034952338, 0.0037447023, 0), (-0.001977589, 0.0018723512, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (0, -1, 0, 0), (1, 0, 0, 0), (-0, 0, 1, 0), (0.024195928499999998, 0, 0, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+        }
+
+        def Xform "Leaf_o0_r1_i0" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            prepend rel physics:filteredPairs = </Plant_1/Stem/Internode_o0_r1>
+            float physics:mass = 0.05
+
+            def Cylinder "Petiole" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.026274048
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0022608585
+                matrix4d xformOp:transform = ( (-1, 6.123233995736766e-17, 0, 0), (0, -0, 1, 0), (6.123233995736766e-17, 1, 0, 0), (8.0441071959609795e-19, 0.013137024, 0.019041350999999998, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Rachis" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.031582154
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0013565150999999998
+                matrix4d xformOp:transform = ( (-1, 6.123233995736766e-17, 0, 0), (0, -0, 1, 0), (6.123233995736766e-17, 1, 0, 0), (2.5757460343491655e-18, 0.042065125, 0.019041350999999998, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_0" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0009043434
+                matrix4d xformOp:transform = ( (-0.6427876096865394, -0.766044443118978, 0, 0), (0, 0, 1, 0), (-0.766044443118978, 0.6427876096865394, 0, 0), (-0.0038302222155948886, 0.0294879860484327, 0.019041350999999998, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_0" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0038475676, 0.0036428182, 0), (0.0068002744, 0.0072856364, 0), (0.0084811235, 0.010928455, 0), (0.008742764, 0.014571273, 0), (0.0076733977, 0.018214092, 0), (0.0055638608, 0.02185691, 0), (0.0028438543, 0.025499728, 0), (0, 0.029142546, 0), (-0.0028438543, 0.025499728, 0), (-0.0055638608, 0.02185691, 0), (-0.0076733977, 0.018214092, 0), (-0.008742764, 0.014571273, 0), (-0.0084811235, 0.010928455, 0), (-0.0068002744, 0.0072856364, 0), (-0.0038475676, 0.0036428182, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (0.6427876096865394, 0.766044443118978, -0, 0), (-0.766044443118978, 0.6427876096865394, 0, 0), (0, 0, 1, 0), (-0.007660444431189779, 0.0327019240968654, 0.019041350999999998, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_1" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0009043434
+                matrix4d xformOp:transform = ( (-0.6427876096865394, 0.766044443118978, 0, 0), (0, -0, 1, 0), (0.766044443118978, 0.6427876096865394, 0, 0), (0.003830222215594892, 0.0294879860484327, 0.019041350999999998, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_1" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0038475676, 0.0036428182, 0), (0.0068002744, 0.0072856364, 0), (0.0084811235, 0.010928455, 0), (0.008742764, 0.014571273, 0), (0.0076733977, 0.018214092, 0), (0.0055638608, 0.02185691, 0), (0.0028438543, 0.025499728, 0), (0, 0.029142546, 0), (-0.0028438543, 0.025499728, 0), (-0.0055638608, 0.02185691, 0), (-0.0076733977, 0.018214092, 0), (-0.008742764, 0.014571273, 0), (-0.0084811235, 0.010928455, 0), (-0.0068002744, 0.0072856364, 0), (-0.0038475676, 0.0036428182, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (0.6427876096865394, -0.766044443118978, 0, 0), (0.766044443118978, 0.6427876096865394, 0, 0), (-0, 0, 1, 0), (0.007660444431189782, 0.0327019240968654, 0.019041350999999998, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_term" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0009043434
+                matrix4d xformOp:transform = ( (-1, 6.123233995736766e-17, 0, 0), (0, -0, 1, 0), (6.123233995736766e-17, 1, 0, 0), (3.848832329292973e-18, 0.062856202, 0.019041350999999998, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_2" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0039054288, 0.0036976007, 0), (0.00690254, 0.0073952014, 0), (0.008608666, 0.011092802, 0), (0.008874241, 0.014790403, 0), (0.0077887936, 0.018488003, 0), (0.0056475326, 0.022185603, 0), (0.0028866213, 0.025883203, 0), (0, 0.029580805, 0), (-0.0028866213, 0.025883203, 0), (-0.0056475326, 0.022185603, 0), (-0.0077887936, 0.018488003, 0), (-0.008874241, 0.014790403, 0), (-0.008608666, 0.011092802, 0), (-0.00690254, 0.0073952014, 0), (-0.0039054288, 0.0036976007, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (1, -6.123233995736766e-17, 0, 0), (6.123233995736766e-17, 1, 0, 0), (-0, 0, 1, 0), (4.1549940290798116e-18, 0.067856202, 0.019041350999999998, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+        }
+
+        def Xform "Leaf_o0_r1_i1" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+
+            def Cylinder "Petiole" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.026274048
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0022608585
+                matrix4d xformOp:transform = ( (1, -1.8369701987210297e-16, 0, 0), (0, 0, 1, 0), (-1.8369701987210297e-16, -1, 0, 0), (-2.4132321587882938e-18, -0.013137024, 0, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Rachis" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.031582154
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0013565150999999998
+                matrix4d xformOp:transform = ( (1, -1.8369701987210297e-16, 0, 0), (0, 0, 1, 0), (-1.8369701987210297e-16, -1, 0, 0), (-7.727238103047495e-18, -0.042065125, 0, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_0" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0009043434
+                matrix4d xformOp:transform = ( (0.6427876096865395, 0.7660444431189779, -0, 0), (0, 0, 1, 0), (0.7660444431189779, -0.6427876096865395, 0, 0), (0.0038302222155948847, -0.0294879860484327, 0, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_0" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0038475676, 0.0036428182, 0), (0.0068002744, 0.0072856364, 0), (0.0084811235, 0.010928455, 0), (0.008742764, 0.014571273, 0), (0.0076733977, 0.018214092, 0), (0.0055638608, 0.02185691, 0), (0.0028438543, 0.025499728, 0), (0, 0.029142546, 0), (-0.0028438543, 0.025499728, 0), (-0.0055638608, 0.02185691, 0), (-0.0076733977, 0.018214092, 0), (-0.008742764, 0.014571273, 0), (-0.0084811235, 0.010928455, 0), (-0.0068002744, 0.0072856364, 0), (-0.0038475676, 0.0036428182, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (-0.6427876096865395, -0.7660444431189779, 0, 0), (0.7660444431189779, -0.6427876096865395, 0, 0), (0, 0, 1, 0), (0.007660444431189774, -0.0327019240968654, 0, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_1" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0009043434
+                matrix4d xformOp:transform = ( (0.6427876096865393, -0.7660444431189781, 0, 0), (0, 0, 1, 0), (-0.7660444431189781, -0.6427876096865393, 0, 0), (-0.0038302222155948955, -0.029487986048432696, 0, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_1" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0038475676, 0.0036428182, 0), (0.0068002744, 0.0072856364, 0), (0.0084811235, 0.010928455, 0), (0.008742764, 0.014571273, 0), (0.0076733977, 0.018214092, 0), (0.0055638608, 0.02185691, 0), (0.0028438543, 0.025499728, 0), (0, 0.029142546, 0), (-0.0028438543, 0.025499728, 0), (-0.0055638608, 0.02185691, 0), (-0.0076733977, 0.018214092, 0), (-0.008742764, 0.014571273, 0), (-0.0084811235, 0.010928455, 0), (-0.0068002744, 0.0072856364, 0), (-0.0038475676, 0.0036428182, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (-0.6427876096865393, 0.7660444431189781, 0, 0), (-0.7660444431189781, -0.6427876096865393, 0, 0), (0, 0, 1, 0), (-0.007660444431189787, -0.03270192409686539, 0, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_term" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0009043434
+                matrix4d xformOp:transform = ( (1, -1.8369701987210297e-16, 0, 0), (0, 0, 1, 0), (-1.8369701987210297e-16, -1, 0, 0), (-1.1546496987878919e-17, -0.062856202, 0, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_2" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0039054288, 0.0036976007, 0), (0.00690254, 0.0073952014, 0), (0.008608666, 0.011092802, 0), (0.008874241, 0.014790403, 0), (0.0077887936, 0.018488003, 0), (0.0056475326, 0.022185603, 0), (0.0028866213, 0.025883203, 0), (0, 0.029580805, 0), (-0.0028866213, 0.025883203, 0), (-0.0056475326, 0.022185603, 0), (-0.0077887936, 0.018488003, 0), (-0.008874241, 0.014790403, 0), (-0.008608666, 0.011092802, 0), (-0.00690254, 0.0073952014, 0), (-0.0039054288, 0.0036976007, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (-1, 1.8369701987210297e-16, 0, 0), (-1.8369701987210297e-16, -1, 0, 0), (0, 0, 1, 0), (-1.2464982087239433e-17, -0.067856202, 0, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+        }
+
+        def Xform "Leaf_o0_r2_i0" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            prepend rel physics:filteredPairs = </Plant_1/Stem/Internode_o0_r2>
+            float physics:mass = 0.05
+
+            def Cylinder "Petiole" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.023723854
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.002082806
+                matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0.3420201433256687, -4.188538737676992e-17, 0.9396926207859084, 0), (-0.9396926207859084, 1.1507915602278503e-16, 0.3420201433256687, 0), (-0.011146565270201128, 1.3650605479638863e-18, 0.03461008697265862, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Rachis" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.05881509
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0012496836
+                matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0.3420201433256687, -4.188538737676992e-17, 0.9396926207859084, 0), (-0.9396926207859084, 1.1507915602278503e-16, 0.3420201433256687, 0), (-0.04992718357233179, 6.114316555229844e-18, 0.04872507770107329, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_0" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0008331224000000001
+                matrix4d xformOp:transform = ( (0.7852561107532648, -0.6191710914800983, 0, 0), (0.1361224799638779, 0.17263565866262628, 0.9755345200486781, 0), (-0.6040227735550538, -0.7660444431189779, 0.2198463103929542, 0), (-0.025313244408177525, -0.003830222215594887, 0.03976633649728201, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_0" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0024554955, 0.0023248259, 0), (0.004339896, 0.0046496517, 0), (0.0054126047, 0.0069744773, 0), (0.005579582, 0.009299303, 0), (0.0048971185, 0.0116241295, 0), (0.0035508242, 0.013948955, 0), (0.0018149315, 0.016273782, 0), (0, 0.018598607, 0), (-0.0018149315, 0.016273782, 0), (-0.0035508242, 0.013948955, 0), (-0.0048971185, 0.0116241295, 0), (-0.005579582, 0.009299303, 0), (-0.0054126047, 0.0069744773, 0), (-0.004339896, 0.0046496517, 0), (-0.0024554955, 0.0023248259, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (-0.7852561107532648, 0.6191710914800983, 0, 0), (-0.6040227735550538, -0.7660444431189779, 0.2198463103929542, 0), (0.1361224799638779, 0.17263565866262628, 0.9755345200486781, 0), (-0.028333358275952795, -0.007660444431189776, 0.04086556804924678, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_1" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0008331224000000001
+                matrix4d xformOp:transform = ( (-0.7852561107532651, -0.6191710914800981, 0, 0), (0.13612247996387788, -0.1726356586626263, 0.9755345200486782, 0), (-0.6040227735550536, 0.7660444431189781, 0.2198463103929542, 0), (-0.025313244408177525, 0.0038302222155948934, 0.03976633649728201, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_1" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0024554955, 0.0023248259, 0), (0.004339896, 0.0046496517, 0), (0.0054126047, 0.0069744773, 0), (0.005579582, 0.009299303, 0), (0.0048971185, 0.0116241295, 0), (0.0035508242, 0.013948955, 0), (0.0018149315, 0.016273782, 0), (0, 0.018598607, 0), (-0.0018149315, 0.016273782, 0), (-0.0035508242, 0.013948955, 0), (-0.0048971185, 0.0116241295, 0), (-0.005579582, 0.009299303, 0), (-0.0054126047, 0.0069744773, 0), (-0.004339896, 0.0046496517, 0), (-0.0024554955, 0.0023248259, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (0.7852561107532651, 0.6191710914800981, -0, 0), (-0.6040227735550536, 0.7660444431189781, 0.2198463103929542, 0), (0.13612247996387788, -0.1726356586626263, 0.9755345200486782, 0), (-0.02833335827595279, 0.007660444431189784, 0.04086556804924678, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_2" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0008331224000000001
+                matrix4d xformOp:transform = ( (0.7852561107532648, -0.6191710914800983, 0, 0), (0.1361224799638779, 0.17263565866262628, 0.9755345200486781, 0), (-0.6040227735550538, -0.7660444431189779, 0.2198463103929542, 0), (-0.05570703559284739, -0.003830222215594883, 0.050828771795004335, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_2" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0024554955, 0.0023248259, 0), (0.004339896, 0.0046496517, 0), (0.0054126047, 0.0069744773, 0), (0.005579582, 0.009299303, 0), (0.0048971185, 0.0116241295, 0), (0.0035508242, 0.013948955, 0), (0.0018149315, 0.016273782, 0), (0, 0.018598607, 0), (-0.0018149315, 0.016273782, 0), (-0.0035508242, 0.013948955, 0), (-0.0048971185, 0.0116241295, 0), (-0.005579582, 0.009299303, 0), (-0.0054126047, 0.0069744773, 0), (-0.004339896, 0.0046496517, 0), (-0.0024554955, 0.0023248259, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (-0.7852561107532648, 0.6191710914800983, 0, 0), (-0.6040227735550538, -0.7660444431189779, 0.2198463103929542, 0), (0.1361224799638779, 0.17263565866262628, 0.9755345200486781, 0), (-0.058727149460622664, -0.007660444431189773, 0.05192800334696911, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_3" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0008331224000000001
+                matrix4d xformOp:transform = ( (-0.7852561107532651, -0.6191710914800981, 0, 0), (0.13612247996387788, -0.1726356586626263, 0.9755345200486782, 0), (-0.6040227735550536, 0.7660444431189781, 0.2198463103929542, 0), (-0.05570703559284739, 0.0038302222155948973, 0.050828771795004335, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_3" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0024554955, 0.0023248259, 0), (0.004339896, 0.0046496517, 0), (0.0054126047, 0.0069744773, 0), (0.005579582, 0.009299303, 0), (0.0048971185, 0.0116241295, 0), (0.0035508242, 0.013948955, 0), (0.0018149315, 0.016273782, 0), (0, 0.018598607, 0), (-0.0018149315, 0.016273782, 0), (-0.0035508242, 0.013948955, 0), (-0.0048971185, 0.0116241295, 0), (-0.005579582, 0.009299303, 0), (-0.0054126047, 0.0069744773, 0), (-0.004339896, 0.0046496517, 0), (-0.0024554955, 0.0023248259, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (0.7852561107532651, 0.6191710914800981, -0, 0), (-0.6040227735550536, 0.7660444431189781, 0.2198463103929542, 0), (0.13612247996387788, -0.1726356586626263, 0.9755345200486782, 0), (-0.058727149460622664, 0.007660444431189788, 0.05192800334696911, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Cylinder "Petiolule_term" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.01
+                rel material:binding = </Plant_1/Materials/Leaf>
+                double radius = 0.0008331224000000001
+                matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0.3420201433256687, -4.188538737676992e-17, 0.9396926207859084, 0), (-0.9396926207859084, 1.1507915602278503e-16, 0.3420201433256687, 0), (-0.08225969970819087, 1.007390779464584e-17, 0.06049315117345769, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Mesh "Blade_4" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                rel material:binding = </Plant_1/Materials/Leaf>
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0024554955, 0.0023248259, 0), (0.004339896, 0.0046496517, 0), (0.0054126047, 0.0069744773, 0), (0.005579582, 0.009299303, 0), (0.0048971185, 0.0116241295, 0), (0.0035508242, 0.013948955, 0), (0.0018149315, 0.016273782, 0), (0, 0.018598607, 0), (-0.0018149315, 0.016273782, 0), (-0.0035508242, 0.013948955, 0), (-0.0048971185, 0.0116241295, 0), (-0.005579582, 0.009299303, 0), (-0.0054126047, 0.0069744773, 0), (-0.004339896, 0.0046496517, 0), (-0.0024554955, 0.0023248259, 0)]
+                uniform token subdivisionScheme = "none"
+                matrix4d xformOp:transform = ( (1.2246467991473532e-16, 1, -0, 0), (-0.9396926207859084, 1.1507915602278503e-16, 0.3420201433256687, 0), (0.3420201433256687, -4.188538737676992e-17, 0.9396926207859084, 0), (-0.0869581628121204, 1.0649303574759767e-17, 0.06220325189008603, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+        }
+    }
+
+    def "Joints"
+    {
+        def PhysicsSphericalJoint "Joint_Leaf_o0_r4_i0" (
+            prepend apiSchemas = ["PhysicsDriveAPI:rotX", "PhysicsDriveAPI:rotY", "PhysicsDriveAPI:rotZ"]
+        )
+        {
+            float drive:rotX:physics:damping = 0.5
+            float drive:rotX:physics:stiffness = 5
+            float drive:rotX:physics:targetPosition = 0
+            uniform token drive:rotX:physics:type = "force"
+            float drive:rotY:physics:damping = 0.5
+            float drive:rotY:physics:stiffness = 5
+            float drive:rotY:physics:targetPosition = 0
+            uniform token drive:rotY:physics:type = "force"
+            float drive:rotZ:physics:damping = 0.5
+            float drive:rotZ:physics:stiffness = 5
+            float drive:rotZ:physics:targetPosition = 0
+            uniform token drive:rotZ:physics:type = "force"
+            rel physics:body0 = </Plant_1/Stem/Internode_o0_r4>
+            rel physics:body1 = </Plant_1/Leaves/Leaf_o0_r4_i0>
+            float physics:coneAngle0Limit = 45
+            float physics:coneAngle1Limit = 45
+            point3f physics:localPos0 = (0, 0, 0.0033961183)
+            point3f physics:localPos1 = (0, 0, 0.0472268)
+        }
+
+        def PhysicsSphericalJoint "Joint_Leaf_o0_r3_i0" (
+            prepend apiSchemas = ["PhysicsDriveAPI:rotX", "PhysicsDriveAPI:rotY", "PhysicsDriveAPI:rotZ"]
+        )
+        {
+            float drive:rotX:physics:damping = 0.5
+            float drive:rotX:physics:stiffness = 5
+            float drive:rotX:physics:targetPosition = 0
+            uniform token drive:rotX:physics:type = "force"
+            float drive:rotY:physics:damping = 0.5
+            float drive:rotY:physics:stiffness = 5
+            float drive:rotY:physics:targetPosition = 0
+            uniform token drive:rotY:physics:type = "force"
+            float drive:rotZ:physics:damping = 0.5
+            float drive:rotZ:physics:stiffness = 5
+            float drive:rotZ:physics:targetPosition = 0
+            uniform token drive:rotZ:physics:type = "force"
+            rel physics:body0 = </Plant_1/Stem/Internode_o0_r3>
+            rel physics:body1 = </Plant_1/Leaves/Leaf_o0_r3_i0>
+            float physics:coneAngle0Limit = 45
+            float physics:coneAngle1Limit = 45
+            point3f physics:localPos0 = (0, 0, 0.0049407477)
+            point3f physics:localPos1 = (0, 0, 0.040434565)
+        }
+
+        def PhysicsSphericalJoint "Joint_Leaf_o0_r0_i0" (
+            prepend apiSchemas = ["PhysicsDriveAPI:rotX", "PhysicsDriveAPI:rotY", "PhysicsDriveAPI:rotZ"]
+        )
+        {
+            float drive:rotX:physics:damping = 0.5
+            float drive:rotX:physics:stiffness = 5
+            float drive:rotX:physics:targetPosition = 0
+            uniform token drive:rotX:physics:type = "force"
+            float drive:rotY:physics:damping = 0.5
+            float drive:rotY:physics:stiffness = 5
+            float drive:rotY:physics:targetPosition = 0
+            uniform token drive:rotY:physics:type = "force"
+            float drive:rotZ:physics:damping = 0.5
+            float drive:rotZ:physics:stiffness = 5
+            float drive:rotZ:physics:targetPosition = 0
+            uniform token drive:rotZ:physics:type = "force"
+            rel physics:body0 = </Plant_1/Stem/Internode_o0_r0>
+            rel physics:body1 = </Plant_1/Leaves/Leaf_o0_r0_i0>
+            float physics:coneAngle0Limit = 45
+            float physics:coneAngle1Limit = 45
+            point3f physics:localPos0 = (0, 0, 0.0046357475)
+            point3f physics:localPos1 = (0, 0, 0.009271495)
+        }
+
+        def PhysicsSphericalJoint "Joint_Leaf_o0_r1_i0" (
+            prepend apiSchemas = ["PhysicsDriveAPI:rotX", "PhysicsDriveAPI:rotY", "PhysicsDriveAPI:rotZ"]
+        )
+        {
+            float drive:rotX:physics:damping = 0.5
+            float drive:rotX:physics:stiffness = 5
+            float drive:rotX:physics:targetPosition = 0
+            uniform token drive:rotX:physics:type = "force"
+            float drive:rotY:physics:damping = 0.5
+            float drive:rotY:physics:stiffness = 5
+            float drive:rotY:physics:targetPosition = 0
+            uniform token drive:rotY:physics:type = "force"
+            float drive:rotZ:physics:damping = 0.5
+            float drive:rotZ:physics:stiffness = 5
+            float drive:rotZ:physics:targetPosition = 0
+            uniform token drive:rotZ:physics:type = "force"
+            rel physics:body0 = </Plant_1/Stem/Internode_o0_r1>
+            rel physics:body1 = </Plant_1/Leaves/Leaf_o0_r1_i0>
+            float physics:coneAngle0Limit = 45
+            float physics:coneAngle1Limit = 45
+            point3f physics:localPos0 = (0, 0, 0.004884928)
+            point3f physics:localPos1 = (0, 0, 0.01904135)
+        }
+
+        def PhysicsSphericalJoint "Joint_Leaf_o0_r2_i0" (
+            prepend apiSchemas = ["PhysicsDriveAPI:rotX", "PhysicsDriveAPI:rotY", "PhysicsDriveAPI:rotZ"]
+        )
+        {
+            float drive:rotX:physics:damping = 0.5
+            float drive:rotX:physics:stiffness = 5
+            float drive:rotX:physics:targetPosition = 0
+            uniform token drive:rotX:physics:type = "force"
+            float drive:rotY:physics:damping = 0.5
+            float drive:rotY:physics:stiffness = 5
+            float drive:rotY:physics:targetPosition = 0
+            uniform token drive:rotY:physics:type = "force"
+            float drive:rotZ:physics:damping = 0.5
+            float drive:rotZ:physics:stiffness = 5
+            float drive:rotZ:physics:targetPosition = 0
+            uniform token drive:rotZ:physics:type = "force"
+            rel physics:body0 = </Plant_1/Stem/Internode_o0_r2>
+            rel physics:body1 = </Plant_1/Leaves/Leaf_o0_r2_i0>
+            float physics:coneAngle0Limit = 45
+            float physics:coneAngle1Limit = 45
+            point3f physics:localPos0 = (0, 0, 0.005755859)
+            point3f physics:localPos1 = (0, 0, 0.030553069)
+        }
+    }
+
+    def Xform "Trusses"
+    {
+    }
+}
+

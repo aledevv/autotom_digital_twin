@@ -1,0 +1,127 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 750px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": "#795548", "id": 133035155558432, "label": "Root\nr0 o0", "shape": "dot", "size": 10, "title": "Class: Root\nRank: 0  Order: 0\nAge (dd): 659.1\nBiomass (mg): 83.46\nLength: 0.0000 m"}, {"color": "#4caf50", "id": 133035156406928, "label": "Internode\nr0 o0", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 0  Order: 0\nAge (dd): 1049.1\nBiomass (mg): 13.97\nLength: 0.0093 m"}, {"color": "#4caf50", "id": 133035787220560, "label": "Internode\nr4 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 4  Order: 1\nAge (dd): 15.4\nBiomass (mg): 0.41\nLength: 0.0106 m"}, {"color": "#cddc39", "id": 133035155731824, "label": "Leaf\nr4 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 4  Order: 1\nAge (dd): 15.4\nBiomass (mg): 0.10\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155695632, "label": "Internode\nr4 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 4  Order: 1\nAge (dd): 92.6\nBiomass (mg): 9.84\nLength: 0.0206 m"}, {"color": "#cddc39", "id": 133035155732640, "label": "Leaf\nr4 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 4  Order: 1\nAge (dd): 92.6\nBiomass (mg): 7.15\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155687376, "label": "Internode\nr4 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 4  Order: 1\nAge (dd): 92.6\nBiomass (mg): 9.84\nLength: 0.0206 m"}, {"color": "#cddc39", "id": 133035155733184, "label": "Leaf\nr4 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 4  Order: 1\nAge (dd): 92.6\nBiomass (mg): 7.15\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155690640, "label": "Internode\nr4 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 4  Order: 1\nAge (dd): 92.6\nBiomass (mg): 9.84\nLength: 0.0206 m"}, {"color": "#cddc39", "id": 133035155733728, "label": "Leaf\nr4 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 4  Order: 1\nAge (dd): 92.6\nBiomass (mg): 7.15\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155695824, "label": "Internode\nr9 o0", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 9  Order: 0\nAge (dd): 92.6\nBiomass (mg): 24.60\nLength: 0.0251 m"}, {"color": "#f44336", "id": 133035170976432, "label": "Fruits\nr9 o0", "shape": "dot", "size": 10, "title": "Class: Fruits\nRank: 9  Order: 0\nAge (dd): 61.7\nBiomass (mg): 169.07\nLength: 0.0000 m\nFruits: 8"}, {"color": "#4caf50", "id": 133035155689104, "label": "Internode\nr3 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 3  Order: 1\nAge (dd): 123.4\nBiomass (mg): 15.88\nLength: 0.0228 m"}, {"color": "#cddc39", "id": 133035155728832, "label": "Leaf\nr3 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 3  Order: 1\nAge (dd): 123.4\nBiomass (mg): 13.58\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155691984, "label": "Internode\nr3 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 3  Order: 1\nAge (dd): 200.8\nBiomass (mg): 34.02\nLength: 0.0268 m"}, {"color": "#cddc39", "id": 133035155734000, "label": "Leaf\nr3 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 3  Order: 1\nAge (dd): 200.8\nBiomass (mg): 37.78\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155691024, "label": "Internode\nr3 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 3  Order: 1\nAge (dd): 200.8\nBiomass (mg): 34.02\nLength: 0.0268 m"}, {"color": "#cddc39", "id": 133035155732368, "label": "Leaf\nr3 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 3  Order: 1\nAge (dd): 200.8\nBiomass (mg): 37.78\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155694096, "label": "Internode\nr3 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 3  Order: 1\nAge (dd): 200.8\nBiomass (mg): 34.02\nLength: 0.0268 m"}, {"color": "#cddc39", "id": 133035155721216, "label": "Leaf\nr3 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 3  Order: 1\nAge (dd): 200.8\nBiomass (mg): 37.78\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155692368, "label": "Internode\nr2 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 2  Order: 1\nAge (dd): 231.8\nBiomass (mg): 41.84\nLength: 0.0280 m"}, {"color": "#cddc39", "id": 133035155727472, "label": "Leaf\nr2 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 2  Order: 1\nAge (dd): 231.8\nBiomass (mg): 49.83\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155692560, "label": "Internode\nr8 o0", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 8  Order: 0\nAge (dd): 278.1\nBiomass (mg): 133.56\nLength: 0.0359 m"}, {"color": "#cddc39", "id": 133035156028096, "label": "Leaf\nr8 o0", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 8  Order: 0\nAge (dd): 278.1\nBiomass (mg): 339.93\nLength: 0.0000 m\nBlades: 4"}, {"color": "#f44336", "id": 133035170975088, "label": "Fruits\nr8 o0", "shape": "dot", "size": 10, "title": "Class: Fruits\nRank: 8  Order: 0\nAge (dd): 154.3\nBiomass (mg): 924.01\nLength: 0.0000 m\nFruits: 8"}, {"color": "#4caf50", "id": 133035155691600, "label": "Internode\nr2 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 2  Order: 1\nAge (dd): 309.0\nBiomass (mg): 60.81\nLength: 0.0303 m"}, {"color": "#cddc39", "id": 133035156028640, "label": "Leaf\nr2 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 2  Order: 1\nAge (dd): 309.0\nBiomass (mg): 81.74\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155695056, "label": "Internode\nr2 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 2  Order: 1\nAge (dd): 309.0\nBiomass (mg): 60.81\nLength: 0.0303 m"}, {"color": "#cddc39", "id": 133035156029184, "label": "Leaf\nr2 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 2  Order: 1\nAge (dd): 309.0\nBiomass (mg): 81.74\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155698512, "label": "Internode\nr2 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 2  Order: 1\nAge (dd): 309.0\nBiomass (mg): 60.81\nLength: 0.0303 m"}, {"color": "#cddc39", "id": 133035156316752, "label": "Leaf\nr2 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 2  Order: 1\nAge (dd): 309.0\nBiomass (mg): 81.74\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155693136, "label": "Internode\nr1 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 1  Order: 1\nAge (dd): 340.0\nBiomass (mg): 67.70\nLength: 0.0310 m"}, {"color": "#cddc39", "id": 133035156316208, "label": "Leaf\nr1 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 1  Order: 1\nAge (dd): 340.0\nBiomass (mg): 93.82\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155694288, "label": "Internode\nr7 o0", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 7  Order: 0\nAge (dd): 371.1\nBiomass (mg): 184.84\nLength: 0.0384 m"}, {"color": "#cddc39", "id": 133035156310224, "label": "Leaf\nr7 o0", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 7  Order: 0\nAge (dd): 371.1\nBiomass (mg): 515.27\nLength: 0.0000 m\nBlades: 4"}, {"color": "#f44336", "id": 133035170971952, "label": "Fruits\nr7 o0", "shape": "dot", "size": 10, "title": "Class: Fruits\nRank: 7  Order: 0\nAge (dd): 231.8\nBiomass (mg): 2071.36\nLength: 0.0000 m\nFruits: 8"}, {"color": "#4caf50", "id": 133035155692752, "label": "Internode\nr1 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 1  Order: 1\nAge (dd): 417.9\nBiomass (mg): 81.61\nLength: 0.0323 m"}, {"color": "#cddc39", "id": 133035156309952, "label": "Leaf\nr1 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 1  Order: 1\nAge (dd): 417.9\nBiomass (mg): 109.70\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155695440, "label": "Internode\nr1 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 1  Order: 1\nAge (dd): 417.9\nBiomass (mg): 81.61\nLength: 0.0323 m"}, {"color": "#cddc39", "id": 133035156309408, "label": "Leaf\nr1 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 1  Order: 1\nAge (dd): 417.9\nBiomass (mg): 109.70\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155694864, "label": "Internode\nr1 o1", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 1  Order: 1\nAge (dd): 417.9\nBiomass (mg): 81.61\nLength: 0.0323 m"}, {"color": "#cddc39", "id": 133035156308864, "label": "Leaf\nr1 o1", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 1  Order: 1\nAge (dd): 417.9\nBiomass (mg): 109.70\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155696016, "label": "Internode\nr6 o0", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 6  Order: 0\nAge (dd): 448.6\nBiomass (mg): 201.25\nLength: 0.0391 m"}, {"color": "#cddc39", "id": 133035156308592, "label": "Leaf\nr6 o0", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 6  Order: 0\nAge (dd): 448.6\nBiomass (mg): 536.72\nLength: 0.0000 m\nBlades: 4"}, {"color": "#f44336", "id": 133035170976880, "label": "Fruits\nr6 o0", "shape": "dot", "size": 10, "title": "Class: Fruits\nRank: 6  Order: 0\nAge (dd): 293.5\nBiomass (mg): 3244.39\nLength: 0.0000 m\nFruits: 8"}, {"color": "#4caf50", "id": 133035156407312, "label": "Internode\nr5 o0", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 5  Order: 0\nAge (dd): 510.2\nBiomass (mg): 194.72\nLength: 0.0173 m"}, {"color": "#cddc39", "id": 133035156308320, "label": "Leaf\nr5 o0", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 5  Order: 0\nAge (dd): 510.2\nBiomass (mg): 517.67\nLength: 0.0000 m\nBlades: 4"}, {"color": "#4caf50", "id": 133035156407504, "label": "Internode\nr4 o0", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 4  Order: 0\nAge (dd): 571.8\nBiomass (mg): 188.63\nLength: 0.0172 m"}, {"color": "#cddc39", "id": 133035156308048, "label": "Leaf\nr4 o0", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 4  Order: 0\nAge (dd): 571.8\nBiomass (mg): 502.36\nLength: 0.0000 m\nBlades: 4"}, {"color": "#4caf50", "id": 133035156407696, "label": "Internode\nr3 o0", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 3  Order: 0\nAge (dd): 617.6\nBiomass (mg): 185.76\nLength: 0.0171 m"}, {"color": "#cddc39", "id": 133035156309680, "label": "Leaf\nr3 o0", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 3  Order: 0\nAge (dd): 617.6\nBiomass (mg): 491.17\nLength: 0.0000 m\nBlades: 3"}, {"color": "#4caf50", "id": 133035155696400, "label": "Internode\nr1 o0", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 1  Order: 0\nAge (dd): 959.1\nBiomass (mg): 19.56\nLength: 0.0100 m"}, {"color": "#cddc39", "id": 133035156309136, "label": "Leaf\nr0 o0", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 0  Order: 0\nAge (dd): 959.1\nBiomass (mg): 6.59\nLength: 0.0000 m\nBlades: 1"}, {"color": "#4caf50", "id": 133035156407120, "label": "Internode\nr2 o0", "shape": "dot", "size": 10, "title": "Class: Internode\nRank: 2  Order: 0\nAge (dd): 659.1\nBiomass (mg): 160.57\nLength: 0.0165 m"}, {"color": "#cddc39", "id": 133035156317568, "label": "Leaf\nr1 o0", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 1  Order: 0\nAge (dd): 659.1\nBiomass (mg): 102.99\nLength: 0.0000 m\nBlades: 2"}, {"color": "#cddc39", "id": 133035156318112, "label": "Leaf\nr2 o0", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 2  Order: 0\nAge (dd): 659.1\nBiomass (mg): 489.49\nLength: 0.0000 m\nBlades: 3"}, {"color": "#cddc39", "id": 133035156317296, "label": "Leaf\nr0 o0", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 0  Order: 0\nAge (dd): 959.1\nBiomass (mg): 6.59\nLength: 0.0000 m\nBlades: 1"}, {"color": "#cddc39", "id": 133035156317840, "label": "Leaf\nr1 o0", "shape": "dot", "size": 10, "title": "Class: Leaf\nRank: 1  Order: 0\nAge (dd): 659.1\nBiomass (mg): 102.99\nLength: 0.0000 m\nBlades: 2"}]);
+                  edges = new vis.DataSet([{"arrows": "to", "from": 133035155558432, "to": 133035156406928, "width": 1}, {"arrows": "to", "from": 133035787220560, "to": 133035155731824, "width": 1}, {"arrows": "to", "from": 133035155695632, "to": 133035155732640, "width": 1}, {"arrows": "to", "from": 133035155687376, "to": 133035155733184, "width": 1}, {"arrows": "to", "from": 133035155690640, "to": 133035155733728, "width": 1}, {"arrows": "to", "from": 133035155695824, "to": 133035170976432, "width": 1}, {"arrows": "to", "from": 133035155689104, "to": 133035787220560, "width": 1}, {"arrows": "to", "from": 133035155689104, "to": 133035155728832, "width": 1}, {"arrows": "to", "from": 133035155691984, "to": 133035155695632, "width": 1}, {"arrows": "to", "from": 133035155691984, "to": 133035155734000, "width": 1}, {"arrows": "to", "from": 133035155691024, "to": 133035155687376, "width": 1}, {"arrows": "to", "from": 133035155691024, "to": 133035155732368, "width": 1}, {"arrows": "to", "from": 133035155694096, "to": 133035155690640, "width": 1}, {"arrows": "to", "from": 133035155694096, "to": 133035155721216, "width": 1}, {"arrows": "to", "from": 133035155692368, "to": 133035155689104, "width": 1}, {"arrows": "to", "from": 133035155692368, "to": 133035155727472, "width": 1}, {"arrows": "to", "from": 133035155692560, "to": 133035155695824, "width": 1}, {"arrows": "to", "from": 133035155692560, "to": 133035156028096, "width": 1}, {"arrows": "to", "from": 133035155692560, "to": 133035170975088, "width": 1}, {"arrows": "to", "from": 133035155691600, "to": 133035155691984, "width": 1}, {"arrows": "to", "from": 133035155691600, "to": 133035156028640, "width": 1}, {"arrows": "to", "from": 133035155695056, "to": 133035155691024, "width": 1}, {"arrows": "to", "from": 133035155695056, "to": 133035156029184, "width": 1}, {"arrows": "to", "from": 133035155698512, "to": 133035155694096, "width": 1}, {"arrows": "to", "from": 133035155698512, "to": 133035156316752, "width": 1}, {"arrows": "to", "from": 133035155693136, "to": 133035155692368, "width": 1}, {"arrows": "to", "from": 133035155693136, "to": 133035156316208, "width": 1}, {"arrows": "to", "from": 133035155694288, "to": 133035155692560, "width": 1}, {"arrows": "to", "from": 133035155694288, "to": 133035156310224, "width": 1}, {"arrows": "to", "from": 133035155694288, "to": 133035170971952, "width": 1}, {"arrows": "to", "from": 133035155692752, "to": 133035155691600, "width": 1}, {"arrows": "to", "from": 133035155692752, "to": 133035156309952, "width": 1}, {"arrows": "to", "from": 133035155695440, "to": 133035155695056, "width": 1}, {"arrows": "to", "from": 133035155695440, "to": 133035156309408, "width": 1}, {"arrows": "to", "from": 133035155694864, "to": 133035155698512, "width": 1}, {"arrows": "to", "from": 133035155694864, "to": 133035156308864, "width": 1}, {"arrows": "to", "from": 133035155696016, "to": 133035155694288, "width": 1}, {"arrows": "to", "from": 133035155696016, "to": 133035156308592, "width": 1}, {"arrows": "to", "from": 133035155696016, "to": 133035170976880, "width": 1}, {"arrows": "to", "from": 133035156407312, "to": 133035155696016, "width": 1}, {"arrows": "to", "from": 133035156407312, "to": 133035156308320, "width": 1}, {"arrows": "to", "from": 133035156407504, "to": 133035156407312, "width": 1}, {"arrows": "to", "from": 133035156407504, "to": 133035156308048, "width": 1}, {"arrows": "to", "from": 133035156407696, "to": 133035156407504, "width": 1}, {"arrows": "to", "from": 133035156407696, "to": 133035156309680, "width": 1}, {"arrows": "to", "from": 133035156406928, "to": 133035155693136, "width": 1}, {"arrows": "to", "from": 133035156406928, "to": 133035155692752, "width": 1}, {"arrows": "to", "from": 133035156406928, "to": 133035155695440, "width": 1}, {"arrows": "to", "from": 133035156406928, "to": 133035155694864, "width": 1}, {"arrows": "to", "from": 133035156406928, "to": 133035155696400, "width": 1}, {"arrows": "to", "from": 133035156406928, "to": 133035156309136, "width": 1}, {"arrows": "to", "from": 133035155696400, "to": 133035156407120, "width": 1}, {"arrows": "to", "from": 133035155696400, "to": 133035156317568, "width": 1}, {"arrows": "to", "from": 133035156407120, "to": 133035156407696, "width": 1}, {"arrows": "to", "from": 133035156407120, "to": 133035156318112, "width": 1}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {"layout": {"hierarchical": {"enabled": true, "direction": "UD", "sortMethod": "directed"}}, "physics": {"hierarchicalRepulsion": {"nodeDistance": 120}}};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>

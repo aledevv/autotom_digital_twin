@@ -41,8 +41,9 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)  # set axis z for height
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)  # set meters as length unit
 
-    plant_path = f"/World/Plant_{snapshot.plant_id}"
+    plant_path = f"/Plant_{snapshot.plant_id}"
     plant_prim = UsdGeom.Xform.Define(stage, plant_path).GetPrim()
+    stage.SetDefaultPrim(plant_prim)
     UsdPhysics.ArticulationRootAPI.Apply(plant_prim)
 
     stem_path  = f"{plant_path}/Stem"
@@ -126,7 +127,8 @@ def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
             base_z=base_z,
         )
         _bind_material(cyl, materials["stem"])
-        
+        UsdPhysics.CollisionAPI.Apply(cyl.GetPrim())
+
 
     # ── Physics: stem joint chain ─────────────────────────────────────────────
     # Toggle: ENABLE_STEM_PHYSICS in constants.py
