@@ -1,11 +1,3 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
-#
-# NVIDIA CORPORATION and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto. Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA CORPORATION is strictly prohibited.
-
 import os
 import time
 from isaacsim import SimulationApp
@@ -31,7 +23,7 @@ PLANT_PRIM_PATH = "/World/Tomato_Plant"
 
 FIRST_DAY = 1
 LAST_DAY = 160
-SECONDS_PER_DAY = 0.5  # wall-clock seconds between day swaps
+SECONDS_PER_DAY = 0.25  # wall-clock seconds between day swaps
 
 
 def build_plant_path(day: int) -> str:

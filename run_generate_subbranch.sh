@@ -1,7 +1,7 @@
 #!/bin/bash
 # run_generate_subbranch.sh
 #
-# Genera il file USD dell'articolazione con subbranch usando l'ambiente uv locale.
+# Generates the articulation USD file with subbranches using the local uv environment.
 #
 
 set -e
@@ -9,7 +9,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GENERATE_SCRIPT="src/experiments/articulation_subbranch/generate_articulation_usda.py"
 
-echo "=== Generazione USD tramite uv ==="
+echo "=== USD Generation via uv ==="
 cd "$SCRIPT_DIR"
 uv run python "$GENERATE_SCRIPT"
-echo "Generazione completata."
+echo "Generation completed."
+

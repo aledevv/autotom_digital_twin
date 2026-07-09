@@ -64,7 +64,7 @@ def get_output_usd_path() -> str:
 
 
 def setup_base_stage(path: str) -> tuple:
-    """Initializes the USD Stage, sets Z-up axis, and prepares the ArticulationRoot."""
+    """Initializes the USD Stage, sets Z-up axis, and prepares the ArticulationRoot. (NO PhysX HERE)"""
     stage = Usd.Stage.CreateNew(path)
     
     world_prim = UsdGeom.Xform.Define(stage, "/World")
@@ -264,6 +264,43 @@ def create_sub_branch(stage, parent_link_path, branch_name, n_links=3, tilt_angl
         )
 
         previous_link_path = current_link_path
+
+
+def build_stage(output_path: str) -> Usd.Stage:
+    """Creates the entire stage (trunk + branches) and returns it, WITHOUT saving it.
+    (Similar to what main does but useful to import this as a module)"""
+
+    stage, stem_parent_path = setup_base_stage(output_path)
+
+    # Build trunk (articulated links and joints)
+    trunk_links = {}
+    previous_link_path = None
+    for i in range(TrunkConfig.N_LINKS):
+        link_index = i + 1
+        current_base_z = i * (TrunkConfig.HEIGHT + TrunkConfig.GAP)
+        current_link_path = create_rigid_body_link(stage, stem_parent_path, link_index, current_base_z)
+        trunk_links[link_index] = current_link_path
+
+        if previous_link_path is None:
+            anchor_link_to_world(stage, current_link_path)
+        else:
+            joint_name = f"Joint_{link_index-1:02d}_{link_index:02d}"
+            create_d6_bending_joint(stage, previous_link_path, current_link_path, joint_name)
+        previous_link_path = current_link_path
+
+    # Creates defined branches
+    branches_to_create = [
+        {"parent_idx": 4, "name": "Branch_Lower_Left", "links": 7, "tilt": 45.0, "rot": 0.0},
+        {"parent_idx": 7, "name": "Branch_Mid_Right", "links": 5, "tilt": 30.0, "rot": 90.0},
+        {"parent_idx": 10, "name": "Branch_Upper_Left", "links": 3, "tilt": 60.0, "rot": -45.0},
+    ]
+    for b in branches_to_create:
+        parent_path = trunk_links.get(b["parent_idx"])
+        if parent_path:
+            create_sub_branch(stage=stage, parent_link_path=parent_path, branch_name=b["name"],
+                               n_links=b["links"], tilt_angle_deg=b["tilt"], rot_around_trunk_deg=b["rot"])
+
+    return stage, stem_parent_path
 
 
 # ==============================================================================
