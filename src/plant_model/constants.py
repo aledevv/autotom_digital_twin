@@ -1,6 +1,16 @@
 # Model constants from organs-5.rgg and auxiliary_tools_and_charts.rgg
 # These are fixed values shared across all organ instances.
 
+# --- SCALA GLOBALE (STEP 1, stelo V2) ---
+# I dati reali della pianta producono cilindri troppo sottili per PhysX
+# (raggi sub-millimetrici), che generano "Invalid PhysX transform" warnings.
+# GLOBAL_SCALE ingrandisce uniformemente TUTTA la geometria dello stelo v2
+# (lunghezze, raggi, gap) mantenendo le proporzioni reali della pianta,
+# stessa tecnica di generate_articulation_usda.py (TrunkConfig/BranchConfig).
+# La massa scala con GLOBAL_SCALE**3 (volume), la stiffness dei joint con
+# GLOBAL_SCALE**5 (N*m/rad — vedi PhysicsConfig in generate_articulation_usda.py).
+GLOBAL_SCALE: float = 5.0   # 10x -> mm diventano cm, piu' sicuro per PhysX
+
 # --- Truss geometry ---
 PETIOLE_LENGTH_M: float = 0.003
 INTERNODE_TRUSS_LENGTH_M: float = 0.012
@@ -34,9 +44,9 @@ ROOT_SPHERE_RADIUS = 0.005  # m — visual marker, placed at z=-ROOT_SPHERE_RADI
 PHYLLOTAXIS    = 137.5   # deg — azimuth of the truss w.r.t. the stem
 
 # --- PHYSICS: Joint chain physics ---
-JOINT_STIFFNESS_BASE: float  = 800.0   # N·m/rad — mature stem (low rank)
-JOINT_STIFFNESS_TIP: float   = 200.0   # N·m/rad — young stem (high rank)
-JOINT_DAMPING: float         = 50.0    # N·m·s/rad
+JOINT_STIFFNESS_BASE: float  = 8000000.0   # N·m/rad — mature stem (low rank)
+JOINT_STIFFNESS_TIP: float   = 2000000.0   # N·m/rad — young stem (high rank)
+JOINT_DAMPING: float         = 5.0    # N·m·s/rad
 JOINT_MAX_ANGLE_DEG: float   = 25.0    # Maximum range/fluctuation (symmetric)
 STEM_DENSITY_KG_M3: float    = 900.0   # approximate density of plant tissue
 FRUIT_DENSITY_KG_M3: float   = 1050.0  # tomato density (~water)
@@ -51,3 +61,40 @@ ENABLE_LEAF_PHYSICS: bool    = True   # RigidBody + SphericalJoint on leaves (to
 LEAF_MASS_KG: float          = 0.05   # kg
 LEAF_JOINT_STIFFNESS: float  = 5.0    # N·m/rad
 LEAF_JOINT_DAMPING: float    = 0.5    # N·m·s/rad
+
+
+# ============================================================================
+# STEM ARTICULATION V2 — stelo principale a segmenti articolati (STEP 1)
+# ============================================================================
+# Usato da plant_model/usd_exporterV2.py + load_stem_v2.py.
+# Qui lo stelo non e' piu' un cilindro rigido per internodo, ma una catena di
+# segmenti rigidi piu' piccoli collegati da D6 joint elastici (stile
+# generate_articulation_usda.py), con densita' di segmenti configurabile.
+
+# Toggle usato da main.py per scegliere quale exporter chiamare, per restare
+# modulari senza duplicare il loop principale.
+USE_STEM_ARTICULATION_V2: bool = True
+
+# Budget massimo di segmenti articolati per l'intero stelo, indipendente
+# dal giorno/lunghezza totale. Invece di una densita' fissa (SEGMENT_TARGET_LENGTH_M)
+# che fa crescere N_joints senza limite con la crescita della pianta, calcoliamo
+# la lunghezza-target del segmento adattivamente cosi' il conteggio totale
+# di joint resti sempre <= MAX_TOTAL_SEGMENTS (limite di stabilita' PhysX).
+MAX_TOTAL_SEGMENTS: int = 50   # valore che hai verificato stabile al giorno 160
+
+# Densita' dei segmenti: lunghezza-bersaglio di un singolo segmento rigido.
+# Ogni internodo viene suddiviso in:
+#   n_segments = max(MIN_SEGMENTS_PER_INTERNODE, round(internode_length / SEGMENT_TARGET_LENGTH_M))
+# segmenti uguali, cosi' gli internodi corti restano comunque a
+# MIN_SEGMENTS_PER_INTERNODE segmenti (default 1 = nessuna suddivisione).
+SEGMENT_TARGET_LENGTH_M: float   = 0.01    # m — ~1 cm per segmento articolato
+MIN_SEGMENTS_PER_INTERNODE: int  = 1
+SEGMENT_GAP_M: float             = 0.0002  # m — piccolo gap visivo tra segmenti
+
+# Parametri del drive D6 (molla+damper) sui joint tra segmenti dello stelo v2.
+# Stessa convenzione di generate_articulation_usda.py: traslazioni e rotZ
+# bloccati, drive elastico solo su rotX/rotY (bending).
+STEM_JOINT_STIFFNESS_BASE: float = 80000.0   # N·m/rad — piu' rigido vicino alla base
+STEM_JOINT_STIFFNESS_TIP: float  = 200.0   # N·m/rad — piu' flessibile vicino alla cima
+STEM_JOINT_DAMPING: float        = 0.80    # N·m·s/rad
+STEM_JOINT_BEND_LIMIT_DEG: float = 20.0    # limite di swing simmetrico su rotX/rotY
