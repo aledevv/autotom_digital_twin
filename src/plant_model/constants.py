@@ -9,7 +9,7 @@
 # stessa tecnica di generate_articulation_usda.py (TrunkConfig/BranchConfig).
 # La massa scala con GLOBAL_SCALE**3 (volume), la stiffness dei joint con
 # GLOBAL_SCALE**5 (N*m/rad — vedi PhysicsConfig in generate_articulation_usda.py).
-GLOBAL_SCALE: float = 5.0   # 10x -> mm diventano cm, piu' sicuro per PhysX
+GLOBAL_SCALE: float = 1.0   # 10x -> mm diventano cm, piu' sicuro per PhysX
 
 # --- Truss geometry ---
 PETIOLE_LENGTH_M: float = 0.003
@@ -44,8 +44,8 @@ ROOT_SPHERE_RADIUS = 0.005  # m — visual marker, placed at z=-ROOT_SPHERE_RADI
 PHYLLOTAXIS    = 137.5   # deg — azimuth of the truss w.r.t. the stem
 
 # --- PHYSICS: Joint chain physics ---
-JOINT_STIFFNESS_BASE: float  = 8000000.0   # N·m/rad — mature stem (low rank)
-JOINT_STIFFNESS_TIP: float   = 2000000.0   # N·m/rad — young stem (high rank)
+JOINT_STIFFNESS_BASE: float  = 80000.0   # N·m/rad — mature stem (low rank)
+JOINT_STIFFNESS_TIP: float   = 2000.0   # N·m/rad — young stem (high rank)
 JOINT_DAMPING: float         = 5.0    # N·m·s/rad
 JOINT_MAX_ANGLE_DEG: float   = 25.0    # Maximum range/fluctuation (symmetric)
 STEM_DENSITY_KG_M3: float    = 900.0   # approximate density of plant tissue
@@ -98,3 +98,30 @@ STEM_JOINT_STIFFNESS_BASE: float = 80000.0   # N·m/rad — piu' rigido vicino a
 STEM_JOINT_STIFFNESS_TIP: float  = 200.0   # N·m/rad — piu' flessibile vicino alla cima
 STEM_JOINT_DAMPING: float        = 0.80    # N·m·s/rad
 STEM_JOINT_BEND_LIMIT_DEG: float = 20.0    # limite di swing simmetrico su rotX/rotY
+
+# ============================================================================
+# STEM ARTICULATION V2 — budget adattivo (rami)
+# ============================================================================
+
+# Budget locale: numero massimo di segmenti per UNA SINGOLA catena
+# (stelo principale OPPURE un singolo ramo, mai la somma di piu' catene).
+# Protegge dal caso in cui un solo ramo sia molto piu' lungo degli altri:
+# anche se il budget globale lo permetterebbe, nessuna catena singola
+# supera mai questo tetto locale.
+MAX_SEGMENTS_PER_CHAIN: int = 20
+
+# Parametri del joint di attacco di un ramo al suo genitore (stelo o altro
+# ramo). Stessa convenzione dimensionale di STEM_JOINT_* ma pensata per
+# essere leggermente piu' permissiva del bend interno alla catena, perche'
+# l'attacco di un ramo e' un punto di flessione naturale piu' pronunciato.
+BRANCH_ATTACH_STIFFNESS_FACTOR: float = 1.0  # moltiplicatore su stiffness base della catena figlia
+BRANCH_ATTACH_BEND_LIMIT_DEG: float = 35.0   # piu' permissivo di STEM_JOINT_BEND_LIMIT_DEG
+
+# ============================================================================
+# LEAVES V2 — rametto mobile (petiolo+rachide), lamina statica
+# ============================================================================
+
+LEAF_MASS_KG: float = 0.05          # stesso valore usato in V1 (usd_exporter.py)
+LEAF_JOINT_STIFFNESS: float = 5.0   # stesso valore usato in V1
+LEAF_JOINT_DAMPING: float = 0.5     # stesso valore usato in V1
+LEAF_CONE_ANGLE_DEG: float = 45.0   # stesso valore usato in V1 (coneAngle0/1Limit)

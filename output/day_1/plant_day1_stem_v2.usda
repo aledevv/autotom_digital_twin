@@ -13,10 +13,10 @@ def Xform "Plant_1_StemV2"
     {
         bool physxArticulation:enabledSelfCollisions = 0
         float physxArticulation:sleepThreshold = 0
-        int physxArticulation:solverPositionIterationCount = 64
-        int physxArticulation:solverVelocityIterationCount = 8
+        int physxArticulation:solverPositionIterationCount = 240
+        int physxArticulation:solverVelocityIterationCount = 16
 
-        def Xform "Seg000" (
+        def Xform "Seg0000" (
             prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
         )
         {
@@ -29,25 +29,25 @@ def Xform "Plant_1_StemV2"
             )
             {
                 uniform token axis = "Z"
-                double height = 0.08802679000000001
+                double height = 0.008802679
                 rel material:binding = </Plant_1_StemV2/Materials/Stem>
-                double radius = 0.031427392756736
-                double3 xformOp:translate = (0, 0, 0.044013395000000004)
+                double radius = 0.0031427392756736
+                double3 xformOp:translate = (0, 0, 0.0044013395)
                 uniform token[] xformOpOrder = ["xformOp:translate"]
             }
 
             def PhysicsFixedJoint "RootFixedJoint"
             {
-                rel physics:body1 = </Plant_1_StemV2/Stem/Seg000>
+                rel physics:body1 = </Plant_1_StemV2/Stem/Seg0000>
             }
         }
 
-        def Xform "Seg001" (
+        def Xform "Seg0001" (
             prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
         )
         {
             float physics:mass = 0.00024763664
-            double3 xformOp:translate = (0, 0, 0.09002679000000001)
+            double3 xformOp:translate = (0, 0, 0.009002679000000001)
             uniform token[] xformOpOrder = ["xformOp:translate"]
 
             def Cylinder "Cylinder" (
@@ -55,23 +55,23 @@ def Xform "Plant_1_StemV2"
             )
             {
                 uniform token axis = "Z"
-                double height = 0.08836136
+                double height = 0.008836136
                 rel material:binding = </Plant_1_StemV2/Materials/Stem>
-                double radius = 0.031483286359104
-                double3 xformOp:translate = (0, 0, 0.04418068)
+                double radius = 0.0031483286359104
+                double3 xformOp:translate = (0, 0, 0.004418068)
                 uniform token[] xformOpOrder = ["xformOp:translate"]
             }
 
-            def PhysicsJoint "Joint_000_001" (
+            def PhysicsJoint "Joint_0000_0001" (
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 5000000
-                float drive:rotX:physics:stiffness = 50000000
+                float drive:rotX:physics:damping = 0.8
+                float drive:rotX:physics:stiffness = 40100
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 5000000
-                float drive:rotY:physics:stiffness = 50000000
+                float drive:rotY:physics:damping = 0.8
+                float drive:rotY:physics:stiffness = 40100
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 20
@@ -86,21 +86,21 @@ def Xform "Plant_1_StemV2"
                 float limit:transY:physics:low = 1
                 float limit:transZ:physics:high = -1
                 float limit:transZ:physics:low = 1
-                rel physics:body0 = </Plant_1_StemV2/Stem/Seg000>
-                rel physics:body1 = </Plant_1_StemV2/Stem/Seg001>
-                point3f physics:localPos0 = (0, 0, 0.08822679)
+                rel physics:body0 = </Plant_1_StemV2/Stem/Seg0000>
+                rel physics:body1 = </Plant_1_StemV2/Stem/Seg0001>
+                point3f physics:localPos0 = (0, 0, 0.009002679)
                 point3f physics:localPos1 = (0, 0, 0)
                 quatf physics:localRot0 = (1, 0, 0, 0)
                 quatf physics:localRot1 = (1, 0, 0, 0)
             }
         }
 
-        def Xform "Seg002" (
+        def Xform "Seg0002" (
             prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
         )
         {
             float physics:mass = 0.00013288077
-            double3 xformOp:translate = (0, 0, 0.18038815000000002)
+            double3 xformOp:translate = (0, 0, 0.018038815)
             uniform token[] xformOpOrder = ["xformOp:translate"]
 
             def Cylinder "Cylinder" (
@@ -108,23 +108,23 @@ def Xform "Plant_1_StemV2"
             )
             {
                 uniform token axis = "Z"
-                double height = 0.06407313
+                double height = 0.006407313
                 rel material:binding = </Plant_1_StemV2/Materials/Stem>
-                double radius = 0.027083007958328
-                double3 xformOp:translate = (0, 0, 0.032036565)
+                double radius = 0.0027083007958328
+                double3 xformOp:translate = (0, 0, 0.0032036565)
                 uniform token[] xformOpOrder = ["xformOp:translate"]
             }
 
-            def PhysicsJoint "Joint_001_002" (
+            def PhysicsJoint "Joint_0001_0002" (
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 5000000
-                float drive:rotX:physics:stiffness = 20000000
+                float drive:rotX:physics:damping = 0.8
+                float drive:rotX:physics:stiffness = 200
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 5000000
-                float drive:rotY:physics:stiffness = 20000000
+                float drive:rotY:physics:damping = 0.8
+                float drive:rotY:physics:stiffness = 200
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 20
@@ -139,14 +139,18 @@ def Xform "Plant_1_StemV2"
                 float limit:transY:physics:low = 1
                 float limit:transZ:physics:high = -1
                 float limit:transZ:physics:low = 1
-                rel physics:body0 = </Plant_1_StemV2/Stem/Seg001>
-                rel physics:body1 = </Plant_1_StemV2/Stem/Seg002>
-                point3f physics:localPos0 = (0, 0, 0.08856136)
+                rel physics:body0 = </Plant_1_StemV2/Stem/Seg0001>
+                rel physics:body1 = </Plant_1_StemV2/Stem/Seg0002>
+                point3f physics:localPos0 = (0, 0, 0.009036136)
                 point3f physics:localPos1 = (0, 0, 0)
                 quatf physics:localRot0 = (1, 0, 0, 0)
                 quatf physics:localRot1 = (1, 0, 0, 0)
             }
         }
+    }
+
+    def Xform "Branches"
+    {
     }
 
     def Xform "Materials"
@@ -163,6 +167,603 @@ def Xform "Plant_1_StemV2"
                 float inputs:roughness = 0.6
                 token outputs:surface
             }
+        }
+
+        def Material "Leaf"
+        {
+            token outputs:surface.connect = </Plant_1_StemV2/Materials/Leaf/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.15, 0.55, 0.1)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+        }
+
+        def Material "Pedicel"
+        {
+            token outputs:surface.connect = </Plant_1_StemV2/Materials/Pedicel/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.2, 0.5, 0.1)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+        }
+    }
+
+    def Xform "Leaves"
+    {
+        def Xform "Leaf_o0_r0_i0"
+        {
+            def Xform "Rametto" (
+                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+            )
+            {
+                prepend rel physics:filteredPairs = </Plant_1_StemV2/Stem/Seg0000>
+                float physics:mass = 0.05
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (0, 0, 0.008802679)
+                uniform token[] xformOpOrder = ["xformOp:scale", "xformOp:translate"]
+
+                def Cylinder "Petiole"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.0140959285
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.0013708973
+                    matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0, 0, 1, 0), (-1, 1.2246467991473532e-16, 0, 0), (-0.00704796425, 8.631266859267476e-19, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Rachis"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.0001
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.0008225383799999999
+                    matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0, 0, 1, 0), (-1, 1.2246467991473532e-16, 0, 0), (-0.0141459285, 1.732376605849232e-18, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Petiolule_term"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.01
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.00054835892
+                    matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0, 0, 1, 0), (-1, 1.2246467991473532e-16, 0, 0), (-0.0191959285, 2.3508232394186455e-18, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Mesh "Blade_0"
+                {
+                    int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                    int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    point3f[] points = [(0, 0, 0), (0.001977589, 0.0018723512, 0), (0.0034952338, 0.0037447023, 0), (0.004359164, 0.0056170537, 0), (0.004493643, 0.0074894046, 0), (0.0039440054, 0.009361756, 0), (0.0028597368, 0.011234107, 0), (0.0014616962, 0.013106458, 0), (0, 0.014978809, 0), (-0.0014616962, 0.013106458, 0), (-0.0028597368, 0.011234107, 0), (-0.0039440054, 0.009361756, 0), (-0.004493643, 0.0074894046, 0), (-0.004359164, 0.0056170537, 0), (-0.0034952338, 0.0037447023, 0), (-0.001977589, 0.0018723512, 0)]
+                    uniform token subdivisionScheme = "none"
+                    matrix4d xformOp:transform = ( (1.2246467991473532e-16, 1, -0, 0), (-1, 1.2246467991473532e-16, 0, 0), (0, 0, 1, 0), (-0.024195928499999998, 2.963146638992322e-18, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+            }
+        }
+
+        def Xform "Leaf_o0_r0_i1"
+        {
+            def Xform "Rametto" (
+                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+            )
+            {
+                prepend rel physics:filteredPairs = </Plant_1_StemV2/Stem/Seg0000>
+                float physics:mass = 0.05
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (0, 0, 0.008802679)
+                uniform token[] xformOpOrder = ["xformOp:scale", "xformOp:translate"]
+
+                def Cylinder "Petiole"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.0140959285
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.0013708973
+                    matrix4d xformOp:transform = ( (0, 1, 0, 0), (0, 0, 1, 0), (1, 0, 0, 0), (0.00704796425, 0, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Rachis"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.0001
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.0008225383799999999
+                    matrix4d xformOp:transform = ( (0, 1, 0, 0), (0, 0, 1, 0), (1, 0, 0, 0), (0.0141459285, 0, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Petiolule_term"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.01
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.00054835892
+                    matrix4d xformOp:transform = ( (0, 1, 0, 0), (0, 0, 1, 0), (1, 0, 0, 0), (0.0191959285, 0, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Mesh "Blade_0"
+                {
+                    int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                    int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    point3f[] points = [(0, 0, 0), (0.001977589, 0.0018723512, 0), (0.0034952338, 0.0037447023, 0), (0.004359164, 0.0056170537, 0), (0.004493643, 0.0074894046, 0), (0.0039440054, 0.009361756, 0), (0.0028597368, 0.011234107, 0), (0.0014616962, 0.013106458, 0), (0, 0.014978809, 0), (-0.0014616962, 0.013106458, 0), (-0.0028597368, 0.011234107, 0), (-0.0039440054, 0.009361756, 0), (-0.004493643, 0.0074894046, 0), (-0.004359164, 0.0056170537, 0), (-0.0034952338, 0.0037447023, 0), (-0.001977589, 0.0018723512, 0)]
+                    uniform token subdivisionScheme = "none"
+                    matrix4d xformOp:transform = ( (0, -1, 0, 0), (1, 0, 0, 0), (-0, 0, 1, 0), (0.024195928499999998, 0, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+            }
+        }
+
+        def Xform "Leaf_o0_r1_i0"
+        {
+            def Xform "Rametto" (
+                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+            )
+            {
+                prepend rel physics:filteredPairs = </Plant_1_StemV2/Stem/Seg0001>
+                float physics:mass = 0.05
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (0, 0, 0.017638815000000002)
+                uniform token[] xformOpOrder = ["xformOp:scale", "xformOp:translate"]
+
+                def Cylinder "Petiole"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.020808673
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.00187457165
+                    matrix4d xformOp:transform = ( (-1, 6.123233995736766e-17, 0, 0), (0, -0, 1, 0), (6.123233995736766e-17, 1, 0, 0), (6.370818695988488e-19, 0.0104043365, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Rachis"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.0276516
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.00112474299
+                    matrix4d xformOp:transform = ( (-1, 6.123233995736766e-17, 0, 0), (0, -0, 1, 0), (6.123233995736766e-17, 1, 0, 0), (2.1207498249802713e-18, 0.034634473, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Petiolule_0"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.01
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.0007498286600000001
+                    matrix4d xformOp:transform = ( (-0.6427876096865394, -0.766044443118978, 0, 0), (0, 0, 1, 0), (-0.766044443118978, 0.6427876096865394, 0, 0), (-0.003830222215594889, 0.024022611048432698, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Mesh "Blade_0"
+                {
+                    int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                    int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    point3f[] points = [(0, 0, 0), (0.0019774013, 0.0018721734, 0), (0.0034949018, 0.0037443468, 0), (0.00435875, 0.00561652, 0), (0.004493216, 0.0074886936, 0), (0.003943631, 0.009360867, 0), (0.002859465, 0.01123304, 0), (0.0014615575, 0.013105214, 0), (0, 0.014977387, 0), (-0.0014615575, 0.013105214, 0), (-0.002859465, 0.01123304, 0), (-0.003943631, 0.009360867, 0), (-0.004493216, 0.0074886936, 0), (-0.00435875, 0.00561652, 0), (-0.0034949018, 0.0037443468, 0), (-0.0019774013, 0.0018721734, 0)]
+                    uniform token subdivisionScheme = "none"
+                    matrix4d xformOp:transform = ( (0.6427876096865394, 0.766044443118978, -0, 0), (-0.766044443118978, 0.6427876096865394, 0, 0), (0, 0, 1, 0), (-0.00766044443118978, 0.027236549096865393, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Petiolule_1"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.01
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.0007498286600000001
+                    matrix4d xformOp:transform = ( (-0.6427876096865394, 0.766044443118978, 0, 0), (0, -0, 1, 0), (0.766044443118978, 0.6427876096865394, 0, 0), (0.0038302222155948916, 0.024022611048432698, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Mesh "Blade_1"
+                {
+                    int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                    int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    point3f[] points = [(0, 0, 0), (0.0019774013, 0.0018721734, 0), (0.0034949018, 0.0037443468, 0), (0.00435875, 0.00561652, 0), (0.004493216, 0.0074886936, 0), (0.003943631, 0.009360867, 0), (0.002859465, 0.01123304, 0), (0.0014615575, 0.013105214, 0), (0, 0.014977387, 0), (-0.0014615575, 0.013105214, 0), (-0.002859465, 0.01123304, 0), (-0.003943631, 0.009360867, 0), (-0.004493216, 0.0074886936, 0), (-0.00435875, 0.00561652, 0), (-0.0034949018, 0.0037443468, 0), (-0.0019774013, 0.0018721734, 0)]
+                    uniform token subdivisionScheme = "none"
+                    matrix4d xformOp:transform = ( (0.6427876096865394, -0.766044443118978, 0, 0), (0.766044443118978, 0.6427876096865394, 0, 0), (-0, 0, 1, 0), (0.0076604444311897816, 0.027236549096865393, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Petiolule_term"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.01
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.0007498286600000001
+                    matrix4d xformOp:transform = ( (-1, 6.123233995736766e-17, 0, 0), (0, -0, 1, 0), (6.123233995736766e-17, 1, 0, 0), (3.273497610549684e-18, 0.053460272999999996, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Mesh "Blade_2"
+                {
+                    int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                    int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    point3f[] points = [(0, 0, 0), (0.0020071382, 0.0019003279, 0), (0.0035474596, 0.0038006557, 0), (0.0044242986, 0.0057009836, 0), (0.0045607868, 0.0076013114, 0), (0.0040029367, 0.00950164, 0), (0.002902467, 0.011401967, 0), (0.0014835369, 0.0133022955, 0), (0, 0.015202623, 0), (-0.0014835369, 0.0133022955, 0), (-0.002902467, 0.011401967, 0), (-0.0040029367, 0.00950164, 0), (-0.0045607868, 0.0076013114, 0), (-0.0044242986, 0.0057009836, 0), (-0.0035474596, 0.0038006557, 0), (-0.0020071382, 0.0019003279, 0)]
+                    uniform token subdivisionScheme = "none"
+                    matrix4d xformOp:transform = ( (1, -6.123233995736766e-17, 0, 0), (6.123233995736766e-17, 1, 0, 0), (-0, 0, 1, 0), (3.579659310336522e-18, 0.058460273, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+            }
+        }
+
+        def Xform "Leaf_o0_r1_i1"
+        {
+            def Xform "Rametto" (
+                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+            )
+            {
+                prepend rel physics:filteredPairs = </Plant_1_StemV2/Stem/Seg0001>
+                float physics:mass = 0.05
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (0, 0, 0.017638815000000002)
+                uniform token[] xformOpOrder = ["xformOp:scale", "xformOp:translate"]
+
+                def Cylinder "Petiole"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.020808673
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.00187457165
+                    matrix4d xformOp:transform = ( (1, -1.8369701987210297e-16, 0, 0), (0, 0, 1, 0), (-1.8369701987210297e-16, -1, 0, 0), (-1.9112456087965464e-18, -0.0104043365, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Rachis"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.0276516
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.00112474299
+                    matrix4d xformOp:transform = ( (1, -1.8369701987210297e-16, 0, 0), (0, 0, 1, 0), (-1.8369701987210297e-16, -1, 0, 0), (-6.362249474940814e-18, -0.034634473, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Petiolule_0"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.01
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.0007498286600000001
+                    matrix4d xformOp:transform = ( (0.6427876096865395, 0.7660444431189779, -0, 0), (0, 0, 1, 0), (0.7660444431189779, -0.6427876096865395, 0, 0), (0.0038302222155948856, -0.024022611048432698, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Mesh "Blade_0"
+                {
+                    int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                    int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    point3f[] points = [(0, 0, 0), (0.0019774013, 0.0018721734, 0), (0.0034949018, 0.0037443468, 0), (0.00435875, 0.00561652, 0), (0.004493216, 0.0074886936, 0), (0.003943631, 0.009360867, 0), (0.002859465, 0.01123304, 0), (0.0014615575, 0.013105214, 0), (0, 0.014977387, 0), (-0.0014615575, 0.013105214, 0), (-0.002859465, 0.01123304, 0), (-0.003943631, 0.009360867, 0), (-0.004493216, 0.0074886936, 0), (-0.00435875, 0.00561652, 0), (-0.0034949018, 0.0037443468, 0), (-0.0019774013, 0.0018721734, 0)]
+                    uniform token subdivisionScheme = "none"
+                    matrix4d xformOp:transform = ( (-0.6427876096865395, -0.7660444431189779, 0, 0), (0.7660444431189779, -0.6427876096865395, 0, 0), (0, 0, 1, 0), (0.0076604444311897755, -0.027236549096865396, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Petiolule_1"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.01
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.0007498286600000001
+                    matrix4d xformOp:transform = ( (0.6427876096865393, -0.7660444431189781, 0, 0), (0, 0, 1, 0), (-0.7660444431189781, -0.6427876096865393, 0, 0), (-0.0038302222155948947, -0.024022611048432695, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Mesh "Blade_1"
+                {
+                    int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                    int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    point3f[] points = [(0, 0, 0), (0.0019774013, 0.0018721734, 0), (0.0034949018, 0.0037443468, 0), (0.00435875, 0.00561652, 0), (0.004493216, 0.0074886936, 0), (0.003943631, 0.009360867, 0), (0.002859465, 0.01123304, 0), (0.0014615575, 0.013105214, 0), (0, 0.014977387, 0), (-0.0014615575, 0.013105214, 0), (-0.002859465, 0.01123304, 0), (-0.003943631, 0.009360867, 0), (-0.004493216, 0.0074886936, 0), (-0.00435875, 0.00561652, 0), (-0.0034949018, 0.0037443468, 0), (-0.0019774013, 0.0018721734, 0)]
+                    uniform token subdivisionScheme = "none"
+                    matrix4d xformOp:transform = ( (-0.6427876096865393, 0.7660444431189781, 0, 0), (-0.7660444431189781, -0.6427876096865393, 0, 0), (0, 0, 1, 0), (-0.007660444431189785, -0.027236549096865393, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Petiolule_term"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.01
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.0007498286600000001
+                    matrix4d xformOp:transform = ( (1, -1.8369701987210297e-16, 0, 0), (0, 0, 1, 0), (-1.8369701987210297e-16, -1, 0, 0), (-9.820492831649049e-18, -0.053460272999999996, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Mesh "Blade_2"
+                {
+                    int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                    int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    point3f[] points = [(0, 0, 0), (0.0020071382, 0.0019003279, 0), (0.0035474596, 0.0038006557, 0), (0.0044242986, 0.0057009836, 0), (0.0045607868, 0.0076013114, 0), (0.0040029367, 0.00950164, 0), (0.002902467, 0.011401967, 0), (0.0014835369, 0.0133022955, 0), (0, 0.015202623, 0), (-0.0014835369, 0.0133022955, 0), (-0.002902467, 0.011401967, 0), (-0.0040029367, 0.00950164, 0), (-0.0045607868, 0.0076013114, 0), (-0.0044242986, 0.0057009836, 0), (-0.0035474596, 0.0038006557, 0), (-0.0020071382, 0.0019003279, 0)]
+                    uniform token subdivisionScheme = "none"
+                    matrix4d xformOp:transform = ( (-1, 1.8369701987210297e-16, 0, 0), (-1.8369701987210297e-16, -1, 0, 0), (0, 0, 1, 0), (-1.0738977931009565e-17, -0.058460273, 0, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+            }
+        }
+
+        def Xform "Leaf_o0_r2_i0"
+        {
+            def Xform "Rametto" (
+                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+            )
+            {
+                prepend rel physics:filteredPairs = </Plant_1_StemV2/Stem/Seg0002>
+                float physics:mass = 0.05
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (0, 0, 0.024046128000000003)
+                uniform token[] xformOpOrder = ["xformOp:scale", "xformOp:translate"]
+
+                def Cylinder "Petiole"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.0136242965
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.0013339233
+                    matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0.3420201433256687, -4.188538737676992e-17, 0.9396926207859084, 0), (-0.9396926207859084, 1.1507915602278503e-16, 0.3420201433256687, 0), (-0.00640132544222464, 7.83936271312092e-19, 0.0023298919208207033, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Rachis"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.030122817
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.00080035398
+                    matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0.3420201433256687, -4.188538737676992e-17, 0.9396926207859084, 0), (-0.9396926207859084, 1.1507915602278503e-16, 0.3420201433256687, 0), (-0.026955745310541436, 3.3011267213185846e-18, 0.009811088935497852, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Petiolule_0"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.01
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.00053356932
+                    matrix4d xformOp:transform = ( (0.7852561107532648, -0.6191710914800983, 0, 0), (0.1361224799638779, 0.17263565866262628, 0.9755345200486781, 0), (-0.6040227735550538, -0.7660444431189779, 0.2198463103929542, 0), (-0.01582276475222455, -0.0038302222155948877, 0.005759015393606177, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Mesh "Blade_0"
+                {
+                    int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                    int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    point3f[] points = [(0, 0, 0), (0.00050421926, 0.00047738713, 0), (0.0008911681, 0.00095477427, 0), (0.0011114414, 0.0014321613, 0), (0.0011457291, 0.0019095485, 0), (0.0010055898, 0.0023869355, 0), (0.0007291375, 0.0028643226, 0), (0.0003726838, 0.00334171, 0), (0, 0.003819097, 0), (-0.0003726838, 0.00334171, 0), (-0.0007291375, 0.0028643226, 0), (-0.0010055898, 0.0023869355, 0), (-0.0011457291, 0.0019095485, 0), (-0.0011114414, 0.0014321613, 0), (-0.0008911681, 0.00095477427, 0), (-0.00050421926, 0.00047738713, 0)]
+                    uniform token subdivisionScheme = "none"
+                    matrix4d xformOp:transform = ( (-0.7852561107532648, 0.6191710914800983, 0, 0), (-0.6040227735550538, -0.7660444431189779, 0.2198463103929542, 0), (0.1361224799638779, 0.17263565866262628, 0.9755345200486781, 0), (-0.01884287861999982, -0.007660444431189777, 0.006858246945570948, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Petiolule_1"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.01
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.00053356932
+                    matrix4d xformOp:transform = ( (-0.7852561107532651, -0.6191710914800981, 0, 0), (0.13612247996387788, -0.1726356586626263, 0.9755345200486782, 0), (-0.6040227735550536, 0.7660444431189781, 0.2198463103929542, 0), (-0.01582276475222455, 0.0038302222155948925, 0.005759015393606177, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Mesh "Blade_1"
+                {
+                    int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                    int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    point3f[] points = [(0, 0, 0), (0.00050421926, 0.00047738713, 0), (0.0008911681, 0.00095477427, 0), (0.0011114414, 0.0014321613, 0), (0.0011457291, 0.0019095485, 0), (0.0010055898, 0.0023869355, 0), (0.0007291375, 0.0028643226, 0), (0.0003726838, 0.00334171, 0), (0, 0.003819097, 0), (-0.0003726838, 0.00334171, 0), (-0.0007291375, 0.0028643226, 0), (-0.0010055898, 0.0023869355, 0), (-0.0011457291, 0.0019095485, 0), (-0.0011114414, 0.0014321613, 0), (-0.0008911681, 0.00095477427, 0), (-0.00050421926, 0.00047738713, 0)]
+                    uniform token subdivisionScheme = "none"
+                    matrix4d xformOp:transform = ( (0.7852561107532651, 0.6191710914800981, -0, 0), (-0.6040227735550536, 0.7660444431189781, 0.2198463103929542, 0), (0.13612247996387788, -0.1726356586626263, 0.9755345200486782, 0), (-0.018842878619999816, 0.007660444431189783, 0.006858246945570948, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Petiolule_2"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.01
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.00053356932
+                    matrix4d xformOp:transform = ( (0.7852561107532648, -0.6191710914800983, 0, 0), (0.1361224799638779, 0.17263565866262628, 0.9755345200486781, 0), (-0.6040227735550538, -0.7660444431189779, 0.2198463103929542, 0), (-0.027726326664185768, -0.0038302222155948864, 0.010091557611304947, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Mesh "Blade_2"
+                {
+                    int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                    int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    point3f[] points = [(0, 0, 0), (0.00050421926, 0.00047738713, 0), (0.0008911681, 0.00095477427, 0), (0.0011114414, 0.0014321613, 0), (0.0011457291, 0.0019095485, 0), (0.0010055898, 0.0023869355, 0), (0.0007291375, 0.0028643226, 0), (0.0003726838, 0.00334171, 0), (0, 0.003819097, 0), (-0.0003726838, 0.00334171, 0), (-0.0007291375, 0.0028643226, 0), (-0.0010055898, 0.0023869355, 0), (-0.0011457291, 0.0019095485, 0), (-0.0011114414, 0.0014321613, 0), (-0.0008911681, 0.00095477427, 0), (-0.00050421926, 0.00047738713, 0)]
+                    uniform token subdivisionScheme = "none"
+                    matrix4d xformOp:transform = ( (-0.7852561107532648, 0.6191710914800983, 0, 0), (-0.6040227735550538, -0.7660444431189779, 0.2198463103929542, 0), (0.1361224799638779, 0.17263565866262628, 0.9755345200486781, 0), (-0.030746440531961038, -0.007660444431189776, 0.011190789163269717, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Petiolule_3"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.01
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.00053356932
+                    matrix4d xformOp:transform = ( (-0.7852561107532651, -0.6191710914800981, 0, 0), (0.13612247996387788, -0.1726356586626263, 0.9755345200486782, 0), (-0.6040227735550536, 0.7660444431189781, 0.2198463103929542, 0), (-0.027726326664185768, 0.003830222215594894, 0.010091557611304947, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Mesh "Blade_3"
+                {
+                    int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                    int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    point3f[] points = [(0, 0, 0), (0.00050421926, 0.00047738713, 0), (0.0008911681, 0.00095477427, 0), (0.0011114414, 0.0014321613, 0), (0.0011457291, 0.0019095485, 0), (0.0010055898, 0.0023869355, 0), (0.0007291375, 0.0028643226, 0), (0.0003726838, 0.00334171, 0), (0, 0.003819097, 0), (-0.0003726838, 0.00334171, 0), (-0.0007291375, 0.0028643226, 0), (-0.0010055898, 0.0023869355, 0), (-0.0011457291, 0.0019095485, 0), (-0.0011114414, 0.0014321613, 0), (-0.0008911681, 0.00095477427, 0), (-0.00050421926, 0.00047738713, 0)]
+                    uniform token subdivisionScheme = "none"
+                    matrix4d xformOp:transform = ( (0.7852561107532651, 0.6191710914800981, -0, 0), (-0.6040227735550536, 0.7660444431189781, 0.2198463103929542, 0), (0.13612247996387788, -0.1726356586626263, 0.9755345200486782, 0), (-0.030746440531961034, 0.007660444431189784, 0.011190789163269717, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Cylinder "Petiolule_term"
+                {
+                    uniform token axis = "Z"
+                    double height = 0.01
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    double radius = 0.00053356932
+                    matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0.3420201433256687, -4.188538737676992e-17, 0.9396926207859084, 0), (-0.9396926207859084, 1.1507915602278503e-16, 0.3420201433256687, 0), (-0.04580730284056314, 5.60977668012691e-18, 0.01667249474598264, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+
+                def Mesh "Blade_4"
+                {
+                    int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                    int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                    rel material:binding = </Plant_1_StemV2/Materials/Leaf>
+                    point3f[] points = [(0, 0, 0), (0.00050421926, 0.00047738713, 0), (0.0008911681, 0.00095477427, 0), (0.0011114414, 0.0014321613, 0), (0.0011457291, 0.0019095485, 0), (0.0010055898, 0.0023869355, 0), (0.0007291375, 0.0028643226, 0), (0.0003726838, 0.00334171, 0), (0, 0.003819097, 0), (-0.0003726838, 0.00334171, 0), (-0.0007291375, 0.0028643226, 0), (-0.0010055898, 0.0023869355, 0), (-0.0011457291, 0.0019095485, 0), (-0.0011114414, 0.0014321613, 0), (-0.0008911681, 0.00095477427, 0), (-0.00050421926, 0.00047738713, 0)]
+                    uniform token subdivisionScheme = "none"
+                    matrix4d xformOp:transform = ( (1.2246467991473532e-16, 1, -0, 0), (-0.9396926207859084, 1.1507915602278503e-16, 0.3420201433256687, 0), (0.3420201433256687, -4.188538737676992e-17, 0.9396926207859084, 0), (-0.05050576594449268, 6.185172460240835e-18, 0.018382595462610986, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+            }
+        }
+    }
+
+    def Xform "Joints"
+    {
+        def PhysicsSphericalJoint "Joint_Leaf_o0_r0_i0" (
+            prepend apiSchemas = ["PhysicsDriveAPI:rotX", "PhysicsDriveAPI:rotY", "PhysicsDriveAPI:rotZ"]
+        )
+        {
+            float drive:rotX:physics:damping = 0.5
+            float drive:rotX:physics:stiffness = 5
+            float drive:rotX:physics:targetPosition = 0
+            uniform token drive:rotX:physics:type = "force"
+            float drive:rotY:physics:damping = 0.5
+            float drive:rotY:physics:stiffness = 5
+            float drive:rotY:physics:targetPosition = 0
+            uniform token drive:rotY:physics:type = "force"
+            float drive:rotZ:physics:damping = 0.5
+            float drive:rotZ:physics:stiffness = 5
+            float drive:rotZ:physics:targetPosition = 0
+            uniform token drive:rotZ:physics:type = "force"
+            rel physics:body0 = </Plant_1_StemV2/Stem/Seg0000>
+            rel physics:body1 = </Plant_1_StemV2/Leaves/Leaf_o0_r0_i0/Rametto>
+            float physics:coneAngle0Limit = 45
+            float physics:coneAngle1Limit = 45
+            point3f physics:localPos0 = (0, 0, 0.008802679)
+            point3f physics:localPos1 = (0, 0, 0)
+        }
+
+        def PhysicsSphericalJoint "Joint_Leaf_o0_r0_i1" (
+            prepend apiSchemas = ["PhysicsDriveAPI:rotX", "PhysicsDriveAPI:rotY", "PhysicsDriveAPI:rotZ"]
+        )
+        {
+            float drive:rotX:physics:damping = 0.5
+            float drive:rotX:physics:stiffness = 5
+            float drive:rotX:physics:targetPosition = 0
+            uniform token drive:rotX:physics:type = "force"
+            float drive:rotY:physics:damping = 0.5
+            float drive:rotY:physics:stiffness = 5
+            float drive:rotY:physics:targetPosition = 0
+            uniform token drive:rotY:physics:type = "force"
+            float drive:rotZ:physics:damping = 0.5
+            float drive:rotZ:physics:stiffness = 5
+            float drive:rotZ:physics:targetPosition = 0
+            uniform token drive:rotZ:physics:type = "force"
+            rel physics:body0 = </Plant_1_StemV2/Stem/Seg0000>
+            rel physics:body1 = </Plant_1_StemV2/Leaves/Leaf_o0_r0_i1/Rametto>
+            float physics:coneAngle0Limit = 45
+            float physics:coneAngle1Limit = 45
+            point3f physics:localPos0 = (0, 0, 0.008802679)
+            point3f physics:localPos1 = (0, 0, 0)
+        }
+
+        def PhysicsSphericalJoint "Joint_Leaf_o0_r1_i0" (
+            prepend apiSchemas = ["PhysicsDriveAPI:rotX", "PhysicsDriveAPI:rotY", "PhysicsDriveAPI:rotZ"]
+        )
+        {
+            float drive:rotX:physics:damping = 0.5
+            float drive:rotX:physics:stiffness = 5
+            float drive:rotX:physics:targetPosition = 0
+            uniform token drive:rotX:physics:type = "force"
+            float drive:rotY:physics:damping = 0.5
+            float drive:rotY:physics:stiffness = 5
+            float drive:rotY:physics:targetPosition = 0
+            uniform token drive:rotY:physics:type = "force"
+            float drive:rotZ:physics:damping = 0.5
+            float drive:rotZ:physics:stiffness = 5
+            float drive:rotZ:physics:targetPosition = 0
+            uniform token drive:rotZ:physics:type = "force"
+            rel physics:body0 = </Plant_1_StemV2/Stem/Seg0001>
+            rel physics:body1 = </Plant_1_StemV2/Leaves/Leaf_o0_r1_i0/Rametto>
+            float physics:coneAngle0Limit = 45
+            float physics:coneAngle1Limit = 45
+            point3f physics:localPos0 = (0, 0, 0.008636136)
+            point3f physics:localPos1 = (0, 0, 0)
+        }
+
+        def PhysicsSphericalJoint "Joint_Leaf_o0_r1_i1" (
+            prepend apiSchemas = ["PhysicsDriveAPI:rotX", "PhysicsDriveAPI:rotY", "PhysicsDriveAPI:rotZ"]
+        )
+        {
+            float drive:rotX:physics:damping = 0.5
+            float drive:rotX:physics:stiffness = 5
+            float drive:rotX:physics:targetPosition = 0
+            uniform token drive:rotX:physics:type = "force"
+            float drive:rotY:physics:damping = 0.5
+            float drive:rotY:physics:stiffness = 5
+            float drive:rotY:physics:targetPosition = 0
+            uniform token drive:rotY:physics:type = "force"
+            float drive:rotZ:physics:damping = 0.5
+            float drive:rotZ:physics:stiffness = 5
+            float drive:rotZ:physics:targetPosition = 0
+            uniform token drive:rotZ:physics:type = "force"
+            rel physics:body0 = </Plant_1_StemV2/Stem/Seg0001>
+            rel physics:body1 = </Plant_1_StemV2/Leaves/Leaf_o0_r1_i1/Rametto>
+            float physics:coneAngle0Limit = 45
+            float physics:coneAngle1Limit = 45
+            point3f physics:localPos0 = (0, 0, 0.008636136)
+            point3f physics:localPos1 = (0, 0, 0)
+        }
+
+        def PhysicsSphericalJoint "Joint_Leaf_o0_r2_i0" (
+            prepend apiSchemas = ["PhysicsDriveAPI:rotX", "PhysicsDriveAPI:rotY", "PhysicsDriveAPI:rotZ"]
+        )
+        {
+            float drive:rotX:physics:damping = 0.5
+            float drive:rotX:physics:stiffness = 5
+            float drive:rotX:physics:targetPosition = 0
+            uniform token drive:rotX:physics:type = "force"
+            float drive:rotY:physics:damping = 0.5
+            float drive:rotY:physics:stiffness = 5
+            float drive:rotY:physics:targetPosition = 0
+            uniform token drive:rotY:physics:type = "force"
+            float drive:rotZ:physics:damping = 0.5
+            float drive:rotZ:physics:stiffness = 5
+            float drive:rotZ:physics:targetPosition = 0
+            uniform token drive:rotZ:physics:type = "force"
+            rel physics:body0 = </Plant_1_StemV2/Stem/Seg0002>
+            rel physics:body1 = </Plant_1_StemV2/Leaves/Leaf_o0_r2_i0/Rametto>
+            float physics:coneAngle0Limit = 45
+            float physics:coneAngle1Limit = 45
+            point3f physics:localPos0 = (0, 0, 0.006007313)
+            point3f physics:localPos1 = (0, 0, 0)
         }
     }
 }
