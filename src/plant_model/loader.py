@@ -137,7 +137,7 @@ def _link_hierarchy(snapshot: PlantSnapshot) -> None:
                 (c for c in candidates
                 if c.key.organ_class == node.parent_organ_class and
                 (
-                    node.key.organ_class != "Internode"  # foglie/frutti: non serve match su organ_index
+                    node.key.organ_class != "Internode"  # leaves/fruits: no organ_index match needed
                     or search_order != node.key.order
                     or c.key.organ_index == node.key.organ_index
                 )),
