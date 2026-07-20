@@ -19,20 +19,43 @@ GLOBAL_SCALE = 1.0
 
 class Config:
     """Geometric settings for the generation."""
-    MAX_STEM_SEGMENTS = 50
-    MAX_BRANCH_SEGMENTS = 20
+    # PhysX restricts articulations to a maximum of 64 links.
+    # To avoid 'Invalid PhysX transform' errors, we must ensure:
+    # Stem segments + (Branches * Branch segments) <= 64
+    MAX_STEM_SEGMENTS = 25
+    MAX_BRANCH_SEGMENTS = 6
     
     BASE_SEGMENT_LENGTH = 0.20 * GLOBAL_SCALE
     STEM_RADIUS = 0.10 * GLOBAL_SCALE
     BRANCH_RADIUS = 0.04 * GLOBAL_SCALE
     GAP = 0.001 * GLOBAL_SCALE
 
+class GenerationConfig:
+    """Randomization and procedural generation settings."""
+    MIN_STEM_LENGTH = 3.0
+    MAX_STEM_LENGTH = 15.0
+    
+    MIN_BRANCHES = 3
+    MAX_BRANCHES = 25
+    
+    MIN_BRANCH_LENGTH = 0.7
+    MAX_BRANCH_LENGTH = 3.0
+    
+    MIN_TILT_ANGLE = 30.0
+    MAX_TILT_ANGLE = 75.0
+    
+    MIN_Z_RATIO = 0.1
+    MAX_Z_RATIO = 0.9
+    
+    MAX_PER_INTERNODE = 4
+    MAX_PLACEMENT_ATTEMPTS = 20
+
 class PhysicsConfig:
     """Physical behavior settings for the trunk joints and bodies."""
     LINK_MASS = 1.0 * (GLOBAL_SCALE ** 3)
     BEND_LIMIT_DEG = 20.0
-    STIFFNESS = 50000.0 * (GLOBAL_SCALE ** 5)
-    DAMPING = 5000.0 * (GLOBAL_SCALE ** 5)
+    STIFFNESS = 500000.0 * (GLOBAL_SCALE ** 5)
+    DAMPING = 50.0 * (GLOBAL_SCALE ** 5)
 
 class BranchPhysicsConfig:
     """Physical settings for secondary branches."""
@@ -315,13 +338,12 @@ def build_stage(output_path: str):
         
     stage, stem_path = setup_base_stage(output_path)
     
-    total_stem_length = random.uniform(1.0, 15.0)
+    total_stem_length = random.uniform(GenerationConfig.MIN_STEM_LENGTH, GenerationConfig.MAX_STEM_LENGTH)
     stem_segments = generate_stem(stage, stem_path, total_stem_length)
     
-    n_branches = random.randint(20, 50)
+    n_branches = random.randint(GenerationConfig.MIN_BRANCHES, GenerationConfig.MAX_BRANCHES)
     segment_branches = {}
     branch_count = 0
-    MAX_PER_INTERNODE = 7
     MIN_DIST = Config.BRANCH_RADIUS * 2.5
     
     for _ in range(n_branches):
@@ -333,15 +355,15 @@ def build_stage(output_path: str):
         if parent_idx not in segment_branches:
             segment_branches[parent_idx] = []
             
-        if len(segment_branches[parent_idx]) >= MAX_PER_INTERNODE:
+        if len(segment_branches[parent_idx]) >= GenerationConfig.MAX_PER_INTERNODE:
             continue
             
         parent_seg = stem_segments[parent_idx]
         
         valid_spawn = False
         attempts = 0
-        while not valid_spawn and attempts < 20:
-            z_ratio = random.uniform(0.1, 0.9)
+        while not valid_spawn and attempts < GenerationConfig.MAX_PLACEMENT_ATTEMPTS:
+            z_ratio = random.uniform(GenerationConfig.MIN_Z_RATIO, GenerationConfig.MAX_Z_RATIO)
             rot = random.uniform(0.0, 360.0)
             if check_collision((z_ratio, rot), segment_branches[parent_idx], Config.STEM_RADIUS, parent_seg["height"], MIN_DIST):
                 valid_spawn = True
@@ -351,8 +373,8 @@ def build_stage(output_path: str):
         if not valid_spawn:
             continue
             
-        branch_length = random.uniform(0.5, 5.0)
-        tilt = random.uniform(30.0, 75.0)
+        branch_length = random.uniform(GenerationConfig.MIN_BRANCH_LENGTH, GenerationConfig.MAX_BRANCH_LENGTH)
+        tilt = random.uniform(GenerationConfig.MIN_TILT_ANGLE, GenerationConfig.MAX_TILT_ANGLE)
         
         branch_count += 1
         generate_branch(
