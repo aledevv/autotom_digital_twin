@@ -9,6 +9,7 @@ Supports randomized branch generation and segment limitation logic.
 import os
 import random
 import math
+import csv
 from pxr import Usd, UsdGeom, Gf, UsdPhysics, Sdf
 
 # ==============================================================================
@@ -346,6 +347,19 @@ def build_stage(output_path: str):
     branch_count = 0
     MIN_DIST = Config.BRANCH_RADIUS * 2.5
     
+    csv_data = []
+    csv_data.append({
+        "id": "Stem",
+        "organ_class": "Stem",
+        "parent_id": "",
+        "length": round(total_stem_length, 4),
+        "width_m": round(Config.STEM_RADIUS * 2, 4),
+        "parent_segment_idx": "",
+        "z_offset_ratio": "",
+        "tilt_angle": "",
+        "rot_angle": ""
+    })
+    
     for _ in range(n_branches):
         if len(stem_segments) > 1:
             parent_idx = random.randint(1, len(stem_segments) - 1)
@@ -388,14 +402,76 @@ def build_stage(output_path: str):
             z_offset_ratio=z_ratio
         )
         
+        csv_data.append({
+            "id": f"Branch_{branch_count:02d}",
+            "organ_class": "Branch",
+            "parent_id": "Stem",
+            "length": round(branch_length, 4),
+            "width_m": round(Config.BRANCH_RADIUS * 2, 4),
+            "parent_segment_idx": parent_idx,
+            "z_offset_ratio": round(z_ratio, 4),
+            "tilt_angle": round(tilt, 4),
+            "rot_angle": round(rot, 4)
+        })
+        
+    return stage, stem_path, csv_data
+
+
+def build_stage_from_csv_data(output_path: str, csv_data: list):
+    """Builds the USD stage deterministically using the parameters from csv_data."""
+    if os.path.exists(output_path):
+        os.remove(output_path)
+        
+    stage, stem_path = setup_base_stage(output_path)
+    stem_segments = []
+    
+    # 1. Build the stem first
+    for row in csv_data:
+        if row["organ_class"] == "Stem":
+            total_stem_length = float(row["length"])
+            stem_segments = generate_stem(stage, stem_path, total_stem_length)
+            break
+            
+    # 2. Build the branches
+    for row in csv_data:
+        if row["organ_class"] == "Branch":
+            parent_idx = int(row["parent_segment_idx"])
+            z_ratio = float(row["z_offset_ratio"])
+            rot = float(row["rot_angle"])
+            tilt = float(row["tilt_angle"])
+            branch_length = float(row["length"])
+            
+            parent_seg = stem_segments[parent_idx]
+            branch_name = row["id"]
+            
+            generate_branch(
+                stage=stage,
+                stem_path=stem_path,
+                parent_seg=parent_seg,
+                branch_name=branch_name,
+                total_length=branch_length,
+                tilt_angle_deg=tilt,
+                rot_around_trunk_deg=rot,
+                z_offset_ratio=z_ratio
+            )
+            
     return stage, stem_path
 
 
+def save_config_csv(output_path: str, csv_data: list):
+    csv_path = output_path.replace(".usda", "_config.csv")
+    with open(csv_path, "w", newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=["id", "organ_class", "parent_id", "length", "width_m", "parent_segment_idx", "z_offset_ratio", "tilt_angle", "rot_angle"])
+        writer.writeheader()
+        writer.writerows(csv_data)
+    print(f"[OK] Config CSV saved to {csv_path}")
+
 def main():
     output_path = get_output_usd_path()
-    stage, stem_path = build_stage(output_path)
+    stage, stem_path, csv_data = build_stage(output_path)
     stage.GetRootLayer().Save()
     print(f"[OK] Generalized Articulation USD saved to {output_path}")
+    save_config_csv(output_path, csv_data)
 
 if __name__ == "__main__":
     main()

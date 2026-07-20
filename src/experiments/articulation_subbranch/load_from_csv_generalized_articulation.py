@@ -1,15 +1,16 @@
 """
-load_generalized_articulation.py
+load_from_csv_generalized_articulation.py
 
-Single entry point: generates the USD stage (from generate_generalized_articulation_usda.py),
-applies the PhysX configuration, and starts the simulation in Isaac Sim.
+Variant loader: Reads the CSV configuration (generated previously) and deterministically
+builds the USD stage from that CSV without randomization, then starts Isaac Sim.
 
 Run with:
-~/isaacsim/python.sh src/experiments/articulation_subbranch/load_generalized_articulation.py
+~/isaacsim/python.sh src/experiments/articulation_subbranch/load_from_csv_generalized_articulation.py
 """
 
 import os
 import sys
+import csv
 from isaacsim import SimulationApp
 
 simulation_app = SimulationApp({"headless": False})
@@ -21,9 +22,10 @@ import omni.kit.actions.core
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
-from generate_generalized_articulation_usda import build_stage, get_output_usd_path, save_config_csv
+from generate_generalized_articulation_usda import build_stage_from_csv_data, get_output_usd_path
 
 USD_PATH = get_output_usd_path()
+CSV_PATH = USD_PATH.replace(".usda", "_config.csv")
 
 def apply_physx_scene_settings(stage) -> None:
     """Creates/configures PhysicsScene with PhysX parameters suitable for stiff drives."""
@@ -52,29 +54,38 @@ def apply_physx_articulation_settings(stage, stem_path: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 1. Generate the in-memory stage using pure functions from generate_generalized_articulation_usda
+# 1. Load the CSV configuration
 # ---------------------------------------------------------------------------
-print("[INFO] Building stage via generate_generalized_articulation_usda...")
-stage, stem_path, csv_data = build_stage(USD_PATH)
+if not os.path.exists(CSV_PATH):
+    print(f"[ERROR] CSV config not found at {CSV_PATH}. Please run the standard generator first.")
+    simulation_app.close()
+    sys.exit(1)
 
-# Save the configuration as CSV
-save_config_csv(USD_PATH, csv_data)
+print(f"[INFO] Loading configuration from {CSV_PATH}...")
+csv_data = []
+with open(CSV_PATH, "r") as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        csv_data.append(row)
 
 # ---------------------------------------------------------------------------
-# 2. Inject PhysX configuration (only available here, inside SimulationApp)
+# 2. Generate the in-memory stage from the loaded CSV
+# ---------------------------------------------------------------------------
+print("[INFO] Building deterministic stage from CSV...")
+stage, stem_path = build_stage_from_csv_data(USD_PATH, csv_data)
+
+# ---------------------------------------------------------------------------
+# 3. Inject PhysX configuration
 # ---------------------------------------------------------------------------
 apply_physx_scene_settings(stage)
 apply_physx_articulation_settings(stage, stem_path)
 
 # ---------------------------------------------------------------------------
-# 3. Save the complete file (geometry + physics + PhysX) for reuse/debugging
+# 4. Save and Open the stage
 # ---------------------------------------------------------------------------
 stage.GetRootLayer().Save()
-print(f"[OK] Stage generated and saved with PhysX config: {USD_PATH}")
+print(f"[OK] Deterministic stage generated and saved with PhysX config: {USD_PATH}")
 
-# ---------------------------------------------------------------------------
-# 4. Open the stage in the Isaac Sim context and start the simulation
-# ---------------------------------------------------------------------------
 omni.usd.get_context().open_stage(USD_PATH)
 print(f"[OK] Stage opened in Isaac Sim: {USD_PATH}")
 
