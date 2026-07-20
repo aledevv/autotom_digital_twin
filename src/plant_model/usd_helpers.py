@@ -400,6 +400,8 @@ def _make_material(stage, path: str, color: tuple, roughness: float = 0.6, metal
 
 
 def _bind_material(prim, mat):
+    if mat is None:
+        return
     from pxr import UsdShade
     UsdShade.MaterialBindingAPI(prim).Bind(mat)
 

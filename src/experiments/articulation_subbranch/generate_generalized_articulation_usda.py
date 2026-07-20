@@ -10,7 +10,15 @@ import os
 import random
 import math
 import csv
+import sys
 from pxr import Usd, UsdGeom, Gf, UsdPhysics, Sdf
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from src.plant_model.usd_helpers import _make_leaf
 
 # ==============================================================================
 # CONFIGURATION & CONSTANTS
@@ -71,6 +79,40 @@ class BranchPhysicsConfig:
     
     BASE_STIFFNESS = 184000.0 * scale5
     BASE_DAMPING = 5000.0 * scale5
+
+class LeafPhysicsConfig:
+    """Physical behavior settings for leaves."""
+    MASS = 0.05 * (GLOBAL_SCALE ** 3)
+    CONE_ANGLE_DEG = 45.0
+    STIFFNESS = 5000.0 * (GLOBAL_SCALE ** 5)
+    DAMPING = 50.0 * (GLOBAL_SCALE ** 5)
+
+class MockKey:
+    def __init__(self, rank, order, organ_index):
+        self.rank = rank
+        self.order = order
+        self.organ_index = organ_index
+
+class MockLeafNode:
+    """
+    Mocks a LeafNode for the _make_leaf visual generation.
+    We define a canonical "small" leaf of length 0.15m here. 
+    The entire USD object is then scaled up to match the CSV length via USD Scale.
+    """
+    def __init__(self, rot_angle: float, tilt_angle: float, rank: int):
+        self.key = MockKey(rank=rank, order=1, organ_index=rank)
+        self.ccw_orientation = rot_angle
+        self.angle_petiole = tilt_angle
+        
+        self.length_petiole = 0.08
+        self.diameter_petiole = 0.01
+        self.rachis_length = 0.2
+        
+        self.blades_nr = 3
+        self.leaf_area_m2blades = [0.005, 0.01, 0.015]
+        self.leaf_segments_length = [self.rachis_length * 0.6]
+        self.leaf_inclination_segments = [50.0]
+        self.area_blades_total = 0.03
 
 
 # ==============================================================================
@@ -334,6 +376,35 @@ def generate_branch(stage: Usd.Stage, stem_path: str, parent_seg: dict, branch_n
 
         previous_link_path = current_link_path
 
+def generate_leaf(stage: Usd.Stage, stem_path: str, parent_seg: dict, leaf_name: str,
+                  length: float, width: float, tilt_angle_deg: float, rot_around_trunk_deg: float,
+                  z_offset_ratio: float, leaf_rank: int):
+    print(f"[INFO] Attaching Leaf {leaf_name} to {parent_seg['path']} (visual only, static).")
+    
+    # Place it directly under the parent segment so it moves with it rigidly
+    leaf_path = f"{parent_seg['path']}/{leaf_name}"
+    rametto_xform = UsdGeom.Xform.Define(stage, leaf_path)
+    
+    relative_z_pos = z_offset_ratio * parent_seg["height"]
+    total_distance = Config.STEM_RADIUS
+    
+    rot_z = Gf.Rotation(Gf.Vec3d(0.0, 0.0, 1.0), rot_around_trunk_deg)
+    base_pos0 = Gf.Vec3d(total_distance, 0.0, relative_z_pos)
+    local_pos = rot_z.TransformDir(base_pos0)
+    
+    rametto_xform.ClearXformOpOrder()
+    rametto_xform.AddTranslateOp().Set(local_pos)
+    
+    # Scale uniformly based on a 0.15m canonical leaf so EVERYTHING (even hardcoded petiolules) scales up
+    scale_factor = length / 0.15
+    rametto_xform.AddScaleOp().Set(Gf.Vec3f(scale_factor, scale_factor, scale_factor))
+    
+    mock_node = MockLeafNode(rot_around_trunk_deg, tilt_angle_deg, leaf_rank)
+    materials = {"leaf": None, "pedicel": None}
+    
+    # Generate meshes without rigid body or collisions
+    _make_leaf(stage, leaf_path, mock_node, 0.0, materials)
+
 
 def build_stage(output_path: str):
     # 1. Generate biological internodes (testing the logic)
@@ -431,8 +502,9 @@ def build_stage_from_csv_data(output_path: str, csv_data: list):
         
     stage, stem_path = setup_base_stage(output_path)
     
-    internode_rows = [row for row in csv_data if row["organ_class"] == "Internode"]
-    branch_rows = [row for row in csv_data if row["organ_class"] == "Branch"]
+    internode_rows = [row for row in csv_data if row.get("organ_class") == "Internode"]
+    branch_rows = [row for row in csv_data if row.get("organ_class") == "Branch"]
+    leaf_rows = [row for row in csv_data if row.get("organ_class") == "Leaf"]
     
     n_internodes = len(internode_rows)
     max_segments = Config.MAX_STEM_SEGMENTS
@@ -498,6 +570,38 @@ def build_stage_from_csv_data(output_path: str, csv_data: list):
             rot_around_trunk_deg=rot,
             z_offset_ratio=z_ratio
         )
+        
+    leaf_rank = 1
+    for row in leaf_rows:
+        parent_id = row["parent_id"]
+        if parent_id not in internode_mapping:
+            continue
+            
+        physical_seg_idx, abs_height = internode_mapping[parent_id]
+        parent_seg = stem_segments[physical_seg_idx]
+        physical_length = physical_segment_lengths[physical_seg_idx]
+        
+        z_ratio = abs_height / physical_length if physical_length > 0 else 0.0
+        
+        rot = float(row.get("rot_angle", 0) or 0)
+        tilt = float(row.get("tilt_angle", 0) or 0)
+        leaf_length = float(row.get("length", 0) or 0)
+        leaf_width = float(row.get("width_m", 0) or 0.01)
+        leaf_name = row["id"]
+        
+        generate_leaf(
+            stage=stage,
+            stem_path=stem_path,
+            parent_seg=parent_seg,
+            leaf_name=leaf_name,
+            length=leaf_length,
+            width=leaf_width,
+            tilt_angle_deg=tilt,
+            rot_around_trunk_deg=rot,
+            z_offset_ratio=z_ratio,
+            leaf_rank=leaf_rank
+        )
+        leaf_rank += 1
             
     return stage, stem_path
 
