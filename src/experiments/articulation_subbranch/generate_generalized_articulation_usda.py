@@ -216,19 +216,18 @@ def create_rigid_segment(stage: Usd.Stage, parent_path: str, name: str,
 # GENERATORS
 # ==============================================================================
 
-def generate_stem(stage: Usd.Stage, stem_path: str, total_length: float) -> list[dict]:
-    target_length = compute_target_length(total_length, Config.MAX_STEM_SEGMENTS, Config.BASE_SEGMENT_LENGTH)
-    n_segments = calculate_segments(total_length, target_length)
-    
-    segment_height = (total_length - (n_segments - 1) * Config.GAP) / n_segments if n_segments > 1 else total_length
-    print(f"[INFO] Building stem with {n_segments} segments (Length: {total_length:.2f}m, Target Seg Len: {target_length:.2f}m)")
+def generate_stem(stage: Usd.Stage, stem_path: str, segment_lengths: list[float]) -> list[dict]:
+    n_segments = len(segment_lengths)
+    total_length = sum(segment_lengths)
+    print(f"[INFO] Building physical stem with {n_segments} physical internodes (Total Length: {total_length:.2f}m)")
     
     segments_info = []
     previous_link_path = None
+    current_z = 0.0
     
-    for i in range(n_segments):
-        seg_name = f"Seg_{i+1:02d}"
-        base_z = i * (segment_height + Config.GAP)
+    for i, segment_height in enumerate(segment_lengths):
+        seg_name = f"Internode_{i+1:02d}"
+        base_z = current_z
         
         pos = Gf.Vec3d(0.0, 0.0, base_z)
         rot = Gf.Quatf(1.0, 0.0, 0.0, 0.0)
@@ -239,7 +238,8 @@ def generate_stem(stage: Usd.Stage, stem_path: str, total_length: float) -> list
             anchor_link_to_world(stage, link_path)
         else:
             joint_name = f"Joint_{i:02d}_{i+1:02d}"
-            create_d6_bending_joint(stage, previous_link_path, link_path, joint_name, segment_height)
+            prev_seg_height = segments_info[-1]["height"]
+            create_d6_bending_joint(stage, previous_link_path, link_path, joint_name, prev_seg_height)
             
         previous_link_path = link_path
         
@@ -250,6 +250,8 @@ def generate_stem(stage: Usd.Stage, stem_path: str, total_length: float) -> list
             "height": segment_height
         })
         
+        current_z += segment_height + Config.GAP
+        
     return segments_info
 
 def generate_branch(stage: Usd.Stage, stem_path: str, parent_seg: dict, branch_name: str, 
@@ -259,7 +261,7 @@ def generate_branch(stage: Usd.Stage, stem_path: str, parent_seg: dict, branch_n
     n_segments = calculate_segments(total_length, target_length)
     
     segment_height = (total_length - (n_segments - 1) * Config.GAP) / n_segments if n_segments > 1 else total_length
-    print(f"[INFO] Attaching {branch_name} to {parent_seg['path']} with {n_segments} segments (Length: {total_length:.2f}m)")
+    print(f"[INFO] Attaching {branch_name} to {parent_seg['path']} with {n_segments} physical branch internodes (Length: {total_length:.2f}m)")
     
     branch_base_path = f"{stem_path}/Branches"
     if not stage.GetPrimAtPath(branch_base_path):
@@ -284,7 +286,7 @@ def generate_branch(stage: Usd.Stage, stem_path: str, parent_seg: dict, branch_n
     previous_link_path = parent_seg['path']
     
     for i in range(n_segments):
-        seg_name = f"Seg_{i+1:02d}"
+        seg_name = f"Branch_Internode_{i+1:02d}"
         z_distance = i * (segment_height + Config.GAP)
         
         link_world_pos = branch_world_base_pos + rot_total.TransformDir(Gf.Vec3d(0.0, 0.0, z_distance))
@@ -334,35 +336,42 @@ def generate_branch(stage: Usd.Stage, stem_path: str, parent_seg: dict, branch_n
 
 
 def build_stage(output_path: str):
-    if os.path.exists(output_path):
-        os.remove(output_path)
-        
-    stage, stem_path = setup_base_stage(output_path)
+    # 1. Generate biological internodes (testing the logic)
+    num_internodes = random.randint(15, 60)
+    biological_internodes = []
     
-    total_stem_length = random.uniform(GenerationConfig.MIN_STEM_LENGTH, GenerationConfig.MAX_STEM_LENGTH)
-    stem_segments = generate_stem(stage, stem_path, total_stem_length)
+    csv_data = []
+    for i in range(num_internodes):
+        ilength = random.uniform(0.05, 0.25)
+        iid = f"Internode_{i:02d}"
+        biological_internodes.append({"id": iid, "length": ilength})
+        
+        csv_data.append({
+            "id": iid,
+            "organ_class": "Internode",
+            "parent_id": f"Internode_{i-1:02d}" if i > 0 else "",
+            "length": round(ilength, 4),
+            "width_m": round(Config.STEM_RADIUS * 2, 4),
+            "parent_segment_idx": "",
+            "z_offset_ratio": "",
+            "tilt_angle": "",
+            "rot_angle": ""
+        })
+    
+    # We must calculate segment lengths exactly like build_stage_from_csv_data will do,
+    # so we can build the USD in this function. But actually, it's cleaner to just call 
+    # build_stage_from_csv_data and pass it the generated csv_data!
+    # Wait, the prompt says "build_stage" generates USD. Let's just generate the CSV here,
+    # and use the determinisitic builder to actually build the stage.
     
     n_branches = random.randint(GenerationConfig.MIN_BRANCHES, GenerationConfig.MAX_BRANCHES)
     segment_branches = {}
     branch_count = 0
     MIN_DIST = Config.BRANCH_RADIUS * 2.5
     
-    csv_data = []
-    csv_data.append({
-        "id": "Stem",
-        "organ_class": "Stem",
-        "parent_id": "",
-        "length": round(total_stem_length, 4),
-        "width_m": round(Config.STEM_RADIUS * 2, 4),
-        "parent_segment_idx": "",
-        "z_offset_ratio": "",
-        "tilt_angle": "",
-        "rot_angle": ""
-    })
-    
     for _ in range(n_branches):
-        if len(stem_segments) > 1:
-            parent_idx = random.randint(1, len(stem_segments) - 1)
+        if num_internodes > 1:
+            parent_idx = random.randint(1, num_internodes - 1)
         else:
             parent_idx = 0
             
@@ -372,14 +381,17 @@ def build_stage(output_path: str):
         if len(segment_branches[parent_idx]) >= GenerationConfig.MAX_PER_INTERNODE:
             continue
             
-        parent_seg = stem_segments[parent_idx]
-        
+        # The segment_branches tracks (z_ratio, rot) to avoid collision. 
+        # But wait, now Z ratio is within the INTERNODE.
+        # Let's assume branches attach exactly at the top of the biological internode (z_ratio=1.0)
+        # So we only randomize rotation.
         valid_spawn = False
         attempts = 0
+        z_ratio = 1.0 # Biological branches usually attach at the node (top of internode)
+        rot = 0.0
         while not valid_spawn and attempts < GenerationConfig.MAX_PLACEMENT_ATTEMPTS:
-            z_ratio = random.uniform(GenerationConfig.MIN_Z_RATIO, GenerationConfig.MAX_Z_RATIO)
             rot = random.uniform(0.0, 360.0)
-            if check_collision((z_ratio, rot), segment_branches[parent_idx], Config.STEM_RADIUS, parent_seg["height"], MIN_DIST):
+            if check_collision((z_ratio, rot), segment_branches[parent_idx], Config.STEM_RADIUS, biological_internodes[parent_idx]["length"], MIN_DIST):
                 valid_spawn = True
                 segment_branches[parent_idx].append((z_ratio, rot))
             attempts += 1
@@ -391,29 +403,24 @@ def build_stage(output_path: str):
         tilt = random.uniform(GenerationConfig.MIN_TILT_ANGLE, GenerationConfig.MAX_TILT_ANGLE)
         
         branch_count += 1
-        generate_branch(
-            stage=stage,
-            stem_path=stem_path,
-            parent_seg=parent_seg,
-            branch_name=f"Branch_{branch_count:02d}",
-            total_length=branch_length,
-            tilt_angle_deg=tilt,
-            rot_around_trunk_deg=rot,
-            z_offset_ratio=z_ratio
-        )
         
         csv_data.append({
             "id": f"Branch_{branch_count:02d}",
             "organ_class": "Branch",
-            "parent_id": "Stem",
+            "parent_id": biological_internodes[parent_idx]["id"],
             "length": round(branch_length, 4),
             "width_m": round(Config.BRANCH_RADIUS * 2, 4),
-            "parent_segment_idx": parent_idx,
+            "parent_segment_idx": "",
             "z_offset_ratio": round(z_ratio, 4),
             "tilt_angle": round(tilt, 4),
             "rot_angle": round(rot, 4)
         })
         
+    # Now that we generated the purely biological CSV, we call our deterministic builder!
+    # Wait, the previous logic returned `stage, stem_path, csv_data`.
+    # I can just re-use `build_stage_from_csv_data` here directly so the output matches!
+    stage, stem_path = build_stage_from_csv_data(output_path, csv_data)
+    
     return stage, stem_path, csv_data
 
 
@@ -423,37 +430,74 @@ def build_stage_from_csv_data(output_path: str, csv_data: list):
         os.remove(output_path)
         
     stage, stem_path = setup_base_stage(output_path)
-    stem_segments = []
     
-    # 1. Build the stem first
-    for row in csv_data:
-        if row["organ_class"] == "Stem":
-            total_stem_length = float(row["length"])
-            stem_segments = generate_stem(stage, stem_path, total_stem_length)
-            break
+    internode_rows = [row for row in csv_data if row["organ_class"] == "Internode"]
+    branch_rows = [row for row in csv_data if row["organ_class"] == "Branch"]
+    
+    n_internodes = len(internode_rows)
+    max_segments = Config.MAX_STEM_SEGMENTS
+    
+    physical_segment_lengths = []
+    internode_mapping = {} # id -> (physical_segment_idx, height_within_segment)
+    
+    if n_internodes > max_segments:
+        # Group internodes into max_segments
+        group_size = n_internodes / max_segments
+        current_physical_idx = 0
+        current_physical_length = 0.0
+        
+        for i, i_row in enumerate(internode_rows):
+            target_group = min(int(i / group_size), max_segments - 1)
             
-    # 2. Build the branches
-    for row in csv_data:
-        if row["organ_class"] == "Branch":
-            parent_idx = int(row["parent_segment_idx"])
-            z_ratio = float(row["z_offset_ratio"])
-            rot = float(row["rot_angle"])
-            tilt = float(row["tilt_angle"])
-            branch_length = float(row["length"])
+            if target_group > current_physical_idx:
+                physical_segment_lengths.append(current_physical_length)
+                current_physical_idx = target_group
+                current_physical_length = 0.0
             
-            parent_seg = stem_segments[parent_idx]
-            branch_name = row["id"]
+            length = float(i_row["length"])
+            current_physical_length += length
             
-            generate_branch(
-                stage=stage,
-                stem_path=stem_path,
-                parent_seg=parent_seg,
-                branch_name=branch_name,
-                total_length=branch_length,
-                tilt_angle_deg=tilt,
-                rot_around_trunk_deg=rot,
-                z_offset_ratio=z_ratio
-            )
+            # The node attaches at the top of the biological internode
+            internode_mapping[i_row["id"]] = (current_physical_idx, current_physical_length)
+            
+        physical_segment_lengths.append(current_physical_length)
+    else:
+        for i, i_row in enumerate(internode_rows):
+            length = float(i_row["length"])
+            physical_segment_lengths.append(length)
+            internode_mapping[i_row["id"]] = (i, length)
+            
+    # Now build the stem with these specific physical segment lengths
+    stem_segments = generate_stem(stage, stem_path, physical_segment_lengths)
+    
+    # Build the branches using precise accumulated Z-offset ratios
+    for row in branch_rows:
+        parent_id = row["parent_id"]
+        if parent_id not in internode_mapping:
+            continue
+            
+        physical_seg_idx, abs_height = internode_mapping[parent_id]
+        parent_seg = stem_segments[physical_seg_idx]
+        physical_length = physical_segment_lengths[physical_seg_idx]
+        
+        # Calculate exactly where it should be on the merged physical cylinder
+        z_ratio = abs_height / physical_length if physical_length > 0 else 0.0
+        
+        rot = float(row["rot_angle"])
+        tilt = float(row["tilt_angle"])
+        branch_length = float(row["length"])
+        branch_name = row["id"]
+        
+        generate_branch(
+            stage=stage,
+            stem_path=stem_path,
+            parent_seg=parent_seg,
+            branch_name=branch_name,
+            total_length=branch_length,
+            tilt_angle_deg=tilt,
+            rot_around_trunk_deg=rot,
+            z_offset_ratio=z_ratio
+        )
             
     return stage, stem_path
 

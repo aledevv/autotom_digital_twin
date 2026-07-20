@@ -27,6 +27,11 @@ from generate_generalized_articulation_usda import build_stage_from_csv_data, ge
 USD_PATH = get_output_usd_path()
 CSV_PATH = USD_PATH.replace(".usda", "_config.csv")
 
+for arg in sys.argv[1:]:
+    if arg.endswith(".csv"):
+        CSV_PATH = os.path.abspath(arg)
+        break
+
 def apply_physx_scene_settings(stage) -> None:
     """Creates/configures PhysicsScene with PhysX parameters suitable for stiff drives."""
     scene_path = "/World/PhysicsScene"
