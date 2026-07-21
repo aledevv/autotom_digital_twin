@@ -416,3 +416,194 @@ class PlantBuilder:
         print(f"   🍃 Leaf '{id}' petiole={pet_len*100:.1f}cm  "
               f"blade={leaf_length*100:.0f}×{leaf_width*100:.0f}cm")
         return id
+
+    # ----------------------------------------------------------------- #
+    #  TRUSS RACHIS
+    # ----------------------------------------------------------------- #
+    def add_truss_rachis(self, parent_id: str, base_id: str,
+                         n_segments: int = 4,
+                         rachis_radius: float = 0.005,
+                         rachis_seg_length: float = 0.03,
+                         z_offset_ratio: float = 0.8,
+                         tilt_angle: float = 45.0,
+                         rot_around_parent: float = 0.0,
+                         mass: float = 0.05,
+                         stiffness_base: float = 5_000.0,
+                         damping_base: float = 200.0,
+                         stiffness_int: float = 1.5,
+                         damping_int: float = 0.5) -> list[str]:
+        """Build an articulated rachis (peduncle) chain for a tomato truss.
+
+        The first segment attaches laterally to the parent (like a branch).
+        Subsequent segments extend straight tip-to-tip (like internodes),
+        so the rachis starts straight and bends only under gravity and
+        the weight of attached fruits.
+
+        Parameters
+        ----------
+        parent_id : which segment to attach the rachis to.
+        base_id : ID prefix — segments will be named base_id_01, base_id_02, …
+        n_segments : how many rachis segments.
+        rachis_radius / rachis_seg_length : cylinder dimensions.
+        z_offset_ratio, tilt_angle, rot_around_parent : attachment geometry.
+        stiffness_base / damping_base : D6 drive for the base attachment.
+        stiffness_int / damping_int : D6 drive for internal joints.
+
+        Returns
+        -------
+        List of segment IDs (use these to attach fruits).
+        """
+        if n_segments < 1:
+            raise ValueError("n_segments must be >= 1")
+
+        seg_ids: list[str] = []
+
+        # ── First segment: lateral attachment to parent ───────────────────
+        first_id = f"{base_id}_01"
+        self.add_lateral_branch(
+            parent_id, first_id,
+            radius=rachis_radius, length=rachis_seg_length,
+            z_offset_ratio=z_offset_ratio, tilt_angle=tilt_angle,
+            rot_around_parent=rot_around_parent,
+            mass=mass, stiffness=stiffness_base, damping=damping_base,
+        )
+        seg_ids.append(first_id)
+
+        # ── Subsequent segments: straight tip-to-tip (like internodes) ────
+        # They connect at the top of the previous segment without any
+        # lateral offset, so the rachis starts perfectly straight.
+        # Bending happens only through physics (gravity + soft joints).
+        prev_id = first_id
+        for i in range(2, n_segments + 1):
+            seg_id = f"{base_id}_{i:02d}"
+            self.add_internode(
+                prev_id, seg_id,
+                radius=rachis_radius, length=rachis_seg_length,
+                mass=mass * 0.5, stiffness=stiffness_int, damping=damping_int,
+            )
+            seg_ids.append(seg_id)
+            prev_id = seg_id
+
+        print(f"   🍇 Truss rachis '{base_id}' — {n_segments} segments")
+        return seg_ids
+
+    # ----------------------------------------------------------------- #
+    #  FRUIT
+    # ----------------------------------------------------------------- #
+    def add_fruit(self, parent_id: str, id: str,
+                  fruit_radius: float = 0.015,
+                  pedicel_length: float = 0.015,
+                  pedicel_radius: float | None = None,
+                  lateral_angle: float = 90.0,
+                  mass: float | None = None,
+                  is_ripe: bool = True,
+                  stiffness: float = 0.001,
+                  damping: float = 0.0001) -> str:
+        """Attach a tomato fruit sphere to a rachis segment via D6 joint.
+
+        The fruit assembly = pedicel cylinder + sphere, both as children
+        of a single rigid body Xform. The pedicel extends laterally from
+        the parent rachis, with the sphere at its tip.
+
+        The D6 joint between the rachis segment and the pedicel allows
+        the fruit to swing up and down under gravity.
+
+        Parameters
+        ----------
+        parent_id : rachis segment to attach to.
+        id : unique identifier for this fruit.
+        fruit_radius : radius of the fruit sphere (meters).
+        pedicel_length : length of the connecting stem (meters).
+        pedicel_radius : radius of pedicel cylinder. Defaults to parent radius * 0.6.
+        lateral_angle : degrees around the parent axis for pedicel direction.
+                        Use ±90 for alternating sides.
+        mass : fruit mass (kg). Auto-computed from sphere volume and
+               tomato density (~1050 kg/m³) if not specified.
+        is_ripe : controls sphere color (red vs green).
+        stiffness / damping : D6 drive parameters for the pedicel joint.
+        """
+        if parent_id not in self._segments:
+            raise KeyError(f"Parent '{parent_id}' not found!")
+        if id in self._segments:
+            raise ValueError(f"🚫 [PlantBuilder] Segment ID '{id}' already exists!")
+
+        p = self._segments[parent_id]
+        ped_rad = pedicel_radius if pedicel_radius else max(p["radius"] * 0.6, 0.002)
+
+        # Auto-compute mass from sphere volume (tomato density ≈ 1050 kg/m³)
+        if mass is None:
+            mass = (4.0 / 3.0) * math.pi * fruit_radius ** 3 * 1050.0
+
+        # ── Compute attachment point (at tip of parent, laterally offset) ──
+        rel_z = 0.8 * p["height"]  # attach near tip of rachis segment
+        local_offset = Gf.Vec3d(0.0, p["radius"], rel_z)
+
+        rot_z  = Gf.Rotation(Gf.Vec3d(0, 0, 1), lateral_angle)
+        tilt_r = Gf.Rotation(Gf.Vec3d(1, 0, 0), -90.0)  # pedicel points outward
+
+        sub_rot_local = tilt_r * rot_z
+        local_pos0    = rot_z.TransformDir(local_offset)
+        sub_rot_total = sub_rot_local * p["global_rot"]
+        world_pos     = p["base_pos"] + p["global_rot"].TransformDir(local_pos0)
+
+        orient_qf = _quatd_to_quatf(sub_rot_total.GetQuat())
+
+        # ── Create the fruit rigid body Xform ─────────────────────────────
+        path = f"{self.base_path}/{id}"
+        xform = UsdGeom.Xform.Define(self.stage, path)
+        xform.ClearXformOpOrder()
+        xform.AddTranslateOp().Set(world_pos)
+        xform.AddOrientOp().Set(orient_qf)
+
+        UsdPhysics.RigidBodyAPI.Apply(xform.GetPrim())
+        mass_api = UsdPhysics.MassAPI.Apply(xform.GetPrim())
+        mass_api.CreateMassAttr().Set(mass)
+
+        # ── Pedicel cylinder (along local +Z) ────────────────────────────
+        ped = UsdGeom.Cylinder.Define(self.stage, f"{path}/Pedicel")
+        ped.GetRadiusAttr().Set(ped_rad)
+        ped.GetHeightAttr().Set(pedicel_length)
+        ped.GetAxisAttr().Set("Z")
+        ped.AddTranslateOp().Set(Gf.Vec3d(0, 0, pedicel_length / 2.0))
+        UsdPhysics.CollisionAPI.Apply(ped.GetPrim())
+
+        # ── Fruit sphere at the pedicel tip ──────────────────────────────
+        sph = UsdGeom.Sphere.Define(self.stage, f"{path}/Sphere")
+        sph.GetRadiusAttr().Set(fruit_radius)
+        sph.AddTranslateOp().Set(Gf.Vec3d(0, 0, pedicel_length + fruit_radius))
+        UsdPhysics.CollisionAPI.Apply(sph.GetPrim())
+
+        # ── Color: simple displayColor on the sphere ─────────────────────
+        color = Gf.Vec3f(0.90, 0.17, 0.10) if is_ripe else Gf.Vec3f(0.45, 0.58, 0.25)
+        sph.GetDisplayColorAttr().Set([color])
+
+        # ── D6 joint: parent rachis ↔ pedicel+fruit (articulated) ─────────
+        jnt = UsdPhysics.Joint.Define(self.stage, f"{path}/Joint")
+        jnt.CreateBody0Rel().SetTargets([Sdf.Path(p["path"])])
+        jnt.CreateBody1Rel().SetTargets([Sdf.Path(path)])
+
+        jnt.CreateLocalPos0Attr().Set(Gf.Vec3f(
+            float(local_pos0[0]), float(local_pos0[1]), float(local_pos0[2])))
+        jnt.CreateLocalRot0Attr().Set(
+            _quatd_to_quatf(sub_rot_local.GetQuat()))
+        jnt.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
+        jnt.CreateLocalRot1Attr().Set(IDENTITY_QUATF)
+
+        self._configure_drives(jnt, stiffness, damping, stiffness, damping,
+                               bend_limit=45.0, lock_z=False)
+
+        # Collision filter: no self-collision between fruit and parent
+        filt = UsdPhysics.FilteredPairsAPI.Apply(xform.GetPrim())
+        filt.GetFilteredPairsRel().SetTargets([Sdf.Path(p["path"])])
+
+        depth = p.get("depth", 0) + 1
+        self._segments[id] = dict(
+            path=path, depth=depth, global_rot=sub_rot_total,
+            radius=fruit_radius, height=pedicel_length + fruit_radius * 2,
+            base_pos=world_pos,
+        )
+
+        state = "🔴 ripe" if is_ripe else "🟢 unripe"
+        print(f"   🍅 Fruit '{id}' r={fruit_radius*100:.1f}cm "
+              f"m={mass*1000:.0f}g {state}")
+        return id

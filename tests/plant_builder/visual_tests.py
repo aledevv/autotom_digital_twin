@@ -341,6 +341,72 @@ def test_7_tree_with_leaves(builder):
                      z_offset_ratio=0.8, tilt_angle=55, rot_around_parent=225)
 
 
+def test_8_tomato_truss(builder):
+    """TEST 8: Branch with an articulated tomato truss bearing fruits."""
+    print("\n🧪 TEST 8: Tomato truss")
+
+    # ── Trunk: 6 stiff segments ───────────────────────────────────────
+    prev = builder.create_root("T01", radius=0.10, length=0.35, mass=2.0)
+    for i in range(2, 7):
+        r = max(0.06, 0.10 - i * 0.006)
+        prev = builder.add_internode(prev, f"T{i:02d}", radius=r, length=0.35,
+                                     mass=1.5, stiffness=500_000, damping=100)
+
+    # ── Branch off T03, East, 3 segments ──────────────────────────────
+    bA = builder.add_lateral_branch("T03", "BA01", radius=0.04, length=0.18,
+                                    z_offset_ratio=0.8, tilt_angle=50,
+                                    rot_around_parent=0, mass=0.3,
+                                    stiffness=50_000, damping=2_000)
+    for i in range(2, 4):
+        bA = builder.add_internode(bA, f"BA{i:02d}", radius=0.03, length=0.15,
+                                   mass=0.2, stiffness=200, damping=30)
+
+    # ── Truss rachis off the branch (BA02), 4 segments ────────────────
+    rachis_ids = builder.add_truss_rachis(
+        "BA02", "TR1",
+        n_segments=4,
+        rachis_radius=0.005,
+        rachis_seg_length=0.03,
+        z_offset_ratio=0.8,
+        tilt_angle=45.0,
+        rot_around_parent=90,
+        mass=0.03,
+        stiffness_base=1, damping_base=0.001,
+        stiffness_int=0.015, damping_int=0.0001,
+    )
+
+    # ── Attach 4 fruits, alternating sides ────────────────────────────
+    builder.add_fruit(rachis_ids[0], "F01", fruit_radius=0.018,
+                      pedicel_length=0.015, lateral_angle=90, is_ripe=False)
+    builder.add_fruit(rachis_ids[1], "F02", fruit_radius=0.020,
+                      pedicel_length=0.015, lateral_angle=-90, is_ripe=False)
+    builder.add_fruit(rachis_ids[2], "F03", fruit_radius=0.022,
+                      pedicel_length=0.015, lateral_angle=90, is_ripe=True)
+    # Terminal fruit — at the tip of the last rachis segment
+    builder.add_fruit(rachis_ids[3], "F04", fruit_radius=0.025,
+                      pedicel_length=0.012, lateral_angle=0, is_ripe=True)
+
+    # ── A second truss off T05 for more visual interest ───────────────
+    rachis2 = builder.add_truss_rachis(
+        "T05", "TR2",
+        n_segments=3,
+        rachis_radius=0.005,
+        rachis_seg_length=0.03,
+        z_offset_ratio=0.7,
+        tilt_angle=50.0,
+        rot_around_parent=180,
+        mass=0.03,
+        stiffness_base=0.0001, damping_base=0.0001,
+        stiffness_int=0.0015, damping_int=0.0001,
+    )
+    builder.add_fruit(rachis2[0], "F05", fruit_radius=0.015,
+                      pedicel_length=0.012, lateral_angle=90, is_ripe=False)
+    builder.add_fruit(rachis2[1], "F06", fruit_radius=0.018,
+                      pedicel_length=0.012, lateral_angle=-90, is_ripe=False)
+    builder.add_fruit(rachis2[2], "F07", fruit_radius=0.020,
+                      pedicel_length=0.010, lateral_angle=0, is_ripe=True)
+
+
 TESTS = {
     1: test_1_trunk_only,
     2: test_2_trunk_and_branch,
@@ -349,6 +415,7 @@ TESTS = {
     5: test_5_full_tree,
     6: test_6_flexible_tree,
     7: test_7_tree_with_leaves,
+    8: test_8_tomato_truss,
 }
 
 
