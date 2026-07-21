@@ -428,10 +428,10 @@ class PlantBuilder:
                          tilt_angle: float = 45.0,
                          rot_around_parent: float = 0.0,
                          mass: float = 0.05,
-                         stiffness_base: float = 5_000.0,
-                         damping_base: float = 200.0,
-                         stiffness_int: float = 1.5,
-                         damping_int: float = 0.5) -> list[str]:
+                         stiffness_base: float = 0.05,
+                         damping_base: float = 0.01,
+                         stiffness_int: float = 0.02,
+                         damping_int: float = 0.005) -> list[str]:
         """Build an articulated rachis (peduncle) chain for a tomato truss.
 
         The first segment attaches laterally to the parent (like a branch).
@@ -565,13 +565,15 @@ class PlantBuilder:
         ped.GetHeightAttr().Set(pedicel_length)
         ped.GetAxisAttr().Set("Z")
         ped.AddTranslateOp().Set(Gf.Vec3d(0, 0, pedicel_length / 2.0))
-        UsdPhysics.CollisionAPI.Apply(ped.GetPrim())
+        ped_col = UsdPhysics.CollisionAPI.Apply(ped.GetPrim())
+        ped_col.CreateCollisionEnabledAttr().Set(False)
 
         # ── Fruit sphere at the pedicel tip ──────────────────────────────
         sph = UsdGeom.Sphere.Define(self.stage, f"{path}/Sphere")
         sph.GetRadiusAttr().Set(fruit_radius)
         sph.AddTranslateOp().Set(Gf.Vec3d(0, 0, pedicel_length + fruit_radius))
-        UsdPhysics.CollisionAPI.Apply(sph.GetPrim())
+        sph_col = UsdPhysics.CollisionAPI.Apply(sph.GetPrim())
+        sph_col.CreateCollisionEnabledAttr().Set(False)
 
         # ── Color: simple displayColor on the sphere ─────────────────────
         color = Gf.Vec3f(0.90, 0.17, 0.10) if is_ripe else Gf.Vec3f(0.45, 0.58, 0.25)

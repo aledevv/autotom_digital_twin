@@ -371,8 +371,6 @@ def test_8_tomato_truss(builder):
         tilt_angle=45.0,
         rot_around_parent=90,
         mass=0.03,
-        stiffness_base=1, damping_base=0.001,
-        stiffness_int=0.015, damping_int=0.0001,
     )
 
     # ── Attach 4 fruits, alternating sides ────────────────────────────
@@ -396,8 +394,6 @@ def test_8_tomato_truss(builder):
         tilt_angle=50.0,
         rot_around_parent=180,
         mass=0.03,
-        stiffness_base=0.0001, damping_base=0.0001,
-        stiffness_int=0.0015, damping_int=0.0001,
     )
     builder.add_fruit(rachis2[0], "F05", fruit_radius=0.015,
                       pedicel_length=0.012, lateral_angle=90, is_ripe=False)
