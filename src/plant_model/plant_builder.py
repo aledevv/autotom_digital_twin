@@ -1,0 +1,281 @@
+"""
+plant_builder.py
+
+A high-level API for building articulated plant structures in OpenUSD.
+Provides primitive operations (create_root, add_internode, add_lateral_branch)
+that hide all the quaternion math, joint configuration, and PhysX boilerplate.
+
+Usage:
+    builder = PlantBuilder(stage, "/World/Stem")
+    root = builder.create_root("Trunk_01", radius=0.1, length=0.5)
+    seg2 = builder.add_internode(root, "Trunk_02", radius=0.1, length=0.5)
+    br1  = builder.add_lateral_branch(seg2, "Branch_01", radius=0.04, length=0.3,
+                                      z_offset_ratio=0.8, tilt_angle=45, rot_around_parent=90)
+"""
+
+import math
+from pxr import Usd, UsdGeom, Gf, UsdPhysics, Sdf
+
+
+# =============================================================================
+# HELPER: safe Quatd -> Quatf conversion
+# =============================================================================
+def _quatd_to_quatf(qd: Gf.Quatd) -> Gf.Quatf:
+    """Convert a double-precision quaternion to float-precision,
+    using the explicit (real, i, j, k) constructor to avoid any
+    ambiguity in the Python bindings."""
+    imag = qd.GetImaginary()
+    return Gf.Quatf(float(qd.GetReal()),
+                    float(imag[0]), float(imag[1]), float(imag[2]))
+
+
+IDENTITY_QUATF = Gf.Quatf(1.0, 0.0, 0.0, 0.0)
+IDENTITY_ROT = Gf.Rotation(Gf.Vec3d(0, 0, 1), 0.0)
+GAP = 0.001  # tiny gap between consecutive segments to avoid interpenetration
+
+
+class PlantBuilder:
+    """Builds articulated cylinder-based plant structures in a USD stage.
+
+    Every segment is tracked internally so that subsequent calls can
+    reference any previously created segment as a parent.
+    """
+
+    def __init__(self, stage: Usd.Stage, base_path: str = "/World/Stem",
+                 global_scale: float = 1.0):
+        self.stage = stage
+        self.base_path = base_path
+        self.global_scale = global_scale
+
+        # id -> { path, depth, global_rot (Gf.Rotation), radius, height, base_pos (Gf.Vec3d) }
+        self._segments: dict[str, dict] = {}
+
+        # Ensure the ArticulationRoot Xform exists
+        if not self.stage.GetPrimAtPath(self.base_path):
+            xform = UsdGeom.Xform.Define(self.stage, self.base_path)
+            UsdPhysics.ArticulationRootAPI.Apply(xform.GetPrim())
+
+        print(f"🌱 [PlantBuilder] Initialized — ArticulationRoot at {self.base_path}")
+
+    # --------------------------------------------------------------------- #
+    #  SECURITY CHECKS
+    # --------------------------------------------------------------------- #
+    def _check(self, parent_id: str, new_id: str,
+               radius: float, length: float) -> int:
+        """Run safety validations, return the depth of the new segment."""
+        depth = 0
+        if parent_id and parent_id in self._segments:
+            depth = self._segments[parent_id]["depth"] + 1
+
+        if depth >= 64:
+            raise ValueError(
+                f"🚫 [PlantBuilder] Cannot add '{new_id}': depth {depth} "
+                f"exceeds PhysX articulation limit of 64 links!")
+        if depth > 50:
+            print(f"⚠️  [PlantBuilder] '{new_id}' depth={depth} — "
+                  f"approaching PhysX limit (64). Consider simplifying the chain.")
+
+        aspect = length / radius if radius > 0 else 0
+        if aspect > 25:
+            print(f"⚠️  [PlantBuilder] '{new_id}' aspect ratio = {aspect:.1f} "
+                  f"(length/radius). Thin segments cause physics jittering.")
+
+        if new_id in self._segments:
+            raise ValueError(
+                f"🚫 [PlantBuilder] Segment ID '{new_id}' already exists!")
+
+        return depth
+
+    # --------------------------------------------------------------------- #
+    #  LOW-LEVEL USD HELPERS  (match the working code exactly)
+    # --------------------------------------------------------------------- #
+    def _make_cylinder(self, path: str, radius: float, height: float,
+                       world_pos: Gf.Vec3d, orient_quatf: Gf.Quatf,
+                       mass: float) -> str:
+        """Create a rigid-body cylinder at the given world position/orientation."""
+        xform = UsdGeom.Xform.Define(self.stage, path)
+        xform.ClearXformOpOrder()
+        xform.AddTranslateOp().Set(world_pos)
+        xform.AddOrientOp().Set(orient_quatf)          # ← Quatf directly
+
+        UsdPhysics.RigidBodyAPI.Apply(xform.GetPrim())
+        mass_api = UsdPhysics.MassAPI.Apply(xform.GetPrim())
+        mass_api.CreateMassAttr().Set(mass)
+
+        cyl_path = f"{path}/Cylinder"
+        cyl = UsdGeom.Cylinder.Define(self.stage, cyl_path)
+        cyl.GetRadiusAttr().Set(radius)
+        cyl.GetHeightAttr().Set(height)
+        cyl.GetAxisAttr().Set("Z")
+        cyl.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, height / 2.0))
+        UsdPhysics.CollisionAPI.Apply(cyl.GetPrim())
+
+        return path
+
+    def _configure_drives(self, joint, stiff_xy, damp_xy,
+                          stiff_z, damp_z, bend_limit, lock_z):
+        """Set up D6 joint limits and drives (translation locked, rotation limited)."""
+        prim = joint.GetPrim()
+        for ax in ("transX", "transY", "transZ"):
+            lim = UsdPhysics.LimitAPI.Apply(prim, ax)
+            lim.CreateLowAttr().Set(1.0)        # low > high ⇒ locked
+            lim.CreateHighAttr().Set(-1.0)
+
+        for ax in ("rotX", "rotY"):
+            lim = UsdPhysics.LimitAPI.Apply(prim, ax)
+            lim.CreateLowAttr().Set(-bend_limit)
+            lim.CreateHighAttr().Set(bend_limit)
+            drv = UsdPhysics.DriveAPI.Apply(prim, ax)
+            drv.CreateTypeAttr().Set("force")
+            drv.CreateStiffnessAttr().Set(stiff_xy)
+            drv.CreateDampingAttr().Set(damp_xy)
+            drv.CreateTargetPositionAttr().Set(0.0)
+
+        lim_z = UsdPhysics.LimitAPI.Apply(prim, "rotZ")
+        if lock_z:
+            lim_z.CreateLowAttr().Set(1.0)
+            lim_z.CreateHighAttr().Set(-1.0)
+        else:
+            drv_z = UsdPhysics.DriveAPI.Apply(prim, "rotZ")
+            drv_z.CreateTypeAttr().Set("force")
+            drv_z.CreateStiffnessAttr().Set(stiff_z)
+            drv_z.CreateDampingAttr().Set(damp_z)
+            drv_z.CreateTargetPositionAttr().Set(0.0)
+
+    # --------------------------------------------------------------------- #
+    #  PRIMITIVE ACTIONS
+    # --------------------------------------------------------------------- #
+    def create_root(self, id: str, radius: float, length: float,
+                    mass: float = 1.0) -> str:
+        """Create the very first segment, anchored to the world with a FixedJoint."""
+        depth = self._check("", id, radius, length)
+
+        path = f"{self.base_path}/{id}"
+        pos = Gf.Vec3d(0, 0, 0)
+
+        self._make_cylinder(path, radius, length, pos, IDENTITY_QUATF, mass)
+
+        # Anchor to the world (Body0 = None = world)
+        fj = UsdPhysics.FixedJoint.Define(self.stage, f"{path}/FixedJoint")
+        fj.CreateBody1Rel().SetTargets([Sdf.Path(path)])
+
+        self._segments[id] = dict(
+            path=path, depth=depth, global_rot=IDENTITY_ROT,
+            radius=radius, height=length, base_pos=pos,
+        )
+        print(f"🌱 [PlantBuilder] Root '{id}'  r={radius}  L={length}")
+        return id
+
+    def add_internode(self, parent_id: str, id: str,
+                      radius: float, length: float,
+                      mass: float = 1.0,
+                      stiffness: float | None = None,
+                      damping: float | None = None) -> str:
+        """Extend a branch by adding a segment in the same direction as its parent."""
+        if parent_id not in self._segments:
+            raise KeyError(f"Parent '{parent_id}' not found!")
+        depth = self._check(parent_id, id, radius, length)
+        p = self._segments[parent_id]
+
+        # Auto-tune stiffness
+        if stiffness is None or damping is None:
+            if p["depth"] == 0:          # first generation (trunk)
+                stiffness = 500_000.0
+                damping = 50.0
+            else:                        # higher-order branch
+                stiffness = 300.0
+                damping = 50.0
+            print(f"   ✨ Auto-tuned internode '{id}' → "
+                  f"stiffness={stiffness}, damping={damping}")
+
+        # World position: end of parent + gap, along parent's Z axis
+        offset_z = p["height"] + GAP
+        world_pos = p["base_pos"] + p["global_rot"].TransformDir(
+            Gf.Vec3d(0, 0, offset_z))
+
+        orient_qf = _quatd_to_quatf(p["global_rot"].GetQuat())
+        path = f"{self.base_path}/{id}"
+        self._make_cylinder(path, radius, length, world_pos, orient_qf, mass)
+
+        # D6 joint: same frame, just offset along local Z
+        jnt = UsdPhysics.Joint.Define(self.stage, f"{path}/Joint")
+        jnt.CreateBody0Rel().SetTargets([Sdf.Path(p["path"])])
+        jnt.CreateBody1Rel().SetTargets([Sdf.Path(path)])
+        jnt.CreateLocalPos0Attr().Set(Gf.Vec3f(0, 0, offset_z))
+        jnt.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
+        jnt.CreateLocalRot0Attr().Set(IDENTITY_QUATF)
+        jnt.CreateLocalRot1Attr().Set(IDENTITY_QUATF)
+        self._configure_drives(jnt, stiffness, damping, 0, 0,
+                               bend_limit=20.0, lock_z=True)
+
+        self._segments[id] = dict(
+            path=path, depth=depth, global_rot=p["global_rot"],
+            radius=radius, height=length, base_pos=world_pos,
+        )
+        return id
+
+    def add_lateral_branch(self, parent_id: str, id: str,
+                           radius: float, length: float,
+                           z_offset_ratio: float,
+                           tilt_angle: float,
+                           rot_around_parent: float,
+                           mass: float = 0.2,
+                           stiffness: float | None = None,
+                           damping: float | None = None) -> str:
+        """Attach a new branch segment to the surface of a parent cylinder.
+
+        Parameters
+        ----------
+        z_offset_ratio : 0..1 — where along the parent's height to attach.
+        tilt_angle : degrees away from the parent's axis.
+        rot_around_parent : degrees around the parent's axis (azimuth).
+        """
+        if parent_id not in self._segments:
+            raise KeyError(f"Parent '{parent_id}' not found!")
+        depth = self._check(parent_id, id, radius, length)
+        p = self._segments[parent_id]
+
+        if stiffness is None or damping is None:
+            stiffness = 184_000.0
+            damping = 5_000.0
+            print(f"   ✨ Auto-tuned lateral '{id}' → "
+                  f"stiffness={stiffness}, damping={damping}")
+
+        # --- geometry math (matches generate_generalized_articulation_usda) ---
+        parent_radius = p["radius"]
+        rel_z = z_offset_ratio * p["height"]
+        local_offset = Gf.Vec3d(0.0, parent_radius, rel_z)
+
+        rot_z   = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_around_parent)
+        tilt_r  = Gf.Rotation(Gf.Vec3d(1, 0, 0), -tilt_angle)
+
+        sub_rot_local = tilt_r * rot_z                    # local frame rotation
+        local_pos0    = rot_z.TransformDir(local_offset)  # offset in parent frame
+
+        sub_rot_total = sub_rot_local * p["global_rot"]   # world orientation
+        world_pos     = p["base_pos"] + p["global_rot"].TransformDir(local_pos0)
+
+        orient_qf = _quatd_to_quatf(sub_rot_total.GetQuat())
+        path = f"{self.base_path}/{id}"
+        self._make_cylinder(path, radius, length, world_pos, orient_qf, mass)
+
+        # D6 joint — base attachment
+        jnt = UsdPhysics.Joint.Define(self.stage, f"{path}/Joint")
+        jnt.CreateBody0Rel().SetTargets([Sdf.Path(p["path"])])
+        jnt.CreateBody1Rel().SetTargets([Sdf.Path(path)])
+
+        jnt.CreateLocalPos0Attr().Set(Gf.Vec3f(
+            float(local_pos0[0]), float(local_pos0[1]), float(local_pos0[2])))
+        jnt.CreateLocalRot0Attr().Set(
+            _quatd_to_quatf(sub_rot_local.GetQuat()))
+        jnt.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
+        jnt.CreateLocalRot1Attr().Set(IDENTITY_QUATF)
+
+        self._configure_drives(jnt, stiffness, damping, stiffness, damping,
+                               bend_limit=30.0, lock_z=False)
+
+        self._segments[id] = dict(
+            path=path, depth=depth, global_rot=sub_rot_total,
+            radius=radius, height=length, base_pos=world_pos,
+        )
+        return id

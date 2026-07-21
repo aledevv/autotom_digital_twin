@@ -1,0 +1,344 @@
+"""
+visual_tests.py
+
+Progressive visual test suite for PlantBuilder.
+Each test builds a more complex plant and opens it in Isaac Sim.
+
+Usage:
+    ./run_experiment.sh 1    # Just a trunk
+    ./run_experiment.sh 2    # Trunk + 1 branch
+    ./run_experiment.sh 3    # Trunk + branch with extensions
+    ./run_experiment.sh 4    # Trunk + branch + subbranch
+    ./run_experiment.sh 5    # Full tree: multiple branches & subbranches
+"""
+
+import os
+import sys
+
+from isaacsim import SimulationApp
+simulation_app = SimulationApp({"headless": False})
+
+from pxr import Usd, UsdGeom, UsdPhysics, PhysxSchema, Gf
+import omni.usd
+from isaacsim.core.api import World
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(script_dir))
+sys.path.insert(0, project_root)
+
+from src.plant_model.plant_builder import PlantBuilder
+
+OUTPUT = os.path.join(project_root, "data", "usd_models", "builder_visual_test.usda")
+
+
+# =============================================================================
+#  PhysX helpers
+# =============================================================================
+def setup_physx(stage, stem_path):
+    sc = UsdPhysics.Scene.Define(stage, "/World/PhysicsScene")
+    sc.CreateGravityDirectionAttr().Set(Gf.Vec3f(0, 0, -1))
+    sc.CreateGravityMagnitudeAttr().Set(9.81)
+    px = PhysxSchema.PhysxSceneAPI.Apply(sc.GetPrim())
+    px.CreateSolverTypeAttr().Set("TGS")
+    px.CreateTimeStepsPerSecondAttr().Set(120)
+    px.CreateEnableStabilizationAttr().Set(True)
+
+    art = PhysxSchema.PhysxArticulationAPI.Apply(
+        stage.GetPrimAtPath(stem_path))
+    art.CreateSolverPositionIterationCountAttr().Set(64)
+    art.CreateSolverVelocityIterationCountAttr().Set(8)
+    art.CreateEnabledSelfCollisionsAttr().Set(False)
+    art.CreateSleepThresholdAttr().Set(0.0)
+
+
+# =============================================================================
+#  Test scenarios
+# =============================================================================
+
+def test_1_trunk_only(builder):
+    """TEST 1: Simple vertical trunk — 5 internodes."""
+    print("\n🧪 TEST 1: Trunk only (5 internodes)")
+    prev = builder.create_root("T01", radius=0.10, length=0.4)
+    for i in range(2, 6):
+        prev = builder.add_internode(prev, f"T{i:02d}", radius=0.10, length=0.4)
+
+
+def test_2_trunk_and_branch(builder):
+    """TEST 2: Trunk + 1 lateral branch."""
+    print("\n🧪 TEST 2: Trunk + 1 branch")
+    t1 = builder.create_root("T01", radius=0.10, length=0.5)
+    t2 = builder.add_internode(t1, "T02", radius=0.10, length=0.5)
+    t3 = builder.add_internode(t2, "T03", radius=0.09, length=0.5)
+
+    builder.add_lateral_branch(t2, "B01", radius=0.04, length=0.3,
+                               z_offset_ratio=0.8, tilt_angle=45,
+                               rot_around_parent=90)
+
+
+def test_3_branch_with_extension(builder):
+    """TEST 3: Trunk + branch extended with internodes."""
+    print("\n🧪 TEST 3: Branch extended with internodes")
+    t1 = builder.create_root("T01", radius=0.10, length=0.5)
+    t2 = builder.add_internode(t1, "T02", radius=0.10, length=0.5)
+    t3 = builder.add_internode(t2, "T03", radius=0.09, length=0.5)
+
+    b1 = builder.add_lateral_branch(t2, "B01", radius=0.04, length=0.25,
+                                    z_offset_ratio=0.8, tilt_angle=45,
+                                    rot_around_parent=90)
+    b2 = builder.add_internode(b1, "B02", radius=0.04, length=0.25)
+    b3 = builder.add_internode(b2, "B03", radius=0.03, length=0.20)
+
+
+def test_4_subbranch(builder):
+    """TEST 4: Trunk → Branch → Subbranch."""
+    print("\n🧪 TEST 4: Subbranch off a branch")
+    t1 = builder.create_root("T01", radius=0.10, length=0.5)
+    t2 = builder.add_internode(t1, "T02", radius=0.10, length=0.5)
+    t3 = builder.add_internode(t2, "T03", radius=0.09, length=0.5)
+
+    b1 = builder.add_lateral_branch(t2, "B01", radius=0.04, length=0.25,
+                                    z_offset_ratio=0.8, tilt_angle=45,
+                                    rot_around_parent=90)
+    b2 = builder.add_internode(b1, "B02", radius=0.04, length=0.25)
+
+    # Subbranch off the first branch segment
+    builder.add_lateral_branch(b1, "SB01", radius=0.02, length=0.15,
+                               z_offset_ratio=0.5, tilt_angle=30,
+                               rot_around_parent=90)
+
+
+def test_5_full_tree(builder):
+    """TEST 5: Full tree — tall trunk, 3 branches at different heights, subbranches."""
+    print("\n🧪 TEST 5: Full tree with branches & subbranches")
+
+    # Trunk: 8 internodes
+    prev = builder.create_root("T01", radius=0.10, length=0.3)
+    for i in range(2, 9):
+        r = max(0.06, 0.10 - i * 0.005)
+        prev = builder.add_internode(prev, f"T{i:02d}", radius=r, length=0.3)
+
+    # Branch A off T03, going East
+    bA1 = builder.add_lateral_branch("T03", "BA01", radius=0.04, length=0.20,
+                                     z_offset_ratio=0.8, tilt_angle=50,
+                                     rot_around_parent=0)
+    bA2 = builder.add_internode(bA1, "BA02", radius=0.04, length=0.20)
+    bA3 = builder.add_internode(bA2, "BA03", radius=0.03, length=0.15)
+
+    # Branch B off T05, going West
+    bB1 = builder.add_lateral_branch("T05", "BB01", radius=0.04, length=0.20,
+                                     z_offset_ratio=0.8, tilt_angle=55,
+                                     rot_around_parent=180)
+    bB2 = builder.add_internode(bB1, "BB02", radius=0.04, length=0.20)
+
+    # Branch C off T07, going North
+    bC1 = builder.add_lateral_branch("T07", "BC01", radius=0.04, length=0.20,
+                                     z_offset_ratio=0.8, tilt_angle=45,
+                                     rot_around_parent=90)
+    bC2 = builder.add_internode(bC1, "BC02", radius=0.03, length=0.15)
+
+    # Subbranch off Branch A, segment 2
+    sA1 = builder.add_lateral_branch(bA2, "SA01", radius=0.02, length=0.12,
+                                     z_offset_ratio=0.5, tilt_angle=35,
+                                     rot_around_parent=90)
+    builder.add_internode(sA1, "SA02", radius=0.02, length=0.10)
+
+    # Subbranch off Branch B, segment 1
+    builder.add_lateral_branch(bB1, "SB01", radius=0.02, length=0.12,
+                               z_offset_ratio=0.6, tilt_angle=40,
+                               rot_around_parent=-90)
+
+    # Subbranch off Branch C, segment 1 — two opposite subbranches
+    builder.add_lateral_branch(bC1, "SC01", radius=0.02, length=0.10,
+                               z_offset_ratio=0.5, tilt_angle=30,
+                               rot_around_parent=90)
+    builder.add_lateral_branch(bC1, "SC02", radius=0.02, length=0.10,
+                               z_offset_ratio=0.5, tilt_angle=30,
+                               rot_around_parent=-90)
+
+
+def test_6_flexible_tree(builder):
+    """TEST 6: Tall flexible tree — long branches that bend under gravity."""
+    print("\n🧪 TEST 6: Flexible tree (bending test)")
+
+    # ── Trunk: 10 stiff segments ──────────────────────────────────────
+    # Very high stiffness so the trunk barely moves
+    TRUNK_STIFF = 800.0
+    TRUNK_DAMP  = 2.0
+
+    prev = builder.create_root("T01", radius=0.12, length=0.25, mass=2.0)
+    for i in range(2, 11):
+        r = max(0.07, 0.12 - i * 0.005)
+        prev = builder.add_internode(prev, f"T{i:02d}", radius=r, length=0.25,
+                                     mass=1.5, stiffness=TRUNK_STIFF,
+                                     damping=TRUNK_DAMP)
+
+    # ── Branch stiffness tiers ────────────────────────────────────────
+    # Branches: moderate — they should sag visibly but hold shape
+    BR_STIFF_BASE = 50_000.0   # base attachment (strong)
+    BR_DAMP_BASE  = 2_000.0
+    BR_STIFF_INT  = 150.0      # internal joints (flexible)
+    BR_DAMP_INT   = 30.0
+
+    # Subbranches: softer — they droop nicely
+    SB_STIFF_BASE = 20_000.0
+    SB_DAMP_BASE  = 1_000.0
+    SB_STIFF_INT  = 80.0
+    SB_DAMP_INT   = 20.0
+
+    # ── Branch A: off T03, 5 segments going East ─────────────────────
+    bA = builder.add_lateral_branch("T03", "BA01", radius=0.04, length=0.18,
+                                    z_offset_ratio=0.8, tilt_angle=55,
+                                    rot_around_parent=0, mass=0.3,
+                                    stiffness=BR_STIFF_BASE, damping=BR_DAMP_BASE)
+    for i in range(2, 6):
+        r = max(0.025, 0.04 - i * 0.003)
+        bA = builder.add_internode(bA, f"BA{i:02d}", radius=r, length=0.18,
+                                   mass=0.2, stiffness=BR_STIFF_INT,
+                                   damping=BR_DAMP_INT)
+
+    # ── Branch B: off T05, 5 segments going West ─────────────────────
+    bB = builder.add_lateral_branch("T05", "BB01", radius=0.04, length=0.18,
+                                    z_offset_ratio=0.8, tilt_angle=50,
+                                    rot_around_parent=180, mass=0.3,
+                                    stiffness=BR_STIFF_BASE, damping=BR_DAMP_BASE)
+    for i in range(2, 6):
+        r = max(0.025, 0.04 - i * 0.003)
+        bB = builder.add_internode(bB, f"BB{i:02d}", radius=r, length=0.18,
+                                   mass=0.2, stiffness=BR_STIFF_INT,
+                                   damping=BR_DAMP_INT)
+
+    # ── Branch C: off T07, 4 segments going North ────────────────────
+    bC = builder.add_lateral_branch("T07", "BC01", radius=0.04, length=0.18,
+                                    z_offset_ratio=0.8, tilt_angle=45,
+                                    rot_around_parent=90, mass=0.3,
+                                    stiffness=BR_STIFF_BASE, damping=BR_DAMP_BASE)
+    for i in range(2, 5):
+        r = max(0.025, 0.04 - i * 0.003)
+        bC = builder.add_internode(bC, f"BC{i:02d}", radius=r, length=0.18,
+                                   mass=0.2, stiffness=BR_STIFF_INT,
+                                   damping=BR_DAMP_INT)
+
+    # ── Branch D: off T08, 4 segments going South ────────────────────
+    bD = builder.add_lateral_branch("T08", "BD01", radius=0.04, length=0.18,
+                                    z_offset_ratio=0.5, tilt_angle=50,
+                                    rot_around_parent=270, mass=0.3,
+                                    stiffness=BR_STIFF_BASE, damping=BR_DAMP_BASE)
+    for i in range(2, 5):
+        r = max(0.025, 0.04 - i * 0.003)
+        bD = builder.add_internode(bD, f"BD{i:02d}", radius=r, length=0.18,
+                                   mass=0.2, stiffness=BR_STIFF_INT,
+                                   damping=BR_DAMP_INT)
+
+    # ── Subbranches (soft, droopy) ────────────────────────────────────
+    # Sub off Branch A, segment 3 — two opposite
+    sA1 = builder.add_lateral_branch("BA03", "SA01", radius=0.02, length=0.12,
+                                     z_offset_ratio=0.5, tilt_angle=40,
+                                     rot_around_parent=90, mass=0.1,
+                                     stiffness=SB_STIFF_BASE, damping=SB_DAMP_BASE)
+    for i in range(2, 4):
+        sA1 = builder.add_internode(sA1, f"SA0{i}", radius=0.015, length=0.10,
+                                    mass=0.08, stiffness=SB_STIFF_INT,
+                                    damping=SB_DAMP_INT)
+
+    sA2 = builder.add_lateral_branch("BA03", "SA04", radius=0.02, length=0.12,
+                                     z_offset_ratio=0.5, tilt_angle=40,
+                                     rot_around_parent=-90, mass=0.1,
+                                     stiffness=SB_STIFF_BASE, damping=SB_DAMP_BASE)
+    builder.add_internode(sA2, "SA05", radius=0.015, length=0.10,
+                          mass=0.08, stiffness=SB_STIFF_INT, damping=SB_DAMP_INT)
+
+    # Sub off Branch B, segment 2
+    sB1 = builder.add_lateral_branch("BB02", "SB01", radius=0.02, length=0.12,
+                                     z_offset_ratio=0.6, tilt_angle=35,
+                                     rot_around_parent=90, mass=0.1,
+                                     stiffness=SB_STIFF_BASE, damping=SB_DAMP_BASE)
+    for i in range(2, 4):
+        sB1 = builder.add_internode(sB1, f"SB0{i}", radius=0.015, length=0.10,
+                                    mass=0.08, stiffness=SB_STIFF_INT,
+                                    damping=SB_DAMP_INT)
+
+    # Sub off Branch C, segment 2
+    sC1 = builder.add_lateral_branch("BC02", "SC01", radius=0.02, length=0.10,
+                                     z_offset_ratio=0.5, tilt_angle=30,
+                                     rot_around_parent=0, mass=0.1,
+                                     stiffness=SB_STIFF_BASE, damping=SB_DAMP_BASE)
+    builder.add_internode(sC1, "SC02", radius=0.015, length=0.10,
+                          mass=0.08, stiffness=SB_STIFF_INT, damping=SB_DAMP_INT)
+
+    # Sub off Branch D, segment 2 — two opposite
+    sD1 = builder.add_lateral_branch("BD02", "SD01", radius=0.02, length=0.10,
+                                     z_offset_ratio=0.5, tilt_angle=35,
+                                     rot_around_parent=90, mass=0.1,
+                                     stiffness=SB_STIFF_BASE, damping=SB_DAMP_BASE)
+    builder.add_internode(sD1, "SD02", radius=0.015, length=0.10,
+                          mass=0.08, stiffness=SB_STIFF_INT, damping=SB_DAMP_INT)
+
+    sD2 = builder.add_lateral_branch("BD02", "SD03", radius=0.02, length=0.10,
+                                     z_offset_ratio=0.5, tilt_angle=35,
+                                     rot_around_parent=-90, mass=0.1,
+                                     stiffness=SB_STIFF_BASE, damping=SB_DAMP_BASE)
+    builder.add_internode(sD2, "SD04", radius=0.015, length=0.10,
+                          mass=0.08, stiffness=SB_STIFF_INT, damping=SB_DAMP_INT)
+
+
+TESTS = {
+    1: test_1_trunk_only,
+    2: test_2_trunk_and_branch,
+    3: test_3_branch_with_extension,
+    4: test_4_subbranch,
+    5: test_5_full_tree,
+    6: test_6_flexible_tree,
+}
+
+
+# =============================================================================
+#  Main
+# =============================================================================
+def main():
+    # Parse test number from CLI
+    test_num = 1
+    for arg in sys.argv[1:]:
+        if arg.isdigit():
+            test_num = int(arg)
+            break
+
+    if test_num not in TESTS:
+        print(f"Unknown test {test_num}. Available: {sorted(TESTS.keys())}")
+        simulation_app.close()
+        sys.exit(1)
+
+    test_fn = TESTS[test_num]
+    print(f"\n{'='*50}")
+    print(f"  PlantBuilder Visual Test {test_num}/{len(TESTS)}")
+    print(f"  {test_fn.__doc__}")
+    print(f"{'='*50}")
+
+    if os.path.exists(OUTPUT):
+        os.remove(OUTPUT)
+
+    stage = Usd.Stage.CreateNew(OUTPUT)
+    world_prim = UsdGeom.Xform.Define(stage, "/World")
+    stage.SetDefaultPrim(world_prim.GetPrim())
+    UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
+
+    builder = PlantBuilder(stage, "/World/Stem")
+    test_fn(builder)
+
+    setup_physx(stage, "/World/Stem")
+    stage.GetRootLayer().Save()
+    print(f"\n[OK] USD saved → {OUTPUT}")
+
+    omni.usd.get_context().open_stage(OUTPUT)
+    w = World(stage_units_in_meters=1.0)
+    w.reset()
+    print("[OK] Simulation running — close window to exit.\n")
+
+    while simulation_app.is_running():
+        w.step(render=True)
+
+    print("Done.")
+    simulation_app.close()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,15 +1,23 @@
 #!/bin/bash
-# run_load_subbranch.sh
+# run_experiment.sh
 #
-# Loads the articulation USD file with subbranches in Isaac Sim.
+# Runs PlantBuilder visual tests in Isaac Sim.
+# Usage:
+#   ./run_experiment.sh       # defaults to test 1
+#   ./run_experiment.sh 1     # trunk only
+#   ./run_experiment.sh 2     # trunk + branch
+#   ./run_experiment.sh 3     # branch with extensions
+#   ./run_experiment.sh 4     # subbranch
+#   ./run_experiment.sh 5     # full tree
 #
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ISAACSIM_DIR="$HOME/isaacsim"
-LOAD_SCRIPT="$SCRIPT_DIR/src/experiments/articulation_subbranch/load_from_csv_generalized_articulation.py"
+TEST_SCRIPT="$SCRIPT_DIR/tests/plant_builder/visual_tests.py"
+TEST_NUM="${1:-1}"
 
-echo "=== Loading in Isaac Sim ==="
+echo "=== PlantBuilder Visual Test $TEST_NUM ==="
 cd "$ISAACSIM_DIR"
-./python.sh "$LOAD_SCRIPT"
+./python.sh "$TEST_SCRIPT" "$TEST_NUM"
