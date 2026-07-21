@@ -281,6 +281,66 @@ def test_6_flexible_tree(builder):
                           mass=0.08, stiffness=SB_STIFF_INT, damping=SB_DAMP_INT)
 
 
+def test_7_tree_with_leaves(builder):
+    """TEST 7: Branches with leaves attached at tips and along segments."""
+    print("\n🧪 TEST 7: Tree with leaves")
+
+    # ── Trunk ─────────────────────────────────────────────────────────
+    prev = builder.create_root("T01", radius=0.10, length=0.4, mass=2.0)
+    for i in range(2, 7):
+        r = max(0.06, 0.10 - i * 0.006)
+        prev = builder.add_internode(prev, f"T{i:02d}", radius=r, length=0.35,
+                                     mass=1.5, stiffness=500_000, damping=100)
+
+    # ── Branch A: off T03, East, 4 segments ──────────────────────────
+    bA = builder.add_lateral_branch("T03", "BA01", radius=0.04, length=0.18,
+                                    z_offset_ratio=0.8, tilt_angle=50,
+                                    rot_around_parent=0, mass=0.3,
+                                    stiffness=50_000, damping=2_000)
+    for i in range(2, 5):
+        bA = builder.add_internode(bA, f"BA{i:02d}", radius=0.03, length=0.15,
+                                   mass=0.2, stiffness=200, damping=30)
+
+    # Leaves along Branch A
+    builder.add_leaf("BA02", "LA01", leaf_length=0.06, leaf_width=0.03,
+                     z_offset_ratio=0.7, tilt_angle=65, rot_around_parent=90)
+    builder.add_leaf("BA02", "LA02", leaf_length=0.06, leaf_width=0.03,
+                     z_offset_ratio=0.7, tilt_angle=65, rot_around_parent=-90)
+    builder.add_leaf("BA03", "LA03", leaf_length=0.07, leaf_width=0.04,
+                     z_offset_ratio=0.6, tilt_angle=60, rot_around_parent=90)
+    builder.add_leaf("BA03", "LA04", leaf_length=0.07, leaf_width=0.04,
+                     z_offset_ratio=0.6, tilt_angle=60, rot_around_parent=-90)
+    # Terminal leaf at tip of branch
+    builder.add_leaf("BA04", "LA05", leaf_length=0.08, leaf_width=0.05,
+                     z_offset_ratio=1.0, tilt_angle=45, rot_around_parent=0)
+
+    # ── Branch B: off T05, West, 3 segments ──────────────────────────
+    bB = builder.add_lateral_branch("T05", "BB01", radius=0.04, length=0.18,
+                                    z_offset_ratio=0.8, tilt_angle=55,
+                                    rot_around_parent=180, mass=0.3,
+                                    stiffness=50_000, damping=2_000)
+    for i in range(2, 4):
+        bB = builder.add_internode(bB, f"BB{i:02d}", radius=0.03, length=0.15,
+                                   mass=0.2, stiffness=200, damping=30)
+
+    # Leaves along Branch B
+    builder.add_leaf("BB01", "LB01", leaf_length=0.06, leaf_width=0.03,
+                     z_offset_ratio=0.7, tilt_angle=65, rot_around_parent=90)
+    builder.add_leaf("BB01", "LB02", leaf_length=0.06, leaf_width=0.03,
+                     z_offset_ratio=0.7, tilt_angle=65, rot_around_parent=-90)
+    builder.add_leaf("BB02", "LB03", leaf_length=0.07, leaf_width=0.04,
+                     z_offset_ratio=0.6, tilt_angle=60, rot_around_parent=0)
+    # Terminal leaf
+    builder.add_leaf("BB03", "LB04", leaf_length=0.08, leaf_width=0.05,
+                     z_offset_ratio=1.0, tilt_angle=45, rot_around_parent=0)
+
+    # ── Leaves directly on trunk (top) ────────────────────────────────
+    builder.add_leaf("T06", "LT01", leaf_length=0.07, leaf_width=0.04,
+                     z_offset_ratio=0.8, tilt_angle=55, rot_around_parent=45)
+    builder.add_leaf("T06", "LT02", leaf_length=0.07, leaf_width=0.04,
+                     z_offset_ratio=0.8, tilt_angle=55, rot_around_parent=225)
+
+
 TESTS = {
     1: test_1_trunk_only,
     2: test_2_trunk_and_branch,
@@ -288,6 +348,7 @@ TESTS = {
     4: test_4_subbranch,
     5: test_5_full_tree,
     6: test_6_flexible_tree,
+    7: test_7_tree_with_leaves,
 }
 
 

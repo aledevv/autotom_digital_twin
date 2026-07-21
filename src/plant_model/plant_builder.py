@@ -279,3 +279,140 @@ class PlantBuilder:
             radius=radius, height=length, base_pos=world_pos,
         )
         return id
+
+    # ----------------------------------------------------------------- #
+    #  LEAF
+    # ----------------------------------------------------------------- #
+    def _make_leaf_mesh(self, path: str, half_width: float, length: float):
+        """Create a simple ovate leaf blade mesh (16-point smooth shape)."""
+        import math as m
+        mesh = UsdGeom.Mesh.Define(self.stage, path)
+        pts = [Gf.Vec3f(0, 0, 0)]  # base
+        n_side = 7
+        for i in range(1, n_side):
+            t = i / n_side
+            x = half_width * m.sin(m.pi * t) * (1.2 - 0.4 * t)
+            pts.append(Gf.Vec3f(x, t * length, 0))
+        pts.append(Gf.Vec3f(0, length, 0))  # tip
+        for i in range(n_side - 1, 0, -1):
+            t = i / n_side
+            x = half_width * m.sin(m.pi * t) * (1.2 - 0.4 * t)
+            pts.append(Gf.Vec3f(-x, t * length, 0))
+        mesh.GetPointsAttr().Set(pts)
+        n_tri = len(pts) - 2
+        mesh.GetFaceVertexCountsAttr().Set([3] * n_tri)
+        idx = []
+        for i in range(1, len(pts) - 1):
+            idx.extend([0, i, i + 1])
+        mesh.GetFaceVertexIndicesAttr().Set(idx)
+        mesh.GetSubdivisionSchemeAttr().Set("none")
+        return mesh
+
+    def add_leaf(self, parent_id: str, id: str,
+                 leaf_length: float = 0.08, leaf_width: float = 0.04,
+                 petiole_length: float | None = None,
+                 petiole_radius: float | None = None,
+                 z_offset_ratio: float = 1.0,
+                 tilt_angle: float = 60.0,
+                 rot_around_parent: float = 0.0,
+                 mass: float = 0.02,
+                 stiffness: float = 0.0002,
+                 damping: float = 0.00006) -> str:
+        """Attach a leaf to a parent segment.
+
+        The petiole is the articulated rigid body (connected to the parent
+        via a D6 joint). The leaf blade is static child geometry on the
+        petiole — so the joint is branch ↔ petiole, and the whole leaf
+        (petiole + blade) swings as one piece.
+
+        Parameters
+        ----------
+        leaf_length / leaf_width : size of the ovate blade.
+        petiole_length : length of the stem connecting blade to branch.
+                         Defaults to leaf_length * 0.4 if not given.
+        petiole_radius : radius of petiole cylinder.
+                         Defaults to parent_radius * 0.15 if not given.
+        z_offset_ratio : 0..1 — where along parent to attach.
+        tilt_angle : degrees away from parent axis.
+        rot_around_parent : azimuth around parent axis.
+        """
+        if parent_id not in self._segments:
+            raise KeyError(f"Parent '{parent_id}' not found!")
+        depth = self._check(parent_id, id, 0.01, leaf_length)
+        p = self._segments[parent_id]
+
+        parent_radius = p["radius"]
+        pet_len = petiole_length if petiole_length else leaf_length * 0.4
+        pet_rad = petiole_radius if petiole_radius else max(parent_radius * 0.15, 0.003)
+
+        # ── Compute attachment point & orientation (same math as lateral) ──
+        rel_z = z_offset_ratio * p["height"]
+        local_offset = Gf.Vec3d(0.0, parent_radius, rel_z)
+
+        rot_z  = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_around_parent)
+        tilt_r = Gf.Rotation(Gf.Vec3d(1, 0, 0), -tilt_angle)
+
+        sub_rot_local = tilt_r * rot_z
+        local_pos0    = rot_z.TransformDir(local_offset)
+        sub_rot_total = sub_rot_local * p["global_rot"]
+        world_pos     = p["base_pos"] + p["global_rot"].TransformDir(local_pos0)
+
+        orient_qf = _quatd_to_quatf(sub_rot_total.GetQuat())
+
+        # ── Petiole: the articulated rigid body ───────────────────────────
+        path = f"{self.base_path}/{id}"
+        xform = UsdGeom.Xform.Define(self.stage, path)
+        xform.ClearXformOpOrder()
+        xform.AddTranslateOp().Set(world_pos)
+        xform.AddOrientOp().Set(orient_qf)
+
+        UsdPhysics.RigidBodyAPI.Apply(xform.GetPrim())
+        mass_api = UsdPhysics.MassAPI.Apply(xform.GetPrim())
+        mass_api.CreateMassAttr().Set(mass)
+
+        # Petiole cylinder (axis=Z, local frame: grows along petiole's Z)
+        pet = UsdGeom.Cylinder.Define(self.stage, f"{path}/Petiole")
+        pet.GetRadiusAttr().Set(pet_rad)
+        pet.GetHeightAttr().Set(pet_len)
+        pet.GetAxisAttr().Set("Z")
+        pet.AddTranslateOp().Set(Gf.Vec3d(0, 0, pet_len / 2.0))
+        UsdPhysics.CollisionAPI.Apply(pet.GetPrim())
+
+        # ── Blade: static child mesh at the petiole tip ───────────────────
+        # The blade grows in local +Y starting at the petiole tip (Z = pet_len).
+        # We place a sub-xform to position & rotate the blade at the tip.
+        blade_xf = UsdGeom.Xform.Define(self.stage, f"{path}/BladeXform")
+        blade_xf.ClearXformOpOrder()
+        blade_xf.AddTranslateOp().Set(Gf.Vec3d(0, 0, pet_len))
+        # Rotate so blade's +Y (growth dir) aligns with petiole +Z
+        rot_90_x = Gf.Quatf(0.7071068, 0.7071068, 0.0, 0.0)  # 90° around X
+        blade_xf.AddOrientOp().Set(rot_90_x)
+
+        mesh = self._make_leaf_mesh(f"{path}/BladeXform/Blade",
+                                    leaf_width / 2.0, leaf_length)
+        UsdPhysics.CollisionAPI.Apply(mesh.GetPrim())
+        UsdPhysics.MeshCollisionAPI.Apply(
+            mesh.GetPrim()).GetApproximationAttr().Set("convexHull")
+
+        # ── D6 joint: parent branch ↔ petiole ────────────────────────────
+        jnt = UsdPhysics.Joint.Define(self.stage, f"{path}/Joint")
+        jnt.CreateBody0Rel().SetTargets([Sdf.Path(p["path"])])
+        jnt.CreateBody1Rel().SetTargets([Sdf.Path(path)])
+
+        jnt.CreateLocalPos0Attr().Set(Gf.Vec3f(
+            float(local_pos0[0]), float(local_pos0[1]), float(local_pos0[2])))
+        jnt.CreateLocalRot0Attr().Set(
+            _quatd_to_quatf(sub_rot_local.GetQuat()))
+        jnt.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
+        jnt.CreateLocalRot1Attr().Set(IDENTITY_QUATF)
+
+        self._configure_drives(jnt, stiffness, damping, stiffness, damping,
+                               bend_limit=45.0, lock_z=False)
+
+        self._segments[id] = dict(
+            path=path, depth=depth, global_rot=sub_rot_total,
+            radius=pet_rad, height=pet_len, base_pos=world_pos,
+        )
+        print(f"   🍃 Leaf '{id}' petiole={pet_len*100:.1f}cm  "
+              f"blade={leaf_length*100:.0f}×{leaf_width*100:.0f}cm")
+        return id
