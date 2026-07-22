@@ -341,9 +341,74 @@ def test_7_tree_with_leaves(builder):
                      z_offset_ratio=0.8, tilt_angle=55, rot_around_parent=225)
 
 
-def test_8_tomato_truss(builder):
-    """TEST 8: Branch with an articulated tomato truss bearing fruits."""
-    print("\n🧪 TEST 8: Tomato truss")
+def test_8_compound_leaf(builder):
+    """TEST 8: Articulated compound leaf (two alternatives for physics stability)."""
+    print("\n🧪 TEST 8: Articulated compound leaf")
+
+    # ── Trunk: 4 stiff segments ───────────────────────────────────────
+    prev = builder.create_root("T01", radius=0.10, length=0.4, mass=2.0)
+    for i in range(2, 5):
+        r = max(0.06, 0.10 - i * 0.006)
+        prev = builder.add_internode(prev, f"T{i:02d}", radius=r, length=0.4,
+                                     mass=1.5, stiffness=500_000, damping=100)
+
+    # ── Leaf A: relatively thin components (Aspect ratio ~18) ────────
+    # 4 segments, 15cm long, 8mm radius
+    LA_len = 0.15
+    LA_rad = 0.008
+    rachis_A = builder.add_lateral_branch("T02", "LA01", radius=LA_rad, length=LA_len,
+                                          z_offset_ratio=0.8, tilt_angle=60,
+                                          rot_around_parent=0, mass=0.03,
+                                          stiffness=10, damping=3)
+    
+    for i in range(2, 5):
+        r = max(0.004, LA_rad - i * 0.001)
+        rachis_A = builder.add_internode(rachis_A, f"LA{i:02d}", radius=r, length=LA_len,
+                                         mass=0.02, stiffness=0.1, damping=0.1)
+        # Lateral leaflets at each node
+        builder.add_leaf(f"LA{i-1:02d}", f"LeafA_{i}a", leaf_length=0.08, leaf_width=0.04,
+                         z_offset_ratio=0.9, tilt_angle=70, rot_around_parent=90)
+        builder.add_leaf(f"LA{i-1:02d}", f"LeafA_{i}b", leaf_length=0.08, leaf_width=0.04,
+                         z_offset_ratio=0.9, tilt_angle=70, rot_around_parent=-90)
+
+    # Terminal leaflet
+    builder.add_leaf("LA04", "LeafA_term", leaf_length=0.1, leaf_width=0.05,
+                     z_offset_ratio=1.0, tilt_angle=20, rot_around_parent=0)
+
+
+    # ── Leaf B: more segments, shorter (squared cylinders) ───────────
+    # 10 segments, 4cm long, 2cm radius (Aspect ratio = 2)
+    LB_len = 0.04
+    LB_rad = 0.02
+    rachis_B = builder.add_lateral_branch("T03", "LB01", radius=LB_rad, length=LB_len,
+                                          z_offset_ratio=0.8, tilt_angle=60,
+                                          rot_around_parent=180, mass=0.04,
+                                          stiffness=2_000, damping=100)
+
+    for i in range(2, 11):
+        r = max(0.008, LB_rad - i * 0.001)
+        # Progressively decrease stiffness for the branch with more segments
+        # from 800 down to ~50
+        stiff = max(200, 4000 - (i - 2) * 80)
+        damp = max(50, 200 - (i - 2) * 8)
+        rachis_B = builder.add_internode(rachis_B, f"LB{i:02d}", radius=r, length=LB_len,
+                                         mass=0.03, stiffness=stiff, damping=damp)
+        
+        # Add lateral leaflets every 3 segments (to match approx spacing of Leaf A)
+        if i % 3 == 0:
+            builder.add_leaf(f"LB{i-1:02d}", f"LeafB_{i}a", leaf_length=0.08, leaf_width=0.04,
+                             z_offset_ratio=0.8, tilt_angle=70, rot_around_parent=90)
+            builder.add_leaf(f"LB{i-1:02d}", f"LeafB_{i}b", leaf_length=0.08, leaf_width=0.04,
+                             z_offset_ratio=0.8, tilt_angle=70, rot_around_parent=-90)
+
+    # Terminal leaflet
+    builder.add_leaf("LB10", "LeafB_term", leaf_length=0.1, leaf_width=0.05,
+                     z_offset_ratio=1.0, tilt_angle=20, rot_around_parent=0)
+
+
+def test_9_tomato_truss(builder):
+    """TEST 9: Branch with an articulated tomato truss bearing fruits."""
+    print("\n🧪 TEST 9: Tomato truss")
 
     # ── Trunk: 6 stiff segments ───────────────────────────────────────
     prev = builder.create_root("T01", radius=0.10, length=0.35, mass=2.0)
@@ -411,7 +476,8 @@ TESTS = {
     5: test_5_full_tree,
     6: test_6_flexible_tree,
     7: test_7_tree_with_leaves,
-    8: test_8_tomato_truss,
+    8: test_8_compound_leaf,
+    9: test_9_tomato_truss,
 }
 
 
