@@ -406,6 +406,35 @@ def test_8_compound_leaf(builder):
                      z_offset_ratio=1.0, tilt_angle=20, rot_around_parent=0)
 
 
+    # ── Leaf C: many segments, thin and squared ────────────────────────
+    # 25 segments, 1.6cm long, 8mm radius (Aspect ratio = 2)
+    LC_len = 0.032
+    LC_rad = 0.008
+    rachis_C = builder.add_lateral_branch("T04", "LC01", radius=LC_rad, length=LC_len,
+                                          z_offset_ratio=0.8, tilt_angle=60,
+                                          rot_around_parent=90, mass=0.01,
+                                          stiffness=1, damping=0)
+
+    for i in range(2, 8):
+        r = max(0.002, LC_rad - i * 0.0002)
+        # Progressively decrease stiffness, scaled for 25 segments
+        stiff = 0.001
+        damp = 0.0001
+        rachis_C = builder.add_internode(rachis_C, f"LC{i:02d}", radius=r, length=LC_len,
+                                         mass=0.005, stiffness=stiff, damping=damp)
+        
+        # Add lateral leaflets every 6 segments
+        if i % 2 == 0:
+            builder.add_leaf(f"LC{i-1:02d}", f"LeafC_{i}a", leaf_length=0.04, leaf_width=0.02,
+                             z_offset_ratio=0.8, tilt_angle=70, rot_around_parent=90, stiffness=0.0005)
+            builder.add_leaf(f"LC{i-1:02d}", f"LeafC_{i}b", leaf_length=0.04, leaf_width=0.02,
+                             z_offset_ratio=0.8, tilt_angle=70, rot_around_parent=-90, stiffness=0.0005)
+
+    # Terminal leaflet
+    builder.add_leaf("LC07", "LeafC_term", leaf_length=0.04, leaf_width=0.02,
+                     z_offset_ratio=1.0, tilt_angle=20, rot_around_parent=0)
+
+
 def test_9_tomato_truss(builder):
     """TEST 9: Branch with an articulated tomato truss bearing fruits."""
     print("\n🧪 TEST 9: Tomato truss")
