@@ -280,6 +280,20 @@ def test_6_flexible_tree(builder):
     builder.add_internode(sD2, "SD04", radius=0.015, length=0.10,
                           mass=0.08, stiffness=SB_STIFF_INT, damping=SB_DAMP_INT)
 
+    # ── Sub-Subbranches (thinnest, very flexible, 4 segments deep) ──────
+    SSB_STIFF = 0.001
+    SSB_DAMP  = 0.00002
+    
+    # Off sA1 (SA03) - Long, thin branch with 4 segments
+    ssA = builder.add_lateral_branch("SA03", "SSA01", radius=0.005, length=0.04,
+                                      z_offset_ratio=0.5, tilt_angle=45,
+                                      rot_around_parent=90, mass=0.02,
+                                      stiffness=SSB_STIFF, damping=SSB_DAMP)
+    for i in range(2, 5):
+        r = max(0.002, 0.005 - (i - 1) * 0.001)
+        ssA = builder.add_internode(ssA, f"SSA0{i}", radius=r, length=0.04,
+                                    mass=0.01, stiffness=SSB_STIFF/(i), damping=SSB_DAMP/(i))
+
 
 def test_7_tree_with_leaves(builder):
     """TEST 7: Branches with leaves attached at tips and along segments."""
@@ -497,6 +511,96 @@ def test_9_tomato_truss(builder):
                       pedicel_length=0.010, lateral_angle=0, is_ripe=True)
 
 
+def test_10_scaled_small_dimensions(builder):
+    """TEST 10: Real small dimensions with artificial mass for stability over many segments."""
+    import math
+    print("\n🧪 TEST 10: Real small dimensions (10 segments, physics stabilized)")
+
+    BAKED_SCALE = 1.0
+
+    # To prevent 'Invalid PhysX transform' due to float32 underflow in the inertia tensor,
+    # we MUST artificially inflate the mass of tiny millimetric objects. 
+    def get_mass(radius, length):
+        vol = math.pi * (radius ** 2) * length
+        return max(vol * 500.0, 0.05)
+
+    real_trunk_rad = 0.01
+    real_trunk_len = 0.04
+    
+    t_rad = real_trunk_rad * BAKED_SCALE
+    t_len = real_trunk_len * BAKED_SCALE
+    
+    # Trunk is relatively heavy, stiffness can be around 1000
+    prev = builder.create_root("T01", radius=t_rad, length=t_len, mass=get_mass(t_rad, t_len))
+    for i in range(2, 5):
+        r = max(0.006, real_trunk_rad - i * 0.0006) * BAKED_SCALE
+        prev = builder.add_internode(prev, f"T{i:02d}", radius=r, length=t_len,
+                                     mass=get_mass(r, t_len), 
+                                     stiffness=1000.0, damping=100.0)
+
+    # ── Branch B: 10 segments, 4mm long, 2mm radius ───────────
+    real_LB_len = 0.004
+    real_LB_rad = 0.002
+    
+    lb_rad = real_LB_rad * BAKED_SCALE
+    lb_len = real_LB_len * BAKED_SCALE
+    
+    # 10 segments of 0.05kg = 0.5kg total at ~4cm length.
+    # We need a solid stiffness at the base (e.g. 50.0) to hold up 0.5kg.
+    stiff_base = 50.0
+    damp_base = 5.0
+
+    rachis_B = builder.add_lateral_branch("T02", "LB01", 
+                                          radius=lb_rad, length=lb_len,
+                                          z_offset_ratio=0.8, tilt_angle=60,
+                                          rot_around_parent=180, mass=get_mass(lb_rad, lb_len),
+                                          stiffness=stiff_base, damping=damp_base)
+
+    for i in range(2, 11):  # Full 10 segments!
+        r = max(0.0008, real_LB_rad - i * 0.0001) * BAKED_SCALE
+        stiff = max(1.0, stiff_base - (i * 4.5))
+        damp = max(0.1, damp_base - (i * 0.45))
+        
+        rachis_B = builder.add_internode(rachis_B, f"LB{i:02d}", 
+                                         radius=r, length=lb_len,
+                                         mass=get_mass(r, lb_len), stiffness=stiff, damping=damp)
+        
+        # Add small subbranches to each segment (every 3 segments)
+        if i % 3 == 0:
+            sub_len = 0.008 * BAKED_SCALE
+            sub_rad = 0.001 * BAKED_SCALE
+            
+            builder.add_lateral_branch(f"LB{i-1:02d}", f"SubB_{i}a", 
+                                       radius=sub_rad, length=sub_len,
+                                       z_offset_ratio=0.8, tilt_angle=70, rot_around_parent=90,
+                                       mass=get_mass(sub_rad, sub_len),
+                                       stiffness=2.0, damping=0.2)
+            builder.add_lateral_branch(f"LB{i-1:02d}", f"SubB_{i}b", 
+                                       radius=sub_rad, length=sub_len,
+                                       z_offset_ratio=0.8, tilt_angle=70, rot_around_parent=-90,
+                                       mass=get_mass(sub_rad, sub_len),
+                                       stiffness=2.0, damping=0.2)
+
+    # Terminal subbranch
+    term_len = 0.01 * BAKED_SCALE
+    term_rad = 0.001 * BAKED_SCALE
+    builder.add_lateral_branch("LB10", "SubB_term", 
+                               radius=term_rad, length=term_len,
+                               z_offset_ratio=1.0, tilt_angle=20, rot_around_parent=0,
+                               mass=get_mass(term_rad, term_len),
+                               stiffness=2.0, damping=0.2)
+
+    # For extremely small objects, PhysX needs a very tiny contact offset
+    for prim in builder.stage.Traverse():
+        if prim.HasAPI(UsdPhysics.CollisionAPI):
+            collider = PhysxSchema.PhysxCollisionAPI.Apply(prim)
+            if prim.IsA(UsdGeom.Cylinder):
+                cyl = UsdGeom.Cylinder(prim)
+                rad = cyl.GetRadiusAttr().Get()
+                if rad:
+                    collider.CreateContactOffsetAttr().Set(rad * 0.05)
+                    collider.CreateRestOffsetAttr().Set(rad * 0.01)
+
 TESTS = {
     1: test_1_trunk_only,
     2: test_2_trunk_and_branch,
@@ -507,6 +611,7 @@ TESTS = {
     7: test_7_tree_with_leaves,
     8: test_8_compound_leaf,
     9: test_9_tomato_truss,
+    10: test_10_scaled_small_dimensions,
 }
 
 
