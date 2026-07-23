@@ -280,6 +280,85 @@ class PlantBuilder:
         )
         return id
 
+    def add_branch(self, parent_id: str, base_id: str,
+                           total_length: float, start_radius: float, end_radius: float,
+                           num_segments: int,
+                           z_offset_ratio: float = 1.0,
+                           tilt_angle: float = 45.0,
+                           rot_around_parent: float = 0.0,
+                           stiffness_base: float = 10000.0,
+                           stiffness_tip: float = 1000.0,
+                           damping_base: float = 1000.0,
+                           damping_tip: float = 100.0,
+                           density: float = 500.0,
+                           max_bend_angle: float = 30.0) -> str:
+        """Procedurally generate a multi-segment, tapering branch.
+        Returns the ID of the last segment (the tip).
+        """
+        if num_segments <= 0:
+            raise ValueError("num_segments must be > 0")
+            
+        segment_len = total_length / num_segments
+        current_parent = parent_id
+        
+        for i in range(num_segments):
+            # Tapering logic
+            t = i / max(1, num_segments - 1) if num_segments > 1 else 0.0
+            r = start_radius + t * (end_radius - start_radius)
+            stiff = stiffness_base + t * (stiffness_tip - stiffness_base)
+            damp = damping_base + t * (damping_tip - damping_base)
+            
+            # Safety checks
+            if r < 0.005:
+                print(f"   \033[93m[WARNING] Tapered branch '{base_id}' segment {i} radius {r:.4f} is too small! PhysX may become unstable.\033[0m")
+                r = 0.005
+                
+            if segment_len < 2 * r:
+                print(f"   \033[93m[WARNING] Tapered branch '{base_id}' segment {i} has L/R ratio < 2 (L={segment_len:.4f}, D={2*r:.4f}). PhysX may jitter.\033[0m")
+                
+            # Physics Mass
+            import math
+            mass = math.pi * (r**2) * segment_len * density
+            mass = max(mass, 0.05) # Minimum 50g mass for stability
+            
+            seg_id = f"{base_id}_{i:02d}"
+            
+            if i == 0:
+                # First segment attaches laterally to the main parent
+                self.add_lateral_branch(
+                    parent_id=current_parent,
+                    id=seg_id,
+                    radius=r,
+                    length=segment_len,
+                    z_offset_ratio=z_offset_ratio,
+                    tilt_angle=tilt_angle,
+                    rot_around_parent=rot_around_parent,
+                    mass=mass,
+                    stiffness=stiff,
+                    damping=damp
+                )
+            else:
+                # Subsequent segments attach straight to the previous segment
+                self.add_internode(
+                    parent_id=current_parent,
+                    id=seg_id,
+                    radius=r,
+                    length=segment_len,
+                    mass=mass,
+                    stiffness=stiff,
+                    damping=damp
+                )
+                
+            # Apply max bend limit
+            jnt_path = f"{self.base_path}/{seg_id}/Joint"
+            jnt = UsdPhysics.Joint(self.stage.GetPrimAtPath(jnt_path))
+            if jnt:
+                self._configure_drives(jnt, stiff, damp, stiff, damp, bend_limit=max_bend_angle, lock_z=False)
+                    
+            current_parent = seg_id
+            
+        return current_parent
+
     # ----------------------------------------------------------------- #
     #  LEAF
     # ----------------------------------------------------------------- #
@@ -307,6 +386,37 @@ class PlantBuilder:
         mesh.GetFaceVertexIndicesAttr().Set(idx)
         mesh.GetSubdivisionSchemeAttr().Set("none")
         return mesh
+
+    def attach_blade(self, parent_id: str, id: str,
+                     leaf_length: float = 0.08, leaf_width: float = 0.04,
+                     z_offset_ratio: float = 1.0,
+                     tilt_angle: float = 0.0,
+                     rot_around_parent: float = 0.0) -> str:
+        """Attach a static leaf blade mesh to an existing segment.
+        This does NOT create a new physics body or joint. It moves with the parent.
+        """
+        if parent_id not in self._segments:
+            raise KeyError(f"Parent '{parent_id}' not found!")
+        p = self._segments[parent_id]
+        
+        rel_z = z_offset_ratio * p["height"]
+        # Offset slightly out from the center to avoid sticking inside
+        local_offset = Gf.Vec3d(0.0, p["radius"], rel_z)
+
+        rot_z  = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_around_parent)
+        tilt_r = Gf.Rotation(Gf.Vec3d(1, 0, 0), -tilt_angle)
+        sub_rot_local = tilt_r * rot_z
+        rot_q = _quatd_to_quatf(sub_rot_local.GetQuat())
+        
+        blade_path = f"{p['path']}/{id}"
+        blade_xform = UsdGeom.Xform.Define(self.stage, blade_path)
+        blade_xform.AddTranslateOp().Set(local_offset)
+        blade_xform.AddOrientOp().Set(rot_q)
+
+        mesh_path = f"{blade_path}/Mesh"
+        mesh = self._make_leaf_mesh(mesh_path, leaf_width / 2.0, leaf_length)
+        
+        return blade_path
 
     def add_leaf(self, parent_id: str, id: str,
                  leaf_length: float = 0.08, leaf_width: float = 0.04,
@@ -498,7 +608,9 @@ class PlantBuilder:
                   mass: float | None = None,
                   is_ripe: bool = True,
                   stiffness: float = 0.001,
-                  damping: float = 0.0001) -> str:
+                  damping: float = 0.0001,
+                  collisions: bool = False,
+                  break_force: float | None = None) -> str:
         """Attach a tomato fruit sphere to a rachis segment via D6 joint.
 
         The fruit assembly = pedicel cylinder + sphere, both as children
@@ -548,55 +660,125 @@ class PlantBuilder:
 
         orient_qf = _quatd_to_quatf(sub_rot_total.GetQuat())
 
-        # ── Create the fruit rigid body Xform ─────────────────────────────
+        ped_len_half = pedicel_length / 2.0
+
+        # ── 1. Pedicel Base Rigid Body ────────────────────────────────────
+        base_path = f"{self.base_path}/{id}_base"
+        base_xform = UsdGeom.Xform.Define(self.stage, base_path)
+        base_xform.ClearXformOpOrder()
+        base_xform.AddTranslateOp().Set(world_pos)
+        base_xform.AddOrientOp().Set(orient_qf)
+
+        UsdPhysics.RigidBodyAPI.Apply(base_xform.GetPrim())
+        mass_api_base = UsdPhysics.MassAPI.Apply(base_xform.GetPrim())
+        # Enforce a minimum stable mass for tiny intermediate segments (15g)
+        mass_api_base.CreateMassAttr().Set(max(mass * 0.2, 0.015))
+
+        ped_base = UsdGeom.Cylinder.Define(self.stage, f"{base_path}/PedicelBase")
+        ped_base.GetRadiusAttr().Set(ped_rad)
+        ped_base.GetHeightAttr().Set(ped_len_half)
+        ped_base.GetAxisAttr().Set("Z")
+        ped_base.AddTranslateOp().Set(Gf.Vec3d(0, 0, ped_len_half / 2.0))
+        ped_base_col = UsdPhysics.CollisionAPI.Apply(ped_base.GetPrim())
+        ped_base_col.CreateCollisionEnabledAttr().Set(False)
+
+        # Joint: Rachis ↔ PedicelBase
+        jnt1 = UsdPhysics.Joint.Define(self.stage, f"{base_path}/Joint")
+        jnt1.CreateBody0Rel().SetTargets([Sdf.Path(p["path"])])
+        jnt1.CreateBody1Rel().SetTargets([Sdf.Path(base_path)])
+
+        jnt1.CreateLocalPos0Attr().Set(Gf.Vec3f(
+            float(local_pos0[0]), float(local_pos0[1]), float(local_pos0[2])))
+        jnt1.CreateLocalRot0Attr().Set(
+            _quatd_to_quatf(sub_rot_local.GetQuat()))
+        jnt1.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
+        jnt1.CreateLocalRot1Attr().Set(IDENTITY_QUATF)
+
+        # Base attachment is a bit stiffer so it sticks out initially
+        self._configure_drives(jnt1, stiffness * 5, damping * 5, stiffness * 5, damping * 5,
+                               bend_limit=30.0, lock_z=False)
+
+        # Collision filter: no self-collision between base and parent rachis
+        filt1 = UsdPhysics.FilteredPairsAPI.Apply(base_xform.GetPrim())
+        filt1.GetFilteredPairsRel().SetTargets([Sdf.Path(p["path"])])
+
+        # ── 2. Pedicel Tip Rigid Body ────────────────────────────────────
+        tip_world_pos = world_pos + sub_rot_total.TransformDir(Gf.Vec3d(0, 0, ped_len_half))
+
+        tip_path = f"{self.base_path}/{id}_tip"
+        tip_xform = UsdGeom.Xform.Define(self.stage, tip_path)
+        tip_xform.ClearXformOpOrder()
+        tip_xform.AddTranslateOp().Set(tip_world_pos)
+        tip_xform.AddOrientOp().Set(orient_qf)
+
+        UsdPhysics.RigidBodyAPI.Apply(tip_xform.GetPrim())
+        mass_api_tip = UsdPhysics.MassAPI.Apply(tip_xform.GetPrim())
+        mass_api_tip.CreateMassAttr().Set(max(mass * 0.1, 0.015))
+
+        ped_tip = UsdGeom.Cylinder.Define(self.stage, f"{tip_path}/PedicelTip")
+        ped_tip.GetRadiusAttr().Set(ped_rad)
+        ped_tip.GetHeightAttr().Set(ped_len_half)
+        ped_tip.GetAxisAttr().Set("Z")
+        ped_tip.AddTranslateOp().Set(Gf.Vec3d(0, 0, ped_len_half / 2.0))
+        ped_tip_col = UsdPhysics.CollisionAPI.Apply(ped_tip.GetPrim())
+        ped_tip_col.CreateCollisionEnabledAttr().Set(False)
+
+        # Joint: PedicelBase ↔ PedicelTip (elbow)
+        jnt2 = UsdPhysics.Joint.Define(self.stage, f"{tip_path}/Joint")
+        jnt2.CreateBody0Rel().SetTargets([Sdf.Path(base_path)])
+        jnt2.CreateBody1Rel().SetTargets([Sdf.Path(tip_path)])
+
+        jnt2.CreateLocalPos0Attr().Set(Gf.Vec3f(0, 0, ped_len_half))
+        jnt2.CreateLocalRot0Attr().Set(IDENTITY_QUATF)
+        jnt2.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
+        jnt2.CreateLocalRot1Attr().Set(IDENTITY_QUATF)
+
+        # Elbow is soft and bends easily to drop the tomato
+        self._configure_drives(jnt2, stiffness, damping, stiffness, damping,
+                               bend_limit=120.0, lock_z=False)
+
+        # Collision filter: no self-collision between tip and base
+        filt2 = UsdPhysics.FilteredPairsAPI.Apply(tip_xform.GetPrim())
+        filt2.GetFilteredPairsRel().SetTargets([Sdf.Path(base_path)])
+
+        # ── 3. Tomato Sphere Rigid Body ───────────────────────────────────
         path = f"{self.base_path}/{id}"
         xform = UsdGeom.Xform.Define(self.stage, path)
         xform.ClearXformOpOrder()
-        xform.AddTranslateOp().Set(world_pos)
+        xform.AddTranslateOp().Set(tip_world_pos)
         xform.AddOrientOp().Set(orient_qf)
 
         UsdPhysics.RigidBodyAPI.Apply(xform.GetPrim())
-        mass_api = UsdPhysics.MassAPI.Apply(xform.GetPrim())
-        mass_api.CreateMassAttr().Set(mass)
+        mass_api_sph = UsdPhysics.MassAPI.Apply(xform.GetPrim())
+        mass_api_sph.CreateMassAttr().Set(mass * 0.9)
 
-        # ── Pedicel cylinder (along local +Z) ────────────────────────────
-        ped = UsdGeom.Cylinder.Define(self.stage, f"{path}/Pedicel")
-        ped.GetRadiusAttr().Set(ped_rad)
-        ped.GetHeightAttr().Set(pedicel_length)
-        ped.GetAxisAttr().Set("Z")
-        ped.AddTranslateOp().Set(Gf.Vec3d(0, 0, pedicel_length / 2.0))
-        ped_col = UsdPhysics.CollisionAPI.Apply(ped.GetPrim())
-        ped_col.CreateCollisionEnabledAttr().Set(False)
-
-        # ── Fruit sphere at the pedicel tip ──────────────────────────────
         sph = UsdGeom.Sphere.Define(self.stage, f"{path}/Sphere")
         sph.GetRadiusAttr().Set(fruit_radius)
-        sph.AddTranslateOp().Set(Gf.Vec3d(0, 0, pedicel_length + fruit_radius))
+        sph.AddTranslateOp().Set(Gf.Vec3d(0, 0, ped_len_half + fruit_radius))
         sph_col = UsdPhysics.CollisionAPI.Apply(sph.GetPrim())
-        sph_col.CreateCollisionEnabledAttr().Set(False)
+        sph_col.CreateCollisionEnabledAttr().Set(collisions)
 
-        # ── Color: simple displayColor on the sphere ─────────────────────
         color = Gf.Vec3f(0.90, 0.17, 0.10) if is_ripe else Gf.Vec3f(0.45, 0.58, 0.25)
         sph.GetDisplayColorAttr().Set([color])
 
-        # ── D6 joint: parent rachis ↔ pedicel+fruit (articulated) ─────────
-        jnt = UsdPhysics.Joint.Define(self.stage, f"{path}/Joint")
-        jnt.CreateBody0Rel().SetTargets([Sdf.Path(p["path"])])
-        jnt.CreateBody1Rel().SetTargets([Sdf.Path(path)])
+        # Fixed Joint: PedicelTip ↔ TomatoSphere (with break force)
+        jnt3 = UsdPhysics.FixedJoint.Define(self.stage, f"{path}/FixedJoint")
+        jnt3.CreateBody0Rel().SetTargets([Sdf.Path(tip_path)])
+        jnt3.CreateBody1Rel().SetTargets([Sdf.Path(path)])
+        jnt3.CreateLocalPos0Attr().Set(Gf.Vec3f(0, 0, ped_len_half))
+        jnt3.CreateLocalRot0Attr().Set(IDENTITY_QUATF)
+        jnt3.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, ped_len_half))
+        jnt3.CreateLocalRot1Attr().Set(IDENTITY_QUATF)
 
-        jnt.CreateLocalPos0Attr().Set(Gf.Vec3f(
-            float(local_pos0[0]), float(local_pos0[1]), float(local_pos0[2])))
-        jnt.CreateLocalRot0Attr().Set(
-            _quatd_to_quatf(sub_rot_local.GetQuat()))
-        jnt.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
-        jnt.CreateLocalRot1Attr().Set(IDENTITY_QUATF)
+        # IMPORTANT: Exclude from articulation so it can be dynamically broken!
+        jnt3.CreateExcludeFromArticulationAttr().Set(True)
 
-        self._configure_drives(jnt, stiffness, damping, stiffness, damping,
-                               bend_limit=45.0, lock_z=False)
+        if break_force is not None:
+            jnt3.CreateBreakForceAttr().Set(break_force)
+            jnt3.CreateBreakTorqueAttr().Set(break_force * 0.1)
 
-        # Collision filter: no self-collision between fruit and parent
-        filt = UsdPhysics.FilteredPairsAPI.Apply(xform.GetPrim())
-        filt.GetFilteredPairsRel().SetTargets([Sdf.Path(p["path"])])
+        filt3 = UsdPhysics.FilteredPairsAPI.Apply(xform.GetPrim())
+        filt3.GetFilteredPairsRel().SetTargets([Sdf.Path(tip_path)])
 
         depth = p.get("depth", 0) + 1
         self._segments[id] = dict(

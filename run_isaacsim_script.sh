@@ -1,4 +1,4 @@
 #!/bin/bash
 
 cd ~/isaacsim
-./python.sh autotom_digital_twin/src/isaacsim/load_plant_growth.py
+./python.sh ~/isaacsim/autotom_digital_twin/tests/plant_builder/test_tapered_branch.py 

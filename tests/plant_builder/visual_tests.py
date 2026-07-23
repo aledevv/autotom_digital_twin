@@ -473,42 +473,55 @@ def test_9_tomato_truss(builder):
     rachis_ids = builder.add_truss_rachis(
         "BA02", "TR1",
         n_segments=4,
-        rachis_radius=0.005,
-        rachis_seg_length=0.03,
+        rachis_radius=0.015,
+        rachis_seg_length=0.09,
         z_offset_ratio=0.8,
         tilt_angle=45.0,
         rot_around_parent=90,
-        mass=0.03,
+        mass=0.17,
+        stiffness_base=0.5, damping_base=0.12,
+        stiffness_int=0.1, damping_int=0.03,
     )
 
+    break_force = 500.0
+
     # ── Attach 4 fruits, alternating sides ────────────────────────────
-    builder.add_fruit(rachis_ids[0], "F01", fruit_radius=0.018,
-                      pedicel_length=0.015, lateral_angle=90, is_ripe=False)
-    builder.add_fruit(rachis_ids[1], "F02", fruit_radius=0.020,
-                      pedicel_length=0.015, lateral_angle=-90, is_ripe=False)
-    builder.add_fruit(rachis_ids[2], "F03", fruit_radius=0.022,
-                      pedicel_length=0.015, lateral_angle=90, is_ripe=True)
+    builder.add_fruit(rachis_ids[0], "F01", fruit_radius=0.054,
+                      pedicel_length=0.050, pedicel_radius=0.01, lateral_angle=90, is_ripe=False,
+                      mass=0.13, stiffness=0.025, damping=0.006, collisions=True, break_force=break_force)
+    builder.add_fruit(rachis_ids[1], "F02", fruit_radius=0.060,
+                      pedicel_length=0.050, pedicel_radius=0.01, lateral_angle=-90, is_ripe=False,
+                      mass=0.17, stiffness=0.025, damping=0.006, collisions=True, break_force=break_force)
+    builder.add_fruit(rachis_ids[2], "F03", fruit_radius=0.066,
+                      pedicel_length=0.050, pedicel_radius=0.01, lateral_angle=90, is_ripe=True,
+                      mass=0.20, stiffness=0.025, damping=0.006, collisions=True, break_force=break_force)
     # Terminal fruit — at the tip of the last rachis segment
-    builder.add_fruit(rachis_ids[3], "F04", fruit_radius=0.025,
-                      pedicel_length=0.012, lateral_angle=0, is_ripe=True)
+    builder.add_fruit(rachis_ids[3], "F04", fruit_radius=0.075,
+                      pedicel_length=0.045, pedicel_radius=0.01, lateral_angle=0, is_ripe=True,
+                      mass=0.27, stiffness=0.025, damping=0.006, collisions=True, break_force=break_force)
 
     # ── A second truss off T05 for more visual interest ───────────────
     rachis2 = builder.add_truss_rachis(
         "T05", "TR2",
         n_segments=3,
-        rachis_radius=0.005,
-        rachis_seg_length=0.03,
+        rachis_radius=0.015,
+        rachis_seg_length=0.09,
         z_offset_ratio=0.7,
         tilt_angle=50.0,
         rot_around_parent=180,
-        mass=0.03,
+        mass=0.17,
+        stiffness_base=0.5, damping_base=0.12,
+        stiffness_int=0.1, damping_int=0.03,
     )
-    builder.add_fruit(rachis2[0], "F05", fruit_radius=0.015,
-                      pedicel_length=0.012, lateral_angle=90, is_ripe=False)
-    builder.add_fruit(rachis2[1], "F06", fruit_radius=0.018,
-                      pedicel_length=0.012, lateral_angle=-90, is_ripe=False)
-    builder.add_fruit(rachis2[2], "F07", fruit_radius=0.020,
-                      pedicel_length=0.010, lateral_angle=0, is_ripe=True)
+    builder.add_fruit(rachis2[0], "F05", fruit_radius=0.045,
+                      pedicel_length=0.045, pedicel_radius=0.01, lateral_angle=90, is_ripe=False,
+                      mass=0.10, stiffness=0.025, damping=0.006, collisions=True, break_force=break_force)
+    builder.add_fruit(rachis2[1], "F06", fruit_radius=0.054,
+                      pedicel_length=0.045, pedicel_radius=0.01, lateral_angle=-90, is_ripe=False,
+                      mass=0.13, stiffness=0.025, damping=0.006, collisions=True, break_force=break_force)
+    builder.add_fruit(rachis2[2], "F07", fruit_radius=0.060,
+                      pedicel_length=0.038, pedicel_radius=0.01, lateral_angle=0, is_ripe=True,
+                      mass=0.17, stiffness=0.025, damping=0.006, collisions=True, break_force=break_force)
 
 
 def test_10_scaled_small_dimensions(builder):

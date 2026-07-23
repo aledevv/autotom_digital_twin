@@ -1,5 +1,5 @@
 """
-usd_exporterV2.py
+usd_exporter_v2.py
 
 Builds a physically simulated stem with rigid segments and elastic D6 joints.
 Includes leaves attached to the stem segments.
