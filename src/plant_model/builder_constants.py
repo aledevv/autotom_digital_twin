@@ -6,11 +6,14 @@ Kept separate from plant_model/constants.py (shared with V1) to avoid
 touching shared code.
 """
 
+<<<<<<< HEAD
 from .constants import PHYLLOTAXIS
 BAKED_SCALE = 10.0
 MAX_STEM_SEGMENTS = 25  # Budget for the main stem
 PLANT_ROOT_PATH_TEMPLATE = "/Plant_{plant_id}_StemBuilder"
 
+=======
+>>>>>>> 5d61e47 (code refactory and cleaning)
 # ── Visual ──────────────────────────────────────────────────────────
 PLANT_COLOR = (0.35, 0.62, 0.20)   # stem, branches, petioles, rachises
 LEAF_COLOR = (0.12, 0.42, 0.08)    # leaf blades
@@ -37,6 +40,7 @@ BRANCH_DAMPING = 50.0
 LATERAL_STIFFNESS = 184_000.0
 LATERAL_DAMPING = 5_000.0
 
+<<<<<<< HEAD
 # --- Stable mode / branch tuning ---
 LATERAL_BRANCH_STIFFNESS_BASE = 50000.0
 LATERAL_BRANCH_STIFFNESS_TIP = 10000.0
@@ -62,3 +66,19 @@ LEAFLET_PETIOLULE_DAMPING_TIP = 200.0
 LEAFLET_PETIOLULE_MAX_BEND_ANGLE = 10.0
 LEAFLET_PETIOLULE_DENSITY = 200.0
 LEAFLET_PETIOLULE_SEGMENTS = 2
+=======
+# ── Compound leaf joint defaults (add_compound_leaf) ─────────────────
+LEAF_RACHIS_STIFFNESS_BASE = 0.05
+LEAF_RACHIS_STIFFNESS_TIP = 0.005
+LEAF_RACHIS_DAMPING_BASE = 0.005
+LEAF_RACHIS_DAMPING_TIP = 0.0005
+LEAF_RACHIS_DENSITY = 200.0
+LEAF_RACHIS_MAX_BEND_DEG = 45.0
+
+PETIOLULE_STIFFNESS_BASE = 0.001
+PETIOLULE_STIFFNESS_TIP = 0.0005
+PETIOLULE_DAMPING_BASE = 0.0005
+PETIOLULE_DAMPING_TIP = 0.0001
+PETIOLULE_DENSITY = 100.0
+PETIOLULE_MAX_BEND_DEG = 60.0
+>>>>>>> 5d61e47 (code refactory and cleaning)
