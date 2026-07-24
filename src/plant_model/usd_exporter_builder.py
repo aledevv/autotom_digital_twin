@@ -110,25 +110,53 @@ def attach_leaves(builder: PlantBuilder, leaves: list[LeafNode], stem_segments: 
         
         leaf_id = f"Leaf_o{leaf.key.order}_r{leaf.key.rank}_i{leaf.key.organ_index}"
         
-        # The true length is derived from the blade area
+        # Extract and scale compound leaf arrays
         n_blades = max(leaf.blades_nr, 1)
-        blade_area = leaf.area_blades_total / n_blades
-        blade_length_m = math.sqrt(blade_area / 0.6) if blade_area > 0 else 0.0
-        blade_width_m = blade_length_m * 0.6
+        area_scale = BAKED_SCALE ** 2
         
-        # Note: PlantBuilder expects scaled values for lengths
-        # Ensure a minimum size so PhysX doesn't fail on 0-sized geometry
-        leaf_length_scaled = max(blade_length_m * BAKED_SCALE, 0.01)
-        leaf_width_scaled = max(blade_width_m * BAKED_SCALE, 0.005)
+        raw_areas = getattr(leaf, 'leaf_area_m2blades', [])
+        if not raw_areas or len(raw_areas) == 0:
+            avg_area = leaf.area_blades_total / n_blades if n_blades > 0 else 0.0004
+            raw_areas = [avg_area] * n_blades
+        scaled_areas = [a * area_scale for a in raw_areas]
         
+        raw_segs = getattr(leaf, 'leaf_segments_length', [])
+        if not raw_segs or len(raw_segs) == 0:
+            avg_seg = leaf.rachis_length / max(n_blades - 1, 1)
+            raw_segs = [avg_seg] * max(n_blades - 1, 1)
+        scaled_segs = [s * BAKED_SCALE for s in raw_segs]
+        
+        raw_incl = getattr(leaf, 'leaf_inclination_segments', [])
+        if not raw_incl or len(raw_incl) == 0:
+            raw_incl = [50.0] * max(n_blades - 1, 1)
+            
         petiole_len_scaled = max(leaf.length_petiole * BAKED_SCALE, 0.005)
+        rachis_len_scaled = max(leaf.rachis_length * BAKED_SCALE, 0.005)
         
-        builder.add_leaf(
-            parent_id=parent_seg['id'], 
-            id=leaf_id,
-            leaf_length=leaf_length_scaled, 
-            leaf_width=leaf_width_scaled,
+        num_segments = max(n_blades, 2)*2  # Use at least 2 segments for the physics chain
+        
+        # Derive petiole/rachis radius from CSV diameter field
+        petiole_radius_m = getattr(leaf, 'diameter_petiole', 0.002) / 2.0
+        start_radius_scaled = max(petiole_radius_m * BAKED_SCALE, 0.0015)
+        end_radius_scaled = max(start_radius_scaled * 0.5, 0.001)
+        
+        # Debug: print expected sizes
+        print(f"  [LEAF {leaf_id}] n_blades={n_blades}, "
+              f"petiole_r={start_radius_scaled:.4f}m, "
+              f"petiole_L={petiole_len_scaled:.4f}m, rachis_L={rachis_len_scaled:.4f}m, "
+              f"areas_scaled={[f'{a:.4f}' for a in scaled_areas]}")
+        
+        builder.add_compound_leaf(
+            parent_id=parent_seg['id'],
+            base_id=leaf_id,
             petiole_length=petiole_len_scaled,
+            rachis_length=rachis_len_scaled,
+            start_radius=start_radius_scaled,
+            end_radius=end_radius_scaled,
+            num_segments=num_segments,
+            blade_area_array=scaled_areas,
+            seg_len_array=scaled_segs,
+            incl_array=raw_incl,
             z_offset_ratio=z_offset_ratio,
             tilt_angle=leaf.angle_petiole if hasattr(leaf, 'angle_petiole') and leaf.angle_petiole else 60.0,
             rot_around_parent=leaf.ccw_orientation if hasattr(leaf, 'ccw_orientation') else 0.0

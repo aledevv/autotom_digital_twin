@@ -16,6 +16,10 @@ Usage:
 import math
 from pxr import Usd, UsdGeom, Gf, UsdPhysics, Sdf
 
+# COLORS
+
+PLANT_COLOR = (0.35, 0.62, 0.20) # verde - stem, branches, petioles, rachises
+LEAF_COLOR = (0.12, 0.42, 0.08)  # verde lamina
 
 # =============================================================================
 # HELPER: safe Quatd -> Quatf conversion
@@ -91,7 +95,7 @@ class PlantBuilder:
     # --------------------------------------------------------------------- #
     def _make_cylinder(self, path: str, radius: float, height: float,
                        world_pos: Gf.Vec3d, orient_quatf: Gf.Quatf,
-                       mass: float) -> str:
+                       mass: float, color: tuple = None) -> str:
         """Create a rigid-body cylinder at the given world position/orientation."""
         xform = UsdGeom.Xform.Define(self.stage, path)
         xform.ClearXformOpOrder()
@@ -109,6 +113,9 @@ class PlantBuilder:
         cyl.GetAxisAttr().Set("Z")
         cyl.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, height / 2.0))
         UsdPhysics.CollisionAPI.Apply(cyl.GetPrim())
+
+        if color is not None:
+            cyl.GetDisplayColorAttr().Set([Gf.Vec3f(*color)])
 
         return path
 
@@ -153,7 +160,7 @@ class PlantBuilder:
         path = f"{self.base_path}/{id}"
         pos = Gf.Vec3d(0, 0, 0)
 
-        self._make_cylinder(path, radius, length, pos, IDENTITY_QUATF, mass)
+        self._make_cylinder(path, radius, length, pos, IDENTITY_QUATF, mass, color=PLANT_COLOR)
 
         # Anchor to the world (Body0 = None = world)
         fj = UsdPhysics.FixedJoint.Define(self.stage, f"{path}/FixedJoint")
@@ -170,7 +177,8 @@ class PlantBuilder:
                       radius: float, length: float,
                       mass: float = 1.0,
                       stiffness: float | None = None,
-                      damping: float | None = None) -> str:
+                      damping: float | None = None,
+                      color: tuple = PLANT_COLOR) -> str:
         """Extend a branch by adding a segment in the same direction as its parent."""
         if parent_id not in self._segments:
             raise KeyError(f"Parent '{parent_id}' not found!")
@@ -195,7 +203,7 @@ class PlantBuilder:
 
         orient_qf = _quatd_to_quatf(p["global_rot"].GetQuat())
         path = f"{self.base_path}/{id}"
-        self._make_cylinder(path, radius, length, world_pos, orient_qf, mass)
+        self._make_cylinder(path, radius, length, world_pos, orient_qf, mass, color=color)
 
         # D6 joint: same frame, just offset along local Z
         jnt = UsdPhysics.Joint.Define(self.stage, f"{path}/Joint")
@@ -221,7 +229,8 @@ class PlantBuilder:
                            rot_around_parent: float,
                            mass: float = 0.2,
                            stiffness: float | None = None,
-                           damping: float | None = None) -> str:
+                           damping: float | None = None,
+                           color: tuple = PLANT_COLOR) -> str:
         """Attach a new branch segment to the surface of a parent cylinder.
 
         Parameters
@@ -257,7 +266,7 @@ class PlantBuilder:
 
         orient_qf = _quatd_to_quatf(sub_rot_total.GetQuat())
         path = f"{self.base_path}/{id}"
-        self._make_cylinder(path, radius, length, world_pos, orient_qf, mass)
+        self._make_cylinder(path, radius, length, world_pos, orient_qf, mass, color)
 
         # D6 joint — base attachment
         jnt = UsdPhysics.Joint.Define(self.stage, f"{path}/Joint")
@@ -291,7 +300,8 @@ class PlantBuilder:
                            damping_base: float = 1000.0,
                            damping_tip: float = 100.0,
                            density: float = 500.0,
-                           max_bend_angle: float = 30.0) -> str:
+                           max_bend_angle: float = 30.0,
+                           color: tuple = PLANT_COLOR ) -> str:
         """Procedurally generate a multi-segment, tapering branch.
         Returns the ID of the last segment (the tip).
         """
@@ -309,9 +319,10 @@ class PlantBuilder:
             damp = damping_base + t * (damping_tip - damping_base)
             
             # Safety checks
-            if r < 0.005:
+            if r < 0.0005:
                 print(f"   \033[93m[WARNING] Tapered branch '{base_id}' segment {i} radius {r:.4f} is too small! PhysX may become unstable.\033[0m")
-                r = 0.005
+                print(f"   \033[94m[INFO] Automatically clamped radius to 0.0005.\033[0m")
+                r = 0.0005
                 
             if segment_len < 2 * r:
                 print(f"   \033[93m[WARNING] Tapered branch '{base_id}' segment {i} has L/R ratio < 2 (L={segment_len:.4f}, D={2*r:.4f}). PhysX may jitter.\033[0m")
@@ -335,7 +346,8 @@ class PlantBuilder:
                     rot_around_parent=rot_around_parent,
                     mass=mass,
                     stiffness=stiff,
-                    damping=damp
+                    damping=damp,
+                    color=color
                 )
             else:
                 # Subsequent segments attach straight to the previous segment
@@ -346,7 +358,8 @@ class PlantBuilder:
                     length=segment_len,
                     mass=mass,
                     stiffness=stiff,
-                    damping=damp
+                    damping=damp,
+                    color=color
                 )
                 
             # Apply max bend limit
@@ -362,7 +375,7 @@ class PlantBuilder:
     # ----------------------------------------------------------------- #
     #  LEAF
     # ----------------------------------------------------------------- #
-    def _make_leaf_mesh(self, path: str, half_width: float, length: float):
+    def _make_leaf_mesh(self, path: str, half_width: float, length: float, color: tuple = LEAF_COLOR):
         """Create a simple ovate leaf blade mesh (16-point smooth shape)."""
         import math as m
         mesh = UsdGeom.Mesh.Define(self.stage, path)
@@ -385,29 +398,41 @@ class PlantBuilder:
             idx.extend([0, i, i + 1])
         mesh.GetFaceVertexIndicesAttr().Set(idx)
         mesh.GetSubdivisionSchemeAttr().Set("none")
+        mesh.GetDisplayColorAttr().Set([Gf.Vec3f(*color)])
+
         return mesh
 
     def attach_blade(self, parent_id: str, id: str,
                      leaf_length: float = 0.08, leaf_width: float = 0.04,
                      z_offset_ratio: float = 1.0,
                      tilt_angle: float = 0.0,
-                     rot_around_parent: float = 0.0) -> str:
+                     rot_around_parent: float = 0.0,
+                     extra_rot_y: float = 0.0,
+                     enable_collision: bool = True) -> str:
         """Attach a static leaf blade mesh to an existing segment.
         This does NOT create a new physics body or joint. It moves with the parent.
+
+        Rotation order (applied right-to-left on the mesh Y-axis):
+          1. rot_around_parent: azimuth around parent Z (which lateral side)
+          2. tilt_angle:        tilt around X (negative = up, 0 = perpendicular out, +90 = along Z)
+          3. extra_rot_y:       additional spin around Y (use 90 to face outward after tilt)
         """
         if parent_id not in self._segments:
             raise KeyError(f"Parent '{parent_id}' not found!")
         p = self._segments[parent_id]
         
         rel_z = z_offset_ratio * p["height"]
-        # Offset slightly out from the center to avoid sticking inside
-        local_offset = Gf.Vec3d(0.0, p["radius"], rel_z)
-
+        
         rot_z  = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_around_parent)
         tilt_r = Gf.Rotation(Gf.Vec3d(1, 0, 0), -tilt_angle)
-        sub_rot_local = tilt_r * rot_z
+        rot_y  = Gf.Rotation(Gf.Vec3d(0, 1, 0), extra_rot_y)
+        sub_rot_local = rot_y * tilt_r * rot_z
         rot_q = _quatd_to_quatf(sub_rot_local.GetQuat())
         
+        # Offset slightly out from the center in the rotated Y direction
+        offset_dir = rot_z.TransformDir(Gf.Vec3d(0.0, 1.0, 0.0))
+        local_offset = Gf.Vec3d(offset_dir[0] * p["radius"], offset_dir[1] * p["radius"], rel_z)
+
         blade_path = f"{p['path']}/{id}"
         blade_xform = UsdGeom.Xform.Define(self.stage, blade_path)
         blade_xform.AddTranslateOp().Set(local_offset)
@@ -415,8 +440,137 @@ class PlantBuilder:
 
         mesh_path = f"{blade_path}/Mesh"
         mesh = self._make_leaf_mesh(mesh_path, leaf_width / 2.0, leaf_length)
+
+        if enable_collision:
+            UsdPhysics.CollisionAPI.Apply(mesh.GetPrim())
+            UsdPhysics.MeshCollisionAPI.Apply(mesh.GetPrim()).GetApproximationAttr().Set("convexHull")
+            
         
         return blade_path
+
+    def add_compound_leaf(self, parent_id: str, base_id: str,
+                          petiole_length: float, rachis_length: float,
+                          start_radius: float, end_radius: float,
+                          num_segments: int,
+                          blade_area_array: list[float],
+                          seg_len_array: list[float],
+                          incl_array: list[float],
+                          z_offset_ratio: float = 1.0,
+                          tilt_angle: float = 60.0,
+                          lateral_tilt_angle: float = 70.0,
+                          rot_around_parent: float = 0.0) -> str:
+        """Procedurally generate a physically articulated compound leaf.
+
+        Rachis is built with add_branch. Each lateral leaflet is an articulated
+        petiolule (add_branch, 1 seg) with a static blade (attach_blade) at its
+        tip — the 'rastrelliera' pattern. The terminal leaflet is static on the
+        last rachis segment, oriented along the rachis direction.
+        """
+        import math
+        
+        total_length = petiole_length + rachis_length
+        segment_len = total_length / max(num_segments, 1)
+        
+        # 1. Generate articulated rachis
+        tip_id = self.add_branch(
+            parent_id=parent_id,
+            base_id=base_id,
+            total_length=total_length,
+            start_radius=start_radius,
+            end_radius=end_radius,
+            num_segments=num_segments,
+            z_offset_ratio=z_offset_ratio,
+            tilt_angle=tilt_angle,
+            rot_around_parent=rot_around_parent,
+            stiffness_base=0.05,  # Leaves are very soft
+            stiffness_tip=0.005,
+            damping_base=0.005,
+            damping_tip=0.0005,
+            density=200.0,
+            max_bend_angle=45.0
+        )
+        
+        n_blades = len(blade_area_array)
+        if n_blades == 0:
+            return tip_id
+
+        pairs = n_blades - 1
+        petiolule_len = max(segment_len * 0.5, 0.005)
+        petiolule_rad = max(end_radius * 0.4, 0.001)
+
+        def _seg_for_distance(d: float) -> tuple[str, float]:
+            """Return (segment_id, local_z_ratio) for a given distance along the leaf."""
+            seg_idx = min(int(d / segment_len), num_segments - 1)
+            local_d = d - seg_idx * segment_len
+            ratio   = min(max(local_d / segment_len, 0.0), 1.0)
+            return f"{base_id}_{seg_idx:02d}", ratio
+
+        # 2. Lateral leaflets — rastrelliera pattern:
+        #    each lateral is an articulated petiolule (add_branch, 1 seg) + static blade (attach_blade)
+        current_d = petiole_length
+        for j in range(pairs):
+            area       = blade_area_array[j]
+            lat_area   = area / 2.0        # each leaflet = pair_area / 2
+            lat_length = math.sqrt(lat_area / 0.6) if lat_area > 0 else 0.001
+            lat_width  = lat_length * 0.6
+
+            # insertion_angle from CSV: 90° = perpendicular to rachis (stick straight out)
+            insertion = incl_array[j] if j < len(incl_array) else 90.0
+            target_seg, ratio = _seg_for_distance(current_d)
+
+            for side_label, rot_sign in (("R", 90.0), ("L", -90.0)):
+                pet_id = f"{base_id}_Lat{j}{side_label}"
+                self.add_branch(
+                    parent_id=target_seg,
+                    base_id=pet_id,
+                    total_length=petiolule_len,
+                    start_radius=petiolule_rad,
+                    end_radius=petiolule_rad * 0.7,
+                    num_segments=2,
+                    z_offset_ratio=ratio,
+                    tilt_angle=lateral_tilt_angle,
+                    rot_around_parent=rot_sign,
+                    stiffness_base=0.001,
+                    stiffness_tip=0.0005,
+                    damping_base=0.0005,
+                    damping_tip=0.0001,
+                    density=100.0,
+                    max_bend_angle=60.0
+                )
+                # tilt_angle=-90 → Gf.Rotation(X, +90°) → blade Y aligns with petiolule Z (growth dir)
+                # extra_rot_y=90 → spin 90° around Y so the flat face faces outward
+                self.attach_blade(
+                    parent_id=f"{pet_id}_00",
+                    id="Blade",
+                    leaf_length=max(lat_length, 0.001),
+                    leaf_width=max(lat_width,   0.001),
+                    z_offset_ratio=1.0,
+                    tilt_angle=-90.0,
+                    rot_around_parent=0.0,
+                    extra_rot_y=90.0
+                )
+
+            dist_to_next = seg_len_array[j] if j < len(seg_len_array) else (rachis_length / max(pairs, 1))
+            current_d += dist_to_next
+
+        # 3. Terminal leaflet — static blade on the last rachis segment, growing along rachis
+        #    tilt_angle=-90 → blade Y aligns with segment Z (rachis growth direction)
+        tip_seg_id  = f"{base_id}_{num_segments - 1:02d}"
+        term_area   = blade_area_array[-1]
+        term_length = math.sqrt(term_area / 0.6) if term_area > 0 else 0.001
+        term_width  = term_length * 0.6
+        self.attach_blade(
+            parent_id=tip_seg_id,
+            id="Blade_Terminal",
+            leaf_length=max(term_length, 0.001),
+            leaf_width=max(term_width,   0.001),
+            z_offset_ratio=1.0,
+            tilt_angle=-90.0,
+            rot_around_parent=0.0,
+            extra_rot_y=0.0
+        )
+
+        return tip_id
 
     def add_leaf(self, parent_id: str, id: str,
                  leaf_length: float = 0.08, leaf_width: float = 0.04,

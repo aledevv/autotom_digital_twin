@@ -1,0 +1,2587 @@
+#usda 1.0
+(
+    customLayerData = {
+        dictionary cameraSettings = {
+            dictionary Front = {
+                double3 position = (5, 0, 0)
+                double radius = 5
+            }
+            dictionary Perspective = {
+                double3 position = (5, 5, 5)
+                double3 target = (-3.978038431995401e-8, -3.978038254359717e-8, 7.956076863990802e-8)
+            }
+            dictionary Right = {
+                double3 position = (0, -5, 0)
+                double radius = 5
+            }
+            dictionary Top = {
+                double3 position = (0, 0, 5)
+                double radius = 5
+            }
+            string boundCamera = "/OmniverseKit_Persp"
+        }
+        dictionary omni_layer = {
+            dictionary locked = {
+            }
+            dictionary muteness = {
+            }
+        }
+        dictionary physicsSettings = {
+            int "/persistent/simulation/minFrameRate" = 60
+        }
+        dictionary renderSettings = {
+        }
+    }
+    endTimeCode = 1000000
+    metersPerUnit = 1
+    startTimeCode = 0
+    timeCodesPerSecond = 60
+    upAxis = "Z"
+)
+
+over "Render" (
+    hide_in_stage_window = true
+)
+{
+}
+
+def PhysicsScene "physicsScene" (
+    prepend apiSchemas = ["PhysxSceneAPI"]
+)
+{
+    vector3f physics:gravityDirection = (0, 0, -1)
+    float physics:gravityMagnitude = 9.81
+    uniform token physxScene:broadphaseType = "MBP"
+    bool physxScene:enableCCD = 1
+    bool physxScene:enableGPUDynamics = 0
+    bool physxScene:enableStabilization = 1
+    uniform token physxScene:solverType = "TGS"
+    uint physxScene:timeStepsPerSecond = 60
+}
+
+def "World"
+{
+    def Xform "Stem" (
+        prepend apiSchemas = ["PhysicsArticulationRootAPI"]
+    )
+    {
+        def Xform "Trunk_00" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 1
+            quatf xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 2
+                double radius = 0.1
+                double3 xformOp:translate = (0, 0, 1)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsFixedJoint "FixedJoint"
+            {
+                rel physics:body1 = </World/Stem/Trunk_00>
+            }
+        }
+
+        def Xform "Branch_Long_Many_Big_00" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.56548667
+            quatf xformOp:orient = (0.9238795, -0.38268343, 0, 0)
+            double3 xformOp:translate = (0, 0.1, 0.2)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.1
+                double radius = 0.06
+                double3 xformOp:translate = (0, 0, 0.05)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 1000
+                float drive:rotX:physics:stiffness = 10000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 1000
+                float drive:rotY:physics:stiffness = 10000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 1000
+                float drive:rotZ:physics:stiffness = 10000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Trunk_00>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Big_00>
+                point3f physics:localPos0 = (0, 0.1, 0.2)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (0.9238795, -0.38268343, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Big_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.5129131
+            quatf xformOp:orient = (0.9238795, -0.38268343, 0, 0)
+            double3 xformOp:translate = (0, 0.17141778489984133, 0.2714177848998413)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.1
+                double radius = 0.05714285714285714
+                double3 xformOp:translate = (0, 0, 0.05)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 871.4286
+                float drive:rotX:physics:stiffness = 8714.286
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 871.4286
+                float drive:rotY:physics:stiffness = 8714.286
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 871.4286
+                float drive:rotZ:physics:stiffness = 8714.286
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Big_00>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Big_01>
+                point3f physics:localPos0 = (0, 0, 0.101)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Big_02" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.46290407
+            quatf xformOp:orient = (0.9238795, -0.38268343, 0, 0)
+            double3 xformOp:translate = (0, 0.24283556979968263, 0.3428355697996826)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.1
+                double radius = 0.054285714285714284
+                double3 xformOp:translate = (0, 0, 0.05)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 742.8571
+                float drive:rotX:physics:stiffness = 7428.5713
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 742.8571
+                float drive:rotY:physics:stiffness = 7428.5713
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 742.8571
+                float drive:rotZ:physics:stiffness = 7428.5713
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Big_01>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Big_02>
+                point3f physics:localPos0 = (0, 0, 0.101)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Big_03" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.4154596
+            quatf xformOp:orient = (0.9238795, -0.38268343, 0, 0)
+            double3 xformOp:translate = (0, 0.3142533546995239, 0.4142533546995239)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.1
+                double radius = 0.05142857142857143
+                double3 xformOp:translate = (0, 0, 0.05)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 614.2857
+                float drive:rotX:physics:stiffness = 6142.857
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 614.2857
+                float drive:rotY:physics:stiffness = 6142.857
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 614.2857
+                float drive:rotZ:physics:stiffness = 6142.857
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Big_02>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Big_03>
+                point3f physics:localPos0 = (0, 0, 0.101)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Big_04" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.37057972
+            quatf xformOp:orient = (0.9238795, -0.38268343, 0, 0)
+            double3 xformOp:translate = (0, 0.3856711395993652, 0.4856711395993652)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.1
+                double radius = 0.04857142857142857
+                double3 xformOp:translate = (0, 0, 0.05)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 485.7143
+                float drive:rotX:physics:stiffness = 4857.143
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 485.7143
+                float drive:rotY:physics:stiffness = 4857.143
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 485.7143
+                float drive:rotZ:physics:stiffness = 4857.143
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Big_03>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Big_04>
+                point3f physics:localPos0 = (0, 0, 0.101)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Big_05" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.3282644
+            quatf xformOp:orient = (0.9238795, -0.38268343, 0, 0)
+            double3 xformOp:translate = (0, 0.4570889244992065, 0.5570889244992066)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.1
+                double radius = 0.045714285714285714
+                double3 xformOp:translate = (0, 0, 0.05)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 357.14285
+                float drive:rotX:physics:stiffness = 3571.4285
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 357.14285
+                float drive:rotY:physics:stiffness = 3571.4285
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 357.14285
+                float drive:rotZ:physics:stiffness = 3571.4285
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Big_04>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Big_05>
+                point3f physics:localPos0 = (0, 0, 0.101)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Big_06" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.2885136
+            quatf xformOp:orient = (0.9238795, -0.38268343, 0, 0)
+            double3 xformOp:translate = (0, 0.5285067093990479, 0.6285067093990478)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.1
+                double radius = 0.04285714285714286
+                double3 xformOp:translate = (0, 0, 0.05)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 228.57143
+                float drive:rotX:physics:stiffness = 2285.7144
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 228.57143
+                float drive:rotY:physics:stiffness = 2285.7144
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 228.57143
+                float drive:rotZ:physics:stiffness = 2285.7144
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Big_05>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Big_06>
+                point3f physics:localPos0 = (0, 0, 0.101)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Big_07" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.25132743
+            quatf xformOp:orient = (0.9238795, -0.38268343, 0, 0)
+            double3 xformOp:translate = (0, 0.5999244942988892, 0.6999244942988891)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.1
+                double radius = 0.04
+                double3 xformOp:translate = (0, 0, 0.05)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 100
+                float drive:rotX:physics:stiffness = 1000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 100
+                float drive:rotY:physics:stiffness = 1000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 100
+                float drive:rotZ:physics:stiffness = 1000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Big_06>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Big_07>
+                point3f physics:localPos0 = (0, 0, 0.101)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Small_00" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (0.8535534, -0.35355338, -0.14644662, 0.35355338)
+            double3 xformOp:translate = (-0.07071067811865477, 0.07071067811865475, 0.4)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.06666666666666667
+                double radius = 0.01
+                double3 xformOp:translate = (0, 0, 0.03333333333333333)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 1000
+                float drive:rotX:physics:stiffness = 10000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 1000
+                float drive:rotY:physics:stiffness = 10000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 1000
+                float drive:rotZ:physics:stiffness = 10000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Trunk_00>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Small_00>
+                point3f physics:localPos0 = (-0.07071068, 0.07071068, 0.4)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (0.8535534, -0.35355338, -0.14644662, 0.35355338)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Small_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (0.8535534, -0.35355338, -0.14644662, 0.35355338)
+            double3 xformOp:translate = (-0.1045440114519881, 0.10454401145198808, 0.4478475588602897)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.06666666666666667
+                double radius = 0.009545454545454546
+                double3 xformOp:translate = (0, 0, 0.03333333333333333)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 918.1818
+                float drive:rotX:physics:stiffness = 9181.818
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 918.1818
+                float drive:rotY:physics:stiffness = 9181.818
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 918.1818
+                float drive:rotZ:physics:stiffness = 9181.818
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Small_00>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Small_01>
+                point3f physics:localPos0 = (0, 0, 0.067666665)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Small_02" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (0.8535534, -0.35355338, -0.14644662, 0.35355338)
+            double3 xformOp:translate = (-0.13837734478532143, 0.1383773447853214, 0.4956951177205794)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.06666666666666667
+                double radius = 0.00909090909090909
+                double3 xformOp:translate = (0, 0, 0.03333333333333333)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 836.36365
+                float drive:rotX:physics:stiffness = 8363.637
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 836.36365
+                float drive:rotY:physics:stiffness = 8363.637
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 836.36365
+                float drive:rotZ:physics:stiffness = 8363.637
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Small_01>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Small_02>
+                point3f physics:localPos0 = (0, 0, 0.067666665)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Small_03" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (0.8535534, -0.35355338, -0.14644662, 0.35355338)
+            double3 xformOp:translate = (-0.17221067811865476, 0.17221067811865473, 0.5435426765808691)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.06666666666666667
+                double radius = 0.008636363636363636
+                double3 xformOp:translate = (0, 0, 0.03333333333333333)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 754.5455
+                float drive:rotX:physics:stiffness = 7545.4546
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 754.5455
+                float drive:rotY:physics:stiffness = 7545.4546
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 754.5455
+                float drive:rotZ:physics:stiffness = 7545.4546
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Small_02>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Small_03>
+                point3f physics:localPos0 = (0, 0, 0.067666665)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Small_04" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (0.8535534, -0.35355338, -0.14644662, 0.35355338)
+            double3 xformOp:translate = (-0.20604401145198808, 0.20604401145198806, 0.5913902354411588)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.06666666666666667
+                double radius = 0.008181818181818182
+                double3 xformOp:translate = (0, 0, 0.03333333333333333)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 672.7273
+                float drive:rotX:physics:stiffness = 6727.273
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 672.7273
+                float drive:rotY:physics:stiffness = 6727.273
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 672.7273
+                float drive:rotZ:physics:stiffness = 6727.273
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Small_03>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Small_04>
+                point3f physics:localPos0 = (0, 0, 0.067666665)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Small_05" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (0.8535534, -0.35355338, -0.14644662, 0.35355338)
+            double3 xformOp:translate = (-0.2398773447853214, 0.23987734478532138, 0.6392377943014484)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.06666666666666667
+                double radius = 0.007727272727272728
+                double3 xformOp:translate = (0, 0, 0.03333333333333333)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 590.9091
+                float drive:rotX:physics:stiffness = 5909.091
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 590.9091
+                float drive:rotY:physics:stiffness = 5909.091
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 590.9091
+                float drive:rotZ:physics:stiffness = 5909.091
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Small_04>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Small_05>
+                point3f physics:localPos0 = (0, 0, 0.067666665)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Small_06" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (0.8535534, -0.35355338, -0.14644662, 0.35355338)
+            double3 xformOp:translate = (-0.27371067811865474, 0.2737106781186547, 0.6870853531617381)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.06666666666666667
+                double radius = 0.007272727272727273
+                double3 xformOp:translate = (0, 0, 0.03333333333333333)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 509.0909
+                float drive:rotX:physics:stiffness = 5090.909
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 509.0909
+                float drive:rotY:physics:stiffness = 5090.909
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 509.0909
+                float drive:rotZ:physics:stiffness = 5090.909
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Small_05>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Small_06>
+                point3f physics:localPos0 = (0, 0, 0.067666665)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Small_07" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (0.8535534, -0.35355338, -0.14644662, 0.35355338)
+            double3 xformOp:translate = (-0.30754401145198806, 0.307544011451988, 0.7349329120220278)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.06666666666666667
+                double radius = 0.006818181818181819
+                double3 xformOp:translate = (0, 0, 0.03333333333333333)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 427.27274
+                float drive:rotX:physics:stiffness = 4272.727
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 427.27274
+                float drive:rotY:physics:stiffness = 4272.727
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 427.27274
+                float drive:rotZ:physics:stiffness = 4272.727
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Small_06>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Small_07>
+                point3f physics:localPos0 = (0, 0, 0.067666665)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Small_08" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (0.8535534, -0.35355338, -0.14644662, 0.35355338)
+            double3 xformOp:translate = (-0.3413773447853214, 0.34137734478532133, 0.7827804708823175)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.06666666666666667
+                double radius = 0.006363636363636364
+                double3 xformOp:translate = (0, 0, 0.03333333333333333)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 345.45456
+                float drive:rotX:physics:stiffness = 3454.5454
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 345.45456
+                float drive:rotY:physics:stiffness = 3454.5454
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 345.45456
+                float drive:rotZ:physics:stiffness = 3454.5454
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Small_07>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Small_08>
+                point3f physics:localPos0 = (0, 0, 0.067666665)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Small_09" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (0.8535534, -0.35355338, -0.14644662, 0.35355338)
+            double3 xformOp:translate = (-0.3752106781186547, 0.37521067811865466, 0.8306280297426072)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.06666666666666667
+                double radius = 0.005909090909090909
+                double3 xformOp:translate = (0, 0, 0.03333333333333333)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 263.63635
+                float drive:rotX:physics:stiffness = 2636.3635
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 263.63635
+                float drive:rotY:physics:stiffness = 2636.3635
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 263.63635
+                float drive:rotZ:physics:stiffness = 2636.3635
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Small_08>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Small_09>
+                point3f physics:localPos0 = (0, 0, 0.067666665)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Small_10" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (0.8535534, -0.35355338, -0.14644662, 0.35355338)
+            double3 xformOp:translate = (-0.40904401145198804, 0.409044011451988, 0.8784755886028969)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.06666666666666667
+                double radius = 0.005454545454545455
+                double3 xformOp:translate = (0, 0, 0.03333333333333333)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 181.81818
+                float drive:rotX:physics:stiffness = 1818.1818
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 181.81818
+                float drive:rotY:physics:stiffness = 1818.1818
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 181.81818
+                float drive:rotZ:physics:stiffness = 1818.1818
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Small_09>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Small_10>
+                point3f physics:localPos0 = (0, 0, 0.067666665)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Many_Small_11" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (0.8535534, -0.35355338, -0.14644662, 0.35355338)
+            double3 xformOp:translate = (-0.44287734478532137, 0.4428773447853213, 0.9263231474631866)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.06666666666666667
+                double radius = 0.005
+                double3 xformOp:translate = (0, 0, 0.03333333333333333)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 100
+                float drive:rotX:physics:stiffness = 1000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 100
+                float drive:rotY:physics:stiffness = 1000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 100
+                float drive:rotZ:physics:stiffness = 1000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Many_Small_10>
+                rel physics:body1 = </World/Stem/Branch_Long_Many_Small_11>
+                point3f physics:localPos0 = (0, 0, 0.067666665)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Few_Big_00" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 2.2619467
+            quatf xformOp:orient = (0.6532815, -0.27059805, -0.27059805, 0.6532815)
+            double3 xformOp:translate = (-0.1, 2.2204460492503132e-17, 0.6000000000000001)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.4
+                double radius = 0.06
+                double3 xformOp:translate = (0, 0, 0.2)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 1000
+                float drive:rotX:physics:stiffness = 10000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 1000
+                float drive:rotY:physics:stiffness = 10000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 1000
+                float drive:rotZ:physics:stiffness = 10000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Trunk_00>
+                rel physics:body1 = </World/Stem/Branch_Long_Few_Big_00>
+                point3f physics:localPos0 = (-0.1, 2.220446e-17, 0.6)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (0.6532815, -0.27059805, -0.27059805, 0.6532815)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Few_Big_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 1.0053097
+            quatf xformOp:orient = (0.6532815, -0.27059805, -0.27059805, 0.6532815)
+            double3 xformOp:translate = (-0.38354981925580556, 6.67244037799719e-17, 0.8835498192558057)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.4
+                double radius = 0.04
+                double3 xformOp:translate = (0, 0, 0.2)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 100
+                float drive:rotX:physics:stiffness = 1000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 100
+                float drive:rotY:physics:stiffness = 1000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 100
+                float drive:rotZ:physics:stiffness = 1000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Few_Big_00>
+                rel physics:body1 = </World/Stem/Branch_Long_Few_Big_01>
+                point3f physics:localPos0 = (0, 0, 0.401)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Few_Small_00" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (0.35355338, -0.14644662, -0.35355338, 0.8535534)
+            double3 xformOp:translate = (-0.07071067811865477, -0.07071067811865475, 0.8)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.4
+                double radius = 0.005
+                double3 xformOp:translate = (0, 0, 0.2)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 1000
+                float drive:rotX:physics:stiffness = 10000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 1000
+                float drive:rotY:physics:stiffness = 10000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 1000
+                float drive:rotZ:physics:stiffness = 10000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Trunk_00>
+                rel physics:body1 = </World/Stem/Branch_Long_Few_Small_00>
+                point3f physics:localPos0 = (-0.07071068, -0.07071068, 0.8)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (0.35355338, -0.14644662, -0.35355338, 0.8535534)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Long_Few_Small_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (0.35355338, -0.14644662, -0.35355338, 0.8535534)
+            double3 xformOp:translate = (-0.27121067811865485, -0.27121067811865474, 1.0835498192558055)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.4
+                double radius = 0.005
+                double3 xformOp:translate = (0, 0, 0.2)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 100
+                float drive:rotX:physics:stiffness = 1000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 100
+                float drive:rotY:physics:stiffness = 1000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 100
+                float drive:rotZ:physics:stiffness = 1000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Long_Few_Small_00>
+                rel physics:body1 = </World/Stem/Branch_Long_Few_Small_01>
+                point3f physics:localPos0 = (0, 0, 0.401)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Big_00" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.2120575
+            quatf xformOp:orient = (6.123234e-17, -2.3432602e-17, -0.38268343, 0.9238795)
+            double3 xformOp:translate = (-1.2246467991473533e-17, -0.1, 1)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.06
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 1000
+                float drive:rotX:physics:stiffness = 10000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 1000
+                float drive:rotY:physics:stiffness = 10000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 1000
+                float drive:rotZ:physics:stiffness = 10000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Trunk_00>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Big_00>
+                point3f physics:localPos0 = (-1.2246468e-17, -0.1, 1)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (6.123234e-17, -2.3432602e-17, -0.38268343, 0.9238795)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Big_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.1923424
+            quatf xformOp:orient = (6.123234e-17, -2.3432602e-17, -0.38268343, 0.9238795)
+            double3 xformOp:translate = (-1.571774375577748e-17, -0.12722361107568209, 1.027223611075682)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.05714285714285714
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 871.4286
+                float drive:rotX:physics:stiffness = 8714.286
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 871.4286
+                float drive:rotY:physics:stiffness = 8714.286
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 871.4286
+                float drive:rotZ:physics:stiffness = 8714.286
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Many_Big_00>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Big_01>
+                point3f physics:localPos0 = (0, 0, 0.0385)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Big_02" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.17358902
+            quatf xformOp:orient = (6.123234e-17, -2.3432602e-17, -0.38268343, 0.9238795)
+            double3 xformOp:translate = (-1.9189019520081432e-17, -0.15444722215136417, 1.054447222151364)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.054285714285714284
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 742.8571
+                float drive:rotX:physics:stiffness = 7428.5713
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 742.8571
+                float drive:rotY:physics:stiffness = 7428.5713
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 742.8571
+                float drive:rotZ:physics:stiffness = 7428.5713
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Many_Big_01>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Big_02>
+                point3f physics:localPos0 = (0, 0, 0.0385)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Big_03" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.15579735
+            quatf xformOp:orient = (6.123234e-17, -2.3432602e-17, -0.38268343, 0.9238795)
+            double3 xformOp:translate = (-2.2660295284385383e-17, -0.18167083322704625, 1.0816708332270462)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.05142857142857143
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 614.2857
+                float drive:rotX:physics:stiffness = 6142.857
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 614.2857
+                float drive:rotY:physics:stiffness = 6142.857
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 614.2857
+                float drive:rotZ:physics:stiffness = 6142.857
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Many_Big_02>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Big_03>
+                point3f physics:localPos0 = (0, 0, 0.0385)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Big_04" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.1389674
+            quatf xformOp:orient = (6.123234e-17, -2.3432602e-17, -0.38268343, 0.9238795)
+            double3 xformOp:translate = (-2.6131571048689334e-17, -0.20889444430272833, 1.1088944443027282)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.04857142857142857
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 485.7143
+                float drive:rotX:physics:stiffness = 4857.143
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 485.7143
+                float drive:rotY:physics:stiffness = 4857.143
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 485.7143
+                float drive:rotZ:physics:stiffness = 4857.143
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Many_Big_03>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Big_04>
+                point3f physics:localPos0 = (0, 0, 0.0385)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Big_05" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.12309914
+            quatf xformOp:orient = (6.123234e-17, -2.3432602e-17, -0.38268343, 0.9238795)
+            double3 xformOp:translate = (-2.9602846812993285e-17, -0.2361180553784104, 1.1361180553784103)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.045714285714285714
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 357.14285
+                float drive:rotX:physics:stiffness = 3571.4285
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 357.14285
+                float drive:rotY:physics:stiffness = 3571.4285
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 357.14285
+                float drive:rotZ:physics:stiffness = 3571.4285
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Many_Big_04>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Big_05>
+                point3f physics:localPos0 = (0, 0, 0.0385)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Big_06" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.10819261
+            quatf xformOp:orient = (6.123234e-17, -2.3432602e-17, -0.38268343, 0.9238795)
+            double3 xformOp:translate = (-3.3074122577297236e-17, -0.2633416664540925, 1.1633416664540923)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.04285714285714286
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 228.57143
+                float drive:rotX:physics:stiffness = 2285.7144
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 228.57143
+                float drive:rotY:physics:stiffness = 2285.7144
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 228.57143
+                float drive:rotZ:physics:stiffness = 2285.7144
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Many_Big_05>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Big_06>
+                point3f physics:localPos0 = (0, 0, 0.0385)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Big_07" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.09424778
+            quatf xformOp:orient = (6.123234e-17, -2.3432602e-17, -0.38268343, 0.9238795)
+            double3 xformOp:translate = (-3.654539834160119e-17, -0.29056527752977457, 1.1905652775297744)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.04
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 100
+                float drive:rotX:physics:stiffness = 1000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 100
+                float drive:rotY:physics:stiffness = 1000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 100
+                float drive:rotZ:physics:stiffness = 1000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Many_Big_06>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Big_07>
+                point3f physics:localPos0 = (0, 0, 0.0385)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Small_00" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (-0.35355338, 0.14644662, -0.35355338, 0.8535534)
+            double3 xformOp:translate = (0.07071067811865475, -0.07071067811865475, 1.2)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.005
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 1000
+                float drive:rotX:physics:stiffness = 10000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 1000
+                float drive:rotY:physics:stiffness = 10000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 1000
+                float drive:rotZ:physics:stiffness = 10000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Trunk_00>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Small_00>
+                point3f physics:localPos0 = (0.07071068, -0.07071068, 1.2)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (-0.35355338, 0.14644662, -0.35355338, 0.8535534)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Small_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (-0.35355338, 0.14644662, -0.35355338, 0.8535534)
+            double3 xformOp:translate = (0.08996067811865474, -0.08996067811865475, 1.227223611075682)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.005
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 871.4286
+                float drive:rotX:physics:stiffness = 8714.286
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 871.4286
+                float drive:rotY:physics:stiffness = 8714.286
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 871.4286
+                float drive:rotZ:physics:stiffness = 8714.286
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Many_Small_00>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Small_01>
+                point3f physics:localPos0 = (0, 0, 0.0385)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Small_02" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (-0.35355338, 0.14644662, -0.35355338, 0.8535534)
+            double3 xformOp:translate = (0.10921067811865473, -0.10921067811865476, 1.254447222151364)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.005
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 742.8571
+                float drive:rotX:physics:stiffness = 7428.5713
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 742.8571
+                float drive:rotY:physics:stiffness = 7428.5713
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 742.8571
+                float drive:rotZ:physics:stiffness = 7428.5713
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Many_Small_01>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Small_02>
+                point3f physics:localPos0 = (0, 0, 0.0385)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Small_03" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (-0.35355338, 0.14644662, -0.35355338, 0.8535534)
+            double3 xformOp:translate = (0.12846067811865472, -0.12846067811865475, 1.2816708332270461)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.005
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 614.2857
+                float drive:rotX:physics:stiffness = 6142.857
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 614.2857
+                float drive:rotY:physics:stiffness = 6142.857
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 614.2857
+                float drive:rotZ:physics:stiffness = 6142.857
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Many_Small_02>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Small_03>
+                point3f physics:localPos0 = (0, 0, 0.0385)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Small_04" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (-0.35355338, 0.14644662, -0.35355338, 0.8535534)
+            double3 xformOp:translate = (0.1477106781186547, -0.14771067811865474, 1.3088944443027282)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.005
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 485.7143
+                float drive:rotX:physics:stiffness = 4857.143
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 485.7143
+                float drive:rotY:physics:stiffness = 4857.143
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 485.7143
+                float drive:rotZ:physics:stiffness = 4857.143
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Many_Small_03>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Small_04>
+                point3f physics:localPos0 = (0, 0, 0.0385)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Small_05" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (-0.35355338, 0.14644662, -0.35355338, 0.8535534)
+            double3 xformOp:translate = (0.1669606781186547, -0.16696067811865473, 1.3361180553784102)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.005
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 357.14285
+                float drive:rotX:physics:stiffness = 3571.4285
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 357.14285
+                float drive:rotY:physics:stiffness = 3571.4285
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 357.14285
+                float drive:rotZ:physics:stiffness = 3571.4285
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Many_Small_04>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Small_05>
+                point3f physics:localPos0 = (0, 0, 0.0385)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Small_06" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (-0.35355338, 0.14644662, -0.35355338, 0.8535534)
+            double3 xformOp:translate = (0.1862106781186547, -0.18621067811865472, 1.3633416664540923)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.005
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 228.57143
+                float drive:rotX:physics:stiffness = 2285.7144
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 228.57143
+                float drive:rotY:physics:stiffness = 2285.7144
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 228.57143
+                float drive:rotZ:physics:stiffness = 2285.7144
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Many_Small_05>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Small_06>
+                point3f physics:localPos0 = (0, 0, 0.0385)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Many_Small_07" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (-0.35355338, 0.14644662, -0.35355338, 0.8535534)
+            double3 xformOp:translate = (0.20546067811865468, -0.2054606781186547, 1.3905652775297743)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.0375
+                double radius = 0.005
+                double3 xformOp:translate = (0, 0, 0.01875)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 100
+                float drive:rotX:physics:stiffness = 1000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 100
+                float drive:rotY:physics:stiffness = 1000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 100
+                float drive:rotZ:physics:stiffness = 1000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Many_Small_06>
+                rel physics:body1 = </World/Stem/Branch_Short_Many_Small_07>
+                point3f physics:localPos0 = (0, 0, 0.0385)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Few_Big_00" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.84823
+            quatf xformOp:orient = (-0.6532815, 0.27059805, -0.27059805, 0.6532815)
+            double3 xformOp:translate = (0.1, -2.2204460492503132e-17, 1.4000000000000001)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.15
+                double radius = 0.06
+                double3 xformOp:translate = (0, 0, 0.075)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 1000
+                float drive:rotX:physics:stiffness = 10000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 1000
+                float drive:rotY:physics:stiffness = 10000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 1000
+                float drive:rotZ:physics:stiffness = 10000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Trunk_00>
+                rel physics:body1 = </World/Stem/Branch_Short_Few_Big_00>
+                point3f physics:localPos0 = (0.1, -2.220446e-17, 1.4)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (-0.6532815, 0.27059805, -0.27059805, 0.6532815)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Few_Big_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.37699112
+            quatf xformOp:orient = (-0.6532815, 0.27059805, -0.27059805, 0.6532815)
+            double3 xformOp:translate = (0.20677312395916866, -5.573319583618286e-17, 1.5067731239591688)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.15
+                double radius = 0.04
+                double3 xformOp:translate = (0, 0, 0.075)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 100
+                float drive:rotX:physics:stiffness = 1000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 100
+                float drive:rotY:physics:stiffness = 1000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 100
+                float drive:rotZ:physics:stiffness = 1000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Few_Big_00>
+                rel physics:body1 = </World/Stem/Branch_Short_Few_Big_01>
+                point3f physics:localPos0 = (0, 0, 0.151)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Few_Small_00" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (-0.8535534, 0.35355338, -0.14644662, 0.35355338)
+            double3 xformOp:translate = (0.07071067811865477, 0.07071067811865474, 1.6)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.15
+                double radius = 0.005
+                double3 xformOp:translate = (0, 0, 0.075)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 1000
+                float drive:rotX:physics:stiffness = 10000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 1000
+                float drive:rotY:physics:stiffness = 10000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 1000
+                float drive:rotZ:physics:stiffness = 10000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Trunk_00>
+                rel physics:body1 = </World/Stem/Branch_Short_Few_Small_00>
+                point3f physics:localPos0 = (0.07071068, 0.07071068, 1.6)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (-0.8535534, 0.35355338, -0.14644662, 0.35355338)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_Short_Few_Small_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            quatf xformOp:orient = (-0.8535534, 0.35355338, -0.14644662, 0.35355338)
+            double3 xformOp:translate = (0.14621067811865476, 0.14621067811865474, 1.7067731239591688)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.15
+                double radius = 0.005
+                double3 xformOp:translate = (0, 0, 0.075)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ", "PhysicsDriveAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 100
+                float drive:rotX:physics:stiffness = 1000
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 100
+                float drive:rotY:physics:stiffness = 1000
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float drive:rotZ:physics:damping = 100
+                float drive:rotZ:physics:stiffness = 1000
+                float drive:rotZ:physics:targetPosition = 0
+                uniform token drive:rotZ:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Branch_Short_Few_Small_00>
+                rel physics:body1 = </World/Stem/Branch_Short_Few_Small_01>
+                point3f physics:localPos0 = (0, 0, 0.151)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+    }
+}
+
