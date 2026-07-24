@@ -109,12 +109,11 @@ def load_snapshot(csv_path: Union[str, Path], day: int, plant_id: int) -> PlantS
         snapshot.organs.append(node)
         snapshot.by_key[key] = node
 
-        # Structural index (order, rank) -> list of organs for that phyhtometer
+        # Structural index (order, rank) -> list of organs for that phytomer
         pos = (node.key.order, node.key.rank)
         snapshot.by_position.setdefault(pos, []).append(node)
-        
 
-    _link_hierarchy(snapshot)   # CREATES A HIERARCHICAL GRAPH of the plant!!
+    _link_hierarchy(snapshot)  # Build parent-child graph connections
 
     return snapshot
         

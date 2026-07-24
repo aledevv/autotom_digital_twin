@@ -159,6 +159,7 @@ def attach_leaves(builder: PlantBuilder, leaves: list[LeafNode], stem_segments: 
             incl_array=raw_incl,
             z_offset_ratio=z_offset_ratio,
             tilt_angle=leaf.angle_petiole if hasattr(leaf, 'angle_petiole') and leaf.angle_petiole else 60.0,
+            lateral_tilt_angle=leaf.lateral_tilt_angle if hasattr(leaf, 'lateral_tilt_angle') and leaf.lateral_tilt_angle else 70.0,
             rot_around_parent=leaf.ccw_orientation if hasattr(leaf, 'ccw_orientation') else 0.0
         )
 
@@ -231,7 +232,7 @@ def build_plant_stage(snapshot: PlantSnapshot, output_path: str) -> tuple:
     stage.SetDefaultPrim(plant_prim)
 
     stem_path = f"{plant_path}/Stem"
-    builder = PlantBuilder(stage, stem_path, global_scale=BAKED_SCALE)
+    builder = PlantBuilder(stage, stem_path)
 
     all_internodes = [n for n in snapshot.organs if isinstance(n, InternodeNode)]
     if not all_internodes:

@@ -1,6 +1,6 @@
 import math
 import numpy as np
-from pxr import Usd, UsdGeom, UsdPhysics, Gf, Sdf
+from pxr import Usd, UsdGeom, UsdPhysics, UsdShade, Gf, Sdf
 
 from .models import LeafNode
 from .constants import (
@@ -75,13 +75,12 @@ def _make_sphere(stage, path: str, radius: float, cx: float, cy: float, cz: floa
     return sph
 
 
-# TRYING TO MAKE A MORE REALISTIC LEAF MESH
+# ── Leaf Mesh Geometry ───────────────────────────────────────────────────────
 def _set_leaf_mesh_geometry(mesh, hw: float, L: float):
     """
     Sets the points and faces for a 16-point smooth leaf blade mesh.
     Creates a rounded ovate shape typical for tomato leaflets.
     """
-    import math
     points = [Gf.Vec3f(0.0, 0.0, 0.0)]  # 0: base (attachment)
     
     n_side = 8
@@ -122,7 +121,6 @@ def _make_leaf(stage, leaf_group: str, node, tip_z: float, materials: dict):
     Leaf = Petiole cylinder + Rachis cylinder + Compound blade quads.
     tip_z: world Z where the leaf attaches (top of parent internode).
     """
-    import math
 
     # If the CSV provides an explicit orientation (non-zero), use it directly.
     # Otherwise fall back to cumulative phyllotaxis (rank * 137.5°) to replicate
@@ -343,7 +341,6 @@ def _blade_transform(bx, by, bz, ax, ay, az_,
     (px,py,pz)     = lateral direction (left or right of rachis)
     insertion_deg  = angle of blade from rachis axis
     """
-    import math
     ins = math.radians(insertion_deg)
 
     a = np.array([ax, ay, az_], dtype=float)
@@ -377,14 +374,11 @@ def _blade_transform(bx, by, bz, ax, ay, az_,
     m[2, 3]  = bz
     return m
         
-# -------------------------        
-# MATERIALS creation helpers
-# -------------------------
+# ── Materials creation helpers ────────────────────────────────────────────────
 def _make_material(stage, path: str, color: tuple, roughness: float = 0.6, metallic: float = 0.0):
     """
-    Crea un materiale UsdPreviewSurface con colore RGB (0-1).
+    Creates a UsdPreviewSurface material with RGB color (0-1).
     """
-    from pxr import UsdShade
     mat = UsdShade.Material.Define(stage, path)
 
     shader = UsdShade.Shader.Define(stage, f"{path}/Shader")
@@ -402,15 +396,12 @@ def _make_material(stage, path: str, color: tuple, roughness: float = 0.6, metal
 def _bind_material(prim, mat):
     if mat is None:
         return
-    from pxr import UsdShade
     UsdShade.MaterialBindingAPI(prim).Bind(mat)
 
 
-# ----------------------------
-# PHYSICS: Rigid body helpers
-# ----------------------------
+# ── PHYSICS: Rigid body helpers ───────────────────────────────────────────────
 def _apply_rigid_body(stage, prim_path: str, mass_kg: float, kinematic: bool = False):
-    """It applies RigidBodyAPI + MassAPI + CollisionAPI to an existing prim."""
+    """Applies RigidBodyAPI, MassAPI, and CollisionAPI to an existing prim."""
     prim = stage.GetPrimAtPath(prim_path)
     rigid_api = UsdPhysics.RigidBodyAPI.Apply(prim)
     if kinematic:

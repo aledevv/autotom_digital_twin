@@ -77,16 +77,7 @@ def main():
 
     try:
         action_registry = omni.kit.actions.core.get_action_registry()
-        
-        all_actions = action_registry.get_all_actions()
-
-        for action in all_actions:
-            if "light" in action.extension_id.lower() or "light" in action.name.lower():
-                print(f"extension={action.extension_id}  name={action.name}  display={action.display_name}")
-        
-        quit()
-
-        action = action_registry.get_action("omni.kit.viewport.menubar.lighting", "set_lighting_mode_stage")
+        action = action_registry.get_action("omni.kit.viewport.menubar.lighting", "set_lighting_mode_camera")
         if action:
             action.execute()
     except Exception as e:

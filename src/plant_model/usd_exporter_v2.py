@@ -148,13 +148,13 @@ def _create_bend_joint(stage: Usd.Stage, parent_link: str, child_link: str, name
 
 
 def _create_leaf_joint(stage: Usd.Stage, joint_path: str,
-                        parent_link: str, rametto_path: str,
+                        parent_link: str, leaf_branch_path: str,
                         parent_local_z: float, tip_world_z: float,
                         stiffness: float, damping: float, cone_angle_deg: float) -> None:
     """Creates a spherical joint allowing the leaf to swing freely within a cone."""
     joint = UsdPhysics.SphericalJoint.Define(stage, joint_path)
     joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_link)])
-    joint.CreateBody1Rel().SetTargets([Sdf.Path(rametto_path)])
+    joint.CreateBody1Rel().SetTargets([Sdf.Path(leaf_branch_path)])
 
     joint.CreateLocalPos0Attr().Set(Gf.Vec3f(0.0, 0.0, parent_local_z))
     joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, tip_world_z))
@@ -239,24 +239,24 @@ def _attach_leaf(stage: Usd.Stage, leaves_path: str, joints_path: str,
     leaf_group = f"{leaves_path}/Leaf_{leaf_id}"
     UsdGeom.Xform.Define(stage, leaf_group)
 
-    rametto_path = f"{leaf_group}/Rametto"
-    rametto_xform = UsdGeom.Xform.Define(stage, rametto_path)
+    leaf_branch_path = f"{leaf_group}/LeafBranch"
+    branch_xform = UsdGeom.Xform.Define(stage, leaf_branch_path)
 
-    rametto_xform.AddScaleOp().Set(Gf.Vec3f(GLOBAL_SCALE, GLOBAL_SCALE, GLOBAL_SCALE))
-    rametto_xform.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, tip_world_z))
+    branch_xform.AddScaleOp().Set(Gf.Vec3f(GLOBAL_SCALE, GLOBAL_SCALE, GLOBAL_SCALE))
+    branch_xform.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, tip_world_z))
 
-    _make_leaf(stage, rametto_path, leaf_node, 0.0, materials)
+    _make_leaf(stage, leaf_branch_path, leaf_node, 0.0, materials)
 
-    UsdPhysics.RigidBodyAPI.Apply(stage.GetPrimAtPath(rametto_path))
-    mass_api = UsdPhysics.MassAPI.Apply(stage.GetPrimAtPath(rametto_path))
+    UsdPhysics.RigidBodyAPI.Apply(stage.GetPrimAtPath(leaf_branch_path))
+    mass_api = UsdPhysics.MassAPI.Apply(stage.GetPrimAtPath(leaf_branch_path))
     mass_api.CreateMassAttr().Set(LEAF_MASS_KG)
 
-    filtered_pairs = UsdPhysics.FilteredPairsAPI.Apply(stage.GetPrimAtPath(rametto_path))
+    filtered_pairs = UsdPhysics.FilteredPairsAPI.Apply(stage.GetPrimAtPath(leaf_branch_path))
     filtered_pairs.GetFilteredPairsRel().AddTarget(Sdf.Path(parent_seg['path']))
 
     _create_leaf_joint(
         stage, joint_path=f"{joints_path}/Joint_Leaf_{leaf_id}",
-        parent_link=parent_seg['path'], rametto_path=rametto_path,
+        parent_link=parent_seg['path'], leaf_branch_path=leaf_branch_path,
         parent_local_z=parent_local_z, tip_world_z=0.0,
         stiffness=LEAF_JOINT_STIFFNESS, damping=LEAF_JOINT_DAMPING,
         cone_angle_deg=LEAF_CONE_ANGLE_DEG,

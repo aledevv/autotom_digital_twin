@@ -15,11 +15,12 @@ Usage:
 
 import math
 from pxr import Usd, UsdGeom, Gf, UsdPhysics, Sdf
-
-# COLORS
-
-PLANT_COLOR = (0.35, 0.62, 0.20) # verde - stem, branches, petioles, rachises
-LEAF_COLOR = (0.12, 0.42, 0.08)  # verde lamina
+from .builder_constants import (
+    PLANT_COLOR, LEAF_COLOR, FRUIT_RIPE, FRUIT_YOUNG, GAP,
+    MAX_ARTICULATION_DEPTH, DEPTH_WARNING_THRESHOLD, ASPECT_RATIO_WARNING,
+    TRUNK_STIFFNESS, TRUNK_DAMPING, BRANCH_STIFFNESS, BRANCH_DAMPING,
+    LATERAL_STIFFNESS, LATERAL_DAMPING,
+)
 
 # =============================================================================
 # HELPER: safe Quatd -> Quatf conversion
@@ -35,7 +36,6 @@ def _quatd_to_quatf(qd: Gf.Quatd) -> Gf.Quatf:
 
 IDENTITY_QUATF = Gf.Quatf(1.0, 0.0, 0.0, 0.0)
 IDENTITY_ROT = Gf.Rotation(Gf.Vec3d(0, 0, 1), 0.0)
-GAP = 0.001  # tiny gap between consecutive segments to avoid interpenetration
 
 
 class PlantBuilder:
@@ -45,8 +45,7 @@ class PlantBuilder:
     reference any previously created segment as a parent.
     """
 
-    def __init__(self, stage: Usd.Stage, base_path: str = "/World/Stem",
-                 global_scale: float = 1.0):
+    def __init__(self, stage: Usd.Stage, base_path: str = "/World/Stem", global_scale: float = 1.0):
         self.stage = stage
         self.base_path = base_path
         self.global_scale = global_scale
@@ -59,7 +58,7 @@ class PlantBuilder:
             xform = UsdGeom.Xform.Define(self.stage, self.base_path)
             UsdPhysics.ArticulationRootAPI.Apply(xform.GetPrim())
 
-        print(f"🌱 [PlantBuilder] Initialized — ArticulationRoot at {self.base_path}")
+        print(f"🌱 [PlantBuilder] Initialized — ArticulationRoot at {self.base_path} (scale={self.global_scale}x)")
 
     # --------------------------------------------------------------------- #
     #  SECURITY CHECKS
@@ -71,16 +70,16 @@ class PlantBuilder:
         if parent_id and parent_id in self._segments:
             depth = self._segments[parent_id]["depth"] + 1
 
-        if depth >= 64:
+        if depth >= MAX_ARTICULATION_DEPTH:
             raise ValueError(
                 f"🚫 [PlantBuilder] Cannot add '{new_id}': depth {depth} "
-                f"exceeds PhysX articulation limit of 64 links!")
-        if depth > 50:
+                f"exceeds PhysX articulation limit of {MAX_ARTICULATION_DEPTH} links!")
+        if depth > DEPTH_WARNING_THRESHOLD:
             print(f"⚠️  [PlantBuilder] '{new_id}' depth={depth} — "
-                  f"approaching PhysX limit (64). Consider simplifying the chain.")
+                  f"approaching PhysX limit ({MAX_ARTICULATION_DEPTH}). Consider simplifying the chain.")
 
         aspect = length / radius if radius > 0 else 0
-        if aspect > 25:
+        if aspect > ASPECT_RATIO_WARNING:
             print(f"⚠️  [PlantBuilder] '{new_id}' aspect ratio = {aspect:.1f} "
                   f"(length/radius). Thin segments cause physics jittering.")
 
@@ -188,11 +187,11 @@ class PlantBuilder:
         # Auto-tune stiffness
         if stiffness is None or damping is None:
             if p["depth"] == 0:          # first generation (trunk)
-                stiffness = 500_000.0
-                damping = 50.0
+                stiffness = TRUNK_STIFFNESS
+                damping = TRUNK_DAMPING
             else:                        # higher-order branch
-                stiffness = 300.0
-                damping = 50.0
+                stiffness = BRANCH_STIFFNESS
+                damping = BRANCH_DAMPING
             print(f"   ✨ Auto-tuned internode '{id}' → "
                   f"stiffness={stiffness}, damping={damping}")
 
@@ -320,15 +319,14 @@ class PlantBuilder:
             
             # Safety checks
             if r < 0.0005:
-                print(f"   \033[93m[WARNING] Tapered branch '{base_id}' segment {i} radius {r:.4f} is too small! PhysX may become unstable.\033[0m")
-                print(f"   \033[94m[INFO] Automatically clamped radius to 0.0005.\033[0m")
+                print(f"⚠️  [PlantBuilder] Tapered branch '{base_id}' segment {i} radius {r:.4f} is too small! PhysX may become unstable.")
+                print(f"ℹ️  [PlantBuilder] Automatically clamped radius to 0.0005.")
                 r = 0.0005
                 
             if segment_len < 2 * r:
-                print(f"   \033[93m[WARNING] Tapered branch '{base_id}' segment {i} has L/R ratio < 2 (L={segment_len:.4f}, D={2*r:.4f}). PhysX may jitter.\033[0m")
+                print(f"⚠️  [PlantBuilder] Tapered branch '{base_id}' segment {i} has L/R ratio < 2 (L={segment_len:.4f}, D={2*r:.4f}). PhysX may jitter.")
                 
             # Physics Mass
-            import math
             mass = math.pi * (r**2) * segment_len * density
             mass = max(mass, 0.05) # Minimum 50g mass for stability
             
@@ -377,18 +375,17 @@ class PlantBuilder:
     # ----------------------------------------------------------------- #
     def _make_leaf_mesh(self, path: str, half_width: float, length: float, color: tuple = LEAF_COLOR):
         """Create a simple ovate leaf blade mesh (16-point smooth shape)."""
-        import math as m
         mesh = UsdGeom.Mesh.Define(self.stage, path)
         pts = [Gf.Vec3f(0, 0, 0)]  # base
         n_side = 7
         for i in range(1, n_side):
             t = i / n_side
-            x = half_width * m.sin(m.pi * t) * (1.2 - 0.4 * t)
+            x = half_width * math.sin(math.pi * t) * (1.2 - 0.4 * t)
             pts.append(Gf.Vec3f(x, t * length, 0))
         pts.append(Gf.Vec3f(0, length, 0))  # tip
         for i in range(n_side - 1, 0, -1):
             t = i / n_side
-            x = half_width * m.sin(m.pi * t) * (1.2 - 0.4 * t)
+            x = half_width * math.sin(math.pi * t) * (1.2 - 0.4 * t)
             pts.append(Gf.Vec3f(-x, t * length, 0))
         mesh.GetPointsAttr().Set(pts)
         n_tri = len(pts) - 2
@@ -463,7 +460,7 @@ class PlantBuilder:
 
         Rachis is built with add_branch. Each lateral leaflet is an articulated
         petiolule (add_branch, 1 seg) with a static blade (attach_blade) at its
-        tip — the 'rastrelliera' pattern. The terminal leaflet is static on the
+        tip — the rack (rastrelliera) pattern. The terminal leaflet is static on the
         last rachis segment, oriented along the rachis direction.
         """
         import math
@@ -505,7 +502,7 @@ class PlantBuilder:
             ratio   = min(max(local_d / segment_len, 0.0), 1.0)
             return f"{base_id}_{seg_idx:02d}", ratio
 
-        # 2. Lateral leaflets — rastrelliera pattern:
+        # 2. Lateral leaflets — rack (rastrelliera) pattern:
         #    each lateral is an articulated petiolule (add_branch, 1 seg) + static blade (attach_blade)
         current_d = petiole_length
         for j in range(pairs):
@@ -912,7 +909,7 @@ class PlantBuilder:
         sph_col = UsdPhysics.CollisionAPI.Apply(sph.GetPrim())
         sph_col.CreateCollisionEnabledAttr().Set(collisions)
 
-        color = Gf.Vec3f(0.90, 0.17, 0.10) if is_ripe else Gf.Vec3f(0.45, 0.58, 0.25)
+        color = Gf.Vec3f(FRUIT_RIPE) if is_ripe else Gf.Vec3f(FRUIT_YOUNG)
         sph.GetDisplayColorAttr().Set([color])
 
         # Fixed Joint: PedicelTip ↔ TomatoSphere (with break force)
