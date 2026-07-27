@@ -178,11 +178,7 @@ def attach_leaves(builder: PlantBuilder, leaves: list[LeafNode], stem_segments: 
             z_offset_ratio=z_offset_ratio,
             tilt_angle=leaf.angle_petiole if hasattr(leaf, 'angle_petiole') and leaf.angle_petiole else 60.0,
             lateral_tilt_angle=leaf.lateral_tilt_angle if hasattr(leaf, 'lateral_tilt_angle') and leaf.lateral_tilt_angle else 70.0,
-<<<<<<< HEAD
             rot_around_parent=rot_angle
-=======
-            rot_around_parent=leaf.ccw_orientation if hasattr(leaf, 'ccw_orientation') else 0.0
->>>>>>> 5d61e47 (code refactory and cleaning)
         )
 
 def attach_fruits(builder: PlantBuilder, fruits: list[FruitsNode], stem_segments: list[dict]):
