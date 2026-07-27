@@ -6,4 +6,4 @@ ISAACSIM_DIR="$HOME/isaacsim"
 MAIN_V2="$SCRIPT_DIR/src/plant_model/main_builder.py"
 
 echo "=== Loading Stem Builder in Isaac Sim ==="
-"$ISAACSIM_DIR/python.sh" "$MAIN_V2" --day 10 --plant 1
+"$ISAACSIM_DIR/python.sh" "$MAIN_V2" --day 20 --plant 1

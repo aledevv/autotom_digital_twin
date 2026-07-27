@@ -13,6 +13,19 @@ Usage:
                                       z_offset_ratio=0.8, tilt_angle=45, rot_around_parent=90)
 """
 
+from plant_model.builder_constants import LEAFLET_PETIOLULE_MAX_BEND_ANGLE
+from plant_model.builder_constants import LEAFLET_PETIOLULE_DENSITY
+from plant_model.builder_constants import LEAFLET_PETIOLULE_DAMPING_TIP
+from plant_model.builder_constants import LEAFLET_PETIOLULE_DAMPING_BASE
+from plant_model.builder_constants import LEAFLET_PETIOLULE_STIFFNESS_TIP
+from plant_model.builder_constants import LEAFLET_PETIOLULE_STIFFNESS_BASE
+from plant_model.builder_constants import LEAFLET_PETIOLULE_SEGMENTS
+from plant_model.builder_constants import COMPOUND_LEAF_MAX_BEND_ANGLE
+from plant_model.builder_constants import COMPOUND_LEAF_DENSITY
+from plant_model.builder_constants import COMPOUND_LEAF_DAMPING_TIP
+from plant_model.builder_constants import COMPOUND_LEAF_DAMPING_BASE
+from plant_model.builder_constants import COMPOUND_LEAF_STIFFNESS_TIP
+from plant_model.builder_constants import COMPOUND_LEAF_STIFFNESS_BASE
 import math
 from pxr import Usd, UsdGeom, Gf, UsdPhysics, Sdf
 from .builder_constants import (
@@ -467,7 +480,8 @@ class PlantBuilder:
         
         total_length = petiole_length + rachis_length
         segment_len = total_length / max(num_segments, 1)
-        
+
+
         # 1. Generate articulated rachis
         tip_id = self.add_branch(
             parent_id=parent_id,
@@ -479,12 +493,12 @@ class PlantBuilder:
             z_offset_ratio=z_offset_ratio,
             tilt_angle=tilt_angle,
             rot_around_parent=rot_around_parent,
-            stiffness_base=0.05,  # Leaves are very soft
-            stiffness_tip=0.005,
-            damping_base=0.005,
-            damping_tip=0.0005,
-            density=200.0,
-            max_bend_angle=45.0
+            stiffness_base=COMPOUND_LEAF_STIFFNESS_BASE,  # Leaves are very soft
+            stiffness_tip=COMPOUND_LEAF_STIFFNESS_TIP,
+            damping_base=COMPOUND_LEAF_DAMPING_BASE,
+            damping_tip=COMPOUND_LEAF_DAMPING_TIP,
+            density=COMPOUND_LEAF_DENSITY,
+            max_bend_angle=COMPOUND_LEAF_MAX_BEND_ANGLE
         )
         
         n_blades = len(blade_area_array)
@@ -523,21 +537,21 @@ class PlantBuilder:
                     total_length=petiolule_len,
                     start_radius=petiolule_rad,
                     end_radius=petiolule_rad * 0.7,
-                    num_segments=2,
+                    num_segments=LEAFLET_PETIOLULE_SEGMENTS,
                     z_offset_ratio=ratio,
                     tilt_angle=lateral_tilt_angle,
                     rot_around_parent=rot_sign,
-                    stiffness_base=0.001,
-                    stiffness_tip=0.0005,
-                    damping_base=0.0005,
-                    damping_tip=0.0001,
-                    density=100.0,
-                    max_bend_angle=60.0
+                    stiffness_base=LEAFLET_PETIOLULE_STIFFNESS_BASE,
+                    stiffness_tip=LEAFLET_PETIOLULE_STIFFNESS_TIP,
+                    damping_base=LEAFLET_PETIOLULE_DAMPING_BASE,
+                    damping_tip=LEAFLET_PETIOLULE_DAMPING_TIP,
+                    density=LEAFLET_PETIOLULE_DENSITY,
+                    max_bend_angle=LEAFLET_PETIOLULE_MAX_BEND_ANGLE
                 )
                 # tilt_angle=-90 → Gf.Rotation(X, +90°) → blade Y aligns with petiolule Z (growth dir)
                 # extra_rot_y=90 → spin 90° around Y so the flat face faces outward
                 self.attach_blade(
-                    parent_id=f"{pet_id}_00",
+                    parent_id=f"{pet_id}_{1:02d}",
                     id="Blade",
                     leaf_length=max(lat_length, 0.001),
                     leaf_width=max(lat_width,   0.001),

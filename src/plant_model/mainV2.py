@@ -37,7 +37,7 @@ from plant_model.physx_utils import (
     apply_physx_scene_settings,
     apply_physx_articulation_settings,
 )
-
+from plant_model.usd_exporter_builder import export_plant_usd_builder
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Build and simulate the articulated stem V2 in Isaac Sim.")
@@ -86,6 +86,8 @@ def main():
     world = World(stage_units_in_meters=1.0)
     world.reset()
     print("[OK] Simulation running — close the window to exit.")
+
+    export_plant_usd_builder(snapshot, output_path=out_path, validate=True)
 
     while simulation_app.is_running():
         world.step(render=True)

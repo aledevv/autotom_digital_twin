@@ -5,6 +5,14 @@ Builds a physically simulated plant using the high-level PlantBuilder API.
 Implements a 10x "Baked Scale" and merges biological internodes to respect PhysX limits.
 """
 
+from .builder_constants import (
+    LATERAL_BRANCH_MAX_BEND_ANGLE,
+    LATERAL_BRANCH_DENSITY,
+    LATERAL_BRANCH_DAMPING_TIP,
+    LATERAL_BRANCH_DAMPING_BASE,
+    LATERAL_BRANCH_STIFFNESS_TIP,
+    LATERAL_BRANCH_STIFFNESS_BASE
+)
 import math
 from pxr import Usd, UsdGeom, UsdPhysics, PhysxSchema, Gf, Sdf
 
@@ -182,10 +190,134 @@ def attach_fruits(builder: PlantBuilder, fruits: list[FruitsNode], stem_segments
     pass
 
 def attach_lateral_branches(builder: PlantBuilder, internodes: list[InternodeNode], stem_segments: list[dict]):
-    """Placeholder for attaching lateral branches (order > 0)."""
-    # TODO: Implement lateral branches (order > 0)
-    pass
+    """
+    Attaches first-order lateral branches (order > 0) to the merged main stem.
 
+    Current scope:
+    - builds each lateral branch chain starting from the first internode of that order/rank group
+    - attaches only branches whose parent is on the main stem (order 0 / min order)
+    - returns metadata so leaves can later be attached to the lateral branch segments too
+    """
+    if not internodes:
+        return []
+
+    lateral_branch_infos = []
+
+    # Keep only internodes that have an internode parent
+    valid_nodes = [n for n in internodes if n.parent is not None and isinstance(n.parent, InternodeNode)]
+    if not valid_nodes:
+        return []
+
+    # Group branch internodes by their first node:
+    # key = (order, rank of parent on main stem, organ rank of branch start)
+    # simpler practical grouping: each distinct first internode node starts one branch chain
+    branch_starts = []
+    seen_branch_starts = set()
+
+    for node in valid_nodes:
+        if not isinstance(node.parent, InternodeNode):
+            continue
+        if node.parent.key.order < node.key.order:
+            start_key = (
+                node.key.order,
+                node.key.rank,
+                node.parent.key.order,
+                node.parent.key.rank,
+            )
+            if start_key in seen_branch_starts:
+                continue
+            seen_branch_starts.add(start_key)
+            branch_starts.append(node)
+
+    branch_starts.sort(key=lambda n: (n.key.order, n.parent.key.rank, n.key.rank))
+
+    for start_node in branch_starts:
+        # Collect the whole internode chain of this branch by walking descendants
+        chain = [start_node]
+        current = start_node
+        while True:
+            children = [
+                n for n in valid_nodes
+                if n.parent is current and isinstance(n.parent, InternodeNode)
+            ]
+            if not children:
+                break
+            # if multiple children exist, keep the smallest rank as continuation
+            children.sort(key=lambda n: n.key.rank)
+            current = children[0]
+            chain.append(current)
+
+        # Attach branch to the main stem only if the branch start comes off the main stem
+        parent_main = start_node.parent
+        if parent_main is None or not isinstance(parent_main, InternodeNode):
+            continue
+
+        tip_world_z_unscaled = parent_main.world_base_z + parent_main.length
+        tip_world_z_scaled = tip_world_z_unscaled * BAKED_SCALE
+        parent_seg = _find_parent_segment(stem_segments, tip_world_z_scaled)
+
+        local_z = tip_world_z_scaled - parent_seg['base_z']
+        z_offset_ratio = max(0.0, min(1.0, local_z / parent_seg['height']))
+
+        total_len_scaled = sum(n.length for n in chain) * BAKED_SCALE
+        start_radius_scaled = max((chain[0].width_m / 2.0) * BAKED_SCALE, 0.0015)
+        end_radius_scaled = max((chain[-1].width_m / 2.0) * BAKED_SCALE, 0.0010)
+
+        num_segments = max(len(chain), 1)
+
+        raw_ccw = getattr(start_node, 'ccw_orientation', 0.0)
+        if abs(raw_ccw) > 1e-3:
+            azimuth_deg = raw_ccw
+        else:
+            azimuth_deg = (start_node.key.rank * PHYLLOTAXIS) % 360.0
+
+        rot_angle = (azimuth_deg - 90.0) % 360.0
+
+        branch_base_id = (
+            f"Branch_o{start_node.key.order}"
+            f"_r{start_node.key.rank}"
+            f"_po{start_node.parent.key.order}"
+            f"_pr{start_node.parent.key.rank}"
+        )
+
+        print(
+            f" [BRANCH {branch_base_id}] "
+            f"parent={parent_seg['id']} "
+            f"n_segments={num_segments} "
+            f"L={total_len_scaled:.4f}m "
+            f"r0={start_radius_scaled:.4f}m "
+            f"r1={end_radius_scaled:.4f}m "
+            f"rot={rot_angle:.1f}°"
+        )
+
+        tip_id = builder.add_branch(
+            parent_id=parent_seg['id'],
+            base_id=branch_base_id,
+            total_length=total_len_scaled,
+            start_radius=start_radius_scaled,
+            end_radius=end_radius_scaled,
+            num_segments=num_segments,
+            z_offset_ratio=z_offset_ratio,
+            tilt_angle=45.0,
+            rot_around_parent=rot_angle,
+            stiffness_base=LATERAL_BRANCH_STIFFNESS_BASE,
+            stiffness_tip=LATERAL_BRANCH_STIFFNESS_TIP,
+            damping_base=LATERAL_BRANCH_DAMPING_BASE,
+            damping_tip=LATERAL_BRANCH_DAMPING_TIP,
+            density=LATERAL_BRANCH_DENSITY,
+            max_bend_angle=LATERAL_BRANCH_MAX_BEND_ANGLE
+        )
+
+        built_segments = [f"{branch_base_id}_{i:02d}" for i in range(num_segments)]
+        lateral_branch_infos.append({
+            "start_node": start_node,
+            "chain": chain,
+            "base_id": branch_base_id,
+            "tip_id": tip_id,
+            "segments": built_segments,
+        })
+
+    return lateral_branch_infos
 
 def validate_usd_dimensions(stage: Usd.Stage, snapshot: PlantSnapshot, stem_path: str):
     """Verifies that the generated USD bounding boxes match the expected scaled dimensions."""
@@ -269,9 +401,10 @@ def build_plant_stage(snapshot: PlantSnapshot, output_path: str) -> tuple:
     fruits = [n for n in snapshot.organs if isinstance(n, FruitsNode) and n.parent and n.parent.key.order == min_order]
     attach_fruits(builder, fruits, stem_segments)
 
-    # 4. Attach Lateral Branches (Placeholder)
-    # lateral_internodes = [n for n in all_internodes if n.key.order > min_order]
-    # attach_lateral_branches(builder, lateral_internodes, stem_segments)
+    # 4. Attach Lateral Branches
+    lateral_internodes = [n for n in all_internodes if n.key.order > min_order]
+    # branch_infos = attach_lateral_branches(builder, lateral_internodes, stem_segments)
+    # print(f"[INFO] Attached {len(branch_infos)} lateral branch chains.")
 
     print(f"[INFO] Created {len(stem_segments)} physical stem segments and attached {len(leaves)} leaves.")
     
