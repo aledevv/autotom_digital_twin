@@ -15,6 +15,8 @@ BAKED_SCALE = 10.0
 MAX_STEM_SEGMENTS = 25  # Budget for the main stem
 PLANT_ROOT_PATH_TEMPLATE = "/Plant_{plant_id}_StemBuilder"
 
+from .constants import PHYLLOTAXIS
+
 def _compute_world_base_z(node: InternodeNode) -> float:
     """Computes and caches the world Z coordinate (unscaled) of the node's base."""
     if hasattr(node, 'world_base_z'):
@@ -139,7 +141,15 @@ def attach_leaves(builder: PlantBuilder, leaves: list[LeafNode], stem_segments: 
         petiole_radius_m = getattr(leaf, 'diameter_petiole', 0.002) / 2.0
         start_radius_scaled = max(petiole_radius_m * BAKED_SCALE, 0.0015)
         end_radius_scaled = max(start_radius_scaled * 0.5, 0.001)
-        
+
+        raw_ccw = getattr(leaf, 'ccw_orientation', 0.0)
+        if abs(raw_ccw) > 1e-3:
+            azimuth_deg = raw_ccw
+        else:
+            azimuth_deg = (leaf.parent.key.rank * PHYLLOTAXIS) % 360.0
+
+        rot_angle = (azimuth_deg - 90.0) % 360.0
+
         # Debug: print expected sizes
         print(f"  [LEAF {leaf_id}] n_blades={n_blades}, "
               f"petiole_r={start_radius_scaled:.4f}m, "
@@ -160,7 +170,7 @@ def attach_leaves(builder: PlantBuilder, leaves: list[LeafNode], stem_segments: 
             z_offset_ratio=z_offset_ratio,
             tilt_angle=leaf.angle_petiole if hasattr(leaf, 'angle_petiole') and leaf.angle_petiole else 60.0,
             lateral_tilt_angle=leaf.lateral_tilt_angle if hasattr(leaf, 'lateral_tilt_angle') and leaf.lateral_tilt_angle else 70.0,
-            rot_around_parent=leaf.ccw_orientation if hasattr(leaf, 'ccw_orientation') else 0.0
+            rot_around_parent=rot_angle
         )
 
 def attach_fruits(builder: PlantBuilder, fruits: list[FruitsNode], stem_segments: list[dict]):

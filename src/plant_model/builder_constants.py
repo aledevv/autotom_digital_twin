@@ -6,6 +6,11 @@ Kept separate from plant_model/constants.py (shared with V1) to avoid
 touching shared code.
 """
 
+from .constants import PHYLLOTAXIS
+BAKED_SCALE = 10.0
+MAX_STEM_SEGMENTS = 25  # Budget for the main stem
+PLANT_ROOT_PATH_TEMPLATE = "/Plant_{plant_id}_StemBuilder"
+
 # ── Visual ──────────────────────────────────────────────────────────
 PLANT_COLOR = (0.35, 0.62, 0.20)   # stem, branches, petioles, rachises
 LEAF_COLOR = (0.12, 0.42, 0.08)    # leaf blades
