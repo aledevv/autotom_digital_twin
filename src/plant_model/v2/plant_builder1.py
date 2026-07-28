@@ -13,22 +13,22 @@ Usage:
                                       z_offset_ratio=0.8, tilt_angle=45, rot_around_parent=90)
 """
 
-from plant_model.builder_constants import LEAFLET_PETIOLULE_MAX_BEND_ANGLE
-from plant_model.builder_constants import LEAFLET_PETIOLULE_DENSITY
-from plant_model.builder_constants import LEAFLET_PETIOLULE_DAMPING_TIP
-from plant_model.builder_constants import LEAFLET_PETIOLULE_DAMPING_BASE
-from plant_model.builder_constants import LEAFLET_PETIOLULE_STIFFNESS_TIP
-from plant_model.builder_constants import LEAFLET_PETIOLULE_STIFFNESS_BASE
-from plant_model.builder_constants import LEAFLET_PETIOLULE_SEGMENTS
-from plant_model.builder_constants import COMPOUND_LEAF_MAX_BEND_ANGLE
-from plant_model.builder_constants import COMPOUND_LEAF_DENSITY
-from plant_model.builder_constants import COMPOUND_LEAF_DAMPING_TIP
-from plant_model.builder_constants import COMPOUND_LEAF_DAMPING_BASE
-from plant_model.builder_constants import COMPOUND_LEAF_STIFFNESS_TIP
-from plant_model.builder_constants import COMPOUND_LEAF_STIFFNESS_BASE
+from plant_model.v2.builder_constants1 import LEAFLET_PETIOLULE_MAX_BEND_ANGLE
+from plant_model.v2.builder_constants1 import LEAFLET_PETIOLULE_DENSITY
+from plant_model.v2.builder_constants1 import LEAFLET_PETIOLULE_DAMPING_TIP
+from plant_model.v2.builder_constants1 import LEAFLET_PETIOLULE_DAMPING_BASE
+from plant_model.v2.builder_constants1 import LEAFLET_PETIOLULE_STIFFNESS_TIP
+from plant_model.v2.builder_constants1 import LEAFLET_PETIOLULE_STIFFNESS_BASE
+from plant_model.v2.builder_constants1 import LEAFLET_PETIOLULE_SEGMENTS
+from plant_model.v2.builder_constants1 import COMPOUND_LEAF_MAX_BEND_ANGLE
+from plant_model.v2.builder_constants1 import COMPOUND_LEAF_DENSITY
+from plant_model.v2.builder_constants1 import COMPOUND_LEAF_DAMPING_TIP
+from plant_model.v2.builder_constants1 import COMPOUND_LEAF_DAMPING_BASE
+from plant_model.v2.builder_constants1 import COMPOUND_LEAF_STIFFNESS_TIP
+from plant_model.v2.builder_constants1 import COMPOUND_LEAF_STIFFNESS_BASE
 import math
 from pxr import Usd, UsdGeom, Gf, UsdPhysics, Sdf
-from .builder_constants import (
+from .builder_constants1 import (
     PLANT_COLOR, LEAF_COLOR, FRUIT_RIPE, FRUIT_YOUNG, GAP,
     MAX_ARTICULATION_DEPTH, DEPTH_WARNING_THRESHOLD, ASPECT_RATIO_WARNING,
     TRUNK_STIFFNESS, TRUNK_DAMPING, BRANCH_STIFFNESS, BRANCH_DAMPING,

@@ -14,9 +14,12 @@ if SRC_DIR not in sys.path:
 from isaacsim import SimulationApp
 simulation_app = SimulationApp({"headless": False})
 
-import omni.usd
 from pxr import Usd, UsdPhysics, PhysxSchema, Gf
+# pyrefly: ignore [missing-import]
+import omni.usd
+# pyrefly: ignore [missing-import]
 from isaacsim.core.api import World
+# pyrefly: ignore [missing-import]
 import omni.kit.actions.core
 
 from plant_model.loader import load_snapshot

@@ -8,22 +8,28 @@ PROJECT_ROOT = os.path.dirname(SRC_DIR)
 from dataclasses import dataclass, field
 from plant_model.models import PlantSnapshot, InternodeNode, LeafNode, FruitsNode
 from .plant_builder import PlantBuilder
+from .config import SimulationConfig
+from .constants import PHYLLOTAXIS
 
 
 @dataclass
-class StemParams:
-    total_length: float
+class StemSegmentParams:
+    order: int
+    rank: int
+    length: float
     radius: float
-    num_internodes: int
 
 
 @dataclass
 class LeafParams:
+    order: int
+    rank: int
+    organ_index: int
     parent_rank: int
-    petiole_length: float
-    petiole_radius: float
-    blade_area_total: float
-    angle: float
+    total_length: float
+    radius_start: float
+    radius_end: float
+    azimuth: float
 
 
 @dataclass
@@ -49,35 +55,52 @@ class BuildConfig:
     fruit: OrganConfig = field(default_factory=lambda: OrganConfig(physics=False, num_segments=1))
     # branch, truss, etc. when they are added
 
+# ---------------------------------------------------------------------
+# HELPERS
+# ---------------------------------------------------------------------
+
+def _azimuth_for(node) -> float:
+    """Same logic as v1: use real CSV orientation if present, else golden-angle fallback."""
+    if abs(getattr(node, "ccw_orientation", 0.0)) > 1e-3:
+        return node.ccw_orientation
+    return (node.parent_rank * PHYLLOTAXIS) % 360.0
+
+
 # --------------------------------------------------------------------- #
 # EXTRACTORS: PlantSnapshot -> pure param dataclasses (one per organ type)
 # --------------------------------------------------------------------- #
 
-def extract_stem_params(snapshot: PlantSnapshot) -> StemParams:
+def extract_stem_segments(snapshot: PlantSnapshot) -> list[StemSegmentParams]:
     nodes = sorted(
         (n for n in snapshot.organs if isinstance(n, InternodeNode) and n.key.order == 0),
         key=lambda n: n.key.rank,
     )
     if not nodes:
         raise ValueError("No main-stem internodes found")
-    return StemParams(
-        total_length=sum(n.length for n in nodes),
-        radius=sum(n.width_m / 2.0 for n in nodes) / len(nodes), # this is mean radius of all nodes
-        num_internodes=len(nodes),
-    )
+    return [
+        StemSegmentParams(
+            order=n.key.order, rank=n.key.rank,
+            length=n.length, radius=n.width_m / 2.0,
+        )
+        for n in nodes
+    ]
 
 
 def extract_leaf_params(snapshot: PlantSnapshot) -> list[LeafParams]:
-    return [
-        LeafParams(
+    params = []
+    for n in snapshot.organs:
+        if not isinstance(n, LeafNode):
+            continue
+        radius_start = n.diameter_petiole / 2.0
+        params.append(LeafParams(
+            order=n.key.order, rank=n.key.rank, organ_index=n.key.organ_index,
             parent_rank=n.parent_rank,
-            petiole_length=n.length_petiole,
-            petiole_radius=n.diameter_petiole / 2.0,
-            blade_area_total=n.area_blades_total,
-            angle=n.angle_petiole,
-        )
-        for n in snapshot.organs if isinstance(n, LeafNode)
-    ]
+            total_length=n.length_petiole + n.rachis_length,
+            radius_start=radius_start,
+            radius_end=radius_start * 0.5,
+            azimuth=_azimuth_for(n),
+        ))
+    return params
 
 
 def extract_fruit_params(snapshot: PlantSnapshot) -> list[FruitParams]:
@@ -96,30 +119,32 @@ def extract_fruit_params(snapshot: PlantSnapshot) -> list[FruitParams]:
 # ORCHESTRATOR: extractors -> builder calls, single entry point
 # --------------------------------------------------------------------- #
 
-def build_plant_from_snapshot(snapshot, builder: PlantBuilder, config: BuildConfig = BuildConfig()):
-    stem = extract_stem_params(snapshot)
-    builder.add_main_stem(
-        "Stem_01",
-        total_length=stem.total_length,
-        radius=stem.radius,
-        physics=config.stem.physics_enabled,
-        max_segments=config.stem.max_segments,
+def build_plant_from_snapshot(snapshot, builder: PlantBuilder, config: SimulationConfig):
+    
+    # Any organ physics-enabled that attaches to the stem requires the
+    # stem segments to be valid RigidBody anchors, even if the stem
+    # itself stays fixed/non-articulated.
+    needs_stem_anchor = config.leaf.physics_enabled or config.fruit.physics_enabled
+
+    stem_segments = extract_stem_segments(snapshot)
+    rank_to_id = builder.add_main_stem_segments(
+        "Stem",
+        segments=[vars(s) for s in stem_segments],
+        physics=needs_stem_anchor,
     )
 
-    # for i, leaf in enumerate(extract_leaf_params(snapshot)):
-    #     builder.add_leaf(
-    #         parent_id=f"Stem_{leaf.parent_rank:02d}",
-    #         id=f"Leaf_{i:03d}",
-    #         total_length=leaf.petiole_length + leaf.rachis_length,
-    #         radius_start=leaf.petiole_radius,
-    #         radius_end=leaf.petiole_radius * 0.6,
-    #         num_segments=config.leaf.num_segments,
-    #         physics=config.leaf.physics_enabled,
-    #     )
-
-    # for i, fruit in enumerate(extract_fruit_params(snapshot)):
-    #     builder.add_fruit(
-    #         parent_id=f"Stem_{fruit.parent_rank:02d}",
-    #         id=f"Fruit_{i:03d}",
-    #         physics=config.fruit.physics_enabled,
-    #    )
+    for leaf in extract_leaf_params(snapshot):
+        parent_id = rank_to_id.get(leaf.parent_rank)
+        if parent_id is None:
+            continue
+        leaf_id = f"Leaf_o{leaf.order}_r{leaf.rank}_i{leaf.organ_index}"   # <-- v1 naming
+        builder.add_leaf(
+            parent_id=parent_id,
+            base_id=leaf_id,
+            total_length=leaf.total_length,
+            radius_start=leaf.radius_start,
+            radius_end=leaf.radius_end,
+            rot_around_parent=leaf.azimuth,
+            num_segments=config.leaf.max_segments,
+            physics=config.leaf.physics_enabled,
+        )

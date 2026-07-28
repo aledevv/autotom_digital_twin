@@ -19,7 +19,7 @@ class OrganConfig:
 class SimulationConfig:
     """Single knob panel for the whole build — one section per organ type."""
     stem: OrganConfig = field(default_factory=lambda: OrganConfig(physics_enabled=True, max_segments=2))
-    leaf: OrganConfig = field(default_factory=lambda: OrganConfig(physics_enabled=False, max_segments=2))
+    leaf: OrganConfig = field(default_factory=lambda: OrganConfig(physics_enabled=True, max_segments=2))
     fruit: OrganConfig = field(default_factory=lambda: OrganConfig(physics_enabled=False, max_segments=2))
     # branch, truss: aggiungi qui quando sai cosa ti serve, stesso pattern
 
