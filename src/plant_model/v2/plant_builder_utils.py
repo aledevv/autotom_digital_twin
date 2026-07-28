@@ -10,16 +10,15 @@ def _quatd_to_quatf(qd: Gf.Quatd) -> Gf.Quatf:
                     float(imag[0]), float(imag[1]), float(imag[2]))
 
 
-# plant_builder_utils.py
-
 def _auto_mass(radius: float, length: float, density: float, mass_floor: float = 0.005) -> float:
     """Mass from cylinder volume × density, with a minimum floor for thin segments."""
     volume = math.pi * (radius ** 2) * length
     return max(volume * density, mass_floor)
 
+
 def _critical_damping(stiffness: float, mass: float) -> float:
     return 2.0 * math.sqrt(stiffness * mass)
-    
+
 
 def _configure_drives(joint, stiff_xy, damp_xy, stiff_z, damp_z,
                        bend_limit, lock_z, twist_limit=15.0):

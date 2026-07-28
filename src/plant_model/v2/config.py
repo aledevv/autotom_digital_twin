@@ -1,18 +1,11 @@
 # plant_model/v2/config.py
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
-# ── World settings (global, non per-organo) ──────────────────────────
+# ── World settings ────────────────────────────────────────────────────
 PLANT_ROOT_PATH = "/World/Plant"
 GLOBAL_SCALE = 10.0   # scale up the plant by 10x, mitigates small-number instability
-
-
-@dataclass
-class OrganConfig:
-    """Per-organ toggles for physics + segmentation, used for stability testing."""
-    physics_enabled: bool = False
-    max_segments: int = 1
 
 
 @dataclass
@@ -21,8 +14,6 @@ class LeafPhysicsConfig:
     max_segments: int = 5
     stiffness_base: float = 50.0
     stiffness_tip: float = 10.0
-    damping_base: float = 0.0
-    damping_tip: float = 0.0
     damping_ratio: float = 0.7
     max_bend_angle: float = 10.0
     twist_limit: float = 15.0
@@ -32,7 +23,7 @@ class LeafPhysicsConfig:
 @dataclass
 class BranchPhysicsConfig:
     physics_enabled: bool = True
-    max_segments: int = 3          # <-- se i rami order>0 avranno anche loro una catena multi-segmento
+    max_segments: int = 3          # number of physical segments per order>0 branch chain
     stiffness: float = 184_000.0
     damping: float = 5_000.0
     max_bend_angle: float = 30.0
@@ -49,7 +40,7 @@ class FruitPhysicsConfig:
 
 @dataclass
 class StemPhysicsConfig:
-    physics_enabled: bool = False   # anchor-only, per abilitare i joint dei figli
+    physics_enabled: bool = False   # anchor-only; enables joints on attached children
     mass_per_segment: float = 1.0
 
 

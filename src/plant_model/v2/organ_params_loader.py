@@ -1,16 +1,14 @@
-import os
+from dataclasses import dataclass
 
-SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
-VERSION_DIR  = os.path.dirname(SCRIPT_DIR)      
-SRC_DIR      = os.path.dirname(VERSION_DIR)
-PROJECT_ROOT = os.path.dirname(SRC_DIR)
-
-from dataclasses import dataclass, field
-from plant_model.models import PlantSnapshot, InternodeNode, LeafNode, FruitsNode
+from plant_model.models import PlantSnapshot, InternodeNode, LeafNode
 from .plant_builder import PlantBuilder
 from .config import SimulationConfig
 from .constants import PHYLLOTAXIS
 
+
+# --------------------------------------------------------------------- #
+# PARAM DATACLASSES
+# --------------------------------------------------------------------- #
 
 @dataclass
 class StemSegmentParams:
@@ -35,32 +33,9 @@ class LeafParams:
     z_offset_ratio: float   # where along the trunk parent to attach (1.0 = tip; >1 for lateral branches)
 
 
-@dataclass
-class FruitParams:
-    parent_rank: int
-    radii: list[float]
-    ages_dd: list[float]
-    truss_angle: float
-
-
-@dataclass
-class OrganConfig:
-    """Per-organ toggles for physics + segmentation, used for stability testing."""
-    physics: bool = False
-    num_segments: int = 1
-
-
-@dataclass
-class BuildConfig:
-    """Top-level knob panel — one flag/segment-count per organ type."""
-    stem: OrganConfig = field(default_factory=lambda: OrganConfig(physics=False, num_segments=1))
-    leaf: OrganConfig = field(default_factory=lambda: OrganConfig(physics=False, num_segments=2))
-    fruit: OrganConfig = field(default_factory=lambda: OrganConfig(physics=False, num_segments=1))
-    # branch, truss, etc. when they are added
-
-# ---------------------------------------------------------------------
+# --------------------------------------------------------------------- #
 # HELPERS
-# ---------------------------------------------------------------------
+# --------------------------------------------------------------------- #
 
 def _azimuth_for(node) -> float:
     ccw = getattr(node, "ccw_orientation", 0.0)
@@ -86,10 +61,10 @@ def extract_stem_segments(snapshot: PlantSnapshot) -> list[StemSegmentParams]:
     ]
 
 
-def extract_leaf_params(snapshot: PlantSnapshot, internodes) -> list[LeafParams]:
+def extract_leaf_params(snapshot: PlantSnapshot, internodes: list[StemSegmentParams]) -> list[LeafParams]:
     # Build length lookups from internode list
-    trunk_len: dict[int, float] = {}    # rank -> length  (order=0)
-    lateral_len: dict[tuple, float] = {} # (order, rank) -> length  (order>0)
+    trunk_len: dict[int, float] = {}        # rank -> length  (order=0)
+    lateral_len: dict[tuple, float] = {}    # (order, rank) -> length  (order>0)
     for seg in internodes:
         if seg.order == 0:
             trunk_len[seg.rank] = seg.length
@@ -143,25 +118,12 @@ def extract_leaf_params(snapshot: PlantSnapshot, internodes) -> list[LeafParams]
     return params
 
 
-def extract_fruit_params(snapshot: PlantSnapshot) -> list[FruitParams]:
-    return [
-        FruitParams(
-            parent_rank=n.parent_rank,
-            radii=n.fruit_radii,
-            ages_dd=n.fruit_age_dd,
-            truss_angle=n.truss_angle,
-        )
-        for n in snapshot.organs if isinstance(n, FruitsNode)
-    ]
-
-
 # --------------------------------------------------------------------- #
 # ORCHESTRATOR: extractors -> builder calls, single entry point
 # --------------------------------------------------------------------- #
 
-def build_plant_from_snapshot(snapshot, builder: PlantBuilder, config: SimulationConfig):
-    
-    # Any organ physics-enabled that attaches to the stem requires the
+def build_plant_from_snapshot(snapshot: PlantSnapshot, builder: PlantBuilder, config: SimulationConfig):
+    # Any organ with physics enabled that attaches to the stem requires the
     # stem segments to be valid RigidBody anchors, even if the stem
     # itself stays fixed/non-articulated.
     needs_stem_anchor = (
@@ -183,7 +145,7 @@ def build_plant_from_snapshot(snapshot, builder: PlantBuilder, config: Simulatio
         parent_id = rank_to_id.get((leaf.parent_order, leaf.parent_rank))
         if parent_id is None:
             print(f"[WARN] Leaf o{leaf.order}_r{leaf.rank}_i{leaf.organ_index}: "
-                f"parent (order={leaf.parent_order}, rank={leaf.parent_rank}) not found, skipping.")
+                  f"parent (order={leaf.parent_order}, rank={leaf.parent_rank}) not found, skipping.")
             continue
         leaf_id = f"Leaf_o{leaf.order}_r{leaf.rank}_i{leaf.organ_index}"
         builder.add_leaf(

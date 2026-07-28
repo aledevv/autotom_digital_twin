@@ -1,24 +1,15 @@
-from plant_model.v2.plant_builder_utils import _critical_damping
-import os
-import sys
-import argparse
-
-SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
-VERSION_DIR  = os.path.dirname(SCRIPT_DIR)      
-SRC_DIR      = os.path.dirname(VERSION_DIR)
-PROJECT_ROOT = os.path.dirname(SRC_DIR)
-
-if SRC_DIR not in sys.path:
-    sys.path.insert(0, SRC_DIR)
-
 import math
 from pxr import Usd, UsdGeom, UsdPhysics, Gf, Sdf
+
 from plant_model.v2.config import PLANT_ROOT_PATH, GLOBAL_SCALE
 from plant_model.v2.constants import STEM_COLOR, LEAF_COLOR
-from plant_model.v2.plant_builder_utils import _quatd_to_quatf, _configure_drives, _auto_mass
+from plant_model.v2.plant_builder_utils import (
+    _quatd_to_quatf, _configure_drives, _auto_mass, _critical_damping,
+)
 
 IDENTITY_QUATF = Gf.Quatf(1.0, 0.0, 0.0, 0.0)
 IDENTITY_ROT = Gf.Rotation(Gf.Vec3d(0, 0, 1), 0.0)
+
 
 class PlantBuilder:
     def __init__(self, stage: Usd.Stage, base_path: str = PLANT_ROOT_PATH, scale: float = GLOBAL_SCALE):
@@ -47,29 +38,8 @@ class PlantBuilder:
         return cyl.GetPrim()
 
     # ------------------------------------------------------------------ #
-    # PHYSICS (optional, disabled by default for the main stem)
-    # ------------------------------------------------------------------ #
-    def _apply_physics(self, prim: Usd.Prim, mass: float, anchor_to_world: bool = False):
-        """Rigid body + mass. If anchor_to_world, add a single FixedJoint."""
-        UsdPhysics.RigidBodyAPI.Apply(prim)
-        UsdPhysics.MassAPI.Apply(prim).CreateMassAttr().Set(mass)
-
-        if anchor_to_world:
-            fj = UsdPhysics.FixedJoint.Define(self.stage, f"{prim.GetPath()}/FixedJoint")
-            fj.CreateBody1Rel().SetTargets([prim.GetPath()])
-
-        # --- FUTURE: per-internode articulation ---
-        # If we ever split the stem into real joints, add D6 joints here
-        # between consecutive internode ranks, reusing the same
-        # stiffness/damping profile approach as add_lateral_branch.
-        # For now the stem is a single rigid stick, no internal joints.
-
-    # ------------------------------------------------------------------ #
     # PUBLIC API
     # ------------------------------------------------------------------ #
-    # plant_builder.py
-
-    # plant_builder.py
 
     def add_main_stem_segments(
         self,
@@ -89,7 +59,7 @@ class PlantBuilder:
         if len(trunk_segments) != len(segments):
             skipped = len(segments) - len(trunk_segments)
             print(f"[WARN] add_main_stem_segments: ignoring {skipped} non-trunk "
-                f"(order>0) segments — build those via add_lateral_branch instead.")
+                  f"(order>0) segments — build those via add_lateral_branch instead.")
 
         order_rank_to_id: dict[tuple[int, int], str] = {}
         current_z = 0.0
@@ -114,15 +84,16 @@ class PlantBuilder:
             scaled_length = seg["length"] * self.scale
 
             self._segments[seg_id] = dict(
-                path=path, depth=0, global_rot=IDENTITY_ROT,
-                radius=seg["radius"] * self.scale, height=scaled_length,
+                path=path,
+                global_rot=IDENTITY_ROT,
+                radius=seg["radius"] * self.scale,
+                height=scaled_length,
                 base_pos=Gf.Vec3d(0, 0, current_z),
             )
 
             current_z += scaled_length
 
         return order_rank_to_id
-
 
     def add_leaf(
         self,
@@ -154,7 +125,6 @@ class PlantBuilder:
 
         segment_len = total_length / num_segments
         current_parent = parent_id
-        seg_ids = []
 
         for i in range(num_segments):
             t = i / max(1, num_segments - 1) if num_segments > 1 else 0.0
@@ -184,11 +154,9 @@ class PlantBuilder:
                     color=color, physics=physics,
                 )
 
-            seg_ids.append(seg_id)
             current_parent = seg_id
 
         return current_parent
-
 
     def add_lateral_branch(
         self,
@@ -222,8 +190,6 @@ class PlantBuilder:
             raise ValueError(f"Segment id '{id}' already exists!")
 
         p = self._segments[parent_id]
-
-        parent_radius = p["radius"]
         rel_z = z_offset_ratio * p["height"]
 
         rot_z = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_around_parent)
@@ -233,9 +199,8 @@ class PlantBuilder:
         sub_rot_total = sub_rot_local * p["global_rot"]
 
         # world_pos: branch Xform placed on the parent's central axis at rel_z.
-        # V1 always branches from (0, 0, tip_z) — the stem center — so the petiole
-        # axis passes through the stem axis. Using parent_radius here was shifting
-        # the branch base sideways to the surface of the cylinder (wrong visually).
+        # Branching from the stem center (not the cylinder surface) so the
+        # petiole axis passes through the stem axis — matching v1 behaviour.
         axis_offset = Gf.Vec3d(0.0, 0.0, rel_z)
         world_pos = p["base_pos"] + p["global_rot"].TransformDir(axis_offset)
 
@@ -272,15 +237,17 @@ class PlantBuilder:
             jnt.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
             jnt.CreateLocalRot1Attr().Set(IDENTITY_QUATF)
             _configure_drives(jnt, stiffness, damping, stiffness, damping,
-                            bend_limit=max_bend_angle, lock_z=False,
-                            twist_limit=twist_limit)
+                              bend_limit=max_bend_angle, lock_z=False,
+                              twist_limit=twist_limit)
 
         self._segments[id] = dict(
-            path=path, depth=p.get("depth", 0) + 1, global_rot=sub_rot_total,
-            radius=scaled_radius, height=scaled_length, base_pos=world_pos,
+            path=path,
+            global_rot=sub_rot_total,
+            radius=scaled_radius,
+            height=scaled_length,
+            base_pos=world_pos,
         )
         return id
-
 
     def add_internode(
         self,
@@ -339,10 +306,13 @@ class PlantBuilder:
             jnt.CreateLocalRot0Attr().Set(IDENTITY_QUATF)
             jnt.CreateLocalRot1Attr().Set(IDENTITY_QUATF)
             _configure_drives(jnt, stiffness, damping, 0, 0,
-                            bend_limit=max_bend_angle, lock_z=True)
+                              bend_limit=max_bend_angle, lock_z=True)
 
         self._segments[id] = dict(
-            path=path, depth=p.get("depth", 0) + 1, global_rot=p["global_rot"],
-            radius=scaled_radius, height=scaled_length, base_pos=world_pos,
+            path=path,
+            global_rot=p["global_rot"],
+            radius=scaled_radius,
+            height=scaled_length,
+            base_pos=world_pos,
         )
         return id
