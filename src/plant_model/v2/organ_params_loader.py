@@ -26,6 +26,7 @@ class LeafParams:
     rank: int
     organ_index: int
     parent_rank: int
+    parent_order: int
     total_length: float
     radius_start: float
     radius_end: float
@@ -60,9 +61,9 @@ class BuildConfig:
 # ---------------------------------------------------------------------
 
 def _azimuth_for(node) -> float:
-    """Same logic as v1: use real CSV orientation if present, else golden-angle fallback."""
-    if abs(getattr(node, "ccw_orientation", 0.0)) > 1e-3:
-        return node.ccw_orientation
+    ccw = getattr(node, "ccw_orientation", 0.0)
+    if abs(ccw) > 1e-3:
+        return ccw
     return (node.parent_rank * PHYLLOTAXIS) % 360.0
 
 
@@ -71,12 +72,7 @@ def _azimuth_for(node) -> float:
 # --------------------------------------------------------------------- #
 
 def extract_stem_segments(snapshot: PlantSnapshot) -> list[StemSegmentParams]:
-    nodes = sorted(
-        (n for n in snapshot.organs if isinstance(n, InternodeNode) and n.key.order == 0),
-        key=lambda n: n.key.rank,
-    )
-    if not nodes:
-        raise ValueError("No main-stem internodes found")
+    nodes = [n for n in snapshot.organs if isinstance(n, InternodeNode)]
     return [
         StemSegmentParams(
             order=n.key.order, rank=n.key.rank,
@@ -94,6 +90,7 @@ def extract_leaf_params(snapshot: PlantSnapshot) -> list[LeafParams]:
         radius_start = n.diameter_petiole / 2.0
         params.append(LeafParams(
             order=n.key.order, rank=n.key.rank, organ_index=n.key.organ_index,
+            parent_order=0,           # leaves always attach to the main trunk (order=0)
             parent_rank=n.parent_rank,
             total_length=n.length_petiole + n.rachis_length,
             radius_start=radius_start,
@@ -124,20 +121,28 @@ def build_plant_from_snapshot(snapshot, builder: PlantBuilder, config: Simulatio
     # Any organ physics-enabled that attaches to the stem requires the
     # stem segments to be valid RigidBody anchors, even if the stem
     # itself stays fixed/non-articulated.
-    needs_stem_anchor = config.leaf.physics_enabled or config.fruit.physics_enabled
+    needs_stem_anchor = (
+        config.stem.physics_enabled
+        or config.leaf.physics_enabled
+        or config.branch.physics_enabled
+        or config.fruit.physics_enabled
+    )
 
     stem_segments = extract_stem_segments(snapshot)
     rank_to_id = builder.add_main_stem_segments(
         "Stem",
         segments=[vars(s) for s in stem_segments],
+        mass_per_segment=config.stem.mass_per_segment,
         physics=needs_stem_anchor,
     )
 
     for leaf in extract_leaf_params(snapshot):
-        parent_id = rank_to_id.get(leaf.parent_rank)
+        parent_id = rank_to_id.get((leaf.parent_order, leaf.parent_rank))
         if parent_id is None:
+            print(f"[WARN] Leaf o{leaf.order}_r{leaf.rank}_i{leaf.organ_index}: "
+                f"parent (order={leaf.parent_order}, rank={leaf.parent_rank}) not found, skipping.")
             continue
-        leaf_id = f"Leaf_o{leaf.order}_r{leaf.rank}_i{leaf.organ_index}"   # <-- v1 naming
+        leaf_id = f"Leaf_o{leaf.order}_r{leaf.rank}_i{leaf.organ_index}"
         builder.add_leaf(
             parent_id=parent_id,
             base_id=leaf_id,
@@ -147,4 +152,10 @@ def build_plant_from_snapshot(snapshot, builder: PlantBuilder, config: Simulatio
             rot_around_parent=leaf.azimuth,
             num_segments=config.leaf.max_segments,
             physics=config.leaf.physics_enabled,
+            stiffness_base=config.leaf.stiffness_base,
+            stiffness_tip=config.leaf.stiffness_tip,
+            damping_ratio=config.leaf.damping_ratio,
+            max_bend_angle=config.leaf.max_bend_angle,
+            twist_limit=config.leaf.twist_limit,
+            density=config.leaf.density,
         )

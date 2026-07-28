@@ -1,4 +1,5 @@
 from pxr import Gf, UsdPhysics
+import math
 
 def _quatd_to_quatf(qd: Gf.Quatd) -> Gf.Quatf:
     """Convert a double-precision quaternion to float-precision,
@@ -9,8 +10,19 @@ def _quatd_to_quatf(qd: Gf.Quatd) -> Gf.Quatf:
                     float(imag[0]), float(imag[1]), float(imag[2]))
 
 
-def _configure_drives(joint, stiff_xy, damp_xy, stiff_z, damp_z, bend_limit, lock_z):
-    """Set up D6 joint limits and drives (translation locked, rotation limited)."""
+# plant_builder_utils.py
+
+def _auto_mass(radius: float, length: float, density: float, mass_floor: float = 0.005) -> float:
+    """Mass from cylinder volume × density, with a minimum floor for thin segments."""
+    volume = math.pi * (radius ** 2) * length
+    return max(volume * density, mass_floor)
+
+def _critical_damping(stiffness: float, mass: float) -> float:
+    return 2.0 * math.sqrt(stiffness * mass)
+    
+
+def _configure_drives(joint, stiff_xy, damp_xy, stiff_z, damp_z,
+                       bend_limit, lock_z, twist_limit=15.0):
     prim = joint.GetPrim()
     for ax in ("transX", "transY", "transZ"):
         lim = UsdPhysics.LimitAPI.Apply(prim, ax)
@@ -29,13 +41,12 @@ def _configure_drives(joint, stiff_xy, damp_xy, stiff_z, damp_z, bend_limit, loc
 
     lim_z = UsdPhysics.LimitAPI.Apply(prim, "rotZ")
     if lock_z:
+        # PhysX convention: low > high → DOF is locked (same as transX/Y/Z above)
         lim_z.CreateLowAttr().Set(1.0)
         lim_z.CreateHighAttr().Set(-1.0)
     else:
-        # PhysX requires explicit low/high on every LimitAPI instance;
-        # without them the solver sees an uninitialised "double pyramid" and errors.
-        lim_z.CreateLowAttr().Set(-bend_limit)
-        lim_z.CreateHighAttr().Set(bend_limit)
+        lim_z.CreateLowAttr().Set(-twist_limit)
+        lim_z.CreateHighAttr().Set(twist_limit)
         drv_z = UsdPhysics.DriveAPI.Apply(prim, "rotZ")
         drv_z.CreateTypeAttr().Set("force")
         drv_z.CreateStiffnessAttr().Set(stiff_z)

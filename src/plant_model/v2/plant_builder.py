@@ -1,3 +1,4 @@
+from plant_model.v2.plant_builder_utils import _critical_damping
 import os
 import sys
 import argparse
@@ -14,7 +15,7 @@ import math
 from pxr import Usd, UsdGeom, UsdPhysics, Gf, Sdf
 from plant_model.v2.config import PLANT_ROOT_PATH, GLOBAL_SCALE
 from plant_model.v2.constants import STEM_COLOR, LEAF_COLOR
-from plant_model.v2.plant_builder_utils import _quatd_to_quatf, _configure_drives
+from plant_model.v2.plant_builder_utils import _quatd_to_quatf, _configure_drives, _auto_mass
 
 IDENTITY_QUATF = Gf.Quatf(1.0, 0.0, 0.0, 0.0)
 IDENTITY_ROT = Gf.Rotation(Gf.Vec3d(0, 0, 1), 0.0)
@@ -77,19 +78,25 @@ class PlantBuilder:
         color: tuple = STEM_COLOR,
         mass_per_segment: float = 1.0,
         physics: bool = False,
-    ) -> dict[int, str]:
-
+    ) -> dict[tuple[int, int], str]:
         """
-        physics=True here means: at least one child organ needs a valid
-        RigidBody joint target on this stem — NOT that the stem itself is
-        articulated. Segments stay fixed to world via FixedJoint either way.
+        Builds ONLY the main trunk chain (order=0), stacked vertically.
+        Lateral branches (order>0) must be attached separately via
+        add_lateral_branch/add_internode chains, anchored to a specific
+        point on the trunk — NOT stacked here.
         """
+        trunk_segments = [s for s in segments if s["order"] == 0]
+        if len(trunk_segments) != len(segments):
+            skipped = len(segments) - len(trunk_segments)
+            print(f"[WARN] add_main_stem_segments: ignoring {skipped} non-trunk "
+                f"(order>0) segments — build those via add_lateral_branch instead.")
 
-        rank_to_id: dict[int, str] = {}
-        current_z = 0.0  # in scaled units, consistent with _make_visual output
+        order_rank_to_id: dict[tuple[int, int], str] = {}
+        current_z = 0.0
 
-        for seg in sorted(segments, key=lambda s: s["rank"]):
+        for seg in sorted(trunk_segments, key=lambda s: s["rank"]):
             seg_id = f"Internode_o{seg['order']}_r{seg['rank']}"
+            order_rank_to_id[(seg["order"], seg["rank"])] = seg_id
             path = f"{self.base_path}/{seg_id}"
 
             xform = UsdGeom.Xform.Define(self.stage, path)
@@ -104,7 +111,7 @@ class PlantBuilder:
                 fj = UsdPhysics.FixedJoint.Define(self.stage, f"{path}/FixedJoint")
                 fj.CreateBody1Rel().SetTargets([Sdf.Path(path)])
 
-            scaled_length = seg["length"] * self.scale   # <-- fix: same scale as geometry
+            scaled_length = seg["length"] * self.scale
 
             self._segments[seg_id] = dict(
                 path=path, depth=0, global_rot=IDENTITY_ROT,
@@ -112,10 +119,9 @@ class PlantBuilder:
                 base_pos=Gf.Vec3d(0, 0, current_z),
             )
 
-            rank_to_id[seg["rank"]] = seg_id
-            current_z += scaled_length   # <-- fix: avanza in unità scalate
+            current_z += scaled_length
 
-        return rank_to_id
+        return order_rank_to_id
 
 
     def add_leaf(
@@ -132,21 +138,12 @@ class PlantBuilder:
         physics: bool = False,
         stiffness_base: float = 5000.0,
         stiffness_tip: float = 1000.0,
-        damping_base: float = 1000.0,
-        damping_tip: float = 600.0,
+        damping_ratio: float = 0.7,
         max_bend_angle: float = 10.0,
+        twist_limit: float = 15.0,
         density: float = 200.0,
         color: tuple = LEAF_COLOR,
     ) -> str:
-        """
-        Build a leaf (petiole + rachis) as a tapering chain of num_segments,
-        attached laterally to the parent stem. Same tapering pattern as
-        add_branch, reused here so stability tests are comparable across
-        organ types (length vs segments vs stiffness/damping).
-
-        First segment attaches laterally (like add_lateral_branch),
-        subsequent segments extend straight tip-to-tip (like add_internode).
-        """
         if num_segments <= 0:
             raise ValueError("num_segments must be > 0")
 
@@ -158,10 +155,6 @@ class PlantBuilder:
             t = i / max(1, num_segments - 1) if num_segments > 1 else 0.0
             r = radius_start + t * (radius_end - radius_start)
             stiff = stiffness_base + t * (stiffness_tip - stiffness_base)
-            damp = damping_base + t * (damping_tip - damping_base)
-
-            mass = math.pi * (r ** 2) * segment_len * density
-            mass = max(mass, 0.005)  # floor mínimo per segmenti sottili
 
             seg_id = f"{base_id}_{i:02d}"
 
@@ -171,21 +164,23 @@ class PlantBuilder:
                     radius=r, length=segment_len,
                     z_offset_ratio=z_offset_ratio, tilt_angle=tilt_angle,
                     rot_around_parent=rot_around_parent,
-                    mass=mass, stiffness=stiff, damping=damp,
+                    density=density, stiffness=stiff, damping_ratio=damping_ratio,
+                    max_bend_angle=max_bend_angle, twist_limit=twist_limit,
                     color=color, physics=physics,
                 )
             else:
                 self.add_internode(
                     parent_id=current_parent, id=seg_id,
                     radius=r, length=segment_len,
-                    mass=mass, stiffness=stiff, damping=damp,
+                    density=density, stiffness=stiff, damping_ratio=damping_ratio,
+                    max_bend_angle=max_bend_angle,
                     color=color, physics=physics,
                 )
 
             seg_ids.append(seg_id)
             current_parent = seg_id
 
-        return current_parent  # tip segment id
+        return current_parent
 
 
     def add_lateral_branch(
@@ -197,10 +192,11 @@ class PlantBuilder:
         z_offset_ratio: float,
         tilt_angle: float,
         rot_around_parent: float,
-        mass: float = 0.2,
+        density: float = 200.0,
         stiffness: float = 5000.0,
-        damping: float = 1000.0,
+        damping_ratio: float = 0.7,
         max_bend_angle: float = 30.0,
+        twist_limit: float = 15.0,
         color: tuple = STEM_COLOR,
         physics: bool = False,
     ) -> str:
@@ -244,6 +240,9 @@ class PlantBuilder:
         scaled_length = length * self.scale
         scaled_radius = radius * self.scale
 
+        mass = _auto_mass(scaled_radius, scaled_length, density)
+        damping = damping_ratio * _critical_damping(stiffness, mass)
+
         if physics:
             UsdPhysics.RigidBodyAPI.Apply(xform.GetPrim())
             UsdPhysics.MassAPI.Apply(xform.GetPrim()).CreateMassAttr().Set(mass)
@@ -260,9 +259,8 @@ class PlantBuilder:
             jnt.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
             jnt.CreateLocalRot1Attr().Set(IDENTITY_QUATF)
             _configure_drives(jnt, stiffness, damping, stiffness, damping,
-                                    bend_limit=max_bend_angle, lock_z=False)
-            # --- FUTURE: expose lock_z / bend_limit per-axis as params if
-            # stability tests show anisotropic bending matters ---
+                            bend_limit=max_bend_angle, lock_z=False,
+                            twist_limit=twist_limit)
 
         self._segments[id] = dict(
             path=path, depth=p.get("depth", 0) + 1, global_rot=sub_rot_total,
@@ -277,9 +275,9 @@ class PlantBuilder:
         id: str,
         radius: float,
         length: float,
-        mass: float = 1.0,
+        density: float = 200.0,
         stiffness: float = 300.0,
-        damping: float = 50.0,
+        damping_ratio: float = 0.7,
         max_bend_angle: float = 20.0,
         color: tuple = STEM_COLOR,
         physics: bool = False,
@@ -310,9 +308,15 @@ class PlantBuilder:
         scaled_length = length * self.scale
         scaled_radius = radius * self.scale
 
+        mass = _auto_mass(scaled_radius, scaled_length, density)
+        damping = damping_ratio * _critical_damping(stiffness, mass)
+
         if physics:
             UsdPhysics.RigidBodyAPI.Apply(xform.GetPrim())
             UsdPhysics.MassAPI.Apply(xform.GetPrim()).CreateMassAttr().Set(mass)
+
+            cyl_prim = self.stage.GetPrimAtPath(f"{path}/Cylinder")
+            UsdPhysics.CollisionAPI.Apply(cyl_prim)
 
             jnt = UsdPhysics.Joint.Define(self.stage, f"{path}/Joint")
             jnt.CreateBody0Rel().SetTargets([Sdf.Path(p["path"])])
@@ -322,7 +326,7 @@ class PlantBuilder:
             jnt.CreateLocalRot0Attr().Set(IDENTITY_QUATF)
             jnt.CreateLocalRot1Attr().Set(IDENTITY_QUATF)
             _configure_drives(jnt, stiffness, damping, 0, 0,
-                              bend_limit=max_bend_angle, lock_z=True)
+                            bend_limit=max_bend_angle, lock_z=True)
 
         self._segments[id] = dict(
             path=path, depth=p.get("depth", 0) + 1, global_rot=p["global_rot"],
