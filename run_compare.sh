@@ -1,0 +1,1 @@
+uv run python tools/compare_geometry.py --day 20

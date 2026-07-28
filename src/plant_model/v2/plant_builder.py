@@ -147,6 +147,11 @@ class PlantBuilder:
         if num_segments <= 0:
             raise ValueError("num_segments must be > 0")
 
+        # Create a group Xform so the leaf appears as a named container
+        # in the stage hierarchy with its segments nested underneath.
+        group_path = f"{self.base_path}/{base_id}"
+        UsdGeom.Xform.Define(self.stage, group_path)
+
         segment_len = total_length / num_segments
         current_parent = parent_id
         seg_ids = []
@@ -156,7 +161,9 @@ class PlantBuilder:
             r = radius_start + t * (radius_end - radius_start)
             stiff = stiffness_base + t * (stiffness_tip - stiffness_base)
 
-            seg_id = f"{base_id}_{i:02d}"
+            # f"{base_id}/Seg_{i:02d}" → path becomes base_path/{base_id}/Seg_{i:02d}
+            # which is nested under the group Xform created above.
+            seg_id = f"{base_id}/Seg_{i:02d}"
 
             if i == 0:
                 self.add_lateral_branch(
@@ -218,15 +225,22 @@ class PlantBuilder:
 
         parent_radius = p["radius"]
         rel_z = z_offset_ratio * p["height"]
-        local_offset = Gf.Vec3d(0.0, parent_radius, rel_z)
 
         rot_z = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_around_parent)
         tilt_r = Gf.Rotation(Gf.Vec3d(1, 0, 0), -tilt_angle)
 
         sub_rot_local = tilt_r * rot_z
-        local_pos0 = rot_z.TransformDir(local_offset)
         sub_rot_total = sub_rot_local * p["global_rot"]
-        world_pos = p["base_pos"] + p["global_rot"].TransformDir(local_pos0)
+
+        # world_pos: branch Xform placed on the parent's central axis at rel_z.
+        # V1 always branches from (0, 0, tip_z) — the stem center — so the petiole
+        # axis passes through the stem axis. Using parent_radius here was shifting
+        # the branch base sideways to the surface of the cylinder (wrong visually).
+        axis_offset = Gf.Vec3d(0.0, 0.0, rel_z)
+        world_pos = p["base_pos"] + p["global_rot"].TransformDir(axis_offset)
+
+        # local_pos0 for the physics joint: pivot on the parent axis at rel_z.
+        local_pos0 = Gf.Vec3f(0.0, 0.0, float(rel_z))
 
         orient_qf = _quatd_to_quatf(sub_rot_total.GetQuat())
         path = f"{self.base_path}/{id}"
@@ -253,8 +267,7 @@ class PlantBuilder:
             jnt = UsdPhysics.Joint.Define(self.stage, f"{path}/Joint")
             jnt.CreateBody0Rel().SetTargets([Sdf.Path(p["path"])])
             jnt.CreateBody1Rel().SetTargets([Sdf.Path(path)])
-            jnt.CreateLocalPos0Attr().Set(Gf.Vec3f(
-                float(local_pos0[0]), float(local_pos0[1]), float(local_pos0[2])))
+            jnt.CreateLocalPos0Attr().Set(local_pos0)
             jnt.CreateLocalRot0Attr().Set(_quatd_to_quatf(sub_rot_local.GetQuat()))
             jnt.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
             jnt.CreateLocalRot1Attr().Set(IDENTITY_QUATF)
