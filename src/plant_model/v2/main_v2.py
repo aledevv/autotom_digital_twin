@@ -61,7 +61,7 @@ def main():
     builder = PlantBuilder(stage, base_path=PLANT_ROOT_PATH, scale=GLOBAL_SCALE)
 
     print(f"[INFO] Building plant with config: stem={DEFAULT_CONFIG.stem}, "
-          f"leaf={DEFAULT_CONFIG.leaf}, fruit={DEFAULT_CONFIG.fruit}")
+          f"leaf={DEFAULT_CONFIG.leaf}")
     build_plant_from_snapshot(snapshot, builder, DEFAULT_CONFIG)
 
     stage.GetRootLayer().Export(out_path)

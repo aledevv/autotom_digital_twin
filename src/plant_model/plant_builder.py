@@ -132,8 +132,15 @@ class PlantBuilder:
         return path
 
     def _configure_drives(self, joint, stiff_xy, damp_xy,
-                          stiff_z, damp_z, bend_limit, lock_z):
-        """Set up D6 joint limits and drives (translation locked, rotation limited)."""
+                          stiff_z, damp_z, bend_limit, lock_z,
+                          twist_limit: float = 15.0):
+        """Set up D6 joint limits and drives (translation locked, rotation limited).
+
+        twist_limit : symmetric ±limit (deg) applied to rotZ when lock_z=False.
+                      PhysX requires explicit angular limits on all three rotation
+                      axes whenever a swing limit (rotX/rotY) is active — omitting
+                      them triggers the "double pyramid mode not supported" error.
+        """
         prim = joint.GetPrim()
         for ax in ("transX", "transY", "transZ"):
             lim = UsdPhysics.LimitAPI.Apply(prim, ax)
@@ -155,6 +162,10 @@ class PlantBuilder:
             lim_z.CreateLowAttr().Set(1.0)
             lim_z.CreateHighAttr().Set(-1.0)
         else:
+            # Always set explicit symmetric limits on rotZ — PhysX will reject
+            # the joint if rotX/rotY have limits but rotZ is unbounded.
+            lim_z.CreateLowAttr().Set(-twist_limit)
+            lim_z.CreateHighAttr().Set(twist_limit)
             drv_z = UsdPhysics.DriveAPI.Apply(prim, "rotZ")
             drv_z.CreateTypeAttr().Set("force")
             drv_z.CreateStiffnessAttr().Set(stiff_z)
