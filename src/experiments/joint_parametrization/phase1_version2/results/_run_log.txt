@@ -1,0 +1,109 @@
+
+============================================================
+  Running standalone math tests before simulation …
+============================================================
+test_known_value_E10MPa (test_phase1_v2.TestAnalyticalDeflection)
+At E=10MPa the expected deflection is ~8.79 cm. ... ok
+test_known_value_E50MPa (test_phase1_v2.TestAnalyticalDeflection)
+At E=50MPa the expected deflection is ~1.759 cm. ... ok
+test_longer_beam_deflects_more (test_phase1_v2.TestAnalyticalDeflection) ... ok
+test_stiffer_means_less_deflection (test_phase1_v2.TestAnalyticalDeflection) ... ok
+test_known_mass (test_phase1_v2.TestAutoMass)
+Scaled segment: r=0.1m (0.01×10), l=2.0m (0.2×10), ρ=700 ... ok
+test_mass_floor_applied (test_phase1_v2.TestAutoMass)
+Tiny segment should hit the mass floor. ... ok
+test_mass_scales_with_length (test_phase1_v2.TestAutoMass) ... ok
+test_actual_damping_with_ratio (test_phase1_v2.TestCriticalDamping)
+D = ratio × D_critical must be less than D_critical for ratio < 1. ... ok
+test_damping_increases_with_stiffness (test_phase1_v2.TestCriticalDamping) ... ok
+test_formula (test_phase1_v2.TestCriticalDamping) ... ok
+test_N10_overshoot (test_phase1_v2.TestDiscreteConvergence)
+N=10: factor = (1.1)² = 1.21 ... ok
+test_N2_overshoot (test_phase1_v2.TestDiscreteConvergence)
+N=2 should be 2.25× the continuous E-B value. ... ok
+test_convergence_to_eb (test_phase1_v2.TestDiscreteConvergence)
+At very large N (N=1000) the discrete value must be within 0.21% of E-B. ... ok
+test_known_values_cm (test_phase1_v2.TestDiscreteConvergence)
+Spot-check expected cm values from fixes.md table. ... ok
+test_monotonic_convergence (test_phase1_v2.TestDiscreteConvergence)
+Deflection must decrease as N increases. ... ok
+test_N_sweep_stiffness_consistency (test_phase1_v2.TestFullPipelineSanity)
+For every N in the sweep, K_real × SCALE^4 must increase with N. ... ok
+test_discrete_targets_print (test_phase1_v2.TestFullPipelineSanity)
+Print the expected results table for visual inspection. ... 
+──────────────────────────────────────────────────────────────────────
+  Expected results table (E=5e+07 Pa,  δ_EB = 1.7580 cm)
+     N      K_real         K_sim    δ_disc(cm)    δ_EB(cm)
+  ────  ──────────  ────────────  ────────────  ──────────
+     2      1.9635       19635.0         3.955       1.758
+     3      2.9452       29452.4         3.125       1.758
+     5      4.9087       49087.4         2.531       1.758
+    10      9.8175       98174.8         2.127       1.758
+    20     19.6350      196349.5         1.938       1.758
+    50     49.0874      490873.9         1.829       1.758
+──────────────────────────────────────────────────────────────────────
+ok
+test_mass_consistent_across_N (test_phase1_v2.TestFullPipelineSanity)
+Total mass of the chain (N × mass_per_segment) should be approximately ... ok
+test_k_proportional_to_N (test_phase1_v2.TestPhysicsStiffness)
+Doubling N must double K (K ∝ N for fixed L, r, E). ... ok
+test_known_K_at_N10 (test_phase1_v2.TestPhysicsStiffness) ... ok
+test_known_K_at_N2 (test_phase1_v2.TestPhysicsStiffness)
+At N=2, E=50MPa: K = 50e6 × π×(0.01)⁴/4 / 0.2 ≈ 1.9635 N·m/rad ... ok
+test_larger_radius_means_stiffer (test_phase1_v2.TestPhysicsStiffness) ... ok
+test_known_K_sim_at_N2 (test_phase1_v2.TestScaleCorrection)
+K_sim at N=2 should be ≈19635. ... ok
+test_scale_factor_is_scale_to_the_fourth (test_phase1_v2.TestScaleCorrection) ... ok
+test_scale_reasoning (test_phase1_v2.TestScaleCorrection)
+Geometry scaled by S: length×S, radius×S. ... ok
+test_E10MPa_violates_regime (test_phase1_v2.TestSmallDeflectionRegime) ... ok
+test_E50MPa_satisfies_regime (test_phase1_v2.TestSmallDeflectionRegime) ... ok
+test_deflection_m_conversion (test_phase1_v2.TestTipZGeometry)
+deflection_m = (tip_z_initial - tip_z_final) / SCALE ... ok
+test_origin_measurement_gives_wrong_result (test_phase1_v2.TestTipZGeometry)
+mat.ExtractTranslation() returns the segment origin (base), NOT the tip. ... ok
+test_tip_transform_horizontal_segment (test_phase1_v2.TestTipZGeometry)
+Demonstrate tip-Z measurement for a horizontal cantilever segment. ... ok
+test_tip_transform_sagged_segment (test_phase1_v2.TestTipZGeometry)
+Simulate a segment that has sagged by 2 cm (0.02 m, or 0.2 in sim units ... ok
+
+----------------------------------------------------------------------
+Ran 31 tests in 0.001s
+
+OK
+[OK] All math tests passed.
+
+============================================================
+  PHASE 1 v2 — Static Deflection Test  (raw USD articulation)
+============================================================
+  L=0.4m  r=0.01m  E=5.00e+07Pa  ρ=700.0kg/m³
+  SCALE=10.0  SIM_HZ=120  SIM_SECONDS=10.0
+  Analytical E-B deflection (N→∞): 1.7580 cm
+  N sweep: [2]
+
+
+============================================================
+  Phase 1 v2  —  N = 2 segments
+============================================================
+
+  ── Pass 0: zero-gravity sanity ──────────────────────────
+  [build N=2]  l=0.2000m  K_real=1.9635  K_sim=19634.95  mass=43.98230kg  damp=1301.01
+  [SANITY N= 2]  tip_Z before reset = -0.000000
+  [SANITY N= 2]  tip_Z after  reset = -0.001776  (jump from USD = -0.001776)
+    step   0  tip_Z=-0.010879
+    step   1  tip_Z=-0.017552
+    step   2  tip_Z=-0.025209
+    step   3  tip_Z=-0.033534
+    step   4  tip_Z=-0.042234
+    step  30  tip_Z=-0.065635
+    step  60  tip_Z=-0.063367
+    step  90  tip_Z=-0.063367
+  [SANITY N= 2]  initial_Z=-0.001776  final_Z=-0.063367  drift=6.16e-02  → FAIL
+  [N=2] ✗ SANITY FAILED — skipping gravity sweep
+
+[OK] Results saved → /home/alessandro/isaacsim/autotom_digital_twin/src/experiments/joint_parametrization/phase1_version2/results/phase1_v2_results.json
+
+── Summary ────────────────────────────────────────────────────────────
+     N      K_real         K_sim    Meas(cm)    Disc(cm)    EB(cm)     Err%   Sanity  Status
+  ──────────────────────────────────────────────────────────────────────────────────────────
+     2      1.9635       19635.0        NaN        3.955     1.758     NaN      FAIL  SANITY_FAIL

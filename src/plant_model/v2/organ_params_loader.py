@@ -31,6 +31,11 @@ class LeafParams:
     tilt_angle: float       # degrees from parent axis (stem Z); 90°=horizontal, 70°=slightly raised
     azimuth: float
     z_offset_ratio: float   # where along the trunk parent to attach (1.0 = tip; >1 for lateral branches)
+    # Compound leaf blade data (from CSV)
+    blades_nr: int
+    area_array: list[float]
+    seg_len_array: list[float]
+    incl_array: list[float]
 
 
 # --------------------------------------------------------------------- #
@@ -103,7 +108,8 @@ def extract_leaf_params(snapshot: PlantSnapshot, internodes: list[StemSegmentPar
             z_off = lat / trk if trk > 0 else 1.0
 
         print(f"[Leaf o{n.key.order}_r{n.key.rank}_i{n.key.organ_index}] "
-              f"angle_petiole={tilt:.1f}° azimuth={azimuth:.1f}° z_offset_ratio={z_off:.3f}")
+              f"angle_petiole={tilt:.1f}° azimuth={azimuth:.1f}° z_offset_ratio={z_off:.3f} "
+              f"blades={n.blades_nr}")
         params.append(LeafParams(
             order=n.key.order, rank=n.key.rank, organ_index=n.key.organ_index,
             parent_order=0,
@@ -114,6 +120,10 @@ def extract_leaf_params(snapshot: PlantSnapshot, internodes: list[StemSegmentPar
             tilt_angle=tilt,
             azimuth=azimuth,
             z_offset_ratio=z_off,
+            blades_nr=n.blades_nr,
+            area_array=list(n.leaf_area_m2blades),
+            seg_len_array=list(n.leaf_segments_length),
+            incl_array=list(n.leaf_inclination_segments),
         ))
     return params
 
@@ -157,7 +167,7 @@ def build_plant_from_snapshot(snapshot: PlantSnapshot, builder: PlantBuilder, co
             z_offset_ratio=leaf.z_offset_ratio,
             tilt_angle=leaf.tilt_angle,
             rot_around_parent=leaf.azimuth,
-            num_segments=config.leaf.max_segments,
+            num_petiole_segments=config.leaf.num_petiole_segments,
             physics=config.leaf.physics_enabled,
             stiffness_base=config.leaf.stiffness_base,
             stiffness_tip=config.leaf.stiffness_tip,
@@ -165,4 +175,13 @@ def build_plant_from_snapshot(snapshot: PlantSnapshot, builder: PlantBuilder, co
             max_bend_angle=config.leaf.max_bend_angle,
             twist_limit=config.leaf.twist_limit,
             density=config.leaf.density,
+            # blade params
+            blade_enabled=config.leaf.blade_enabled,
+            blades_nr=leaf.blades_nr,
+            area_array=leaf.area_array,
+            seg_len_array=leaf.seg_len_array,
+            incl_array=leaf.incl_array,
+            petiolule_length=config.leaf.petiolule_length_m,
+            blade_inclination_override=config.leaf.blade_inclination_override,
+            blade_collision=config.leaf.blade_collision,
         )

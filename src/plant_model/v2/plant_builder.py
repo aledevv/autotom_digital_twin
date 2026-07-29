@@ -95,6 +95,216 @@ class PlantBuilder:
 
         return order_rank_to_id
 
+    # ------------------------------------------------------------------ #
+    # LEAF BLADE HELPERS
+    # ------------------------------------------------------------------ #
+
+    def _make_leaf_mesh(self, path: str, half_width: float, length: float) -> UsdGeom.Mesh:
+        """Create a 16-point ovate leaf blade mesh in the local XY plane.
+
+        The blade base is at the local origin; tip is at (0, length, 0).
+        The mesh is visual-only (no CollisionAPI applied here).
+        """
+        mesh = UsdGeom.Mesh.Define(self.stage, path)
+        pts = [Gf.Vec3f(0, 0, 0)]  # base attachment point
+        n_side = 7
+        for i in range(1, n_side):
+            t = i / n_side
+            x = half_width * math.sin(math.pi * t) * (1.2 - 0.4 * t)
+            pts.append(Gf.Vec3f(x, t * length, 0))
+        pts.append(Gf.Vec3f(0, length, 0))  # tip
+        for i in range(n_side - 1, 0, -1):
+            t = i / n_side
+            x = half_width * math.sin(math.pi * t) * (1.2 - 0.4 * t)
+            pts.append(Gf.Vec3f(-x, t * length, 0))
+        mesh.GetPointsAttr().Set(pts)
+        n_tri = len(pts) - 2
+        mesh.GetFaceVertexCountsAttr().Set([3] * n_tri)
+        idx = []
+        for i in range(1, len(pts) - 1):
+            idx.extend([0, i, i + 1])
+        mesh.GetFaceVertexIndicesAttr().Set(idx)
+        mesh.GetSubdivisionSchemeAttr().Set("none")
+        mesh.GetDisplayColorAttr().Set([Gf.Vec3f(*LEAF_COLOR)])
+        return mesh
+
+    def _attach_compound_blades(
+        self,
+        base_id: str,
+        segment_len: float,
+        num_segments: int,
+        petiole_length: float,
+        blades_nr: int,
+        area_array: list[float],
+        seg_len_array: list[float],
+        incl_array: list[float],
+        petiolule_length: float = 0.01,
+        blade_inclination_override: float | None = 50.0,
+        blade_collision: bool = False,
+    ) -> None:
+        """Attach static blade meshes to the existing rachis segment chain.
+
+        Lateral leaflet pairs are placed along the rachis at positions derived
+        from leaf_segments_length (CSV). A terminal leaflet is placed at the
+        rachis tip. All blades are static USD Mesh children of the nearest
+        rachis segment Xform — no extra rigid bodies or joints.
+
+        Parameters
+        ----------
+        base_id       : leaf base ID, used to look up segment paths.
+        segment_len   : length of each rachis segment (scaled).
+        num_segments  : total number of rachis segments.
+        petiole_length: petiole portion of the chain (scaled), blades start after this.
+        blades_nr     : total leaflet count (pairs + 1 terminal) from CSV.
+        area_array    : per-leaflet area (m²) from leaf_area_m2blades.
+        seg_len_array : rachis inter-leaflet distances from leaf_segments_length.
+        incl_array    : insertion angles (deg) from leaf_inclination_segments.
+        petiolule_length : visual-only petiolule cylinder length (scaled).
+        blade_inclination_override : if set, overrides incl_array for all leaflets.
+        blade_collision : apply CollisionAPI to blade meshes.
+        """
+        pairs = blades_nr - 1
+        if pairs <= 0 and blades_nr <= 0:
+            return
+
+        scale = self.scale
+
+        def _seg_for_distance(d_scaled: float) -> tuple[str, float]:
+            """Return (segment_id, local_z_ratio) for a scaled distance along the chain."""
+            seg_idx = min(int(d_scaled / segment_len), num_segments - 1)
+            local_d = d_scaled - seg_idx * segment_len
+            ratio = min(max(local_d / segment_len, 0.0), 1.0)
+            return f"{base_id}/Seg_{seg_idx:02d}", ratio
+
+        def _blade_orient_quat(rot_around_z_deg: float, insertion_deg: float) -> Gf.Quatf:
+            """Quaternion: azimuth around segment Z, then tilt by insertion angle around X.
+
+            The blade mesh grows in +Y from its local origin. The resulting
+            orientation places the blade so that +Y aligns with the leaflet
+            growth direction (lateral out from rachis or along rachis for terminal).
+            """
+            from plant_model.v2.plant_builder_utils import _quatd_to_quatf
+            rot_z = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_around_z_deg)
+            # insertion_deg: 90=perpendicular to rachis (straight out), 0=along rachis
+            tilt = Gf.Rotation(Gf.Vec3d(1, 0, 0), -(90.0 - insertion_deg))
+            combined = tilt * rot_z
+            return _quatd_to_quatf(combined.GetQuat())
+
+        # current_d tracks distance along the full chain (petiole + rachis)
+        current_d = petiole_length * scale
+
+        # ── Lateral leaflet pairs ──────────────────────────────────────────
+        for j in range(pairs):
+            area = area_array[j] if j < len(area_array) else 0.0
+            if area <= 0:
+                area = 1e-4
+            lat_area = area / 2.0
+            lat_length = math.sqrt(lat_area / 0.6) * scale
+            lat_width  = lat_length * 0.6
+
+            insertion = (
+                blade_inclination_override
+                if blade_inclination_override is not None
+                else (incl_array[j] if j < len(incl_array) else 90.0)
+            )
+
+            target_seg_id, ratio = _seg_for_distance(current_d)
+            seg_path = f"{self.base_path}/{target_seg_id}"
+            seg_data = self._segments.get(target_seg_id)
+            if seg_data is None:
+                print(f"[WARN] _attach_compound_blades: segment '{target_seg_id}' not found, skipping pair {j}")
+                dist_to_next = seg_len_array[j] * scale if j < len(seg_len_array) else segment_len
+                current_d += dist_to_next
+                continue
+
+            local_z = ratio * seg_data["height"]
+            pet_len = petiolule_length * scale
+
+            for side_label, az_deg in (("R", 90.0), ("L", -90.0)):
+                blade_xf_path = f"{seg_path}/Lat{j}{side_label}"
+                xf = UsdGeom.Xform.Define(self.stage, blade_xf_path)
+                xf.ClearXformOpOrder()
+                xf.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, local_z))
+                xf.AddOrientOp().Set(_blade_orient_quat(az_deg, insertion))
+
+                # Visual-only petiolule cylinder
+                pet_prim = UsdGeom.Cylinder.Define(self.stage, f"{blade_xf_path}/Petiolule")
+                pet_prim.GetRadiusAttr().Set(seg_data["radius"] * 0.4)
+                pet_prim.GetHeightAttr().Set(pet_len)
+                pet_prim.GetAxisAttr().Set("Z")
+                pet_prim.AddTranslateOp().Set(Gf.Vec3d(0, 0, pet_len / 2.0))
+                pet_prim.GetDisplayColorAttr().Set([Gf.Vec3f(*LEAF_COLOR)])
+
+                # Blade mesh: local origin at petiolule tip, grows in +Y
+                blade_xf2 = UsdGeom.Xform.Define(self.stage, f"{blade_xf_path}/BladeXform")
+                blade_xf2.ClearXformOpOrder()
+                blade_xf2.AddTranslateOp().Set(Gf.Vec3d(0, 0, pet_len))
+                # Rotate so blade +Y aligns with petiolule +Z (growth direction)
+                rot90x = Gf.Quatf(0.7071068, 0.7071068, 0.0, 0.0)
+                blade_xf2.AddOrientOp().Set(rot90x)
+
+                mesh = self._make_leaf_mesh(
+                    f"{blade_xf_path}/BladeXform/Mesh",
+                    lat_width / 2.0, lat_length
+                )
+                if blade_collision:
+                    UsdPhysics.CollisionAPI.Apply(mesh.GetPrim())
+                    UsdPhysics.MeshCollisionAPI.Apply(
+                        mesh.GetPrim()).GetApproximationAttr().Set("convexHull")
+
+            dist_to_next = (
+                seg_len_array[j] * scale if j < len(seg_len_array)
+                else segment_len
+            )
+            current_d += dist_to_next
+
+        # ── Terminal leaflet ───────────────────────────────────────────────
+        if blades_nr > 0 and len(area_array) > 0:
+            term_area   = area_array[-1]
+            term_length = math.sqrt(max(term_area, 1e-6) / 0.6) * scale
+            term_width  = term_length * 0.6
+
+            tip_seg_id = f"{base_id}/Seg_{num_segments - 1:02d}"
+            tip_seg_path = f"{self.base_path}/{tip_seg_id}"
+            tip_seg_data = self._segments.get(tip_seg_id)
+
+            if tip_seg_data is not None:
+                pet_len = petiolule_length * scale
+                tip_local_z = tip_seg_data["height"]  # tip of last segment
+
+                term_xf_path = f"{tip_seg_path}/Terminal"
+                xf = UsdGeom.Xform.Define(self.stage, term_xf_path)
+                xf.ClearXformOpOrder()
+                xf.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, tip_local_z))
+                # 0° insertion = blade grows straight along rachis (+Z → +Y after 90x rot)
+                xf.AddOrientOp().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+
+                pet_prim = UsdGeom.Cylinder.Define(self.stage, f"{term_xf_path}/Petiolule")
+                pet_prim.GetRadiusAttr().Set(tip_seg_data["radius"] * 0.4)
+                pet_prim.GetHeightAttr().Set(pet_len)
+                pet_prim.GetAxisAttr().Set("Z")
+                pet_prim.AddTranslateOp().Set(Gf.Vec3d(0, 0, pet_len / 2.0))
+                pet_prim.GetDisplayColorAttr().Set([Gf.Vec3f(*LEAF_COLOR)])
+
+                blade_xf2 = UsdGeom.Xform.Define(self.stage, f"{term_xf_path}/BladeXform")
+                blade_xf2.ClearXformOpOrder()
+                blade_xf2.AddTranslateOp().Set(Gf.Vec3d(0, 0, pet_len))
+                rot90x = Gf.Quatf(0.7071068, 0.7071068, 0.0, 0.0)
+                blade_xf2.AddOrientOp().Set(rot90x)
+
+                mesh = self._make_leaf_mesh(
+                    f"{term_xf_path}/BladeXform/Mesh",
+                    term_width / 2.0, term_length
+                )
+                if blade_collision:
+                    UsdPhysics.CollisionAPI.Apply(mesh.GetPrim())
+                    UsdPhysics.MeshCollisionAPI.Apply(
+                        mesh.GetPrim()).GetApproximationAttr().Set("convexHull")
+
+                print(f"   🍃 Terminal leaflet {term_length/scale*100:.1f}cm × {term_width/scale*100:.1f}cm")
+
+        print(f"   🍀 Attached {pairs} lateral pairs + terminal to '{base_id}'")
+
     def add_leaf(
         self,
         parent_id: str,
@@ -105,7 +315,7 @@ class PlantBuilder:
         z_offset_ratio: float = 1.0,
         tilt_angle: float = 60.0,
         rot_around_parent: float = 0.0,
-        num_segments: int = 2,
+        num_petiole_segments: int = 3,
         physics: bool = False,
         stiffness_base: float = 5000.0,
         stiffness_tip: float = 1000.0,
@@ -114,25 +324,48 @@ class PlantBuilder:
         twist_limit: float = 15.0,
         density: float = 200.0,
         color: tuple = LEAF_COLOR,
+        # ── Compound leaf blades ──────────────────────────────────────────
+        blade_enabled: bool = True,
+        blades_nr: int = 0,
+        area_array: list[float] | None = None,
+        seg_len_array: list[float] | None = None,
+        incl_array: list[float] | None = None,
+        petiolule_length: float = 0.01,
+        blade_inclination_override: float | None = 50.0,
+        blade_collision: bool = False,
     ) -> str:
-        if num_segments <= 0:
-            raise ValueError("num_segments must be > 0")
+        """Build an articulated petiole/rachis chain and attach compound leaf blades.
+
+        The rachis is a chain of `num_petiole_segments` D6-jointed cylinder
+        segments. After the chain is built, `_attach_compound_blades` places
+        static blade meshes (lateral pairs + terminal) driven by CSV data.
+
+        Parameters
+        ----------
+        num_petiole_segments : number of articulation segments (1 = rigid).
+        blade_enabled        : if False, skip blade attachment entirely.
+        blades_nr            : total leaflet count from CSV (blades_nr field).
+        area_array           : per-leaflet blade area (m²) list.
+        seg_len_array        : inter-leaflet rachis distances (m).
+        incl_array           : leaflet insertion angles (deg).
+        petiolule_length     : visual-only petiolule cylinder length (m, unscaled).
+        blade_inclination_override : override for all lateral insertion angles.
+        blade_collision      : apply CollisionAPI to blade meshes.
+        """
+        if num_petiole_segments <= 0:
+            raise ValueError("num_petiole_segments must be > 0")
 
         # Create a group Xform so the leaf appears as a named container
-        # in the stage hierarchy with its segments nested underneath.
         group_path = f"{self.base_path}/{base_id}"
         UsdGeom.Xform.Define(self.stage, group_path)
 
-        segment_len = total_length / num_segments
+        segment_len = total_length / num_petiole_segments
         current_parent = parent_id
 
-        for i in range(num_segments):
-            t = i / max(1, num_segments - 1) if num_segments > 1 else 0.0
+        for i in range(num_petiole_segments):
+            t = i / max(1, num_petiole_segments - 1) if num_petiole_segments > 1 else 0.0
             r = radius_start + t * (radius_end - radius_start)
             stiff = stiffness_base + t * (stiffness_tip - stiffness_base)
-
-            # f"{base_id}/Seg_{i:02d}" → path becomes base_path/{base_id}/Seg_{i:02d}
-            # which is nested under the group Xform created above.
             seg_id = f"{base_id}/Seg_{i:02d}"
 
             if i == 0:
@@ -153,8 +386,28 @@ class PlantBuilder:
                     max_bend_angle=max_bend_angle,
                     color=color, physics=physics,
                 )
-
             current_parent = seg_id
+
+        # ── Attach compound leaf blades ────────────────────────────────────
+        if blade_enabled and blades_nr > 0 and area_array:
+            seg_data_0 = self._segments.get(f"{base_id}/Seg_00")
+            scaled_seg_len = seg_data_0["height"] if seg_data_0 else segment_len * self.scale
+            # petiole_length (unscaled) determines where along the chain blades begin
+            # We approximate it as 0 (blades start from segment 0 of the rachis).
+            # The caller should pass the actual petiole length if known.
+            self._attach_compound_blades(
+                base_id=base_id,
+                segment_len=scaled_seg_len,
+                num_segments=num_petiole_segments,
+                petiole_length=0.0,  # blades distributed across the whole chain
+                blades_nr=blades_nr,
+                area_array=area_array,
+                seg_len_array=seg_len_array or [],
+                incl_array=incl_array or [],
+                petiolule_length=petiolule_length,
+                blade_inclination_override=blade_inclination_override,
+                blade_collision=blade_collision,
+            )
 
         return current_parent
 
