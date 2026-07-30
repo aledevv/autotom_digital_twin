@@ -28,6 +28,7 @@ def apply_physx_scene_settings(stage) -> None:
 def apply_physx_articulation_settings(stage, stem_path: str) -> None:
     """Configures solver iteration counts on the ArticulationRoot for stability."""
     stem_prim = stage.GetPrimAtPath(stem_path)
+    UsdPhysics.ArticulationRootAPI.Apply(stem_prim)
     art_api = PhysxSchema.PhysxArticulationAPI.Apply(stem_prim)
     art_api.CreateSolverPositionIterationCountAttr().Set(240)
     art_api.CreateSolverVelocityIterationCountAttr().Set(16)

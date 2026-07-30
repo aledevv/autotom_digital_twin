@@ -75,7 +75,20 @@ def main():
     except Exception as e:
         print(f"[WARN] Could not set lighting mode: {e}")
 
+    from plant_model.physx_utils import apply_physx_scene_settings, apply_physx_articulation_settings
+    
+    # Configure global scene physics
+    apply_physx_scene_settings(stage)
+    
     world = World(stage_units_in_meters=1.0)
+    
+    # Set solver type to TGS for articulation stability
+    phys_ctx = world.get_physics_context()
+    phys_ctx.set_solver_type("TGS")
+
+    # CRUCIAL: Make the entire plant a Reduced Coordinate Articulation
+    apply_physx_articulation_settings(stage, "/World/Plant/Stem/Seg_00")
+
     world.reset()
     print("[OK] Simulation running — close the window to exit.")
 

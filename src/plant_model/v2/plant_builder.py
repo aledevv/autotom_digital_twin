@@ -1,14 +1,17 @@
 import math
-from pxr import Usd, UsdGeom, UsdPhysics, Gf, Sdf
+from pxr import Usd, UsdGeom, UsdPhysics, Gf, Sdf, PhysxSchema
 
 from plant_model.v2.config import PLANT_ROOT_PATH, GLOBAL_SCALE
 from plant_model.v2.constants import STEM_COLOR, LEAF_COLOR
 from plant_model.v2.plant_builder_utils import (
-    _quatd_to_quatf, _configure_drives, _auto_mass, _critical_damping,
+    _quatd_to_quatf, _configure_drives, _auto_mass, _beam_stiffness, _linear_damping,
 )
 
 IDENTITY_QUATF = Gf.Quatf(1.0, 0.0, 0.0, 0.0)
 IDENTITY_ROT = Gf.Rotation(Gf.Vec3d(0, 0, 1), 0.0)
+
+# Root prim that holds all collision group prims
+_COLL_GROUPS_ROOT = "/World/CollisionGroups"
 
 
 class PlantBuilder:
@@ -18,8 +21,67 @@ class PlantBuilder:
         self._segments: dict[str, dict] = {}
         self.scale = scale
 
+        # Path of the global tree collision group
+        self._tree_coll_group_path: str | None = None
+
         if not self.stage.GetPrimAtPath(self.base_path):
             UsdGeom.Xform.Define(self.stage, self.base_path)
+
+    # ------------------------------------------------------------------ #
+    # COLLISION GROUP HELPERS
+    # ------------------------------------------------------------------ #
+
+    def _ensure_coll_groups_root(self) -> None:
+        if not self.stage.GetPrimAtPath(_COLL_GROUPS_ROOT):
+            UsdGeom.Scope.Define(self.stage, _COLL_GROUPS_ROOT)
+
+    def _create_collision_group(self, group_path: str) -> UsdPhysics.CollisionGroup:
+        """Define a CollisionGroup prim, creating parent scopes as needed."""
+        self._ensure_coll_groups_root()
+        grp = UsdPhysics.CollisionGroup.Define(self.stage, group_path)
+        return grp
+
+    def _apply_collision(self, prim: Usd.Prim, contact_offset: float = 0.001, rest_offset: float = 0.0) -> None:
+        """Apply CollisionAPI and PhysxCollisionAPI with custom offsets."""
+        UsdPhysics.CollisionAPI.Apply(prim)
+        
+        # Apply Convex Decomposition
+        mesh_coll = UsdPhysics.MeshCollisionAPI.Apply(prim)
+        mesh_coll.CreateApproximationAttr().Set("convexDecomposition")
+        
+        physx_coll = PhysxSchema.PhysxCollisionAPI.Apply(prim)
+        physx_coll.CreateContactOffsetAttr().Set(contact_offset)
+        physx_coll.CreateRestOffsetAttr().Set(rest_offset)
+
+    def _add_collider_to_group(self, group_path: str, collider_path: str) -> None:
+        """Add a collider prim to an existing CollisionGroup.
+
+        PhysX reads membership from a UsdGeom CollectionAPI named 'colliders'
+        on the CollisionGroup prim. GetCollidersCollectionAPI() does not exist
+        in IsaacSim bindings — write the relationship directly instead.
+        """
+        grp_prim = self.stage.GetPrimAtPath(group_path)
+        if not grp_prim:
+            raise RuntimeError(f"CollisionGroup not found: {group_path}")
+        coll_api = Usd.CollectionAPI.Apply(grp_prim, "colliders")
+        coll_api.GetIncludesRel().AddTarget(Sdf.Path(collider_path))
+        print(f"[COLLGROUP] {collider_path} -> {group_path}")
+
+    def _filter_groups(self, group_path_a: str, group_path_b: str) -> None:
+        """
+        Make group A filter out collisions with group B, and vice-versa.
+        PhysX requires the physics:filteredGroups rel on both sides to be symmetric.
+        Written as a raw USD relationship to avoid version-specific API differences.
+        """
+        for src, tgt in ((group_path_a, group_path_b), (group_path_b, group_path_a)):
+            src_prim = self.stage.GetPrimAtPath(src)
+            if not src_prim:
+                continue
+            rel = src_prim.GetRelationship("physics:filteredGroups")
+            if not rel:
+                rel = src_prim.CreateRelationship("physics:filteredGroups", custom=False)
+            rel.AddTarget(Sdf.Path(tgt))
+            print(f"[COLLGROUP] filter: {src} x {tgt}")
 
     # ------------------------------------------------------------------ #
     # VISUAL
@@ -61,6 +123,14 @@ class PlantBuilder:
             print(f"[WARN] add_main_stem_segments: ignoring {skipped} non-trunk "
                   f"(order>0) segments.")
 
+        # Create the global tree collision group once
+        if physics:
+            tree_grp_path = f"{_COLL_GROUPS_ROOT}/Tree"
+            self._create_collision_group(tree_grp_path)
+            self._tree_coll_group_path = tree_grp_path
+            # Branches don't collide with each other
+            self._filter_groups(tree_grp_path, tree_grp_path)
+
         order_rank_to_id: dict[tuple[int, int], str] = {}
         current_z = 0.0
 
@@ -81,6 +151,10 @@ class PlantBuilder:
                 fj = UsdPhysics.FixedJoint.Define(self.stage, f"{path}/FixedJoint")
                 fj.CreateBody1Rel().SetTargets([Sdf.Path(path)])
 
+                cyl_path = f"{path}/Cylinder"
+                self._apply_collision(self.stage.GetPrimAtPath(cyl_path))
+                self._add_collider_to_group(self._tree_coll_group_path, cyl_path)
+
             scaled_length = seg["length"] * self.scale
 
             self._segments[seg_id] = dict(
@@ -95,66 +169,71 @@ class PlantBuilder:
 
         return order_rank_to_id
 
-    def add_leaf(
+    def add_articulated_branch(
         self,
         parent_id: str,
         base_id: str,
         total_length: float,
         radius_start: float,
         radius_end: float,
-        z_offset_ratio: float = 1.0,
-        tilt_angle: float = 60.0,
-        rot_around_parent: float = 0.0,
-        num_petiole_segments: int = 3,
-        physics: bool = False,
-        stiffness_base: float = 5000.0,
-        stiffness_tip: float = 1000.0,
-        damping_ratio: float = 0.7,
-        max_bend_angle: float = 10.0,
-        twist_limit: float = 15.0,
-        density: float = 200.0,
+        z_offset_ratio: float,
+        tilt_angle: float,
+        rot_around_parent: float,
+        num_segments: int = 5,
+        physics: bool = True,
+        youngs_modulus: float = 1.0e8,
+        damping_ratio: float = 0.2,
+        max_bend_angle: float = 45.0,
+        twist_limit: float = 5.0,
+        density: float = 800.0,
         color: tuple = LEAF_COLOR,
+        branch_collision: bool = True,
     ) -> str:
-        """Build an articulated petiole chain (stem + leaves, no blades).
+        """Build an articulated branch chain.
 
-        Builds a chain of `num_petiole_segments` D6-jointed cylinder segments
-        representing the petiole. The first segment branches off the parent
-        stem via add_lateral_branch; subsequent segments extend tip-to-tip
-        via add_internode.
+        Builds a chain of `num_segments` D6-jointed cylinder segments.
+        The first segment branches off the parent stem via add_lateral_branch;
+        subsequent segments extend tip-to-tip via add_internode.
+
+        Collision grouping (when physics=True):
+          - A single global group is created for the entire tree.
+          - All segments belong to it -> no self-collisions.
         """
-        if num_petiole_segments <= 0:
-            raise ValueError("num_petiole_segments must be > 0")
+        if num_segments <= 0:
+            raise ValueError("num_segments must be > 0")
 
         # Container Xform so the leaf appears as a named group
         group_path = f"{self.base_path}/{base_id}"
         UsdGeom.Xform.Define(self.stage, group_path)
 
-        segment_len = total_length / num_petiole_segments
+        segment_len = total_length / num_segments
         current_parent = parent_id
 
-        for i in range(num_petiole_segments):
-            t = i / max(1, num_petiole_segments - 1) if num_petiole_segments > 1 else 0.0
+        for i in range(num_segments):
+            t = i / max(1, num_segments - 1) if num_segments > 1 else 0.0
             r = radius_start + t * (radius_end - radius_start)
-            stiff = stiffness_base + t * (stiffness_tip - stiffness_base)
             seg_id = f"{base_id}/Seg_{i:02d}"
-
+            
             if i == 0:
                 self.add_lateral_branch(
                     parent_id=current_parent, id=seg_id,
                     radius=r, length=segment_len,
                     z_offset_ratio=z_offset_ratio, tilt_angle=tilt_angle,
                     rot_around_parent=rot_around_parent,
-                    density=density, stiffness=stiff, damping_ratio=damping_ratio,
-                    max_bend_angle=max_bend_angle, twist_limit=twist_limit,
-                    color=color, physics=physics,
+                    density=density, youngs_modulus=youngs_modulus, damping_ratio=damping_ratio,
+                    max_bend_angle=max_bend_angle,
+                    color=color, physics=physics, petiole_collision=branch_collision,
+                    coll_group_path=self._tree_coll_group_path
                 )
             else:
                 self.add_internode(
                     parent_id=current_parent, id=seg_id,
                     radius=r, length=segment_len,
-                    density=density, stiffness=stiff, damping_ratio=damping_ratio,
+                    density=wood_density, youngs_modulus=youngs_modulus, damping_ratio=damping_ratio,
                     max_bend_angle=max_bend_angle,
                     color=color, physics=physics,
+                    coll_group_path=self._tree_coll_group_path,
+                    petiole_collision=petiole_collision,
                 )
             current_parent = seg_id
 
@@ -169,22 +248,25 @@ class PlantBuilder:
         z_offset_ratio: float,
         tilt_angle: float,
         rot_around_parent: float,
-        density: float = 200.0,
-        stiffness: float = 5000.0,
-        damping_ratio: float = 0.7,
-        max_bend_angle: float = 30.0,
-        twist_limit: float = 15.0,
+        density: float = 800.0,
+        youngs_modulus: float = 1.0e9,
+        damping_ratio: float = 0.1,
+        max_bend_angle: float = 60.0,
         color: tuple = STEM_COLOR,
         physics: bool = False,
+        coll_group_path: str | None = None,
+        petiole_collision: bool = True,
     ) -> str:
         """
         Attach a new segment to the surface of a parent cylinder, offset
         laterally and tilted away from the parent's axis. Used as the
         first segment of a petiole chain.
 
-        z_offset_ratio : 0..1, where along the parent's height to attach.
-        tilt_angle      : degrees away from the parent's axis.
+        z_offset_ratio    : 0..1, where along the parent's height to attach.
+        tilt_angle        : degrees away from the parent's axis.
         rot_around_parent : degrees around the parent's axis (azimuth).
+        coll_group_path   : if set, register this segment's cylinder in that group.
+        petiole_collision : if False, skip CollisionAPI on this segment's cylinder.
         """
         if parent_id not in self._segments:
             raise KeyError(f"Parent '{parent_id}' not found!")
@@ -217,14 +299,34 @@ class PlantBuilder:
         scaled_radius = radius * self.scale
 
         mass = _auto_mass(scaled_radius, scaled_length, density)
-        damping = damping_ratio * _critical_damping(stiffness, mass)
+        stiffness = _beam_stiffness(scaled_radius, scaled_length, youngs_modulus)
+        damping = _linear_damping(stiffness, damping_ratio)
 
         if physics:
             UsdPhysics.RigidBodyAPI.Apply(xform.GetPrim())
             UsdPhysics.MassAPI.Apply(xform.GetPrim()).CreateMassAttr().Set(mass)
 
-            cyl_prim = self.stage.GetPrimAtPath(f"{path}/Cylinder")
-            UsdPhysics.CollisionAPI.Apply(cyl_prim)
+            # Increase solver iterations for stability of thin/light segments
+            from pxr import PhysxSchema
+            physx_rb = PhysxSchema.PhysxRigidBodyAPI.Apply(xform.GetPrim())
+            physx_rb.CreateSolverPositionIterationCountAttr().Set(32)
+            physx_rb.CreateSolverVelocityIterationCountAttr().Set(16)
+
+            cyl_path = f"{path}/Cylinder"
+            cyl_prim = self.stage.GetPrimAtPath(cyl_path)
+            if petiole_collision:
+                self._apply_collision(cyl_prim)
+                if coll_group_path:
+                    self._add_collider_to_group(coll_group_path, cyl_path)
+                
+                # Filter collision with parent cylinder explicitly
+                parent_cyl_path = f"{p['path']}/Cylinder"
+                if self.stage.GetPrimAtPath(parent_cyl_path):
+                    filt = UsdPhysics.FilteredPairsAPI.Apply(cyl_prim)
+                    filt.CreateFilteredPairsRel().AddTarget(Sdf.Path(parent_cyl_path))
+
+            print(f"[PHYSICS] lateral {id}: mass={mass:.4f}kg  stiff={stiffness:.2f}  "
+                  f"damp={damping:.4f}  collision={petiole_collision}")
 
             jnt = UsdPhysics.Joint.Define(self.stage, f"{path}/Joint")
             jnt.CreateBody0Rel().SetTargets([Sdf.Path(p["path"])])
@@ -233,9 +335,7 @@ class PlantBuilder:
             jnt.CreateLocalRot0Attr().Set(_quatd_to_quatf(sub_rot_local.GetQuat()))
             jnt.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
             jnt.CreateLocalRot1Attr().Set(IDENTITY_QUATF)
-            _configure_drives(jnt, stiffness, damping, stiffness, damping,
-                              bend_limit=max_bend_angle, lock_z=False,
-                              twist_limit=twist_limit)
+            _configure_drives(jnt, stiffness, damping, stiffness, damping, lock_z=False, max_bend_angle=max_bend_angle)
 
         self._segments[id] = dict(
             path=path,
@@ -252,17 +352,22 @@ class PlantBuilder:
         id: str,
         radius: float,
         length: float,
-        density: float = 200.0,
-        stiffness: float = 300.0,
-        damping_ratio: float = 0.7,
-        max_bend_angle: float = 20.0,
+        density: float = 800.0,
+        youngs_modulus: float = 1.0e9,
+        damping_ratio: float = 0.1,
+        max_bend_angle: float = 60.0,
         color: tuple = STEM_COLOR,
         physics: bool = False,
+        coll_group_path: str | None = None,
+        petiole_collision: bool = True,
     ) -> str:
         """
         Extend a chain by adding a segment in the same direction as its
         parent (straight, tip-to-tip). Used for segments after the first
         one in a petiole chain.
+
+        coll_group_path   : if set, register this segment's cylinder in that group.
+        petiole_collision : if False, skip CollisionAPI on this segment's cylinder.
         """
         if parent_id not in self._segments:
             raise KeyError(f"Parent '{parent_id}' not found!")
@@ -286,14 +391,34 @@ class PlantBuilder:
         scaled_radius = radius * self.scale
 
         mass = _auto_mass(scaled_radius, scaled_length, density)
-        damping = damping_ratio * _critical_damping(stiffness, mass)
+        stiffness = _beam_stiffness(scaled_radius, scaled_length, youngs_modulus)
+        damping = _linear_damping(stiffness, damping_ratio)
 
         if physics:
             UsdPhysics.RigidBodyAPI.Apply(xform.GetPrim())
             UsdPhysics.MassAPI.Apply(xform.GetPrim()).CreateMassAttr().Set(mass)
+            
+            # Increase solver iterations for stability of thin/light segments
+            from pxr import PhysxSchema
+            physx_rb = PhysxSchema.PhysxRigidBodyAPI.Apply(xform.GetPrim())
+            physx_rb.CreateSolverPositionIterationCountAttr().Set(32)
+            physx_rb.CreateSolverVelocityIterationCountAttr().Set(16)
 
-            cyl_prim = self.stage.GetPrimAtPath(f"{path}/Cylinder")
-            UsdPhysics.CollisionAPI.Apply(cyl_prim)
+            cyl_path = f"{path}/Cylinder"
+            cyl_prim = self.stage.GetPrimAtPath(cyl_path)
+            if petiole_collision:
+                self._apply_collision(cyl_prim)
+                if coll_group_path:
+                    self._add_collider_to_group(coll_group_path, cyl_path)
+                
+                # Filter collision with parent cylinder explicitly
+                parent_cyl_path = f"{p['path']}/Cylinder"
+                if self.stage.GetPrimAtPath(parent_cyl_path):
+                    filt = UsdPhysics.FilteredPairsAPI.Apply(cyl_prim)
+                    filt.CreateFilteredPairsRel().AddTarget(Sdf.Path(parent_cyl_path))
+
+            print(f"[PHYSICS] internode {id}: mass={mass:.4f}kg  stiff={stiffness:.2f}  "
+                  f"damp={damping:.4f}  collision={petiole_collision}")
 
             jnt = UsdPhysics.Joint.Define(self.stage, f"{path}/Joint")
             jnt.CreateBody0Rel().SetTargets([Sdf.Path(p["path"])])
@@ -302,8 +427,7 @@ class PlantBuilder:
             jnt.CreateLocalPos1Attr().Set(Gf.Vec3f(0, 0, 0))
             jnt.CreateLocalRot0Attr().Set(IDENTITY_QUATF)
             jnt.CreateLocalRot1Attr().Set(IDENTITY_QUATF)
-            _configure_drives(jnt, stiffness, damping, 0, 0,
-                              bend_limit=max_bend_angle, lock_z=True)
+            _configure_drives(jnt, stiffness, damping, 0, 0, lock_z=True, max_bend_angle=max_bend_angle)
 
         self._segments[id] = dict(
             path=path,
@@ -313,3 +437,4 @@ class PlantBuilder:
             base_pos=world_pos,
         )
         return id
+

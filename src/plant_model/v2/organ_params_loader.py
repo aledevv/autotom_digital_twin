@@ -19,13 +19,13 @@ class StemSegmentParams:
 
 
 @dataclass
-class LeafParams:
+class BranchParams:
     order: int
     rank: int
     organ_index: int
     parent_rank: int
     parent_order: int
-    total_length: float       # petiole length only (rachis dropped)
+    total_length: float       
     radius_start: float
     radius_end: float
     tilt_angle: float         # degrees from parent axis; 90°=horizontal
@@ -59,7 +59,7 @@ def extract_stem_segments(snapshot: PlantSnapshot) -> list[StemSegmentParams]:
     ]
 
 
-def extract_leaf_params(snapshot: PlantSnapshot, internodes: list[StemSegmentParams]) -> list[LeafParams]:
+def extract_branch_params(snapshot: PlantSnapshot, internodes: list[StemSegmentParams]) -> list[BranchParams]:
     trunk_len: dict[int, float] = {}
     lateral_len: dict[tuple, float] = {}
     for seg in internodes:
@@ -82,7 +82,7 @@ def extract_leaf_params(snapshot: PlantSnapshot, internodes: list[StemSegmentPar
 
         dedup_key = (n.key.order, n.parent_rank, round(azimuth, 2))
         if dedup_key in seen:
-            print(f"[SKIP] Leaf o{n.key.order}_r{n.key.rank}_i{n.key.organ_index}: "
+            print(f"[SKIP] Branch o{n.key.order}_r{n.key.rank}_i{n.key.organ_index}: "
                   f"duplicate at parent_rank={n.parent_rank} azimuth={azimuth:.1f}°")
             continue
         seen.add(dedup_key)
@@ -94,9 +94,9 @@ def extract_leaf_params(snapshot: PlantSnapshot, internodes: list[StemSegmentPar
             trk = trunk_len.get(n.parent_rank, 1.0)
             z_off = lat / trk if trk > 0 else 1.0
 
-        print(f"[Leaf o{n.key.order}_r{n.key.rank}_i{n.key.organ_index}] "
-              f"angle_petiole={tilt:.1f}° azimuth={azimuth:.1f}° z_offset_ratio={z_off:.3f}")
-        params.append(LeafParams(
+        print(f"[Branch o{n.key.order}_r{n.key.rank}_i{n.key.organ_index}] "
+              f"angle={tilt:.1f}° azimuth={azimuth:.1f}° z_offset_ratio={z_off:.3f}")
+        params.append(BranchParams(
             order=n.key.order, rank=n.key.rank, organ_index=n.key.organ_index,
             parent_order=0,
             parent_rank=n.parent_rank,
@@ -128,28 +128,28 @@ def build_plant_from_snapshot(snapshot: PlantSnapshot, builder: PlantBuilder, co
         physics=needs_stem_anchor,
     )
 
-    for leaf in extract_leaf_params(snapshot, stem_segments):
-        parent_id = rank_to_id.get((leaf.parent_order, leaf.parent_rank))
+    for branch in extract_branch_params(snapshot, stem_segments):
+        parent_id = rank_to_id.get((branch.parent_order, branch.parent_rank))
         if parent_id is None:
-            print(f"[WARN] Leaf o{leaf.order}_r{leaf.rank}_i{leaf.organ_index}: "
-                  f"parent (order={leaf.parent_order}, rank={leaf.parent_rank}) not found, skipping.")
+            print(f"[WARN] Branch o{branch.order}_r{branch.rank}_i{branch.organ_index}: "
+                  f"parent (order={branch.parent_order}, rank={branch.parent_rank}) not found, skipping.")
             continue
-        leaf_id = f"Leaf_o{leaf.order}_r{leaf.rank}_i{leaf.organ_index}"
-        builder.add_leaf(
+        branch_id = f"Branch_o{branch.order}_r{branch.rank}_i{branch.organ_index}"
+        builder.add_articulated_branch(
             parent_id=parent_id,
-            base_id=leaf_id,
-            total_length=leaf.total_length,
-            radius_start=leaf.radius_start,
-            radius_end=leaf.radius_end,
-            z_offset_ratio=leaf.z_offset_ratio,
-            tilt_angle=leaf.tilt_angle,
-            rot_around_parent=leaf.azimuth,
-            num_petiole_segments=config.leaf.num_petiole_segments,
+            base_id=branch_id,
+            total_length=branch.total_length,
+            radius_start=branch.radius_start,
+            radius_end=branch.radius_end,
+            z_offset_ratio=branch.z_offset_ratio,
+            tilt_angle=branch.tilt_angle,
+            rot_around_parent=branch.azimuth,
+            num_segments=config.leaf.num_petiole_segments,
             physics=config.leaf.physics_enabled,
-            stiffness_base=config.leaf.stiffness_base,
-            stiffness_tip=config.leaf.stiffness_tip,
+            youngs_modulus=config.leaf.stiffness_base,
             damping_ratio=config.leaf.damping_ratio,
             max_bend_angle=config.leaf.max_bend_angle,
             twist_limit=config.leaf.twist_limit,
             density=config.leaf.density,
+            branch_collision=config.leaf.petiole_collision,
         )
