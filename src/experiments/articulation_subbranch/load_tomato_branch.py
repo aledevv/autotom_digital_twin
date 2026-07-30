@@ -17,7 +17,9 @@ simulation_app = SimulationApp({"headless": False})
 from pxr import UsdPhysics, PhysxSchema, Gf
 import omni.usd
 from isaacsim.core.api import World
+from isaacsim.core.prims import Articulation
 import omni.kit.actions.core
+import numpy as np
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
@@ -85,11 +87,32 @@ except Exception as e:
     print(f"[WARN] Lighting not set: {e}")
 
 my_world = World(stage_units_in_meters=1.0)
+
+# Inizializza l'articolazione
+stem_articulation = Articulation("/World/Stem", name="stem_articulation")
+my_world.scene.add(stem_articulation)
+
 my_world.reset()
 print("[OK] Simulation started — close the window to exit.")
 
+step_counter = 0
+
 while simulation_app.is_running():
     my_world.step(render=True)
+    
+    step_counter += 1
+    # Leggiamo le forze ogni 60 frame (circa ogni 0.5s a 120Hz)
+    if step_counter % 60 == 0:
+        forces = stem_articulation.get_link_incoming_joint_force()
+        if forces is not None and len(forces) > 0:
+            # 'forces' restituisce un array 6D [Fx, Fy, Fz, Tx, Ty, Tz] per ogni link
+            # forces[0] è solitamente la root base
+            torque_base = forces[0][3:] # Momento torcente/flettente
+            torque_mag = np.linalg.norm(torque_base)
+            
+            # Formatta l'output per essere leggibile
+            tx, ty, tz = [round(float(v), 2) for v in torque_base]
+            print(f"[Step {step_counter:04d}] Coppia base: [{tx}, {ty}, {tz}] Nm | Magnitudo: {torque_mag:.2f} Nm")
 
 print("Simulation finished.")
 simulation_app.close()
