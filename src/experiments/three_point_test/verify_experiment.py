@@ -37,16 +37,22 @@ from threepoint_theory import (
 )
 
 # ===========================================================================
-# Experiment parameters (MUST match generate_threepoint_usda.py exactly)
+# Experiment parameters (from threepoint_config.py)
 # ===========================================================================
 
-N_LINKS       = 20
-HEIGHT        = 0.015       # m per link
-RADIUS        = 0.005       # m  (5 mm radius, 10 mm diameter)
-GAP           = 0.0001      # m  gap between links
-DENSITY       = 1000.0      # kg/m³  (turgid tissue ≈ water)
-YOUNG_MODULUS = 3.5e7       # Pa  (35 MPa — Anisimov primary tissue center)
-DAMPING_RATIO = 0.2
+try:
+    from threepoint_config import TrunkConfig, PhysicsConfig, BioConfig
+except ImportError:
+    print("[ERR] Could not import threepoint_config. Make sure you are running from the correct directory.")
+    sys.exit(1)
+
+N_LINKS       = TrunkConfig.N_LINKS
+HEIGHT        = TrunkConfig.HEIGHT
+RADIUS        = TrunkConfig.RADIUS
+GAP           = TrunkConfig.GAP
+DENSITY       = BioConfig.PLANT_DENSITY
+YOUNG_MODULUS = BioConfig.YOUNG_MODULUS
+DAMPING_RATIO = BioConfig.DAMPING_RATIO
 G             = 9.81        # m/s²
 
 # Derived geometry
@@ -217,7 +223,7 @@ def test_4_oscillation_period():
     info(f"T real (undamped)       = {T_real*1000:.3f} ms")
 
     # At 480 Hz, how many steps per oscillation cycle?
-    SIM_HZ = 480
+    SIM_HZ = 6000  # updated to match run_threepoint.py (was 480, under-sampled)
     steps_per_cycle = T_real * SIM_HZ
     sampling_ok = steps_per_cycle >= 10.0
     result("oscillation_sampling", sampling_ok, steps_per_cycle < 20,

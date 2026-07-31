@@ -30,38 +30,7 @@ from pxr import Usd, UsdGeom, Gf, UsdPhysics, Sdf
 # CONFIGURATION
 # ==============================================================================
 
-GLOBAL_SCALE = 1.0
-
-class TrunkConfig:
-    N_LINKS  = 20
-    HEIGHT   = 0.015 * GLOBAL_SCALE   # 1.5 cm per link  → L_total = 30 cm
-    RADIUS   = 0.005 * GLOBAL_SCALE   # 5 mm radius (diameter 10 mm)
-    GAP      = 0.0001 * GLOBAL_SCALE  # 0.1 mm gap between links
-    # SDR = (N_LINKS * HEIGHT) / (2 * RADIUS) = 0.30 / 0.010 = 30 ≥ 20 ✅
-
-    @classmethod
-    def total_span(cls) -> float:
-        """Total beam span between the two support link origins [m]."""
-        return (cls.N_LINKS - 1) * (cls.HEIGHT + cls.GAP)
-
-    @classmethod
-    def center_link_index(cls) -> int:
-        """0-based index of the central link where the force is applied."""
-        return cls.N_LINKS // 2  # = 10 for N=20
-
-
-class PhysicsConfig:
-    BEND_LIMIT_DEG = 30.0   # max bending angle per joint [deg]
-
-
-class BioConfig:
-    # Elastic modulus for tomato-like stem (Solanaceae):
-    #   Primary tissue (turgor-supported, young): 10–50 MPa  — Anisimov et al. 2025
-    #   Mature tissue with sclerenchyma:         100–200 MPa — Shah et al. 2017
-    # Default: 35 MPa — center of primary tissue range.
-    YOUNG_MODULUS = 3.5e7   # [Pa] = 35 MPa
-    DAMPING_RATIO = 0.2     # under-critical damping
-    PLANT_DENSITY = 1000.0  # [kg/m³] — water density, plausible for turgid tissue
+from threepoint_config import TrunkConfig, PhysicsConfig, BioConfig
 
 
 # ==============================================================================
@@ -169,16 +138,22 @@ def create_simple_support(stage: Usd.Stage, stem_path: str, link_path: str, name
 
     This is the key difference from a FixedJoint (clamped support), which
     would change the denominator in the deflection formula from 48 to 192.
+
+    IMPORTANT: the joint must be a child of the link prim (body1), NOT inside
+    a separate Xform under the ArticulationRoot. Placing it outside the link
+    (but inside the articulation) leaves body0 ambiguous and causes PhysX to
+    produce NaN transforms. Pattern confirmed from cantilever_benchmark.usda.
     """
-    joint_path = f"{stem_path}/Supports/{name}"
-    # Ensure parent prim exists
-    UsdGeom.Xform.Define(stage, f"{stem_path}/Supports")
+    # Joint lives inside the link prim — same pattern as cantilever RootFixedJoint
+    joint_path = f"{link_path}/{name}"
 
     joint = UsdPhysics.Joint.Define(stage, joint_path)
-    # body0 = world (not set); body1 = link
+    # body0 = world (not set → implicit world anchor); body1 = link
     joint.CreateBody1Rel().SetTargets([Sdf.Path(link_path)])
 
-    # World-frame attachment point at the link's origin position
+    # World-frame attachment point: where in the world the pin is located.
+    # For body0 (world), localPos0 is in world coords.
+    # For body1 (link), localPos1 is in link-local coords (link origin = (0,0,0)).
     joint.CreateLocalPos0Attr().Set(Gf.Vec3f(world_x, 0.0, 0.0))
     joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
     joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
@@ -216,9 +191,9 @@ def create_d6_bending_joint(stage: Usd.Stage, parent_link: str, child_link: str,
     joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_link)])
     joint.CreateBody1Rel().SetTargets([Sdf.Path(child_link)])
 
-    # Joint connects at the right end of parent and left end of child
-    step = TrunkConfig.HEIGHT + TrunkConfig.GAP
-    joint.CreateLocalPos0Attr().Set(Gf.Vec3f(step, 0.0, 0.0))
+    # Joint connects at the right end of parent (x = HEIGHT) and left end of child (x = 0).
+    # LocalPos0 = HEIGHT, not HEIGHT+GAP: the gap is a collision clearance, not a joint offset.
+    joint.CreateLocalPos0Attr().Set(Gf.Vec3f(TrunkConfig.HEIGHT, 0.0, 0.0))
     joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
     joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
     joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))

@@ -13,9 +13,8 @@ Protocol inspired by Anisimov et al. (2025):
   - Structural stiffness kB [N/m] = slope of initial linear region of F-vs-δ curve.
   - E = kB × L³ / (48 × I)
 
-Expected deflection at F=0.5 N:
-  E=35 MPa  → δ ≈ 4.51 mm
-  E=150 MPa → δ ≈ 1.05 mm
+Expected deflection:
+  See _print_geometry_summary() output at runtime.
 
 Usage:
     ./python.sh run_threepoint.py
@@ -55,8 +54,9 @@ from isaacsim.core.prims import RigidPrim, Articulation
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
+from threepoint_config import TrunkConfig, PhysicsConfig, BioConfig
 import generate_threepoint_usda as gen
-from generate_threepoint_usda import build_stage, get_output_usd_path, TrunkConfig, BioConfig
+from generate_threepoint_usda import build_stage, get_output_usd_path
 from threepoint_theory import (
     second_moment_of_area,
     structural_stiffness,
@@ -70,11 +70,40 @@ USD_PATH = get_output_usd_path()
 # ---------------------------------------------------------------------------
 # Force protocol (step-wise ramp, inspired by Anisimov et al. 2025)
 # ---------------------------------------------------------------------------
-FORCE_STEPS_N = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50]
-STEP_HOLD_SIM_STEPS = 120   # steps at 480 Hz ≈ 0.25 s hold per force level
+TARGET_MAX_DEFLECTION_RATIO = 0.02   # δ_max / L, keeps small-angle assumption valid
+
+def build_force_steps(E_estimate: float, n_steps: int = 10) -> list[float]:
+    """Auto-scale the force ramp so max deflection stays within
+    TARGET_MAX_DEFLECTION_RATIO of the span, for the given E."""
+    L = TrunkConfig.total_span()
+    I = second_moment_of_area(TrunkConfig.RADIUS)
+    delta_max = TARGET_MAX_DEFLECTION_RATIO * L
+    F_max = structural_stiffness(E_estimate, L, I) * delta_max
+    return [round(F_max * (i + 1) / n_steps, 5) for i in range(n_steps)]
+
+SETTLE_VELOCITY_THRESHOLD = 1e-4   # m/s, "at rest" cutoff
+MAX_HOLD_STEPS = 400               # safety cap so a non-converging case doesn't hang
+
+def hold_until_settled(my_world, center_prim, force_vec, render):
+    prev_z = None
+    for step in range(MAX_HOLD_STEPS):
+        center_prim.apply_forces(forces=force_vec, is_global=True)
+        my_world.step(render=render)
+        pos, _ = center_prim.get_world_poses()
+        z = float(np.squeeze(pos)[2])
+        if np.isnan(z):
+            prev_z = None   # physics view not ready yet, skip this step
+            continue
+        if prev_z is not None:
+            vz = abs(z - prev_z) / my_world.get_physics_dt()
+            if vz < SETTLE_VELOCITY_THRESHOLD and step > 20:  # min steps to avoid false-early-exit
+                return step + 1
+        prev_z = z
+    warn("Did not settle within MAX_HOLD_STEPS — result may be noisy.")
+    return MAX_HOLD_STEPS
 
 # Number of initial steps to use for the linear regression (kB estimation)
-N_LINEAR_POINTS = len(FORCE_STEPS_N)   # use all steps (linear elastic regime assumed)
+N_LINEAR_POINTS = 10   # use all 10 steps (linear elastic regime assumed)
 
 # Force applied at the center link, downward (-Z, with gravity)
 FORCE_DIRECTION = np.array([0.0, 0.0, -1.0], dtype=np.float32)
@@ -101,7 +130,12 @@ def apply_physx_scene_settings(stage) -> None:
 
     physx = PhysxSchema.PhysxSceneAPI.Apply(usd_scene.GetPrim())
     physx.CreateSolverTypeAttr().Set("TGS")
-    physx.CreateTimeStepsPerSecondAttr().Set(480)
+    # 6000 Hz: the stiffest joint (E=35 MPa, r=5mm, L=1.5cm) has T_undamped ≈ 1.7 ms.
+    # At 480 Hz (original) there was < 1 step/cycle — numerically unstable.
+    # "acceleration" drive is implicit so tolerates coarser dt than explicit integrators,
+    # but we still want ≥ 10 steps/cycle to keep TGS stable.
+    # 6000 Hz gives ~10.5 steps/cycle for E=35 MPa; increase to 8000 Hz if instability persists.
+    physx.CreateTimeStepsPerSecondAttr().Set(6000)
     physx.CreateEnableCCDAttr().Set(True)
     physx.CreateEnableStabilizationAttr().Set(True)
     physx.CreateEnableGPUDynamicsAttr().Set(True)
@@ -138,7 +172,7 @@ def run_simulation_test(current_E: float) -> dict:
     except Exception:
         pass
 
-    gen.BioConfig.YOUNG_MODULUS = current_E
+    BioConfig.YOUNG_MODULUS = current_E
 
     info(f"Building stage with E = {current_E:.2e} Pa ({current_E/1e6:.1f} MPa) ...")
     stage, stem_path = build_stage(USD_PATH)
@@ -157,19 +191,29 @@ def run_simulation_test(current_E: float) -> dict:
     my_world.reset()
     stem_art.initialize()
 
-    # Central link (0-based index → 1-based name)
-    center_idx  = TrunkConfig.center_link_index()    # = 10 for N=20
+    # ----- Phase 0: warmup — step the world enough for the Physics Simulation
+    #                 View to be created before any RigidPrim is initialized. -----
+    WARMUP_STEPS = 30
+    info(f"Warming up physics engine ({WARMUP_STEPS} steps) ...")
+    for _ in range(WARMUP_STEPS):
+        my_world.step(render=(EXECUTION_MODE != "CALIBRATE"))
+
+    # Initialize the center link prim AFTER the physics view is ready
+    center_idx  = TrunkConfig.center_link_index()
     center_path = f"/World/Stem/Link_{center_idx + 1:02d}"
     center_prim = RigidPrim(center_path)
     center_prim.initialize()
 
-    # ----- Phase 1: gravity settlement (120 steps ≈ 0.25 s at 480 Hz) -----
+    # ----- Phase 1: gravity settlement (240 steps ≈ 0.5 s at 480 Hz) -----
     info("Settling under gravity ...")
-    for _ in range(120):
+    for _ in range(240):
         my_world.step(render=(EXECUTION_MODE != "CALIBRATE"))
 
     pos_rest, _ = center_prim.get_world_poses()
     z_rest = float(np.squeeze(pos_rest)[2])
+    if np.isnan(z_rest):
+        error("z_rest is NaN after settlement — physics view may not be ready. Aborting.")
+        return {"kB_sim": 0.0, "E_sim": 0.0, "r2": 0.0, "forces": [], "deflections": []}
     info(f"Central link Z at rest: {z_rest*1000:.3f} mm")
 
     # ----- Phase 2: stepped force ramp -----
@@ -183,14 +227,17 @@ def run_simulation_test(current_E: float) -> dict:
     deflections_log = []
 
     sim_step = 0
-    for force_val in FORCE_STEPS_N:
+    
+    # Auto-scale forces to keep small-angle deflection
+    force_steps = build_force_steps(current_E)
+
+    for force_val in force_steps:
         force_vec = (FORCE_DIRECTION * force_val).reshape(1, 3)
 
-        # Hold force for STEP_HOLD_SIM_STEPS steps, then sample the last value
-        for hold_i in range(STEP_HOLD_SIM_STEPS):
-            center_prim.apply_forces(forces=force_vec, is_global=True)
-            my_world.step(render=(EXECUTION_MODE != "CALIBRATE"))
-            sim_step += 1
+        # Hold force until settled (based on velocity threshold)
+        render_flag = (EXECUTION_MODE != "CALIBRATE")
+        steps_taken = hold_until_settled(my_world, center_prim, force_vec, render_flag)
+        sim_step += steps_taken
 
         # Sample after the hold has settled
         pos_cur, _ = center_prim.get_world_poses()
@@ -198,11 +245,15 @@ def run_simulation_test(current_E: float) -> dict:
         delta_m    = abs(z_cur - z_rest)   # deflection magnitude [m]
         delta_mm   = delta_m * 1000.0
 
+        if delta_m > TARGET_MAX_DEFLECTION_RATIO * TrunkConfig.total_span() * 1.5:
+            warn(f"  δ={delta_mm:.2f} mm exceeds small-deflection budget "
+                 f"— consider lowering force or excluding this point from the fit.")
+
         forces_log.append(force_val)
         deflections_log.append(delta_m)
 
         csv_writer.writerow([sim_step, f"{force_val:.4f}", f"{z_cur:.6f}", f"{delta_mm:.4f}"])
-        info(f"  F={force_val:.3f} N  →  δ={delta_mm:.3f} mm")
+        info(f"  F={force_val:.3f} N  →  δ={delta_mm:.3f} mm  (settled in {steps_taken} steps)")
 
     csv_file.close()
     info(f"Log saved: {csv_path}")
@@ -210,6 +261,15 @@ def run_simulation_test(current_E: float) -> dict:
     # ----- Phase 3: linear regression on F-vs-δ -----
     forces_arr  = np.array(forces_log)
     deltas_arr  = np.array(deflections_log)   # [m]
+
+    # Guard against NaN values from physics view not being ready
+    valid_mask = ~np.isnan(deltas_arr) & (deltas_arr > 0)
+    if valid_mask.sum() < 2:
+        warn("Not enough valid (non-NaN) data points for regression.")
+        return {"kB_sim": 0.0, "E_sim": 0.0, "r2": 0.0,
+                "forces": forces_log, "deflections": deflections_log}
+    forces_arr  = forces_arr[valid_mask]
+    deltas_arr  = deltas_arr[valid_mask]
 
     n_pts = min(N_LINEAR_POINTS, len(forces_arr))
     if n_pts < 2:
@@ -248,8 +308,6 @@ def _print_geometry_summary():
     L   = TrunkConfig.total_span()
     I   = second_moment_of_area(TrunkConfig.RADIUS)
     SDR = span_diameter_ratio(L, TrunkConfig.RADIUS)
-    kB_theo = structural_stiffness(BioConfig.YOUNG_MODULUS, L, I)
-    delta_theo = theoretical_deflection(FORCE_STEPS_N[-1], L, BioConfig.YOUNG_MODULUS, I)
 
     print("\n\033[1;36m=== Three-Point Bending Test ===\033[0m")
     print(f"  N_LINKS  = {TrunkConfig.N_LINKS}")
@@ -257,9 +315,14 @@ def _print_geometry_summary():
     print(f"  Radius   = {TrunkConfig.RADIUS*1000:.1f} mm")
     print(f"  SDR      = {SDR:.1f}  {'✅' if SDR >= 20 else '⚠️  < 20'}")
     print(f"  I        = {I:.3e} m⁴")
-    print(f"  E (init) = {BioConfig.YOUNG_MODULUS/1e6:.1f} MPa")
-    print(f"  kB theo  = {kB_theo:.4f} N/m")
-    print(f"  δ theo (F={FORCE_STEPS_N[-1]:.2f}N) = {delta_theo*1000:.3f} mm")
+
+    for label, E in [("35 MPa (primary)", 3.5e7), ("150 MPa (mature)", 1.5e8)]:
+        kB_theo = structural_stiffness(E, L, I)
+        force_steps = build_force_steps(E)
+        max_f = force_steps[-1]
+        d_theo  = theoretical_deflection(max_f, L, E, I)
+        print(f"  --- {label}: kB={kB_theo:.4f} N/m, "
+              f"δ(F={max_f:.3f}N)={d_theo*1000:.2f} mm")
     print()
 
 

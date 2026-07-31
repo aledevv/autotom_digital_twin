@@ -8,4 +8,4 @@ echo "Running Three-Point Bending Test in Isaac Sim..."
 ~/isaacsim/python.sh src/experiments/three_point_test/run_threepoint.py
 
 echo "Generating Three-Point Bending Plot..."
-python src/experiments/three_point_test/plot_threepoint.py
+uv run src/experiments/three_point_test/plot_threepoint.py

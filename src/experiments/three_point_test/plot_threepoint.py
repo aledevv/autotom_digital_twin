@@ -38,15 +38,18 @@ from threepoint_theory import (
 )
 
 # ---------------------------------------------------------------------------
-# Geometry (must match generate_threepoint_usda.py)
+# Geometry (from shared config)
 # ---------------------------------------------------------------------------
-N_LINKS = 20
-HEIGHT  = 0.015   # m
-GAP     = 0.0001  # m
-RADIUS  = 0.005   # m
-L       = (N_LINKS - 1) * (HEIGHT + GAP)   # effective span between support origins
-I       = second_moment_of_area(RADIUS)
-SDR     = span_diameter_ratio(L, RADIUS)
+try:
+    from threepoint_config import TrunkConfig, BioConfig
+except ImportError:
+    print("[ERR] Could not import threepoint_config. Make sure you are running from the correct directory.")
+    sys.exit(1)
+
+L      = TrunkConfig.total_span()
+I      = second_moment_of_area(TrunkConfig.RADIUS)
+SDR    = span_diameter_ratio(L, TrunkConfig.RADIUS)
+RADIUS = TrunkConfig.RADIUS
 
 # Reference E values for theoretical lines
 E_REF_PRIMARY = 3.5e7   # 35 MPa  — Anisimov primary tissue
