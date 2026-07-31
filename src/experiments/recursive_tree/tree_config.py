@@ -3,101 +3,123 @@ tree_config.py
 
 Configuration and physics helpers for the recursive tree articulation experiment.
 
-Physics are derived from Euler-Bernoulli beam theory, identical to generate_cantilever_usda.py:
-    I  = π r⁴ / 4              [m⁴]  second moment of area
-    K  = E · I / L             [N·m/rad] bending stiffness per joint
-    D  = 2ζ √(K · M)           [N·m·s/rad] damping
-    M  = ρ · π · r² · h        [kg] link mass
+Physics (Euler-Bernoulli, same as generate_cantilever_usda.py):
+    I  = pi r^4 / 4              [m^4]
+    K  = E * I / L               [N*m/rad]
+    D  = 2*zeta * sqrt(K * M)    [N*m*s/rad]
+    M  = rho * pi * r^2 * h      [kg]
 
-Dimensions are defined pre-scale (in meters at GLOBAL_SCALE=1), then multiplied
-by GLOBAL_SCALE when used in generation. Physics params are always computed
-AFTER scaling so that K/D are consistent with the world-unit lengths.
+All dimensions in BRANCHES are PRE-scale (meters at GLOBAL_SCALE=1).
+The generator multiplies by GLOBAL_SCALE before building USD or computing physics.
 
-Run standalone to verify physics values per level:
+--- BRANCHES list format ---
+
+Each dict describes one chain (trunk or branch).  Fields:
+
+  id          (str)        Unique identifier for this chain.
+  parent      (str|None)   id of the parent chain, or None for the trunk.
+  attach_link (int|None)   1-based index of the parent link to attach to.
+                           None when parent is None.
+                           1 = first (bottom) link, n_links = top link.
+  n_links     (int)        Number of rigid segments in this chain.
+  radius      (float)      Cylinder radius  [m, pre-scale].
+  height      (float)      Cylinder height per link [m, pre-scale].
+  tilt        (float)      Tilt angle away from parent local-Z axis [deg].
+  rot         (float)      Azimuthal rotation around parent local-Z axis [deg].
+
+Run standalone to verify physics:
     python tree_config.py
 """
 
 import math
 
 # ==============================================================================
-# GLOBAL SCALE
+# GLOBAL SCALE & PHYSICS CONSTANTS
 # ==============================================================================
 
-GLOBAL_SCALE = 10.0   # All raw dimensions are multiplied by this
+GLOBAL_SCALE = 10.0     # All raw dimensions are multiplied by this
 
-# ==============================================================================
-# BIOLOGICAL PHYSICS CONSTANTS
-# ==============================================================================
+BEND_LIMIT_DEG = 30.0   # +/- deg soft limit on rotX/rotY joint drives
+GAP            = 0.001  # Gap between adjacent links [m, pre-scale]
+
 
 class BioConfig:
-    YOUNG_MODULUS  = 1.5e8   # [Pa] 150 MPa — mature stem (cantilever benchmark default)
-    DAMPING_RATIO  = 0.2     # ζ, dimensionless
-    PLANT_DENSITY  = 1000.0  # [kg/m³]
+    YOUNG_MODULUS = 1.5e8   # [Pa] 150 MPa - mature stem
+    DAMPING_RATIO = 0.2     # zeta, dimensionless
+    PLANT_DENSITY = 1000.0  # [kg/m^3]
+
 
 # ==============================================================================
-# TREE STRUCTURE CONFIGURATION
+# BRANCH LIST
 # ==============================================================================
+#
+# trunk  : 5 links, vertical, anchored to world
+# branchA: 4 links, attaches at trunk link 3 (middle), tilt 45 deg
+# subA1  : 3 links, attaches at branchA link 2,         tilt 40 deg
+#
+# Max child radius = 0.005 m (0.5 cm pre-scale) -> 5 cm world
 
-# Start simple: trunk → 1 branch → 1 sub-branch
-# Dimensions are PRE-scale (meters). Generator applies GLOBAL_SCALE.
-#
-# children_per_level[i]  : how many children the last link of level i spawns
-# n_links_per_level[i]   : number of rigid links in a chain at level i
-# radius_per_level[i]    : cylinder radius at level i  [m pre-scale]
-# height_per_level[i]    : cylinder height (per link)  [m pre-scale]
-# tilt_per_level[i]      : tilt angle of children of level i away from parent axis [deg]
-# rot_per_level[i]       : base azimuthal rotation for first child of level i [deg]
-#
-# Level 0 = trunk (vertical, anchored to world)
-# Level 1 = first-order branches
-# Level 2 = second-order sub-branches
-#
-# Max child radius is 0.005 m (0.5 cm) pre-scale → 0.05 m (5 cm) in world units.
+BRANCHES = [
+    {
+        "id"         : "trunk",
+        "parent"     : None,
+        "attach_link": None,   # ignored for root
+        "n_links"    : 5,
+        "radius"     : 0.10,   # 10 cm -> 1.0 m world
+        "height"     : 0.20,   # 20 cm -> 2.0 m world
+        "tilt"       : 0.0,    # vertical
+        "rot"        : 0.0,
+    },
+    {
+        "id"         : "branchA",
+        "parent"     : "trunk",
+        "attach_link": 3,      # attaches to trunk link 3 (1-based)
+        "n_links"    : 4,
+        "radius"     : 0.03,   # 3 cm -> 0.3 m world
+        "height"     : 0.15,   # 15 cm -> 1.5 m world
+        "tilt"       : 45.0,
+        "rot"        : 0.0,
+    },
+    {
+        "id"         : "subA1",
+        "parent"     : "branchA",
+        "attach_link": 2,      # attaches to branchA link 2 (1-based)
+        "n_links"    : 3,
+        "radius"     : 0.005,  # 0.5 cm -> 5 cm world  (max child radius)
+        "height"     : 0.10,   # 10 cm -> 1.0 m world
+        "tilt"       : 40.0,
+        "rot"        : 90.0,
+    },
+]
 
-TREE_CONFIG = {
-    "depth"              : 3,           # trunk + branch + sub-branch
-    "children_per_level" : [1, 1],      # index i = children of level i  (len = depth-1)
-    "n_links_per_level"  : [5, 4, 3],   # links per chain at each level
-    "radius_per_level"   : [0.10,       # trunk   : 10 cm pre-scale → 1.0 m world
-                             0.03,      # branch  :  3 cm pre-scale → 0.3 m world
-                             0.005],    # subbranch: 0.5 cm pre-scale → 5 cm world (max)
-    "height_per_level"   : [0.20,       # trunk link height : 20 cm → 2.0 m world
-                             0.15,      # branch            : 15 cm → 1.5 m world
-                             0.10],     # sub-branch        : 10 cm → 1.0 m world
-    "tilt_per_level"     : [45.0,       # branches tilt 45° from trunk axis
-                             40.0],     # sub-branches tilt 40° from branch axis
-    "rot_per_level"      : [0.0,        # first branch azimuth
-                             90.0],     # first sub-branch azimuth
-    "gap"                : 0.001,       # gap between adjacent links [m pre-scale]
-    "bend_limit_deg"     : 30.0,        # ±30° soft limit on rotX/rotY drives
-}
 
 # ==============================================================================
 # PHYSICS HELPERS
 # ==============================================================================
 
+def scaled(value: float) -> float:
+    """Apply GLOBAL_SCALE to a pre-scale dimension."""
+    return value * GLOBAL_SCALE
+
+
 def compute_mass(radius: float, height: float) -> float:
     """Cylindrical segment mass [kg]. Inputs in world-unit meters."""
-    volume = math.pi * (radius ** 2) * height
-    return BioConfig.PLANT_DENSITY * volume
+    return BioConfig.PLANT_DENSITY * math.pi * (radius ** 2) * height
 
 
 def compute_second_moment(radius: float) -> float:
-    """Second moment of area for a solid cylinder [m⁴]."""
+    """Second moment of area for a solid cylinder [m^4]."""
     return (math.pi * (radius ** 4)) / 4.0
 
 
-def calculate_physics_params(radius: float, height: float, mass: float) -> tuple[float, float]:
+def calculate_physics_params(radius: float, height: float, mass: float):
     """
-    Return (K, D) for a cylindrical beam segment using Euler-Bernoulli theory.
+    Return (K, D) for one cylindrical beam segment.
 
-    K [N·m/rad]     = E · I / L   (bending stiffness, used as joint drive stiffness)
-    D [N·m·s/rad]   = 2ζ √(K·M)  (damping coefficient)
+    K [N*m/rad]   = E * I / L
+    D [N*m*s/rad] = 2*zeta * sqrt(K * M)
 
-    Args:
-        radius: cylinder radius  [m, world units — i.e. after GLOBAL_SCALE]
-        height: cylinder height  [m, world units]
-        mass:   cylinder mass    [kg]
+    All inputs in world-unit meters (after GLOBAL_SCALE).
     """
     I = compute_second_moment(radius)
     K = (BioConfig.YOUNG_MODULUS * I) / height
@@ -105,64 +127,115 @@ def calculate_physics_params(radius: float, height: float, mass: float) -> tuple
     return K, D
 
 
-def scaled(value: float) -> float:
-    """Apply GLOBAL_SCALE to a pre-scale dimension."""
-    return value * GLOBAL_SCALE
+# ==============================================================================
+# VALIDATION
+# ==============================================================================
+
+def validate_branches(branches: list) -> None:
+    """
+    Validate the BRANCHES list and raise ValueError with a clear message on any issue.
+
+    Checks:
+      - No duplicate ids
+      - Exactly one root (parent=None)
+      - Every parent id exists in the list
+      - attach_link is within [1, parent.n_links] for non-root branches
+      - Total link count <= 64 (PhysX articulation limit)
+    """
+    ids = [b["id"] for b in branches]
+
+    # Duplicate ids
+    seen = set()
+    for bid in ids:
+        if bid in seen:
+            raise ValueError(f"[tree_config] Duplicate branch id: '{bid}'")
+        seen.add(bid)
+
+    # Root count
+    roots = [b for b in branches if b.get("parent") is None]
+    if len(roots) == 0:
+        raise ValueError("[tree_config] No root branch found (parent=None). Add one trunk.")
+    if len(roots) > 1:
+        root_ids = [r["id"] for r in roots]
+        raise ValueError(f"[tree_config] Multiple root branches: {root_ids}. Only one is allowed.")
+
+    # Build id -> n_links map for parent range check
+    id_to_nlinks = {b["id"]: b["n_links"] for b in branches}
+
+    for b in branches:
+        if b.get("parent") is None:
+            continue  # root - skip parent checks
+
+        parent_id = b["parent"]
+        if parent_id not in id_to_nlinks:
+            raise ValueError(
+                f"[tree_config] Branch '{b['id']}' references unknown parent '{parent_id}'. "
+                f"Known ids: {ids}"
+            )
+
+        attach = b.get("attach_link")
+        if attach is None:
+            raise ValueError(
+                f"[tree_config] Branch '{b['id']}' has a parent but no 'attach_link'. "
+                f"Set attach_link to an integer in [1, {id_to_nlinks[parent_id]}]."
+            )
+        if not isinstance(attach, int):
+            raise ValueError(
+                f"[tree_config] Branch '{b['id']}' attach_link must be an int, "
+                f"got {type(attach).__name__}."
+            )
+        parent_nlinks = id_to_nlinks[parent_id]
+        if not (1 <= attach <= parent_nlinks):
+            raise ValueError(
+                f"[tree_config] Branch '{b['id']}' attach_link={attach} is out of range "
+                f"[1, {parent_nlinks}] for parent '{parent_id}'."
+            )
+
+    # PhysX limit
+    total = sum(b["n_links"] for b in branches)
+    if total > 64:
+        raise ValueError(
+            f"[tree_config] Total link count {total} exceeds PhysX articulation limit of 64. "
+            f"Reduce n_links in some branches."
+        )
 
 
 # ==============================================================================
 # SUMMARY PRINTER
 # ==============================================================================
 
-def print_tree_summary() -> None:
-    """Print a table of physical parameters for each tree level."""
-    depth   = TREE_CONFIG["depth"]
-    radii   = TREE_CONFIG["radius_per_level"]
-    heights = TREE_CONFIG["height_per_level"]
-    names   = ["Trunk", "Branch", "Sub-branch", "Level-3", "Level-4"]
+def print_tree_summary(branches=None) -> None:
+    """Print physics parameters for every branch in the list."""
+    if branches is None:
+        branches = BRANCHES
+
+    validate_branches(branches)
 
     print()
-    print("=" * 80)
-    print(f"  Recursive Tree Config  |  GLOBAL_SCALE = {GLOBAL_SCALE}  |  E = {BioConfig.YOUNG_MODULUS:.2e} Pa")
-    print("=" * 80)
-    header = f"  {'Level':<12} {'Radius(m)':>10} {'Height(m)':>10} {'Mass(kg)':>10} {'K(N·m/r)':>12} {'D(N·m·s)':>12} {'T(s)':>8}"
-    print(header)
-    print("-" * 80)
+    print("=" * 88)
+    print(f"  Tree Config  |  GLOBAL_SCALE={GLOBAL_SCALE}  |  E={BioConfig.YOUNG_MODULUS:.2e} Pa  |  zeta={BioConfig.DAMPING_RATIO}")
+    print("=" * 88)
+    hdr = (f"  {'id':<12} {'parent':<12} {'alink':>5} {'r(m)':>8} {'h(m)':>8} "
+           f"{'mass(kg)':>9} {'K(N*m/r)':>12} {'D(N*m*s)':>12} {'T(s)':>7}")
+    print(hdr)
+    print("-" * 88)
 
-    for lvl in range(depth):
-        r_world = scaled(radii[lvl])
-        h_world = scaled(heights[lvl])
-        m       = compute_mass(r_world, h_world)
-        K, D    = calculate_physics_params(r_world, h_world, m)
-        T       = 2.0 * math.pi * math.sqrt(m / K) if K > 0 else float("inf")
-        name    = names[lvl] if lvl < len(names) else f"Level-{lvl}"
-        n_links = TREE_CONFIG["n_links_per_level"][lvl]
-        children = TREE_CONFIG["children_per_level"][lvl] if lvl < len(TREE_CONFIG["children_per_level"]) else 0
-        print(f"  {name:<12} {r_world:>10.4f} {h_world:>10.4f} {m:>10.4f} {K:>12.2f} {D:>12.4f} {T:>8.4f}")
+    total_links = 0
+    for b in branches:
+        r_w  = scaled(b["radius"])
+        h_w  = scaled(b["height"])
+        m    = compute_mass(r_w, h_w)
+        K, D = calculate_physics_params(r_w, h_w, m)
+        T    = 2.0 * math.pi * math.sqrt(m / K) if K > 0 else float("inf")
+        al   = str(b.get("attach_link") or "-")
+        pa   = b.get("parent") or "-"
+        print(f"  {b['id']:<12} {pa:<12} {al:>5} {r_w:>8.4f} {h_w:>8.4f} "
+              f"{m:>9.3f} {K:>12.2f} {D:>12.4f} {T:>7.4f}")
+        total_links += b["n_links"]
 
-    print("-" * 80)
-    total_links = sum(
-        TREE_CONFIG["n_links_per_level"][lvl] * (
-            1 if lvl == 0 else
-            math.prod(TREE_CONFIG["children_per_level"][:lvl])
-        )
-        for lvl in range(depth)
-    )
-    print(f"  Total links (PhysX): {int(total_links)}  (max 64 allowed)")
-    print()
-
-    # Stiffness monotonicity check
-    Ks = []
-    for lvl in range(depth):
-        r_w = scaled(radii[lvl])
-        h_w = scaled(heights[lvl])
-        m   = compute_mass(r_w, h_w)
-        K, _ = calculate_physics_params(r_w, h_w, m)
-        Ks.append(K)
-
-    ok = all(Ks[i] > Ks[i+1] for i in range(len(Ks)-1))
-    status = "✅" if ok else "⚠️  K not monotonically decreasing — check config!"
-    print(f"  K monotonically decreasing (trunk > branch > sub): {status}")
+    print("-" * 88)
+    ok = "OK" if total_links <= 64 else "EXCEEDS LIMIT"
+    print(f"  Total links: {total_links}  (PhysX limit: 64)  [{ok}]")
     print()
 
 
