@@ -8,7 +8,7 @@ import csv
 # "CALIBRATE" -> Ricerca in automatico (headless) il YOUNG_MODULUS per la deflessione target
 # "AUTO"      -> Applica la forza automaticamente per 3s e poi la rilascia (con GUI)
 # "MANUAL"    -> Nessuna forza automatica, usa il mouse (Shift + Click) (con GUI)
-EXECUTION_MODE = "MANUAL"
+EXECUTION_MODE = "AUTO"
 
 TARGET_DEFLECTION_MM = 7.6
 CALIBRATION_TOLERANCE_MM = 0.1

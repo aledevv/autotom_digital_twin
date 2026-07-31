@@ -311,6 +311,8 @@ def build_stage(output_path: str, branches=None):
     pos_registry   = {}
     # branch_id -> world-space unit axis vector of this chain
     axis_registry  = {}
+    # branch_id -> world-space orientation quaternion of this chain
+    orient_registry = {}
 
     for b in branches:
         bid     = b["id"]
@@ -331,6 +333,9 @@ def build_stage(output_path: str, branches=None):
                 is_root=True,
                 chain_orientation=None,  # trunk = vertical = identity
             )
+            
+            # Store identity orientation for trunk
+            orient_registry[bid] = Gf.Quatf(1, 0, 0, 0)
 
         else:
             parent_id  = b["parent"]
@@ -344,44 +349,58 @@ def build_stage(output_path: str, branches=None):
             parent_def    = next(x for x in branches if x["id"] == parent_id)
             p_h_world     = scaled(parent_def["height"])
             p_r_world     = scaled(parent_def["radius"])
+            
+            # Get parent's world-space orientation
+            parent_orientation = orient_registry.get(parent_id, Gf.Quatf(1, 0, 0, 0))
 
             # --- World-space axis of this branch ---
-            # Rotate around world Z by rot_deg (azimuth), then tilt away from
-            # the parent's local Z (world Z for trunk, or branch axis for sub-branches)
-            # For simplicity we tilt from world Z and apply azimuth independently.
-            # This gives correct angles for trunk children; for deeper levels the
-            # tilt is still measured from world Z (absolute, not relative to parent axis).
+            # Compute branch orientation relative to parent's frame:
+            # First rotate around Z by rot_deg (azimuth in parent frame),
+            # then tilt away from parent's local Z axis
             rot_z    = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_deg)
             rot_tilt = Gf.Rotation(Gf.Vec3d(1, 0, 0), -tilt_deg)
-            combined = rot_z * rot_tilt
+            branch_rot_in_parent_frame = rot_z * rot_tilt
+            
+            # Combine with parent's world orientation to get branch's world orientation
+            parent_rot = Gf.Rotation(Gf.Quatd(parent_orientation))
+            combined = parent_rot * branch_rot_in_parent_frame
+            
             chain_axis_raw = combined.TransformDir(Gf.Vec3d(0, 0, 1))
             chain_axis     = Gf.Vec3d(*chain_axis_raw).GetNormalized()
             
             # Branch orientation quaternion (world-space)
             chain_orientation = Gf.Quatf(combined.GetQuat())
 
-            # --- Radial offset for branch attachment ---
+            # --- Radial offset for branch attachment in parent's local frame ---
             # Place the branch attachment point at half-radius of parent link
             # to avoid overlap at center axis
             radial_distance = p_r_world / 2.0
             base_offset_local = Gf.Vec3d(0.0, radial_distance, p_h_world + gap)
-            rotated_offset = rot_z.TransformDir(base_offset_local)
+            
+            # Rotate offset by azimuth in parent's local frame
+            rot_z_local = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_deg)
+            offset_in_parent_frame = rot_z_local.TransformDir(base_offset_local)
+            
+            # Transform from parent local frame to world frame using parent orientation
+            parent_rot_matrix = Gf.Matrix3d(parent_orientation)
+            offset_in_world = parent_rot_matrix * offset_in_parent_frame
             
             # --- World start position = attachment point on parent link ---
             attach_base  = parent_bases[attach_idx]
-            start_pos    = attach_base + rotated_offset
+            start_pos    = attach_base + offset_in_world
 
             # --- Joint frame in parent-link local frame ---
-            # LocalPos0: attachment point with radial offset
+            # LocalPos0: attachment point with radial offset (in parent frame)
             local_pos0 = Gf.Vec3f(
-                rotated_offset[0],
-                rotated_offset[1],
-                p_h_world + gap
+                offset_in_parent_frame[0],
+                offset_in_parent_frame[1],
+                offset_in_parent_frame[2]
             )
 
-            # LocalRot0: total rotation of branch (world-space rotation expressed
-            # as quaternion, since parent is identity for trunk or already rotated for sub-branches)
-            local_rot0 = Gf.Quatf(combined.GetQuat())
+            # LocalRot0: branch orientation relative to parent frame
+            parent_rot_inv = Gf.Rotation(Gf.Quatd(parent_orientation)).GetInverse()
+            local_rot_gfd  = parent_rot_inv * combined
+            local_rot0     = Gf.Quatf(local_rot_gfd.GetQuat())
 
             print(f"[INFO] '{bid}': {b['n_links']} links, "
                   f"r={scaled(b['radius']):.3f}m, h={h_world:.3f}m, "
@@ -397,6 +416,9 @@ def build_stage(output_path: str, branches=None):
                 attachment_local_rot0=local_rot0,
                 chain_orientation=chain_orientation,
             )
+            
+            # Store branch orientation for potential sub-branches
+            orient_registry[bid] = chain_orientation
 
         chain_registry[bid] = link_paths
         pos_registry[bid]   = link_bases
