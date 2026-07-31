@@ -20,6 +20,8 @@ from isaacsim.core.api import World
 from isaacsim.core.prims import Articulation
 import omni.kit.actions.core
 import numpy as np
+import csv
+import time
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
@@ -86,33 +88,80 @@ try:
 except Exception as e:
     print(f"[WARN] Lighting not set: {e}")
 
-my_world = World(stage_units_in_meters=1.0)
+my_world = World(stage_units_in_meters=1.0, physics_prim_path="/World/PhysicsScene")
 
 # Inizializza l'articolazione
 stem_articulation = Articulation("/World/Stem", name="stem_articulation")
 my_world.scene.add(stem_articulation)
 
 my_world.reset()
+stem_articulation.initialize()
 print("[OK] Simulation started — close the window to exit.")
 
 step_counter = 0
 
+# --- Diagnostica una tantum dopo initialize() ---
+print("[DEBUG] body_names:", stem_articulation.body_names)
+print("[DEBUG] num_bodies:", stem_articulation.num_bodies)
+try:
+    print("[DEBUG] masses:", stem_articulation.get_body_masses())
+except Exception as e:
+    print("[DEBUG] get_body_masses fallito:", e)
+
+step_counter = 0
+found_nonzero = False
+
+# Setup CSV Logging
+csv_path = os.path.join(os.path.dirname(USD_PATH), "forces_log.csv")
+print(f"[INFO] Logging forces to {csv_path}")
+csv_file = open(csv_path, "w", newline="")
+csv_writer = csv.writer(csv_file)
+csv_writer.writerow(["Step", "Time", "JointName", "Fx", "Fy", "Fz", "Tx", "Ty", "Tz", "F_norm"])
+
+start_time = time.time()
+
 while simulation_app.is_running():
     my_world.step(render=True)
-    
     step_counter += 1
-    # Leggiamo le forze ogni 60 frame (circa ogni 0.5s a 120Hz)
-    if step_counter % 60 == 0:
-        forces = stem_articulation.get_link_incoming_joint_force()
-        if forces is not None and len(forces) > 0:
-            # 'forces' restituisce un array 6D [Fx, Fy, Fz, Tx, Ty, Tz] per ogni link
-            # forces[0] è solitamente la root base
-            torque_base = forces[0][3:] # Momento torcente/flettente
-            torque_mag = np.linalg.norm(torque_base)
-            
-            # Formatta l'output per essere leggibile
-            tx, ty, tz = [round(float(v), 2) for v in torque_base]
-            print(f"[Step {step_counter:04d}] Coppia base: [{tx}, {ty}, {tz}] Nm | Magnitudo: {torque_mag:.2f} Nm")
+
+    if step_counter % 10 == 0:  # controlla più spesso per non perdere transitori
+        try:
+            joint_forces = stem_articulation.get_measured_joint_forces()  # (envs, links, 6)
+        except Exception as e:
+            print(f"[Step {step_counter:04d}] Errore lettura: {e}")
+            continue
+
+        # Scansiona TUTTI i link, non solo il link 0
+        mags = np.linalg.norm(joint_forces[0, :, :3], axis=-1)  # forza per link
+        nonzero_idx = np.where(mags > 1e-6)[0]
+
+        if len(nonzero_idx) > 0:
+            found_nonzero = True
+            current_time = time.time() - start_time
+            for idx in nonzero_idx:
+                name = stem_articulation.body_names[idx] if idx < len(stem_articulation.body_names) else f"idx{idx}"
+                fx, fy, fz, tx, ty, tz = joint_forces[0, idx, :]
+                fnorm = mags[idx]
+                
+                # Scrivi su CSV
+                csv_writer.writerow([step_counter, f"{current_time:.4f}", name, 
+                                     f"{fx:.6f}", f"{fy:.6f}", f"{fz:.6f}", 
+                                     f"{tx:.6f}", f"{ty:.6f}", f"{tz:.6f}", f"{fnorm:.6f}"])
+                
+                # Stampa a video
+                # (arrotonda solo per il print)
+                fx_r, fy_r, fz_r, tx_r, ty_r, tz_r = [round(float(v), 4) for v in joint_forces[0, idx, :]]
+                print(f"[Step {step_counter:04d}] {name}: F=[{fx_r},{fy_r},{fz_r}] T=[{tx_r},{ty_r},{tz_r}]")
+        elif step_counter % 300 == 0:
+            # ogni 2.5s, se ancora tutto zero, stampa diagnostica extra
+            print(f"[Step {step_counter:04d}] Ancora tutto zero. "
+                  f"max forza assoluta rilevata: {mags.max():.6e} | "
+                  f"velocità giunti: {stem_articulation.get_joint_velocities()}")
+
+print(f"[FINE] Forze non-zero mai rilevate: {not found_nonzero}")
+
+csv_file.close()
+print(f"[OK] Log salvato in {csv_path}")
 
 print("Simulation finished.")
 simulation_app.close()

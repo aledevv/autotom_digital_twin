@@ -14,7 +14,7 @@ from pxr import Usd, UsdGeom, Gf, UsdPhysics, Sdf
 # ==============================================================================
 
 # Global scale factor (1.0 = 1 meter)
-GLOBAL_SCALE = 5.0
+GLOBAL_SCALE = 1.0
 
 class TrunkConfig:
     """Geometric settings for the main trunk."""
@@ -105,7 +105,7 @@ def setup_base_stage(path: str) -> tuple:
 
 def create_rigid_body_link(stage: Usd.Stage, parent_path: str, index: int, base_z: float) -> str:
     """Creates a Link Xform acting as a RigidBody, and nested Cylinder geometry with Collisions."""
-    link_path = f"{parent_path}/Link{index:02d}"
+    link_path = f"{parent_path}/Trunk_{index:02d}"
     
     xform_prim = UsdGeom.Xform.Define(stage, link_path)
     xform_prim.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, base_z))
