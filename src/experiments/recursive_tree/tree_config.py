@@ -37,7 +37,7 @@ import math
 # GLOBAL SCALE & PHYSICS CONSTANTS
 # ==============================================================================
 
-GLOBAL_SCALE = 10.0     # All raw dimensions are multiplied by this
+GLOBAL_SCALE = 5.0     # All raw dimensions are multiplied by this
 
 BEND_LIMIT_DEG = 30.0   # +/- deg soft limit on rotX/rotY joint drives
 GAP            = 0.001  # Gap between adjacent links [m, pre-scale]

@@ -357,13 +357,16 @@ def build_stage(output_path: str, branches=None):
             # Compute branch orientation relative to parent's frame:
             # First rotate around Z by rot_deg (azimuth in parent frame),
             # then tilt away from parent's local Z axis
+            # --- World-space axis of this branch ---
+            # 1. Prima inclina (tilt), poi ruota attorno al genitore (azimut)
             rot_z    = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_deg)
             rot_tilt = Gf.Rotation(Gf.Vec3d(1, 0, 0), -tilt_deg)
-            branch_rot_in_parent_frame = rot_z * rot_tilt
+            branch_rot_in_parent_frame = rot_tilt * rot_z
             
-            # Combine with parent's world orientation to get branch's world orientation
+            # 2. Ottieni l'orientamento nel mondo
+            # CORREZIONE 1: Ordine invertito. Prima rotazione locale, POI rotazione del genitore!
             parent_rot = Gf.Rotation(Gf.Quatd(parent_orientation))
-            combined = parent_rot * branch_rot_in_parent_frame
+            combined = branch_rot_in_parent_frame * parent_rot
             
             chain_axis_raw = combined.TransformDir(Gf.Vec3d(0, 0, 1))
             chain_axis     = Gf.Vec3d(*chain_axis_raw).GetNormalized()
@@ -372,35 +375,29 @@ def build_stage(output_path: str, branches=None):
             chain_orientation = Gf.Quatf(combined.GetQuat())
 
             # --- Radial offset for branch attachment in parent's local frame ---
-            # Place the branch attachment point at half-radius of parent link
-            # to avoid overlap at center axis
             radial_distance = p_r_world / 2.0
             base_offset_local = Gf.Vec3d(0.0, radial_distance, p_h_world + gap)
             
-            # Rotate offset by azimuth in parent's local frame
             rot_z_local = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_deg)
             offset_in_parent_frame = rot_z_local.TransformDir(base_offset_local)
             
-            # Transform from parent local frame to world frame using parent orientation
-            parent_rot_matrix = Gf.Matrix3d(parent_orientation)
-            offset_in_world = parent_rot_matrix * offset_in_parent_frame
+            # (Questa è la correzione precedente che ha sistemato la posizione)
+            offset_in_world = parent_rot.TransformDir(offset_in_parent_frame)
             
             # --- World start position = attachment point on parent link ---
             attach_base  = parent_bases[attach_idx]
             start_pos    = attach_base + offset_in_world
 
             # --- Joint frame in parent-link local frame ---
-            # LocalPos0: attachment point with radial offset (in parent frame)
             local_pos0 = Gf.Vec3f(
                 offset_in_parent_frame[0],
                 offset_in_parent_frame[1],
                 offset_in_parent_frame[2]
             )
 
-            # LocalRot0: branch orientation relative to parent frame
-            parent_rot_inv = Gf.Rotation(Gf.Quatd(parent_orientation)).GetInverse()
-            local_rot_gfd  = parent_rot_inv * combined
-            local_rot0     = Gf.Quatf(local_rot_gfd.GetQuat())
+            # CORREZIONE 2: local_rot0 è semplicemente la rotazione locale calcolata al punto 1!
+            # Non serve più fare l'inversa (parent_rot_inv * combined).
+            local_rot0 = Gf.Quatf(branch_rot_in_parent_frame.GetQuat())
 
             print(f"[INFO] '{bid}': {b['n_links']} links, "
                   f"r={scaled(b['radius']):.3f}m, h={h_world:.3f}m, "
