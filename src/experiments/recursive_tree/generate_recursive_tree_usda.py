@@ -112,6 +112,10 @@ def create_rigid_segment(
     UsdPhysics.RigidBodyAPI.Apply(xform.GetPrim())
     mass_api = UsdPhysics.MassAPI.Apply(xform.GetPrim())
     mass_api.CreateMassAttr().Set(mass)
+    # Explicitly set center of mass to cylinder's geometric center (offset along Z)
+    # Without this, PhysX may assume COM at link origin (base) instead of geometric center,
+    # causing spurious torques on inclined branches
+    mass_api.CreateCenterOfMassAttr().Set(Gf.Vec3f(0.0, 0.0, height / 2.0))
 
     cyl = UsdGeom.Cylinder.Define(stage, f"{link_path}/Cylinder")
     cyl.GetRadiusAttr().Set(radius)
@@ -152,6 +156,132 @@ def anchor_link_to_world(stage, link_path: str) -> None:
     joint.CreateBody1Rel().SetTargets([Sdf.Path(link_path)])
 
 
+def _add_collision_filtering(stage, child_link_path: str, parent_link_path: str) -> None:
+    """
+    Add collision filtering between parent and child links.
+    
+    Applies FilteredPairsAPI at RigidBody level (child Xform → parent Xform).
+    The filtering automatically propagates to child collision shapes (Cylinder).
+    """
+    parent_prim = stage.GetPrimAtPath(parent_link_path)
+    child_prim = stage.GetPrimAtPath(child_link_path)
+    if parent_prim and child_prim:
+        filtered_pairs = UsdPhysics.FilteredPairsAPI.Apply(child_prim)
+        filtered_pairs.GetFilteredPairsRel().AddTarget(Sdf.Path(parent_link_path))
+
+
+def _add_sibling_collision_filtering(stage, branches, branch_registry) -> None:
+    """
+    Add collision filtering between sibling branches (branches attached to same parent link).
+    
+    When multiple branches attach to the same parent link, they need to filter
+    collisions with each other to prevent spurious contact forces.
+    
+    Example:
+        main_petiole Link_02 (parent)
+             ├─ petiolule_1 (child 1)
+             ├─ petiolule_2 (child 2)  ← These must filter each other!
+             ├─ petiolule_3 (child 3)
+             └─ ... (etc)
+    """
+    # Build map: (parent_id, attach_link_idx) → [list of child branch first links]
+    attachment_map = {}
+    
+    for b in branches:
+        if b.get("parent") is None:
+            continue  # Skip root
+        
+        parent_id = b["parent"]
+        attach_idx = b["attach_link"] - 1  # Convert to 0-based
+        key = (parent_id, attach_idx)
+        
+        # Get first link path of this branch
+        link_paths, _, _, _ = branch_registry[b["id"]]
+        first_link = link_paths[0]
+        
+        if key not in attachment_map:
+            attachment_map[key] = []
+        attachment_map[key].append(first_link)
+    
+    # Now for each attachment point with multiple children, filter them pairwise
+    filtered_count = 0
+    for (parent_id, attach_idx), sibling_links in attachment_map.items():
+        if len(sibling_links) <= 1:
+            continue  # No siblings, skip
+        
+        # Filter each sibling with all other siblings
+        for i, link_a in enumerate(sibling_links):
+            for link_b in sibling_links[i+1:]:  # Only pairs, avoid duplicates
+                prim_a = stage.GetPrimAtPath(link_a)
+                prim_b = stage.GetPrimAtPath(link_b)
+                
+                if prim_a and prim_b:
+                    # Add bidirectional filtering
+                    filtered_pairs_a = UsdPhysics.FilteredPairsAPI.Apply(prim_a)
+                    filtered_pairs_a.GetFilteredPairsRel().AddTarget(Sdf.Path(link_b))
+                    
+                    filtered_pairs_b = UsdPhysics.FilteredPairsAPI.Apply(prim_b)
+                    filtered_pairs_b.GetFilteredPairsRel().AddTarget(Sdf.Path(link_a))
+                    
+                    filtered_count += 2
+    
+    if filtered_count > 0:
+        print(f"[INFO] Added {filtered_count} sibling collision filters")
+
+
+def _add_collision_filtering_with_neighbors(stage, child_link_path: str, parent_link_path: str) -> None:
+    """
+    Add collision filtering for attachment joints.
+    
+    When a branch attaches to a parent chain, it needs to filter collisions with:
+    1. The parent link it attaches to
+    2. The NEXT link in the parent chain (above the attachment point)
+    
+    This prevents the branch from colliding with the link above the attachment point,
+    which can cause instability (found via manual testing in Isaac Sim).
+    
+    Example:
+        stem_Link_03 (parent - attachment point)
+             |
+             └─ petiole_1_Link_01 (child branch)
+             |
+        stem_Link_04 (next sibling - ALSO needs filtering!)
+    
+    Without filtering stem_Link_04, the petiole can collide with it → instability.
+    """
+    # First, filter the parent link
+    _add_collision_filtering(stage, child_link_path, parent_link_path)
+    
+    # Now find the next sibling link in the parent chain
+    # Parent link naming convention: {branch_id}_Link_{N:02d}
+    # We need to find Link_{N+1:02d} with same branch_id
+    
+    import re
+    match = re.match(r'(.*/(\w+)_Link_(\d+))$', parent_link_path)
+    if match:
+        parent_base = match.group(1)
+        branch_id = match.group(2)
+        link_num = int(match.group(3))
+        
+        # Try to find next link (N+1)
+        next_link_num = link_num + 1
+        next_link_path = f"{parent_base[:-len(str(link_num).zfill(2))]}{next_link_num:02d}"
+        
+        next_link_prim = stage.GetPrimAtPath(next_link_path)
+        if next_link_prim and next_link_prim.IsValid():
+            # Filter this next link too
+            child_prim = stage.GetPrimAtPath(child_link_path)
+            if child_prim:
+                filtered_pairs = UsdPhysics.FilteredPairsAPI.Apply(child_prim)
+                rel = filtered_pairs.GetFilteredPairsRel()
+                
+                targets = list(rel.GetTargets())
+                if Sdf.Path(next_link_path) not in targets:
+                    targets.append(Sdf.Path(next_link_path))
+                
+                rel.SetTargets(targets)
+
+
 def create_internal_joint(
     stage,
     parent_path: str,
@@ -178,6 +308,9 @@ def create_internal_joint(
     joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
     joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
     _configure_joint_drives(joint, stiff, damp)
+    
+    # Add collision filtering (both RigidBody and collision shape level)
+    _add_collision_filtering(stage, child_path, parent_path)
 
 
 def create_attachment_joint(
@@ -205,6 +338,9 @@ def create_attachment_joint(
     joint.CreateLocalRot0Attr().Set(local_rot0)
     joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
     _configure_joint_drives(joint, stiff, damp)
+    
+    # Add collision filtering (parent + next sibling in parent chain)
+    _add_collision_filtering_with_neighbors(stage, child_link_path, parent_link_path)
 
 
 # ==============================================================================
@@ -235,6 +371,9 @@ def create_internal_joint_locked(
     joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
     joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
     joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+    
+    # Add collision filtering (both RigidBody and collision shape level)
+    _add_collision_filtering(stage, child_path, parent_path)
 
 
 def create_attachment_joint_locked(
@@ -257,6 +396,9 @@ def create_attachment_joint_locked(
     joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
     joint.CreateLocalRot0Attr().Set(local_rot0)
     joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+    
+    # Add collision filtering (parent + next sibling in parent chain)
+    _add_collision_filtering_with_neighbors(stage, child_link_path, parent_link_path)
 
 
 # ==============================================================================
@@ -298,8 +440,11 @@ def build_chain(
     mass    = compute_mass(r_world, h_world)
     K, D    = calculate_physics_params(r_world, h_world, mass)
 
+    # Attachment joint: stiffer to handle branch connection
+    # Scale damping by sqrt(5) to maintain same damping ratio ζ
+    # (since ζ = D / (2*sqrt(K*J)), and K is scaled by 5)
     K_attach = K * 5.0
-    D_attach = D * 2.0
+    D_attach = D * 2.236  # sqrt(5) ≈ 2.236
 
     step = chain_axis * (h_world + gap)
 
@@ -364,7 +509,7 @@ def build_chain(
 # TOP-LEVEL BUILD
 # ==============================================================================
 
-def build_stage(output_path: str, branches=None, locked_joints: bool = False):
+def build_stage(output_path: str, branches=None, locked_joints: bool = False, skip_limit_check: bool = False):
     """
     Build the full tree USD stage from the BRANCHES list.
     
@@ -374,6 +519,7 @@ def build_stage(output_path: str, branches=None, locked_joints: bool = False):
         locked_joints: If True, use FixedJoint instead of flexible D6 joints.
                       Used for Isaac Sim integration tests to verify geometry
                       doesn't change when joints are completely rigid.
+        skip_limit_check: If True, skip the 64-link PhysX limit check (for experimental tests)
     
     Returns:
         (stage, stem_path) tuple
@@ -381,7 +527,7 @@ def build_stage(output_path: str, branches=None, locked_joints: bool = False):
     if branches is None:
         branches = BRANCHES
 
-    validate_branches(branches)
+    validate_branches(branches, skip_limit_check=skip_limit_check)
 
     stage, stem_path = setup_base_stage(output_path)
 
@@ -471,6 +617,9 @@ def build_stage(output_path: str, branches=None, locked_joints: bool = False):
             )
             
             branch_registry[bid] = (link_paths, link_bases, chain_axis, chain_orientation)
+
+    # Add sibling collision filtering (branches attached to same parent link)
+    _add_sibling_collision_filtering(stage, branches, branch_registry)
 
     return stage, stem_path
 

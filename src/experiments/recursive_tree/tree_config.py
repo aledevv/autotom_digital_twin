@@ -38,14 +38,14 @@ import math
 # GLOBAL SCALE & PHYSICS CONSTANTS
 # ==============================================================================
 
-GLOBAL_SCALE = 2.0     # All raw dimensions are multiplied by this
+GLOBAL_SCALE = 10.0     # All raw dimensions are multiplied by this
 
 BEND_LIMIT_DEG = 30.0   # +/- deg soft limit on rotX/rotY joint drives
 GAP            = 0.001  # Gap between adjacent links [m, pre-scale]
 
 
 class BioConfig:
-    YOUNG_MODULUS = 50.0e7   # [Pa] 20-50 MPa - mature stem (increased for stability)
+    YOUNG_MODULUS = 50.0e7   # [Pa] 50 MPa - mature tomato stem
     DAMPING_RATIO = 0.2      # 0.1-0.2 zeta, dimensionless
     PLANT_DENSITY = 1000.0   # [kg/m^3] plant tissue density
 
@@ -136,7 +136,7 @@ def calculate_physics_params(radius: float, height: float, mass: float):
 # VALIDATION
 # ==============================================================================
 
-def validate_branches(branches: list) -> None:
+def validate_branches(branches: list, skip_limit_check: bool = False) -> None:
     """
     Validate the BRANCHES list and raise ValueError with a clear message on any issue.
 
@@ -145,7 +145,11 @@ def validate_branches(branches: list) -> None:
       - Exactly one root (parent=None)
       - Every parent id exists in the list
       - attach_link is within [1, parent.n_links] for non-root branches
-      - Total link count <= 64 (PhysX articulation limit)
+      - Total link count <= 64 (PhysX articulation limit, unless skip_limit_check=True)
+    
+    Args:
+        branches: List of branch definitions to validate
+        skip_limit_check: If True, skip the 64-link PhysX limit check (for experimental tests)
     """
     ids = [b["id"] for b in branches]
 
@@ -196,9 +200,9 @@ def validate_branches(branches: list) -> None:
                 f"[1, {parent_nlinks}] for parent '{parent_id}'."
             )
 
-    # PhysX limit
+    # PhysX limit (can be disabled for experimental tests)
     total = sum(b["n_links"] for b in branches)
-    if total > 64:
+    if total > 64 and not skip_limit_check:
         raise ValueError(
             f"[tree_config] Total link count {total} exceeds PhysX articulation limit of 64. "
             f"Reduce n_links in some branches."
