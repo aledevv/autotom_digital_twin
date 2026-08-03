@@ -5,7 +5,7 @@ This test suite verifies that validate_branches() correctly rejects invalid
 configurations and produces clear, actionable error messages.
 
 Usage:
-    uv run src/experiments/recursive_tree/test_error_handling.py
+    uv run src/experiments/recursive_tree/tests/test_error_handling.py
 
 What it tests:
 - Duplicate branch IDs
@@ -25,7 +25,7 @@ import sys
 import os
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, SCRIPT_DIR)
+sys.path.insert(0, os.path.dirname(SCRIPT_DIR))
 
 from tree_config import validate_branches
 

@@ -6,7 +6,7 @@ generate_recursive_tree_usda.py matches the expected analytical positions
 for various tree configurations.
 
 Usage:
-    uv run src/experiments/recursive_tree/test_geometric_consistency.py
+    uv run src/experiments/recursive_tree/tests/test_geometric_consistency.py
 
 What it tests:
 - Link positions in world-space vs analytical calculation
@@ -28,7 +28,7 @@ from pxr import Usd, UsdGeom, Gf
 # Add current directory to path for imports
 import sys
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, SCRIPT_DIR)
+sys.path.insert(0, os.path.dirname(SCRIPT_DIR))
 
 from tree_config import (
     BioConfig, GLOBAL_SCALE, GAP, 

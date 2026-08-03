@@ -385,19 +385,14 @@ def build_stage(output_path: str, branches=None, locked_joints: bool = False):
 
     stage, stem_path = setup_base_stage(output_path)
 
-    # branch_id -> list of link USD paths  (0-based index = link number - 1)
-    chain_registry = {}
-    # branch_id -> list of world-space BASE positions per link
-    pos_registry   = {}
-    # branch_id -> world-space unit axis vector of this chain
-    axis_registry  = {}
-    # branch_id -> world-space orientation quaternion of this chain
-    orient_registry = {}
+    # Consolidated registry: branch_id -> (link_paths, base_positions, axis_vector, orientation_quat)
+    branch_registry = {}
 
     for b in branches:
         bid     = b["id"]
         is_root = b.get("parent") is None
         h_world = scaled(b["height"])
+        r_world = scaled(b["radius"])
         gap     = scaled(GAP)
 
         if is_root:
@@ -405,83 +400,62 @@ def build_stage(output_path: str, branches=None, locked_joints: bool = False):
             start_pos  = Gf.Vec3d(0.0, 0.0, 0.0)
 
             print(f"[INFO] '{bid}' (root): {b['n_links']} links, "
-                  f"r={scaled(b['radius']):.3f}m, h={h_world:.3f}m")
+                  f"r={r_world:.3f}m, h={h_world:.3f}m")
 
             link_paths, link_bases = build_chain(
                 stage, stem_path, b,
                 start_pos, chain_axis,
                 is_root=True,
-                chain_orientation=None,  # trunk = vertical = identity
+                chain_orientation=None,
                 locked_joints=locked_joints,
             )
             
-            # Store identity orientation for trunk
-            orient_registry[bid] = Gf.Quatf(1, 0, 0, 0)
+            branch_registry[bid] = (link_paths, link_bases, chain_axis, Gf.Quatf(1, 0, 0, 0))
 
         else:
             parent_id  = b["parent"]
-            attach_idx = b["attach_link"] - 1   # 0-based
+            attach_idx = b["attach_link"] - 1
             tilt_deg   = b["tilt"]
             rot_deg    = b["rot"]
 
-            parent_paths  = chain_registry[parent_id]
-            parent_bases  = pos_registry[parent_id]
-            parent_axis   = axis_registry[parent_id]
-            parent_def    = next(x for x in branches if x["id"] == parent_id)
-            p_h_world     = scaled(parent_def["height"])
-            p_r_world     = scaled(parent_def["radius"])
+            parent_paths, parent_bases, parent_axis, parent_orientation = branch_registry[parent_id]
+            parent_def = next(x for x in branches if x["id"] == parent_id)
+            p_h_world  = scaled(parent_def["height"])
+            p_r_world  = scaled(parent_def["radius"])
             
-            # Get parent's world-space orientation
-            parent_orientation = orient_registry.get(parent_id, Gf.Quatf(1, 0, 0, 0))
-
-            # --- World-space axis of this branch ---
-            # Compute branch orientation relative to parent's frame:
-            # First rotate around Z by rot_deg (azimuth in parent frame),
-            # then tilt away from parent's local Z axis
-            # --- World-space axis of this branch ---
-            # 1. Prima inclina (tilt), poi ruota attorno al genitore (azimut)
+            # Compute branch orientation relative to parent's frame
             rot_z    = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_deg)
             rot_tilt = Gf.Rotation(Gf.Vec3d(1, 0, 0), -tilt_deg)
             branch_rot_in_parent_frame = rot_tilt * rot_z
             
-            # 2. Ottieni l'orientamento nel mondo
-            # CORREZIONE 1: Ordine invertito. Prima rotazione locale, POI rotazione del genitore!
             parent_rot = Gf.Rotation(Gf.Quatd(parent_orientation))
             combined = branch_rot_in_parent_frame * parent_rot
             
             chain_axis_raw = combined.TransformDir(Gf.Vec3d(0, 0, 1))
             chain_axis     = Gf.Vec3d(*chain_axis_raw).GetNormalized()
-            
-            # Branch orientation quaternion (world-space)
             chain_orientation = Gf.Quatf(combined.GetQuat())
 
-            # --- Radial offset for branch attachment in parent's local frame ---
+            # Compute radial offset for branch attachment in parent's local frame
             radial_distance = p_r_world / 2.0
             base_offset_local = Gf.Vec3d(0.0, radial_distance, p_h_world + gap)
             
             rot_z_local = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_deg)
             offset_in_parent_frame = rot_z_local.TransformDir(base_offset_local)
-            
-            # (Questa è la correzione precedente che ha sistemato la posizione)
             offset_in_world = parent_rot.TransformDir(offset_in_parent_frame)
             
-            # --- World start position = attachment point on parent link ---
             attach_base  = parent_bases[attach_idx]
             start_pos    = attach_base + offset_in_world
 
-            # --- Joint frame in parent-link local frame ---
+            # Joint frame in parent-link local frame
             local_pos0 = Gf.Vec3f(
                 offset_in_parent_frame[0],
                 offset_in_parent_frame[1],
                 offset_in_parent_frame[2]
             )
-
-            # CORREZIONE 2: local_rot0 è semplicemente la rotazione locale calcolata al punto 1!
-            # Non serve più fare l'inversa (parent_rot_inv * combined).
             local_rot0 = Gf.Quatf(branch_rot_in_parent_frame.GetQuat())
 
             print(f"[INFO] '{bid}': {b['n_links']} links, "
-                  f"r={scaled(b['radius']):.3f}m, h={h_world:.3f}m, "
+                  f"r={r_world:.3f}m, h={h_world:.3f}m, "
                   f"parent='{parent_id}' link {b['attach_link']}, "
                   f"tilt={tilt_deg}deg, rot={rot_deg}deg")
 
@@ -496,12 +470,7 @@ def build_stage(output_path: str, branches=None, locked_joints: bool = False):
                 locked_joints=locked_joints,
             )
             
-            # Store branch orientation for potential sub-branches
-            orient_registry[bid] = chain_orientation
-
-        chain_registry[bid] = link_paths
-        pos_registry[bid]   = link_bases
-        axis_registry[bid]  = chain_axis
+            branch_registry[bid] = (link_paths, link_bases, chain_axis, chain_orientation)
 
     return stage, stem_path
 
@@ -526,24 +495,6 @@ def build_stage_locked(output_path: str, branches=None):
         # All joints will be FixedJoint - no bending possible
     """
     return build_stage(output_path, branches, locked_joints=True)
-
-
-def _axis_to_quat(axis: Gf.Vec3d) -> Gf.Quatf:
-    """
-    Return a unit quaternion that rotates world Z (0,0,1) to point along `axis`.
-    If axis is already (0,0,1) returns identity.
-    """
-    z = Gf.Vec3d(0, 0, 1)
-    axis_n = axis.GetNormalized()
-    dot = Gf.Dot(z, axis_n)
-    if abs(dot - 1.0) < 1e-9:
-        return Gf.Quatf(1, 0, 0, 0)
-    if abs(dot + 1.0) < 1e-9:
-        return Gf.Quatf(0, 1, 0, 0)   # 180 deg around X
-    cross   = Gf.Cross(z, axis_n)
-    angle   = math.degrees(math.acos(max(-1.0, min(1.0, dot))))
-    rot     = Gf.Rotation(cross, angle)
-    return Gf.Quatf(rot.GetQuat())
 
 
 def main():

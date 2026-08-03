@@ -6,9 +6,9 @@ Questo documento descrive la suite di test completa per il generatore USD dell'a
 
 La test suite è composta da 3 file principali:
 
-1. **`test_geometric_consistency.py`** - Test analitici di consistenza geometrica (9 test)
-2. **`test_error_handling.py`** - Test di gestione errori (8 test)
-3. **`test_isaac_sim_integration.py`** - Test di integrazione con Isaac Sim (3 test)
+1. **`tests/test_geometric_consistency.py`** - Test analitici di consistenza geometrica (9 test)
+2. **`tests/test_error_handling.py`** - Test di gestione errori (8 test)
+3. **`tests/test_isaac_sim_integration.py`** - Test di integrazione con Isaac Sim (3 test)
 
 ---
 
@@ -16,13 +16,13 @@ La test suite è composta da 3 file principali:
 
 ### 1. Geometric Consistency Tests
 
-**File**: `test_geometric_consistency.py`  
+**File**: `tests/test_geometric_consistency.py`  
 **Scopo**: Verifica che le posizioni dei link nel USD generato corrispondano ai calcoli analitici attesi.
 
 **Esecuzione**:
 ```bash
 cd /path/to/autotom_digital_twin
-uv run src/experiments/recursive_tree/test_geometric_consistency.py
+uv run src/experiments/recursive_tree/tests/test_geometric_consistency.py
 ```
 
 **Durata**: ~10 secondi
@@ -56,13 +56,13 @@ Maximum position error: 0.000 mm
 
 ### 2. Error Handling Tests
 
-**File**: `test_error_handling.py`  
+**File**: `tests/test_error_handling.py`  
 **Scopo**: Verifica che configurazioni invalide vengano correttamente respinte con messaggi chiari.
 
 **Esecuzione**:
 ```bash
 cd /path/to/autotom_digital_twin
-uv run src/experiments/recursive_tree/test_error_handling.py
+uv run src/experiments/recursive_tree/tests/test_error_handling.py
 ```
 
 **Durata**: < 1 secondo
@@ -93,13 +93,13 @@ Test 1: duplicate_ids
 
 ### 3. Isaac Sim Integration Tests
 
-**File**: `test_isaac_sim_integration.py`  
+**File**: `tests/test_isaac_sim_integration.py`  
 **Scopo**: Verifica consistenza geometrica quando USD viene caricato in Isaac Sim.
 
 **Esecuzione**:
 ```bash
 cd /path/to/autotom_digital_twin
-~/isaacsim/python.sh src/experiments/recursive_tree/test_isaac_sim_integration.py
+~/isaacsim/python.sh src/experiments/recursive_tree/tests/test_isaac_sim_integration.py
 ```
 
 **Durata**: ~60-90 secondi (include 5s di simulazione)
@@ -169,14 +169,14 @@ VERDICT: USD geometry is consistent in Isaac Sim.
 ### Test analitici falliscono con "ModuleNotFoundError: No module named 'pxr'"
 **Soluzione**: Usa `uv run` invece di `python` direttamente:
 ```bash
-uv run src/experiments/recursive_tree/test_geometric_consistency.py
+uv run src/experiments/recursive_tree/tests/test_geometric_consistency.py
 ```
 
 ### Test Isaac Sim non mostra output
 **Causa**: Isaac Sim è molto verbose, l'output viene nascosto  
 **Soluzione**: Il test usa automatic flushing, l'output dovrebbe apparire. Verifica con:
 ```bash
-~/isaacsim/python.sh test_isaac_sim_integration.py 2>&1 | grep -E "(Test|PASS|FAIL)"
+~/isaacsim/python.sh tests/test_isaac_sim_integration.py 2>&1 | grep -E "(Test|PASS|FAIL)"
 ```
 
 ### Test Isaac Sim fallisce con "command not found: ~/isaacsim/python.sh"
@@ -195,13 +195,13 @@ Per eseguire l'intera test suite:
 cd /path/to/autotom_digital_twin
 
 echo "=== Test 1: Geometric Consistency ==="
-uv run src/experiments/recursive_tree/test_geometric_consistency.py
+uv run src/experiments/recursive_tree/tests/test_geometric_consistency.py
 
 echo -e "\n=== Test 2: Error Handling ==="
-uv run src/experiments/recursive_tree/test_error_handling.py
+uv run src/experiments/recursive_tree/tests/test_error_handling.py
 
 echo -e "\n=== Test 3: Isaac Sim Integration ==="
-~/isaacsim/python.sh src/experiments/recursive_tree/test_isaac_sim_integration.py
+~/isaacsim/python.sh src/experiments/recursive_tree/tests/test_isaac_sim_integration.py
 ```
 
 **Tempo totale stimato**: ~2 minuti

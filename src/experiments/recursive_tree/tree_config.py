@@ -3,7 +3,7 @@ tree_config.py
 
 Configuration and physics helpers for the recursive tree articulation experiment.
 
-Physics (Euler-Bernoulli, same as generate_cantilever_usda.py):
+Physics (Euler-Bernoulli beam theory):
     I  = pi r^4 / 4              [m^4]
     K  = E * I / L               [N*m/rad]
     D  = 2*zeta * sqrt(K * M)    [N*m*s/rad]
@@ -33,7 +33,6 @@ Run standalone to verify physics:
 
 import math
 
-RAD_TO_DEG = math.pi / 180.0
 
 # ==============================================================================
 # GLOBAL SCALE & PHYSICS CONSTANTS
@@ -46,30 +45,24 @@ GAP            = 0.001  # Gap between adjacent links [m, pre-scale]
 
 
 class BioConfig:
-    YOUNG_MODULUS = 50.0e7   # [Pa] 20-50 MPa - mature stem (I've increased to have higher stability)
-    DAMPING_RATIO = 0.2     # 0.1-0.2 zeta, dimensionless
-    PLANT_DENSITY = 1000.0  # [kg/m^3] plant tissue density (very similar to water)
+    YOUNG_MODULUS = 50.0e7   # [Pa] 20-50 MPa - mature stem (increased for stability)
+    DAMPING_RATIO = 0.2      # 0.1-0.2 zeta, dimensionless
+    PLANT_DENSITY = 1000.0   # [kg/m^3] plant tissue density
 
 
 # ==============================================================================
 # BRANCH LIST
 # ==============================================================================
-#
-# trunk  : 5 links, vertical, anchored to world
-# branchA: 4 links, attaches at trunk link 3 (middle), tilt 45 deg
-# subA1  : 3 links, attaches at branchA link 2,         tilt 40 deg
-#
-# Max child radius = 0.005 m (0.5 cm pre-scale) -> 5 cm world
 
 BRANCHES = [
     {
         "id"         : "trunk",
         "parent"     : None,
-        "attach_link": None,   # ignored for root
+        "attach_link": None,
         "n_links"    : 5,
         "radius"     : 0.10,   # 10 cm -> 1.0 m world
         "height"     : 0.20,   # 20 cm -> 2.0 m world
-        "tilt"       : 0.0,    # vertical
+        "tilt"       : 0.0,
         "rot"        : 0.0,
     },
     {
@@ -131,9 +124,10 @@ def calculate_physics_params(radius: float, height: float, mass: float):
     J = compute_moment_of_inertia(radius, height, mass)
     D = 2.0 * BioConfig.DAMPING_RATIO * math.sqrt(K * J)
 
-    # Isaac Sim sets stiffness and dumping w.r.t. deg (not rad), so we convert them into deg
-    K_deg =  K * RAD_TO_DEG
-    D_deg =  D * RAD_TO_DEG
+    # Isaac Sim sets stiffness and damping w.r.t. deg (not rad), so convert
+    rad_to_deg = math.pi / 180.0
+    K_deg = K * rad_to_deg
+    D_deg = D * rad_to_deg
 
     return K_deg, D_deg
 

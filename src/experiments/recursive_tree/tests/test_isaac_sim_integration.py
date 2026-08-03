@@ -8,7 +8,7 @@ into Isaac Sim under different scenarios:
 3. During simulation with locked joints (no movement expected)
 
 These tests require Isaac Sim and must be run with:
-    ~/isaacsim/python.sh src/experiments/recursive_tree/test_isaac_sim_integration.py
+    ~/isaacsim/python.sh src/experiments/recursive_tree/tests/test_isaac_sim_integration.py
 
 What it tests:
 - Geometry positions match analytical calculations after loading in Isaac Sim
@@ -38,7 +38,7 @@ from pxr import Usd, UsdGeom, Gf
 
 # Add current directory to path for imports
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, SCRIPT_DIR)
+sys.path.insert(0, os.path.dirname(SCRIPT_DIR))
 
 from generate_recursive_tree_usda import build_stage, build_stage_locked
 from tree_config import scaled, GAP
