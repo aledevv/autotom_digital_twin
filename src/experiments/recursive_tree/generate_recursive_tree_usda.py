@@ -208,6 +208,58 @@ def create_attachment_joint(
 
 
 # ==============================================================================
+# LOCKED JOINT HELPERS (for testing)
+# ==============================================================================
+
+def create_internal_joint_locked(
+    stage,
+    parent_path: str,
+    child_path: str,
+    joint_name: str,
+    parent_height: float,
+    gap: float,
+) -> None:
+    """
+    FixedJoint between consecutive links in the same chain.
+    
+    Used for Isaac Sim integration tests to verify that geometry doesn't change
+    when joints are completely rigid (no flexibility at all).
+    
+    LocalPos0/LocalPos1 are the same as the flexible D6 joint, but this creates
+    a FixedJoint instead, which is completely rigid with no drives needed.
+    """
+    joint = UsdPhysics.FixedJoint.Define(stage, f"{child_path}/{joint_name}")
+    joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_path)])
+    joint.CreateBody1Rel().SetTargets([Sdf.Path(child_path)])
+    joint.CreateLocalPos0Attr().Set(Gf.Vec3f(0.0, 0.0, parent_height + gap))
+    joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+    joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+    joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+
+
+def create_attachment_joint_locked(
+    stage,
+    parent_link_path: str,
+    child_link_path: str,
+    local_pos0: Gf.Vec3f,
+    local_rot0: Gf.Quatf,
+) -> None:
+    """
+    FixedJoint attaching the first link of a branch to a parent link.
+    
+    Used for Isaac Sim integration tests. Creates a completely rigid attachment
+    with no flexibility.
+    """
+    joint = UsdPhysics.FixedJoint.Define(stage, f"{child_link_path}/AttachJoint")
+    joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_link_path)])
+    joint.CreateBody1Rel().SetTargets([Sdf.Path(child_link_path)])
+    joint.CreateLocalPos0Attr().Set(local_pos0)
+    joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+    joint.CreateLocalRot0Attr().Set(local_rot0)
+    joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+
+
+# ==============================================================================
 # CHAIN BUILDER
 # ==============================================================================
 
@@ -222,6 +274,7 @@ def build_chain(
     attachment_local_pos0: Gf.Vec3f = None,
     attachment_local_rot0: Gf.Quatf = None,
     chain_orientation: Gf.Quatf = None,
+    locked_joints: bool = False,
 ):
     """
     Build one chain of n_links rigid segments directly under stem_path.
@@ -230,6 +283,8 @@ def build_chain(
                  For trunk: (0,0,1). For a branch tilted 45deg: computed by caller.
     chain_orientation : world-space orientation quaternion for branch links.
                         None for trunk (vertical = identity).
+    locked_joints : if True, use FixedJoint instead of flexible D6 joints.
+                    Used for Isaac Sim integration tests.
 
     Returns:
         link_paths : list[str], USD paths ordered bottom to top (index 0 = base link)
@@ -265,21 +320,37 @@ def build_chain(
             if is_root:
                 anchor_link_to_world(stage, link_path)
             else:
-                create_attachment_joint(
-                    stage,
-                    parent_link_path,
-                    link_path,
-                    attachment_local_pos0,
-                    attachment_local_rot0,
-                    K_attach,
-                    D_attach,
-                )
+                if locked_joints:
+                    create_attachment_joint_locked(
+                        stage,
+                        parent_link_path,
+                        link_path,
+                        attachment_local_pos0,
+                        attachment_local_rot0,
+                    )
+                else:
+                    create_attachment_joint(
+                        stage,
+                        parent_link_path,
+                        link_path,
+                        attachment_local_pos0,
+                        attachment_local_rot0,
+                        K_attach,
+                        D_attach,
+                    )
         else:
-            create_internal_joint(
-                stage, prev_link, link_path,
-                f"Joint_{i:02d}_{i + 1:02d}",
-                h_world, gap, K, D,
-            )
+            if locked_joints:
+                create_internal_joint_locked(
+                    stage, prev_link, link_path,
+                    f"Joint_{i:02d}_{i + 1:02d}",
+                    h_world, gap,
+                )
+            else:
+                create_internal_joint(
+                    stage, prev_link, link_path,
+                    f"Joint_{i:02d}_{i + 1:02d}",
+                    h_world, gap, K, D,
+                )
 
         link_paths.append(link_path)
         link_world_bases.append(cur_pos)
@@ -293,10 +364,19 @@ def build_chain(
 # TOP-LEVEL BUILD
 # ==============================================================================
 
-def build_stage(output_path: str, branches=None):
+def build_stage(output_path: str, branches=None, locked_joints: bool = False):
     """
     Build the full tree USD stage from the BRANCHES list.
-    Returns (stage, stem_path).
+    
+    Args:
+        output_path: Path where to save the USD file
+        branches: List of branch definitions (uses BRANCHES from tree_config if None)
+        locked_joints: If True, use FixedJoint instead of flexible D6 joints.
+                      Used for Isaac Sim integration tests to verify geometry
+                      doesn't change when joints are completely rigid.
+    
+    Returns:
+        (stage, stem_path) tuple
     """
     if branches is None:
         branches = BRANCHES
@@ -332,6 +412,7 @@ def build_stage(output_path: str, branches=None):
                 start_pos, chain_axis,
                 is_root=True,
                 chain_orientation=None,  # trunk = vertical = identity
+                locked_joints=locked_joints,
             )
             
             # Store identity orientation for trunk
@@ -412,6 +493,7 @@ def build_stage(output_path: str, branches=None):
                 attachment_local_pos0=local_pos0,
                 attachment_local_rot0=local_rot0,
                 chain_orientation=chain_orientation,
+                locked_joints=locked_joints,
             )
             
             # Store branch orientation for potential sub-branches
@@ -422,6 +504,28 @@ def build_stage(output_path: str, branches=None):
         axis_registry[bid]  = chain_axis
 
     return stage, stem_path
+
+
+def build_stage_locked(output_path: str, branches=None):
+    """
+    Convenience wrapper for build_stage() with locked_joints=True.
+    
+    Creates a USD stage where all joints are FixedJoint (completely rigid).
+    Used for Isaac Sim integration tests to verify that geometry doesn't
+    change during simulation when joints have no flexibility.
+    
+    Args:
+        output_path: Path where to save the USD file
+        branches: List of branch definitions (uses BRANCHES from tree_config if None)
+    
+    Returns:
+        (stage, stem_path) tuple
+    
+    Example:
+        stage, stem_path = build_stage_locked("test_locked.usda")
+        # All joints will be FixedJoint - no bending possible
+    """
+    return build_stage(output_path, branches, locked_joints=True)
 
 
 def _axis_to_quat(axis: Gf.Vec3d) -> Gf.Quatf:

@@ -33,20 +33,22 @@ Run standalone to verify physics:
 
 import math
 
+RAD_TO_DEG = math.pi / 180.0
+
 # ==============================================================================
 # GLOBAL SCALE & PHYSICS CONSTANTS
 # ==============================================================================
 
-GLOBAL_SCALE = 5.0     # All raw dimensions are multiplied by this
+GLOBAL_SCALE = 2.0     # All raw dimensions are multiplied by this
 
 BEND_LIMIT_DEG = 30.0   # +/- deg soft limit on rotX/rotY joint drives
 GAP            = 0.001  # Gap between adjacent links [m, pre-scale]
 
 
 class BioConfig:
-    YOUNG_MODULUS = 1.5e8   # [Pa] 150 MPa - mature stem
-    DAMPING_RATIO = 0.2     # zeta, dimensionless
-    PLANT_DENSITY = 1000.0  # [kg/m^3]
+    YOUNG_MODULUS = 50.0e7   # [Pa] 20-50 MPa - mature stem (I've increased to have higher stability)
+    DAMPING_RATIO = 0.2     # 0.1-0.2 zeta, dimensionless
+    PLANT_DENSITY = 1000.0  # [kg/m^3] plant tissue density (very similar to water)
 
 
 # ==============================================================================
@@ -111,20 +113,29 @@ def compute_second_moment(radius: float) -> float:
     """Second moment of area for a solid cylinder [m^4]."""
     return (math.pi * (radius ** 4)) / 4.0
 
+def compute_moment_of_inertia(radius: float, height: float, mass: float) -> float:
+    """Moment of inertia of a solid cylinder about an axis through one end (parallel-axis theorem)."""
+    J_center = mass * (3.0 * radius**2 + height**2) / 12.0
+    J_pivot = J_center + mass * (height / 2.0)**2
+    return J_pivot
+
 
 def calculate_physics_params(radius: float, height: float, mass: float):
     """
-    Return (K, D) for one cylindrical beam segment.
-
-    K [N*m/rad]   = E * I / L
-    D [N*m*s/rad] = 2*zeta * sqrt(K * M)
-
-    All inputs in world-unit meters (after GLOBAL_SCALE).
+    Compute spring constant K [N*m/rad] and damper D [N*m*s/rad] for a cylindrical link.
+    Inputs are in world-unit meters.
+    Returns tuple (K, D) spring constant and damping coefficient.
     """
     I = compute_second_moment(radius)
     K = (BioConfig.YOUNG_MODULUS * I) / height
-    D = 2.0 * BioConfig.DAMPING_RATIO * math.sqrt(K * mass)
-    return K, D
+    J = compute_moment_of_inertia(radius, height, mass)
+    D = 2.0 * BioConfig.DAMPING_RATIO * math.sqrt(K * J)
+
+    # Isaac Sim sets stiffness and dumping w.r.t. deg (not rad), so we convert them into deg
+    K_deg =  K * RAD_TO_DEG
+    D_deg =  D * RAD_TO_DEG
+
+    return K_deg, D_deg
 
 
 # ==============================================================================

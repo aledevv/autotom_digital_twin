@@ -158,6 +158,136 @@ echo "  - data/droop_settling.gif (if recorded)"
 
 ## Pending Tasks (geometric verification)
 
+### Task 10: Geometric Test Suite ✅ COMPLETED
+
+**File**: `src/experiments/recursive_tree/test_geometric_consistency.py`
+
+**Goal**: Test suite automatico che verifica la correttezza geometrica del USD per varie configurazioni.
+
+**STATUS**: ✅ **COMPLETED** - 9/9 tests pass with 0.000mm max error
+
+**Implementation complete**:
+- ✅ Helper functions (compute_expected_position, read_link_position_from_usd, verify_branch_geometry)
+- ✅ Test infrastructure (build_and_verify_config, temporary USD handling)
+- ✅ 9 test cases covering: trunk vertical, branches at various positions, nesting, azimuth, edge cases
+- ✅ Main runner with comprehensive report
+
+**Tests implemented**:
+1. test_trunk_vertical - 10 vertical links
+2. test_single_branch_45deg - trunk + branch 45°
+3. test_branch_attach_first_link - attachment at first link
+4. test_branch_attach_last_link - attachment at last link  
+5. test_sub_branch_nested - depth-3 nesting (trunk→branchA→subA1)
+6. test_multiple_branches_azimuth - 4 branches forming cross (0°/90°/180°/270°)
+7. test_tiny_radius_branch - 1mm radius (numerical stability)
+8. test_horizontal_branch - 90° tilt (perpendicular)
+9. test_near_vertical_branch - 1° tilt (small angle preservation)
+
+**Run**: `uv run src/experiments/recursive_tree/test_geometric_consistency.py`
+
+**Result**: All tests pass with 0.000mm error - geometry is correct!
+
+---
+
+## Completed Tasks (extended test suite)
+
+### Task 11: Error Handling Test Suite ✅
+
+**File**: `src/experiments/recursive_tree/test_error_handling.py`
+
+**Goal**: Verify that invalid configurations are correctly rejected with clear error messages.
+
+**Tests** (8 cases):
+1. duplicate_ids - Duplicate branch IDs
+2. no_root - No root branch defined
+3. multiple_roots - Multiple root branches
+4. unknown_parent - Reference to non-existent parent
+5. missing_attach_link - Branch without attach_link
+6. attach_link_not_integer - Non-integer attach_link
+7. attach_link_out_of_range - attach_link outside valid range
+8. too_many_links - Total links exceed PhysX limit (>64)
+
+**Run**: `uv run src/experiments/recursive_tree/test_error_handling.py`
+
+**Result**: 8/8 tests pass - all invalid configs correctly rejected with clear messages
+
+---
+
+### Task 12: Locked Joints Support ✅
+
+**File**: `src/experiments/recursive_tree/generate_recursive_tree_usda.py` (extended)
+
+**Goal**: Add support for generating USD with completely rigid joints (FixedJoint) for testing.
+
+**Implementation**:
+- Added `create_internal_joint_locked()` and `create_attachment_joint_locked()`
+- These create `PhysicsFixedJoint` instead of flexible D6 joints
+- Added `locked_joints` parameter to `build_chain()` and `build_stage()`
+- Added `build_stage_locked()` convenience wrapper
+
+**Usage**:
+```python
+from generate_recursive_tree_usda import build_stage_locked
+stage, stem_path = build_stage_locked("test.usda", branches)
+# All joints will be FixedJoint - no bending possible
+```
+
+**Verification**: Generates only PhysicsFixedJoint, no D6 joints
+
+---
+
+### Task 13: Isaac Sim Integration Tests ✅
+
+**File**: `src/experiments/recursive_tree/test_isaac_sim_integration.py`
+
+**Goal**: Verify USD geometry consistency when loaded in Isaac Sim under different scenarios.
+
+**Tests** (3 scenarios):
+1. **stage_open** - Geometry after loading USD (no simulation)
+   - Result: 0.000mm error ✅
+2. **world_reset** - Geometry after PhysX init (flexible joints)
+   - Result: 8.721mm error ❌ (EXPECTED - joints deflect under gravity)
+3. **locked_sim** - Simulation with locked joints (300 steps @ 60Hz, 5 seconds)
+   - Result: 0.000mm drift ✅ (no movement with FixedJoint)
+
+**Run**: `~/isaacsim/python.sh src/experiments/recursive_tree/test_isaac_sim_integration.py`
+
+**Result**: Critical tests pass (1 & 3) - locked joints maintain geometry perfectly!
+
+**Interpretation**:
+- Test 1 pass → USD loads correctly
+- Test 2 fail → Flexible joints behave correctly (deflect under gravity)
+- Test 3 pass → Locked joints maintain positions (zero drift)
+
+---
+
+### Task 14: Test Documentation ✅
+
+**File**: `src/experiments/recursive_tree/TESTING.md`
+
+**Content**: Complete documentation covering:
+- Overview of all test suites
+- How to run each test suite
+- Expected results and interpretation
+- Troubleshooting guide
+- Summary table
+
+**Quick reference**:
+```bash
+# Geometric consistency (9 tests)
+uv run src/experiments/recursive_tree/test_geometric_consistency.py
+
+# Error handling (8 tests)
+uv run src/experiments/recursive_tree/test_error_handling.py
+
+# Isaac Sim integration (3 tests)
+~/isaacsim/python.sh src/experiments/recursive_tree/test_isaac_sim_integration.py
+```
+
+---
+
+## Pending Tasks (geometric verification)
+
 ### Task 10: Geometric Test Suite
 
 **File**: `src/experiments/recursive_tree/test_geometric_consistency.py`
@@ -221,6 +351,32 @@ echo "  - data/droop_settling.gif (if recorded)"
 **Test**: `uv run src/experiments/recursive_tree/test_geometric_consistency.py`
 
 **Expected outcome**: Tutti i test passano con errore < 1mm, confermando che la geometria è corretta per qualsiasi configurazione valid di BRANCHES.
+
+---
+
+## Test Suite Summary
+
+### Geometric Consistency (9 tests)
+**File**: `test_geometric_consistency.py`  
+**Runtime**: ~10s  
+**Result**: 9/9 pass, 0.000mm max error  
+**Run**: `uv run src/experiments/recursive_tree/test_geometric_consistency.py`
+
+### Error Handling (8 tests)
+**File**: `test_error_handling.py`  
+**Runtime**: <1s  
+**Result**: 8/8 pass  
+**Run**: `uv run src/experiments/recursive_tree/test_error_handling.py`
+
+### Isaac Sim Integration (3 tests)
+**File**: `test_isaac_sim_integration.py`  
+**Runtime**: ~60-90s  
+**Result**: 2/3 critical pass (Test 2 fails by design)  
+**Run**: `~/isaacsim/python.sh src/experiments/recursive_tree/test_isaac_sim_integration.py`
+
+**Total**: 20 tests, all critical tests passing ✅
+
+See **TESTING.md** for complete documentation.
 
 ---
 
@@ -312,13 +468,16 @@ Segui l'ordine nel TODO file. Procedi con implementazione completa e committa og
 src/experiments/recursive_tree/
 ├── __init__.py
 ├── tree_config.py              ✅ Config con BRANCHES list + validation
-├── generate_recursive_tree_usda.py  ✅ Generatore USD ricorsivo
+├── generate_recursive_tree_usda.py  ✅ Generatore USD ricorsivo + locked joints support
 ├── load_recursive_tree.py      ✅ Loader Isaac Sim
 ├── droop_theory.py             ✅ Teoria cantilever E-B
 ├── measure_droop.py            ✅ Measurement droop in Isaac Sim
+├── test_geometric_consistency.py  ✅ 9 test geometrici (0.000mm max error)
+├── test_error_handling.py      ✅ 8 test error handling (8/8 pass)
+├── test_isaac_sim_integration.py  ✅ 3 test Isaac Sim integration
+├── TESTING.md                  ✅ Documentazione completa test suite
 ├── record_droop_gif.py         ⏸ TODO Task 7
-├── analyze_droop.py            ⏸ TODO Task 8
-└── test_geometric_consistency.py  ⏸ TODO Task 10
+└── analyze_droop.py            ⏸ TODO Task 8
 
 Root:
 ├── run_recursive_tree.sh       ✅ Entry point principale
