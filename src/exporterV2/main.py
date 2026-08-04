@@ -3,14 +3,25 @@ main.py - exporterV2 Entry Point
 
 Generates tree USD and loads it in Isaac Sim in one step.
 
-Run with:
+Run with static config:
     ~/isaacsim/python.sh src/exporterV2/main.py
-or:
-    ./run_exporterV2.sh
+    
+Run with CSV data:
+    ~/isaacsim/python.sh src/exporterV2/main.py --day 1
+
+Or use wrapper script:
+    ./run_mainV2.sh [--day N]
 """
 
 import os
 import sys
+import argparse
+
+# Parse arguments BEFORE initializing SimulationApp
+parser = argparse.ArgumentParser(description="exporterV2 Tree Loader")
+parser.add_argument("--day", type=int, help="Load plant from CSV for specified day")
+parser.add_argument("--plant-id", type=int, default=1, help="Plant ID (default: 1)")
+args = parser.parse_args()
 
 # Bootstrap Isaac Sim
 from isaacsim import SimulationApp
@@ -26,43 +37,9 @@ from isaacsim.core.api import World
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(SCRIPT_DIR))
 
-from exporterV2.generate_tree import build_stage, get_output_usd_path
+from exporterV2.usd import build_stage, get_output_usd_path
+from exporterV2.physics import apply_physx_scene_settings, apply_physx_articulation_settings
 from exporterV2.tree_config import BRANCHES
-
-USD_PATH = get_output_usd_path()
-
-
-# ==============================================================================
-# PHYSX CONFIGURATION
-# ==============================================================================
-
-def apply_physx_scene_settings(stage) -> None:
-    """PhysicsScene tuned for stiff articulation drives."""
-    scene_path = "/World/PhysicsScene"
-    usd_scene = UsdPhysics.Scene.Define(stage, scene_path)
-    usd_scene.CreateGravityDirectionAttr().Set(Gf.Vec3f(0.0, 0.0, -1.0))
-    usd_scene.CreateGravityMagnitudeAttr().Set(9.81)
-
-    physx = PhysxSchema.PhysxSceneAPI.Apply(usd_scene.GetPrim())
-    physx.CreateSolverTypeAttr().Set("TGS")
-    physx.CreateTimeStepsPerSecondAttr().Set(480)
-    physx.CreateEnableCCDAttr().Set(True)
-    physx.CreateEnableStabilizationAttr().Set(True)
-    physx.CreateEnableGPUDynamicsAttr().Set(True)
-    physx.CreateBroadphaseTypeAttr().Set("MBP")
-
-
-def apply_physx_articulation_settings(stage, stem_path: str) -> None:
-    """Iteration counts for articulation with mixed stiffness levels."""
-    prim = stage.GetPrimAtPath(stem_path)
-    art = PhysxSchema.PhysxArticulationAPI.Apply(prim)
-    art.CreateSolverPositionIterationCountAttr().Set(64)
-    art.CreateSolverVelocityIterationCountAttr().Set(8)
-    art.CreateEnabledSelfCollisionsAttr().Set(False)
-    art.CreateSleepThresholdAttr().Set(0.0)
-
-
-
 # ==============================================================================
 # MAIN
 # ==============================================================================
@@ -73,12 +50,29 @@ def main():
     print("  exporterV2 - Tree Model Generator & Loader")
     print("=" * 80)
     
+    # Determine configuration source and USD path
+    if args.day is not None:
+        # Load from CSV
+        from exporterV2.csv_data import parse_csv_to_branches
+        print(f"\n[CONFIG] Loading plant from CSV (day {args.day}, plant_id {args.plant_id})")
+        branches, json_path = parse_csv_to_branches(args.day, args.plant_id)
+        print(f"[CONFIG] Configuration saved: {json_path}")
+        
+        # Use day-specific USD path
+        base_path = get_output_usd_path()
+        usd_path = base_path.replace("tree_v2.usda", f"tree_v2_day_{args.day}.usda")
+    else:
+        # Use static config
+        print(f"\n[CONFIG] Using static configuration from tree_config.py")
+        branches = BRANCHES
+        usd_path = get_output_usd_path()
+    
     # Step 1: Generate USD
     print("\n[STEP 1/3] Generating tree USD stage...")
-    total_links = sum(b["n_links"] for b in BRANCHES)
-    print(f"  Configuration: {len(BRANCHES)} branches, {total_links} total links")
+    total_links = sum(b["n_links"] for b in branches)
+    print(f"  Configuration: {len(branches)} branches, {total_links} total links")
     
-    stage, stem_path = build_stage(USD_PATH)
+    stage, stem_path = build_stage(usd_path, branches=branches)
     
     # Step 2: Apply PhysX settings
     print("\n[STEP 2/3] Applying PhysX configuration...")
@@ -86,11 +80,11 @@ def main():
     apply_physx_articulation_settings(stage, stem_path)
     
     stage.GetRootLayer().Save()
-    print(f"  ✓ Stage saved: {USD_PATH}")
+    print(f"  ✓ Stage saved: {usd_path}")
     
     # Step 3: Load in Isaac Sim
     print("\n[STEP 3/3] Loading in Isaac Sim...")
-    omni.usd.get_context().open_stage(USD_PATH)
+    omni.usd.get_context().open_stage(usd_path)
     print("  ✓ Stage opened")
     
     # Set camera lighting mode

@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from plant_model.models import (
+from exporterV1.models import (
     PlantSnapshot, InternodeNode, LeafNode, FruitsNode
 )
 

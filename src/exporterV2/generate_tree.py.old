@@ -586,15 +586,23 @@ def build_stage(output_path: str, branches=None, locked_joints: bool = False, sk
             rot_roll = Gf.Rotation(Gf.Vec3d(0, 0, 1), roll_deg)
             branch_rot_in_parent_frame = rot_roll * rot_tilt * rot_z
             
+            # FIX 2: For leaf-internal branches, always use parent orientation
+            # (don't reset to identity, just don't add extra trunk rotation)
             parent_rot = Gf.Rotation(Gf.Quatd(parent_orientation))
             combined = branch_rot_in_parent_frame * parent_rot
-            
             chain_axis_raw = combined.TransformDir(Gf.Vec3d(0, 0, 1))
             chain_axis     = Gf.Vec3d(*chain_axis_raw).GetNormalized()
             chain_orientation = Gf.Quatf(combined.GetQuat())
 
-            # Compute radial offset for attachment
-            radial_distance = p_r_world / 2.0
+            # FIX 1: Zero radial offset for coaxial branches (tilt=0, rot=0)
+            # Coaxial branches (like rachis continuing from petiole) should have
+            # no radial offset - they continue in the same direction as the parent.
+            # Non-coaxial branches (like petiole from trunk, or petiolules from rachis)
+            # attach at the surface of the parent cylinder (radial offset = parent_radius/2).
+            if tilt_deg == 0.0 and rot_deg == 0.0:
+                radial_distance = 0.0
+            else:
+                radial_distance = p_r_world / 2.0
             base_offset_local = Gf.Vec3d(0.0, radial_distance, p_h_world + gap)
             
             rot_z_local = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_deg)

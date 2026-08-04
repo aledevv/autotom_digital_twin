@@ -61,22 +61,115 @@ stage, stem_path = build_stage("custom_tree.usda")
 
 ### Run in Isaac Sim
 
-**Option 1: Using the launcher script (recommended)**
+**Option 1: Using the launcher script with CSV data (recommended)**
 ```bash
-./run_exporterV2.sh
+./run_mainV2.sh --day 1
 ```
 
-This generates the USD and loads it in Isaac Sim in one step.
+This parses CSV, generates JSON config, creates USD, and loads in Isaac Sim in one step.
 
-**Option 2: Using main.py directly**
+**Option 2: Using static configuration**
 ```bash
+./run_mainV2.sh
+```
+
+Uses the default BRANCHES configuration from tree_config.py.
+
+**Option 3: Using main.py directly**
+```bash
+# With CSV data
+~/isaacsim/python.sh src/exporterV2/main.py --day 1
+
+# With static config
 ~/isaacsim/python.sh src/exporterV2/main.py
 ```
 
-**Option 3: Load only (if USD already generated)**
+## CSV Parsing Workflow
+
+ExporterV2 can load plant data directly from groIMP simulation CSV files.
+
+### Usage
+
+Load plant from groIMP CSV data for a specific day:
 ```bash
-~/isaacsim/python.sh -m src.exporterV2.load_tree
+./run_mainV2.sh --day 1
 ```
+
+### Pipeline
+
+The complete workflow executes automatically:
+
+1. **Parse CSV**: `data/simulation_output/dynamic_output/graphs/graph_day_N.csv`
+   - Extracts trunk internodes (order=0)
+   - Validates plant_id and day
+   
+2. **Generate JSON**: `output/day_N/branches_v2_day_N.json`
+   - Converts to BRANCHES format
+   - Applies minimum radius clamping (4mm post-scale)
+   - Saves with metadata
+   
+3. **Generate USD**: `data/usd_models/tree_v2_day_N.usda`
+   - Builds articulated structure
+   - Applies physics parameters
+   
+4. **Load in Isaac Sim**
+   - Opens stage with configured PhysX settings
+   - Ready for simulation
+
+### Configuration
+
+- **Minimum link radius**: 4mm (post-scale) for PhysX stability
+- **Dimensions**: Average radius and height across all trunk internodes
+- **Plant ID**: Fixed to 1 (as per data structure)
+
+**TODO**: Future enhancements
+- Per-link dimensions (preserve individual internode measurements)
+- Lateral branches (order > 0)
+- Leaves (organ_class="Leaf")
+- Fruits/truss support
+
+### Output Structure
+
+The generated JSON includes metadata and branch configuration:
+
+```json
+{
+  "metadata": {
+    "day": 1,
+    "plant_id": 1,
+    "generated_at": "2024-01-15T10:30:00",
+    "source_csv": "graph_day_1.csv",
+    "n_branches": 1,
+    "total_links": 3,
+    "global_scale": 2.0,
+    "min_radius_world_m": 0.004
+  },
+  "branches": [
+    {
+      "id": "trunk",
+      "parent": null,
+      "attach_link": null,
+      "n_links": 3,
+      "radius": 0.003,
+      "height": 0.008,
+      "tilt": 0.0,
+      "rot": 0.0
+    }
+  ]
+}
+```
+
+Example output file: `output/day_1/branches_v2_day_1.json`
+
+### Standalone CSV Parser
+
+You can also generate JSON without launching Isaac Sim:
+
+```bash
+~/isaacsim/python.sh src/exporterV2/csv_parser.py --day 1
+```
+
+This is useful for batch processing or validation.
 
 ## BRANCHES Configuration
 

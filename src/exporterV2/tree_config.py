@@ -42,13 +42,22 @@ MAX_N_LINK = 100  # PhysX articulation limit (for 16GB GPU, max tested ~250)
 GLOBAL_SCALE = 2.0      # All raw dimensions are multiplied by this
 
 BEND_LIMIT_DEG = 30.0   # +/- deg soft limit on rotX/rotY joint drives
-GAP            = 0.001  # Gap between adjacent links [m, pre-scale]
+GAP            = 0.0  # Gap between adjacent links [m, pre-scale]
+
+# Phyllotaxis angle (golden angle) for leaf and fruit positioning
+# Used when CSV doesn't provide explicit ccw_orientation
+PHYLLOTAXIS = 137.5  # [deg]
+
+# Minimum link radius for PhysX stability (post-scale, in world units)
+# Links with radius below this threshold (after scaling) may cause numerical
+# instability in the articulation solver. Value determined empirically.
+MIN_LINK_RADIUS_WORLD = 0.002  # [m] 4mm minimum for PhysX stability
 
 
 class BioConfig:
     """Biological parameters for plant tissue."""
-    YOUNG_MODULUS = 80.0e6   # [Pa] 20-50 MPa - mature tomato stem
-    DAMPING_RATIO = 0.3      # 0.1-0.2 zeta, dimensionless
+    YOUNG_MODULUS = 50.0e6   # [Pa] 20-50 MPa - mature tomato stem
+    DAMPING_RATIO = 0.15      # 0.1-0.2 zeta, dimensionless
     PLANT_DENSITY = 1000.0   # [kg/m^3] plant tissue density
 
 
@@ -97,6 +106,38 @@ BRANCHES = [
 def scaled(value: float) -> float:
     """Apply GLOBAL_SCALE to a pre-scale dimension."""
     return value * GLOBAL_SCALE
+
+
+def clamp_radius(radius_prescale: float) -> tuple[float, bool]:
+    """
+    Clamp radius to minimum world-space value for PhysX stability.
+    
+    PhysX articulations with very thin links can become numerically unstable.
+    This function ensures the radius (after scaling) meets the minimum threshold.
+    
+    Args:
+        radius_prescale: Radius in pre-scale units [m]
+    
+    Returns:
+        Tuple (clamped_radius_prescale, was_clamped):
+            clamped_radius_prescale: Adjusted radius in pre-scale units [m]
+            was_clamped: True if clamping was applied, False otherwise
+    
+    Example:
+        >>> GLOBAL_SCALE = 2.0
+        >>> MIN_LINK_RADIUS_WORLD = 0.004
+        >>> clamp_radius(0.001)  # 0.001 * 2.0 = 0.002m < 0.004m
+        (0.002, True)  # Clamped to 0.002 pre-scale (0.004m world)
+        >>> clamp_radius(0.005)  # 0.005 * 2.0 = 0.010m > 0.004m
+        (0.005, False)  # No clamping needed
+    """
+    radius_world = radius_prescale * GLOBAL_SCALE
+    
+    if radius_world < MIN_LINK_RADIUS_WORLD:
+        clamped_prescale = MIN_LINK_RADIUS_WORLD / GLOBAL_SCALE
+        return (clamped_prescale, True)
+    
+    return (radius_prescale, False)
 
 
 def compute_mass(radius: float, height: float) -> float:
