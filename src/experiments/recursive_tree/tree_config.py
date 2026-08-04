@@ -33,20 +33,21 @@ Run standalone to verify physics:
 
 import math
 
+MAX_N_LINK = 100  # PhysX articulation limit (for 16gb GPU, max tested about 250)
 
 # ==============================================================================
 # GLOBAL SCALE & PHYSICS CONSTANTS
 # ==============================================================================
 
-GLOBAL_SCALE = 10.0     # All raw dimensions are multiplied by this
+GLOBAL_SCALE = 2.0     # All raw dimensions are multiplied by this
 
 BEND_LIMIT_DEG = 30.0   # +/- deg soft limit on rotX/rotY joint drives
 GAP            = 0.001  # Gap between adjacent links [m, pre-scale]
 
 
 class BioConfig:
-    YOUNG_MODULUS = 50.0e7   # [Pa] 50 MPa - mature tomato stem
-    DAMPING_RATIO = 0.2      # 0.1-0.2 zeta, dimensionless
+    YOUNG_MODULUS = 80.0e6   # [Pa] 20-50 MPa - mature tomato stem
+    DAMPING_RATIO = 0.3      # 0.1-0.2 zeta, dimensionless
     PLANT_DENSITY = 1000.0   # [kg/m^3] plant tissue density
 
 
@@ -202,7 +203,7 @@ def validate_branches(branches: list, skip_limit_check: bool = False) -> None:
 
     # PhysX limit (can be disabled for experimental tests)
     total = sum(b["n_links"] for b in branches)
-    if total > 64 and not skip_limit_check:
+    if total > MAX_N_LINK and not skip_limit_check:
         raise ValueError(
             f"[tree_config] Total link count {total} exceeds PhysX articulation limit of 64. "
             f"Reduce n_links in some branches."

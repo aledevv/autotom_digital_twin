@@ -563,6 +563,7 @@ def build_stage(output_path: str, branches=None, locked_joints: bool = False, sk
             attach_idx = b["attach_link"] - 1
             tilt_deg   = b["tilt"]
             rot_deg    = b["rot"]
+            roll_deg   = b.get("roll", 0.0)  # New: roll around branch's own axis
 
             parent_paths, parent_bases, parent_axis, parent_orientation = branch_registry[parent_id]
             parent_def = next(x for x in branches if x["id"] == parent_id)
@@ -570,9 +571,11 @@ def build_stage(output_path: str, branches=None, locked_joints: bool = False, sk
             p_r_world  = scaled(parent_def["radius"])
             
             # Compute branch orientation relative to parent's frame
-            rot_z    = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_deg)
-            rot_tilt = Gf.Rotation(Gf.Vec3d(1, 0, 0), -tilt_deg)
-            branch_rot_in_parent_frame = rot_tilt * rot_z
+            # Order: rot_z (azimuthal) → rot_tilt (polar) → rot_roll (around branch axis)
+            rot_z    = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_deg)      # Step 1: rotate around parent's Z (azimuthal)
+            rot_tilt = Gf.Rotation(Gf.Vec3d(1, 0, 0), -tilt_deg)    # Step 2: tilt away from parent
+            rot_roll = Gf.Rotation(Gf.Vec3d(0, 0, 1), roll_deg)     # Step 3: roll around branch's own axis
+            branch_rot_in_parent_frame = rot_roll * rot_tilt * rot_z
             
             parent_rot = Gf.Rotation(Gf.Quatd(parent_orientation))
             combined = branch_rot_in_parent_frame * parent_rot
@@ -603,7 +606,7 @@ def build_stage(output_path: str, branches=None, locked_joints: bool = False, sk
             print(f"[INFO] '{bid}': {b['n_links']} links, "
                   f"r={r_world:.3f}m, h={h_world:.3f}m, "
                   f"parent='{parent_id}' link {b['attach_link']}, "
-                  f"tilt={tilt_deg}deg, rot={rot_deg}deg")
+                  f"tilt={tilt_deg}deg, rot={rot_deg}deg, roll={roll_deg}deg")
 
             link_paths, link_bases = build_chain(
                 stage, stem_path, b,
