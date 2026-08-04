@@ -37,9 +37,9 @@ from isaacsim.core.api import World
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(SCRIPT_DIR))
 
-from exporterV2.usd import build_stage, get_output_usd_path
-from exporterV2.physics import apply_physx_scene_settings, apply_physx_articulation_settings
-from exporterV2.tree_config import BRANCHES
+from exporterV2.core.usd import build_stage, get_output_usd_path
+from exporterV2.core.physics import apply_physx_scene_settings, apply_physx_articulation_settings
+from exporterV2.core.tree_config import BRANCHES
 # ==============================================================================
 # MAIN
 # ==============================================================================
@@ -53,7 +53,7 @@ def main():
     # Determine configuration source and USD path
     if args.day is not None:
         # Load from CSV
-        from exporterV2.csv_data import parse_csv_to_branches
+        from exporterV2.adapters.groimp_csv import parse_csv_to_branches
         print(f"\n[CONFIG] Loading plant from CSV (day {args.day}, plant_id {args.plant_id})")
         branches, json_path = parse_csv_to_branches(args.day, args.plant_id)
         print(f"[CONFIG] Configuration saved: {json_path}")

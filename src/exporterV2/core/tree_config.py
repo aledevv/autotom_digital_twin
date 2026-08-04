@@ -33,7 +33,7 @@ Run standalone to verify physics:
 
 import math
 
-MAX_N_LINK = 100  # PhysX articulation limit (for 16GB GPU, max tested ~250)
+MAX_N_LINK = 200  # PhysX articulation limit (for 16GB GPU, max tested ~250)
 
 # ==============================================================================
 # GLOBAL SCALE & PHYSICS CONSTANTS

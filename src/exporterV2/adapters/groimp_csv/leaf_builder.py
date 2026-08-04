@@ -24,7 +24,7 @@ def calculate_leaf_orientation(leaf_dict: Dict) -> tuple:
     """
     # Import tree_config for phyllotaxis
     import importlib.util
-    config_path = Path(__file__).parent.parent / "tree_config.py"
+    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
     spec = importlib.util.spec_from_file_location("tree_config", config_path)
     tree_config = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tree_config)
@@ -95,17 +95,49 @@ def leaf_to_petiole_rachis_branches(leaf_dict: Dict, parent_trunk_id: str) -> Li
               f"{rachis_r_prescale * GLOBAL_SCALE:.5f}m → {rachis_r * GLOBAL_SCALE:.5f}m "
               f"(world-space, min={MIN_LINK_RADIUS_WORLD}m)")
     
-    # Calculate orientation
-    azimuth_deg, tilt_deg = calculate_leaf_orientation(leaf_dict)
+    # Get order once (0=trunk, 1=lateral branch)
+    order = leaf_dict.get("order", 0)
     
-    # Create unique IDs with organ_index to distinguish mirrored leaves
-    leaf_id_base = f"Leaf_r{rank}_o{organ_index}"
+    # Calculate orientation based on order
+    if order == 0:
+        # Trunk leaves: use CSV data
+        azimuth_deg, tilt_deg = calculate_leaf_orientation(leaf_dict)
+    else:
+        # Lateral branch leaves: oriented perpendicular to branch + random variation
+        # Rotation is RELATIVE to parent branch axis (branch is already rotated 0°/180°)
+        # So we always use same random range for both organ_index
+        import random
+        random.seed(rank * 1000 + organ_index)  # Deterministic per leaf
+        
+        # Random rotation between -90° and +90° (relative to branch axis)
+        # This works for both organ_index because the parent branch is already rotated
+        azimuth_deg = random.uniform(-90.0, 90.0)
+        
+        # Normalize to [0, 360)
+        azimuth_deg = azimuth_deg % 360.0
+        
+        # tilt: ~75° to be nearly perpendicular to 45° branch, but slightly upward
+        tilt_deg = 75.0
+    
+    # Create unique IDs with organ_index AND order to distinguish trunk/lateral leaves
+    if order == 0:
+        leaf_id_base = f"Leaf_r{rank}_o{organ_index}"
+    else:
+        leaf_id_base = f"LatLeaf_r{rank}_o{organ_index}"
+    
+    # Determine attach_link based on order:
+    # - order=0 (trunk leaves): attach to trunk link = parent_rank + 1
+    # - order=1 (lateral branch leaves): attach to branch link = 1 (only link)
+    if order == 0:
+        attach_link = parent_rank + 1  # Trunk has multiple links
+    else:
+        attach_link = 1  # Lateral branches have only 1 link
     
     # Create petiole branch
     petiole_branch = {
         "id": f"{leaf_id_base}_petiole",
         "parent": parent_trunk_id,
-        "attach_link": parent_rank + 1,  # 1-based indexing
+        "attach_link": attach_link,
         "n_links": 1,
         "radius": petiole_r,
         "height": leaf_dict["length_petiole"],

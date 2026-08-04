@@ -11,10 +11,10 @@ from pxr import Usd, UsdGeom, Gf, UsdPhysics, Sdf
 # Support both direct execution and module import
 if __name__ == "__main__" or "exporterV2" not in sys.modules:
     SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-    SRC_DIR = os.path.dirname(os.path.dirname(SCRIPT_DIR))
+    SRC_DIR = os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR)))
     if SRC_DIR not in sys.path:
         sys.path.insert(0, SRC_DIR)
-    from exporterV2.tree_config import (
+    from exporterV2.core.tree_config import (
         GLOBAL_SCALE, BRANCHES, GAP,
         compute_mass, calculate_physics_params, scaled,
         validate_branches,

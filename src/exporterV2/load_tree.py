@@ -25,8 +25,8 @@ SRC_DIR = os.path.dirname(SCRIPT_DIR)
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
-from exporterV2.usd import build_stage, get_output_usd_path
-from exporterV2.physics import apply_physx_scene_settings, apply_physx_articulation_settings
+from exporterV2.core.usd import build_stage, get_output_usd_path
+from exporterV2.core.physics import apply_physx_scene_settings, apply_physx_articulation_settings
 
 USD_PATH = get_output_usd_path()
 

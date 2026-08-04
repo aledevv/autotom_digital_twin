@@ -14,7 +14,7 @@ import os
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(SCRIPT_DIR))
 
-from exporterV2 import tree_config
+from exporterV2.core import tree_config
 
 # Customize configuration
 tree_config.GLOBAL_SCALE = 3.0  # Scale up for better stability
