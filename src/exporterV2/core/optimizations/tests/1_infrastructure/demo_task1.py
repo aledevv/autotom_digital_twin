@@ -15,7 +15,7 @@ import os
 
 # Add optimizations directory to path
 script_dir = os.path.dirname(os.path.abspath(__file__))
-optimizations_dir = os.path.join(script_dir, "..")
+optimizations_dir = os.path.join(script_dir, "../..")  # Go up two levels to optimizations/
 sys.path.insert(0, optimizations_dir)
 
 from optimizer import BudgetOptimizer

@@ -15,16 +15,24 @@ Example:
     ...     print(f"Collision with: {result.colliding_with}")
 """
 
-# Exports (will be implemented in Task 2)
-# from .sphere import calculate_bounding_sphere, check_sphere_overlap
-# from .aabb import calculate_aabb, check_aabb_overlap
-# from .broad_phase import check_attachment_collision, CollisionResult
+# Support both package and standalone imports
+try:
+    from .sphere import Vec3, CylinderGeometry, calculate_bounding_sphere, check_sphere_overlap
+    from .aabb import calculate_aabb, check_aabb_overlap
+    from .broad_phase import check_attachment_collision, CollisionResult, check_pairwise_collisions
+except ImportError:
+    from sphere import Vec3, CylinderGeometry, calculate_bounding_sphere, check_sphere_overlap
+    from aabb import calculate_aabb, check_aabb_overlap
+    from broad_phase import check_attachment_collision, CollisionResult, check_pairwise_collisions
 
 __all__ = [
-    # "calculate_bounding_sphere",
-    # "check_sphere_overlap",
-    # "calculate_aabb",
-    # "check_aabb_overlap",
-    # "check_attachment_collision",
-    # "CollisionResult",
+    "Vec3",
+    "CylinderGeometry",
+    "calculate_bounding_sphere",
+    "check_sphere_overlap",
+    "calculate_aabb",
+    "check_aabb_overlap",
+    "check_attachment_collision",
+    "CollisionResult",
+    "check_pairwise_collisions",
 ]
