@@ -1,0 +1,97 @@
+# Joint-Budget Optimization Configuration
+# =========================================
+# Configuration for joint budget limits, structural minimums, and optimization techniques.
+#
+# Documentation: See docs/OPTIMIZATION_QUICK_START.md for configuration guide
+
+# Budget and thresholds
+budget:
+  max_joints: 250                 # Hard limit (hardware-imposed for Isaac Sim/PhysX)
+  warning_threshold: 230          # Warn if approaching limit (for monitoring)
+
+# Structural minimum links for each component type
+# These are the absolute minimum required to maintain plant topology
+structural_limits:
+  trunk:
+    min_links: 1
+    description: "Main stem cannot be reduced below 1 link"
+  
+  lateral_branch:
+    min_links: 1
+    description: "Each lateral branch needs at least 1 link for attachment"
+  
+  petiole:
+    min_links: 1
+    description: "Petiole needs at least 1 link for leaf attachment"
+  
+  rachis:
+    min_links: 0
+    description: "Rachis can be merged with petiole (eliminated)"
+  
+  petiolule:
+    min_links: 0
+    description: "Petiolules can be converted to fixed joints or eliminated"
+  
+  truss:
+    min_links: 1
+    description: "Truss needs at least 1 link for fruit attachment"
+
+# Optimization technique configurations
+# Priority: lower number = applied first (higher priority)
+# Enabled: set to false to disable a technique
+techniques:
+  # Priority 1: Petiole Lock (minimal visual impact, high DOF reduction)
+  - id: "petiole_lock"
+    priority: 1
+    description: "Convert petiolule D6 joints to Fixed joints (no geometry change)"
+    enabled: true
+    params:
+      convert_all_petiolules: true  # Convert all or only selected petiolules
+  
+  # Priority 2: Lateral Branch Reduction (medium visual impact, high joint reduction)
+  - id: "lateral_reduce"
+    priority: 2
+    description: "Reduce number of segments in lateral branches"
+    enabled: true
+    params:
+      min_segments: 1             # Minimum segments per lateral branch
+      reduction_step: 1           # Reduce by N segments per iteration
+  
+  # Priority 3: Stem Collapse (medium-high visual impact, high joint reduction)
+  - id: "stem_collapse"
+    priority: 3
+    description: "Collapse main stem segments with attachment point remapping"
+    enabled: true
+    params:
+      min_segments: 1             # Minimum segments for main stem
+      reduction_step: 1           # Reduce by N segments per iteration
+      collision_check:
+        broad_phase: "sphere"     # Stage 1: sphere overlap check
+        narrow_phase: "aabb"      # Stage 2: AABB precision check
+        safety_margin: 0.01       # Safety margin in meters
+        max_remap_attempts: 3     # Max attempts to resolve collisions
+  
+  # Priority 4: Truss Static (medium visual impact, medium joint reduction)
+  - id: "truss_static"
+    priority: 4
+    description: "Convert truss to pre-bent static geometry (no physics)"
+    enabled: true
+    params:
+      min_segments: 1             # Minimum segments for truss
+      prebend_angle: 15           # Prebend angle in degrees per original segment
+  
+  # Priority 5: Leaf Branch Reduction (high visual impact, medium-high joint reduction)
+  - id: "leaf_branch_reduce"
+    priority: 5
+    description: "Merge petiole+rachis into single pre-bent segment"
+    enabled: true
+    params:
+      merge_petiole_rachis: true  # Merge petiole and rachis
+      prebend: true               # Apply prebending to merged segment
+      max_prebend_angle: 90       # Maximum prebend angle in degrees
+
+# Logging configuration
+logging:
+  level: "INFO"                   # Options: DEBUG, INFO, WARNING, ERROR
+  show_technique_details: true    # Show detailed info for each technique
+  show_collision_details: false   # Verbose collision detection logging (DEBUG only)

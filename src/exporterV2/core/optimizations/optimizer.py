@@ -1,0 +1,322 @@
+"""
+optimizer.py - Main Orchestrator for Joint-Budget Optimization
+
+Coordinates the application of optimization techniques to reduce joint count
+within a specified budget while maintaining structural integrity.
+
+Example:
+    >>> from exporterV2.core.optimizations import BudgetOptimizer
+    >>> optimizer = BudgetOptimizer()
+    >>> optimized_branches, report = optimizer.optimize(branches)
+    >>> print(report)
+"""
+
+import os
+import yaml
+from pathlib import Path
+from typing import List, Dict, Tuple, Optional
+from dataclasses import dataclass, field
+
+# Support both package and standalone imports
+try:
+    from .techniques.base import OptimizationTechnique, OptimizationReport, ValidationResult
+except ImportError:
+    from techniques.base import OptimizationTechnique, OptimizationReport, ValidationResult
+
+
+@dataclass
+class BudgetConfig:
+    """Parsed configuration from budget_config.yaml."""
+    max_joints: int
+    warning_threshold: int
+    structural_limits: Dict[str, Dict]
+    techniques: List[Dict]
+    logging: Dict
+    
+    @classmethod
+    def load(cls, config_path: str) -> 'BudgetConfig':
+        """Load configuration from YAML file."""
+        path = Path(config_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Config file not found: {config_path}")
+        
+        with open(path, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        # Validate required sections
+        required_sections = ['budget', 'structural_limits', 'techniques']
+        for section in required_sections:
+            if section not in config:
+                raise ValueError(f"Missing required section '{section}' in config")
+        
+        # Extract and validate budget section
+        budget = config['budget']
+        if budget['max_joints'] <= 0:
+            raise ValueError("max_joints must be positive")
+        
+        return cls(
+            max_joints=budget['max_joints'],
+            warning_threshold=budget.get('warning_threshold', budget['max_joints'] - 20),
+            structural_limits=config['structural_limits'],
+            techniques=sorted(config['techniques'], key=lambda t: t['priority']),
+            logging=config.get('logging', {'level': 'INFO'})
+        )
+
+
+@dataclass
+class FullOptimizationReport:
+    """Complete optimization report with all techniques applied."""
+    original_joints: int
+    final_joints: int
+    budget: int
+    lower_bound: int
+    technique_reports: List[OptimizationReport] = field(default_factory=list)
+    success: bool = False
+    error_message: Optional[str] = None
+    
+    @property
+    def total_reduction(self) -> int:
+        """Total joints saved across all techniques."""
+        return self.original_joints - self.final_joints
+    
+    @property
+    def reduction_percentage(self) -> float:
+        """Percentage reduction in joints."""
+        if self.original_joints == 0:
+            return 0.0
+        return (self.total_reduction / self.original_joints) * 100.0
+    
+    def __str__(self) -> str:
+        """Human-readable full report."""
+        lines = [
+            "=" * 60,
+            "  Joint-Budget Optimization Report",
+            "=" * 60,
+            f"Original joints: {self.original_joints}",
+            f"Budget: {self.budget}",
+            f"Lower bound: {self.lower_bound}",
+            "",
+        ]
+        
+        if self.technique_reports:
+            lines.append("Techniques applied:")
+            for i, report in enumerate(self.technique_reports, 1):
+                lines.append(f"  {i}. {report.technique_name}: "
+                           f"{report.joints_before} → {report.joints_after} "
+                           f"(-{report.joints_saved} joints)")
+                if report.details:
+                    for key, value in report.details.items():
+                        lines.append(f"      - {key}: {value}")
+            lines.append("")
+        
+        if self.success:
+            status = "✓"
+            lines.append(f"Final joints: {self.final_joints} {status}")
+            lines.append(f"Total reduction: -{self.total_reduction} joints "
+                        f"({self.reduction_percentage:.1f}%)")
+        else:
+            status = "✗"
+            lines.append(f"Status: FAILED {status}")
+            if self.error_message:
+                lines.append(f"Error: {self.error_message}")
+        
+        lines.append("=" * 60)
+        return "\n".join(lines)
+
+
+class BudgetOptimizer:
+    """
+    Main orchestrator for joint-budget optimization.
+    
+    Loads configuration, calculates lower bound, and applies techniques
+    sequentially by priority until budget is met or techniques exhausted.
+    
+    Example:
+        >>> optimizer = BudgetOptimizer()
+        >>> optimized, report = optimizer.optimize(branches)
+        >>> if report.success:
+        ...     print(f"Reduced from {report.original_joints} to {report.final_joints} joints")
+    """
+    
+    def __init__(self, config_path: Optional[str] = None):
+        """
+        Initialize optimizer with configuration.
+        
+        Args:
+            config_path: Path to budget_config.yaml (default: auto-detect)
+        """
+        if config_path is None:
+            # Auto-detect config path (same directory as this file)
+            config_path = Path(__file__).parent / "budget_config.yaml"
+        
+        self.config = BudgetConfig.load(str(config_path))
+        self.technique_registry = {}  # Will be populated when techniques are implemented
+    
+    def calculate_total_joints(self, branches: List[Dict]) -> int:
+        """
+        Calculate total number of joints in current configuration.
+        
+        Args:
+            branches: Branches configuration list
+        
+        Returns:
+            Total joint count
+        
+        Note:
+            Total joints = sum of n_links for all branches.
+            In PhysX articulations, each link represents a rigid body,
+            and joints are between consecutive links.
+        """
+        return sum(branch["n_links"] for branch in branches)
+    
+    def calculate_lower_bound(self, branches: List[Dict]) -> int:
+        """
+        Calculate structural lower bound - minimum joints needed.
+        
+        Args:
+            branches: Branches configuration list
+        
+        Returns:
+            Minimum number of joints required for structural integrity
+        
+        Raises:
+            ValueError: If lower bound calculation fails
+        
+        Note:
+            Lower bound is based on structural_limits config:
+            - trunk: min_links per trunk
+            - lateral_branch: min_links per lateral
+            - petiole: min_links per petiole
+            - truss: min_links per truss
+            - petiolules and rachis can be reduced to 0
+        """
+        lower_bound = 0
+        limits = self.config.structural_limits
+        
+        # Component type identification helpers
+        def is_trunk(b: Dict) -> bool:
+            return b.get("parent") is None
+        
+        def is_lateral_branch(b: Dict) -> bool:
+            # Lateral branches have parent = trunk and specific naming
+            return (b.get("parent") in ["trunk"] and 
+                   "Branch_" in b.get("id", ""))
+        
+        def is_petiole(b: Dict) -> bool:
+            return "Petiole_" in b.get("id", "")
+        
+        def is_truss(b: Dict) -> bool:
+            return "Truss_" in b.get("id", "") or "truss" in b.get("id", "").lower()
+        
+        # Count by component type
+        trunk_count = sum(1 for b in branches if is_trunk(b))
+        lateral_count = sum(1 for b in branches if is_lateral_branch(b))
+        petiole_count = sum(1 for b in branches if is_petiole(b))
+        truss_count = sum(1 for b in branches if is_truss(b))
+        
+        # Calculate lower bound based on minimums
+        lower_bound += trunk_count * limits["trunk"]["min_links"]
+        lower_bound += lateral_count * limits["lateral_branch"]["min_links"]
+        lower_bound += petiole_count * limits["petiole"]["min_links"]
+        lower_bound += truss_count * limits["truss"]["min_links"]
+        
+        # Note: rachis and petiolules have min_links=0, so they don't contribute
+        
+        return lower_bound
+    
+    def optimize(self, branches: List[Dict]) -> Tuple[List[Dict], FullOptimizationReport]:
+        """
+        Apply optimization techniques until budget met or exhausted.
+        
+        Args:
+            branches: Original branches configuration
+        
+        Returns:
+            Tuple (optimized_branches, report):
+                optimized_branches: Modified branches configuration
+                report: FullOptimizationReport with details
+        
+        Raises:
+            ValueError: If budget is impossible to meet (below lower bound)
+        
+        Algorithm:
+            1. Calculate total joints and lower bound
+            2. If within budget → return unchanged
+            3. If below lower bound → raise BuildError
+            4. Apply techniques by priority until budget met
+            5. Validate after each technique
+            6. Return optimized config + report
+        """
+        # Calculate initial state
+        original_joints = self.calculate_total_joints(branches)
+        lower_bound = self.calculate_lower_bound(branches)
+        budget = self.config.max_joints
+        
+        # Check if already within budget
+        if original_joints <= budget:
+            report = FullOptimizationReport(
+                original_joints=original_joints,
+                final_joints=original_joints,
+                budget=budget,
+                lower_bound=lower_bound,
+                success=True,
+                technique_reports=[]
+            )
+            return (branches, report)
+        
+        # Check if budget is achievable
+        if lower_bound > budget:
+            error_msg = (
+                f"Budget impossible to meet: lower bound ({lower_bound} joints) "
+                f"exceeds budget ({budget} joints). "
+                f"Reduce plant complexity or increase budget."
+            )
+            report = FullOptimizationReport(
+                original_joints=original_joints,
+                final_joints=original_joints,
+                budget=budget,
+                lower_bound=lower_bound,
+                success=False,
+                error_message=error_msg,
+                technique_reports=[]
+            )
+            raise ValueError(error_msg)
+        
+        # Apply techniques sequentially
+        current_branches = branches.copy()
+        technique_reports = []
+        
+        # NOTE: Technique application will be implemented in subsequent tasks
+        # For now, this is a skeleton that demonstrates the structure
+        
+        # TODO (Task 4-8): Implement technique application loop
+        # for technique_config in self.config.techniques:
+        #     if not technique_config["enabled"]:
+        #         continue
+        #     
+        #     technique = self._get_technique(technique_config)
+        #     
+        #     if technique.can_apply(current_branches, current_joints, budget):
+        #         modified, tech_report = technique.apply(current_branches)
+        #         validation = technique.validate(modified)
+        #         
+        #         if validation.valid:
+        #             current_branches = modified
+        #             technique_reports.append(tech_report)
+        #             current_joints = self.calculate_total_joints(current_branches)
+        #             
+        #             if current_joints <= budget:
+        #                 break  # Budget met!
+        
+        final_joints = self.calculate_total_joints(current_branches)
+        
+        report = FullOptimizationReport(
+            original_joints=original_joints,
+            final_joints=final_joints,
+            budget=budget,
+            lower_bound=lower_bound,
+            technique_reports=technique_reports,
+            success=(final_joints <= budget)
+        )
+        
+        return (current_branches, report)
