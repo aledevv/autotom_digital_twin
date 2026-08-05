@@ -1,221 +1,171 @@
-# exporterV2 - Recursive Tree Model Exporter
+# ExporterV2 - Modular Tree Model Generator
 
-Production-ready tree model generator using recursive branch structures with articulated physics.
+Production-ready tree model generator with **clean separation** between generic tree building and cultivar-specific logic.
 
-## Overview
+## Architecture
 
-This exporter generates tree-like plant structures using a recursive branching model. Each branch can attach to any link of its parent branch, enabling complex hierarchical structures. Physics simulation uses Euler-Bernoulli beam theory for realistic flexibility.
+```
+exporterV2/
+├── core/              # Generic tree builder (reusable for any plant)
+├── adapters/          # Data source adapters (CSV, manual, etc.)
+├── profiles/          # Cultivar-specific configurations
+└── main.py            # Entry point
+```
 
-## Key Features
-
-- **Recursive branching**: Unlimited hierarchy depth (subject to PhysX limits)
-- **Physics-based flexibility**: Spring-damper joints based on material properties
-- **Collision filtering**: Automatic filtering to prevent spurious contacts
-- **Scalable geometry**: GLOBAL_SCALE parameter for physics stability
-- **Isaac Sim integration**: Ready for simulation and visualization
+---
 
 ## Quick Start
 
-### Basic Usage
-
-```python
-from exporterV2 import build_stage
-
-# Generate with default configuration
-stage, stem_path = build_stage("tree.usda")
-stage.GetRootLayer().Save()
+### CSV Mode (with groIMP data)
+```bash
+./run_mainV2.sh --day 100
 ```
 
-### Custom Configuration
-
+### Python API
 ```python
-from exporterV2 import build_stage, tree_config
+from exporterV2.adapters.groimp_csv import parse_csv_to_branches
+from exporterV2.core.usd import build_stage
 
-# Modify configuration
-tree_config.GLOBAL_SCALE = 5.0
+# Load from CSV (uses tomato profile by default)
+branches, json_path = parse_csv_to_branches(day=100)
+
+# Generate USD
+stage, stem_path = build_stage("output.usda", branches=branches)
+```
+
+### Manual Configuration
+```python
+from exporterV2.core import tree_config
+from exporterV2.core.usd import build_stage
+
+# Define custom tree
 tree_config.BRANCHES = [
-    {
-        "id": "trunk",
-        "parent": None,
-        "attach_link": None,
-        "n_links": 8,
-        "radius": 0.05,
-        "height": 0.10,
-        "tilt": 0.0,
-        "rot": 0.0,
-    },
-    {
-        "id": "branch1",
-        "parent": "trunk",
-        "attach_link": 5,
-        "n_links": 4,
-        "radius": 0.02,
-        "height": 0.08,
-        "tilt": 45.0,
-        "rot": 0.0,
-    },
+    {"id": "trunk", "parent": None, "n_links": 10, ...},
+    {"id": "branch_1", "parent": "trunk", ...},
 ]
 
-stage, stem_path = build_stage("custom_tree.usda")
+# Generate USD
+stage, stem_path = build_stage("output.usda")
 ```
 
-### Run in Isaac Sim
+---
 
-**Option 1: Using the launcher script with CSV data (recommended)**
-```bash
-./run_mainV2.sh --day 1
+## Core Modules (Generic)
+
+### `core/tree_config.py`
+- `BRANCHES` - Tree configuration format
+- `GLOBAL_SCALE` - World-space scaling
+- `validate_branches()` - Configuration validation
+- `clamp_radius()` - PhysX stability constraints
+
+### `core/usd/`
+- `build_stage()` - USD stage generation
+- Articulated physics with flexible joints
+- Automatic collision filtering
+
+### `core/physics.py`
+- PhysX scene settings for Isaac Sim
+- Articulation configuration
+
+---
+
+## Adapters (Data Sources)
+
+### `adapters/groimp_csv/`
+Parses groIMP CSV export files and converts to generic BRANCHES format.
+
+**Functions:**
+- `parse_csv_to_branches(day, plant_id, profile)` - Complete pipeline
+- `load_trunk_internodes()` - Load trunk data
+- `load_lateral_branches()` - Load lateral branches with filtering
+- `load_leaves()` - Load leaves with filtering
+
+**Profile-driven:**
+- Filtering logic controlled by cultivar profile
+- Default: tomato profile with opposite pair filtering
+
+---
+
+## Profiles (Cultivar-Specific)
+
+### `profiles/tomato_default.py`
+
+Configuration for standard tomato plant:
+- Lateral branches: opposite pairs (organ_index 0+1), 45° tilt
+- Trunk leaves: 180° opposite pair filtering
+- Lateral leaves: clone missing, random orientation
+
+**Create your own profile:**
+```python
+MY_PROFILE = {
+    "lateral_branches": {
+        "organ_indices": [0, 1, 2, 3],  # All 4 branches
+        "tilt_deg": 60.0,                # Different tilt
+    },
+    # ...
+}
+
+branches, _ = parse_csv_to_branches(day=100, profile=MY_PROFILE)
 ```
 
-This parses CSV, generates JSON config, creates USD, and loads in Isaac Sim in one step.
+---
 
-**Option 2: Using static configuration**
-```bash
-./run_mainV2.sh
-```
+## Output
 
-Uses the default BRANCHES configuration from tree_config.py.
-
-**Option 3: Using main.py directly**
-```bash
-# With CSV data
-~/isaacsim/python.sh src/exporterV2/main.py --day 1
-
-# With static config
-~/isaacsim/python.sh src/exporterV2/main.py
-```
-
-## CSV Parsing Workflow
-
-ExporterV2 can load plant data directly from groIMP simulation CSV files.
-
-### Usage
-
-Load plant from groIMP CSV data for a specific day:
-```bash
-./run_mainV2.sh --day 1
-```
-
-### Pipeline
-
-The complete workflow executes automatically:
-
-1. **Parse CSV**: `data/simulation_output/dynamic_output/graphs/graph_day_N.csv`
-   - Extracts trunk internodes (order=0)
-   - Validates plant_id and day
-   
-2. **Generate JSON**: `output/day_N/branches_v2_day_N.json`
-   - Converts to BRANCHES format
-   - Applies minimum radius clamping (4mm post-scale)
-   - Saves with metadata
-   
-3. **Generate USD**: `data/usd_models/tree_v2_day_N.usda`
-   - Builds articulated structure
-   - Applies physics parameters
-   
-4. **Load in Isaac Sim**
-   - Opens stage with configured PhysX settings
-   - Ready for simulation
-
-### Configuration
-
-- **Minimum link radius**: 4mm (post-scale) for PhysX stability
-- **Dimensions**: Average radius and height across all trunk internodes
-- **Plant ID**: Fixed to 1 (as per data structure)
-
-**TODO**: Future enhancements
-- Per-link dimensions (preserve individual internode measurements)
-- Lateral branches (order > 0)
-- Leaves (organ_class="Leaf")
-- Fruits/truss support
-
-### Output Structure
-
-The generated JSON includes metadata and branch configuration:
-
+### JSON Configuration
 ```json
 {
   "metadata": {
-    "day": 1,
-    "plant_id": 1,
-    "generated_at": "2024-01-15T10:30:00",
-    "source_csv": "graph_day_1.csv",
-    "n_branches": 1,
-    "total_links": 3,
-    "global_scale": 2.0,
-    "min_radius_world_m": 0.004
+    "day": 100,
+    "n_branches": 108,
+    "total_links": 133,
+    "profile": "Tomato Default"
   },
-  "branches": [
-    {
-      "id": "trunk",
-      "parent": null,
-      "attach_link": null,
-      "n_links": 3,
-      "radius": 0.003,
-      "height": 0.008,
-      "tilt": 0.0,
-      "rot": 0.0
-    }
-  ]
+  "branches": [...]
 }
 ```
 
-Example output file: `output/day_1/branches_v2_day_1.json`
+### USD Stage
+- Articulated physics (PhysX)
+- Flexible joints with automatic spring/damping
+- Collision filtering (no self-collision)
+- Compatible with Isaac Sim
 
-### Standalone CSV Parser
+---
 
-You can also generate JSON without launching Isaac Sim:
+## Testing
 
 ```bash
-~/isaacsim/python.sh src/exporterV2/csv_parser.py --day 1
+# Test with different days
+./run_mainV2.sh --day 1
+./run_mainV2.sh --day 50
+./run_mainV2.sh --day 160
+
+# Check output
+ls output/day_100/
+cat output/day_100/branches_v2_day_100.json
 ```
 
-This is useful for batch processing or validation.
+---
 
-## BRANCHES Configuration
+## Refactoring History
 
-Each branch is defined by a dictionary:
+**Phase 1-2 (August 2026):**
+- ✅ Restructured directories (core/adapters/profiles)
+- ✅ Extracted cultivar configuration to profiles
+- ✅ Preserved all existing functionality
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | str | Unique identifier |
-| `parent` | str/None | Parent branch ID (None for root) |
-| `attach_link` | int/None | 1-based link index on parent (None for root) |
-| `n_links` | int | Number of rigid segments |
-| `radius` | float | Cylinder radius [m, pre-scale] |
-| `height` | float | Cylinder height per link [m, pre-scale] |
-| `tilt` | float | Tilt angle from parent Z-axis [deg] |
-| `rot` | float | Azimuthal rotation around parent Z [deg] |
-| `roll` | float | Roll around branch's own axis [deg] (optional) |
+See `REFACTORING_SUMMARY.md` for details.
 
-## Physics Parameters
+---
 
-Physics is computed automatically from geometry and material properties:
+## Related
 
-- **Young's Modulus**: 80 MPa (tomato stem)
-- **Damping Ratio**: 0.3 (critical damping)
-- **Density**: 1000 kg/m³ (plant tissue)
+- **exporterV1:** Original CSV parser (deprecated)
+- **recursive_tree:** Generic tree experiments (uses core/ directly)
+- **example_custom_tree.py:** Manual BRANCHES configuration example
 
-Spring constant K and damping D are calculated per-link using Euler-Bernoulli beam theory.
+---
 
-## Module Structure
-
-- `tree_config.py` - Configuration and physics helpers
-- `generate_tree.py` - USD generation with articulated physics
-- `load_tree.py` - Isaac Sim loader with PhysX settings
-
-## Relationship to experiments/recursive_tree
-
-The `experiments/recursive_tree` folder contains the alpha/experimental version of this code. 
-It includes extensive tests, documentation, and measurement tools. The exporterV2 is the 
-production-ready extraction of the core functionality.
-
-## Validation
-
-To verify physics parameters:
-
-```python
-from exporterV2.tree_config import print_tree_summary
-print_tree_summary()
-```
-
-This prints spring constants, damping coefficients, and natural periods for all branches.
+## Maintainer
+Alessandro - Digital Twin Project

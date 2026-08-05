@@ -81,22 +81,18 @@ def load_trunk_internodes(csv_path: str, day: int, plant_id: int = 1) -> List[Di
     return internodes
 
 
-def load_lateral_branches(csv_path: str, day: int, plant_id: int = 1) -> List[Dict]:
+def load_lateral_branches(csv_path: str, day: int, plant_id: int = 1, profile: dict = None) -> List[Dict]:
     """
-    Load lateral branches (order=1) from groIMP CSV export with opposite pair filtering.
+    Load lateral branches (order=1) from groIMP CSV export with cultivar-specific filtering.
     
-    NOTE: Opposite pair filtering is specific to this tomato cultivar.
-          Other cultivars may have different branching patterns.
-    
-    Filtering logic:
-    - Group branches by (rank, parent_rank)
-    - Keep both branches if they form an opposite pair (organ_index 0 and 1)
-    - Remove clones (same position)
+    Filtering logic is controlled by profile configuration.
+    Default (tomato): Keep only organ_index 0 and 1 (opposite pairs).
     
     Args:
         csv_path: Path to CSV file (e.g., graph_day_1.csv)
         day: Simulation day
         plant_id: Plant identifier (default: 1)
+        profile: Cultivar profile dict (default: None = no filtering)
     
     Returns:
         List of lateral branch dicts with fields: rank, organ_index, parent_rank, 
@@ -106,6 +102,8 @@ def load_lateral_branches(csv_path: str, day: int, plant_id: int = 1) -> List[Di
     Raises:
         FileNotFoundError: If CSV file doesn't exist
     """
+    if profile is None:
+        profile = {}  # No filtering by default
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"CSV file not found: {csv_path}")
     
@@ -146,30 +144,30 @@ def load_lateral_branches(csv_path: str, day: int, plant_id: int = 1) -> List[Di
         key = (branch_data["rank"], branch_data["parent_rank"])
         branches_by_key[key].append(branch_data)
     
-    # Filter: keep only organ_index 0 and 1 (opposite pair)
-    # NOTE: This is specific to this cultivar's symmetric branching pattern
+    # Filter: keep only organ_indices specified in profile (e.g., [0, 1] for opposite pairs)
+    # If no profile, keep all
+    lateral_config = profile.get("lateral_branches", {})
+    organ_indices_filter = lateral_config.get("organ_indices", None)
+    
     filtered_branches = []
     n_pairs = 0
     n_singles = 0
     
-    for key, key_branches in sorted(branches_by_key.items()):
-        # Find organ_index 0 and 1
-        branch_0 = next((b for b in key_branches if b["organ_index"] == 0), None)
-        branch_1 = next((b for b in key_branches if b["organ_index"] == 1), None)
-        
-        if branch_0 and branch_1:
-            # Both present - add as opposite pair
-            filtered_branches.append(branch_0)
-            filtered_branches.append(branch_1)
-            n_pairs += 1
-        elif branch_0:
-            # Only organ_index 0
-            filtered_branches.append(branch_0)
-            n_singles += 1
-        elif branch_1:
-            # Only organ_index 1
-            filtered_branches.append(branch_1)
-            n_singles += 1
+    if organ_indices_filter:
+        # Apply filtering
+        for key, key_branches in sorted(branches_by_key.items()):
+            for organ_idx in organ_indices_filter:
+                branch = next((b for b in key_branches if b["organ_index"] == organ_idx), None)
+                if branch:
+                    filtered_branches.append(branch)
+                    if organ_idx == organ_indices_filter[0]:
+                        n_singles += 1
+                    else:
+                        n_pairs += 1
+    else:
+        # No filtering - keep all
+        filtered_branches = [b for branches in branches_by_key.values() for b in branches]
+        n_singles = len(filtered_branches)
     
     # Sort final list by parent_rank, rank, organ_index
     filtered_branches.sort(key=lambda x: (x["parent_rank"], x["rank"], x["organ_index"]))
@@ -373,25 +371,30 @@ def load_leaves(csv_path: str, day: int, plant_id: int = 1, order: int = 0) -> L
     return filtered_leaves
 
 
-def lateral_branches_to_branch_config(lateral_branches: List[Dict], trunk_id: str = "trunk") -> List[Dict]:
+def lateral_branches_to_branch_config(lateral_branches: List[Dict], trunk_id: str = "trunk", profile: dict = None) -> List[Dict]:
     """
     Convert lateral branches to BRANCHES format.
     
-    NOTE: Orientation logic (tilt=45°, symmetric rot) is specific to this cultivar.
-          Other cultivars may require different branching angles.
-    
-    Uses average radius and height across all branches with same (rank, organ_index).
-    Applies minimum radius clamping for PhysX stability.
+    Orientation logic is controlled by profile configuration.
+    Default (tomato): tilt=45°, symmetric rot (0°/180° for organ_index 0/1).
     
     Args:
         lateral_branches: List of lateral branch dicts from load_lateral_branches()
         trunk_id: ID of trunk branch (default: "trunk")
+        profile: Cultivar profile dict (default: None = use defaults)
     
     Returns:
         List of branch dicts in BRANCHES format
     """
+    if profile is None:
+        profile = {}
+    
+    lateral_config = profile.get("lateral_branches", {})
+    tilt_deg = lateral_config.get("tilt_deg", 45.0)
+    rot_base_deg = lateral_config.get("rot_base_deg", [0.0, 180.0])
     # Import tree_config directly to avoid pxr import in __init__
     import importlib.util
+    # From adapters/groimp_csv/parser.py → core/tree_config.py
     config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
     spec = importlib.util.spec_from_file_location("tree_config", config_path)
     tree_config = importlib.util.module_from_spec(spec)
@@ -428,19 +431,12 @@ def lateral_branches_to_branch_config(lateral_branches: List[Dict], trunk_id: st
                   f"{radius_world_original:.4f}m → {radius_world_clamped:.4f}m "
                   f"(min {MIN_LINK_RADIUS_WORLD}m at scale {GLOBAL_SCALE})")
         
-        # Determine orientation
-        # NOTE: This is cultivar-specific symmetric branching
-        # organ_index 0 → rot=0°, organ_index 1 → rot=180° (opposite)
-        # tilt = 45° (fixed angle from vertical)
-        if organ_index == 0:
-            rot_deg = 0.0
-        elif organ_index == 1:
-            rot_deg = 180.0
+        # Determine orientation from profile
+        if organ_index < len(rot_base_deg):
+            rot_deg = rot_base_deg[organ_index]
         else:
-            # Fallback (shouldn't happen with our filtering)
+            # Fallback for indices not in rot_base_deg
             rot_deg = organ_index * 90.0
-        
-        tilt_deg = 45.0  # Fixed tilt for lateral branches
         
         # Create BRANCHES format dict
         branch = {
@@ -474,7 +470,7 @@ def internodes_to_branch_config(internodes: List[Dict]) -> Dict:
     """
     # Load tree_config directly to avoid pxr import in __init__
     import importlib.util
-    config_path = Path(__file__).parent.parent / "tree_config.py"
+    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
     spec = importlib.util.spec_from_file_location("tree_config", config_path)
     tree_config = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tree_config)
@@ -533,7 +529,7 @@ def save_branches_json(
     """
     # Import tree_config for metadata
     import importlib.util
-    config_path = Path(__file__).parent.parent / "tree_config.py"
+    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
     spec = importlib.util.spec_from_file_location("tree_config", config_path)
     tree_config = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tree_config)
@@ -566,13 +562,14 @@ def save_branches_json(
     return str(output_path.absolute())
 
 
-def parse_csv_to_branches(day: int, plant_id: int = 1) -> Tuple[List[Dict], str]:
+def parse_csv_to_branches(day: int, plant_id: int = 1, profile: dict = None) -> Tuple[List[Dict], str]:
     """
     Complete pipeline: CSV → internodes + leaves → BRANCHES → JSON.
     
     Args:
         day: Simulation day
         plant_id: Plant identifier (default: 1)
+        profile: Cultivar profile dict (default: None = load tomato default)
     
     Returns:
         Tuple (branches_list, json_path):
@@ -583,6 +580,10 @@ def parse_csv_to_branches(day: int, plant_id: int = 1) -> Tuple[List[Dict], str]
         FileNotFoundError: If CSV file doesn't exist
         ValueError: If no trunk internodes found
     """
+    # Load default tomato profile if none provided
+    if profile is None:
+        from exporterV2.profiles.tomato_default import TOMATO_PROFILE
+        profile = TOMATO_PROFILE
     # Import leaf_builder - handle both package and standalone execution
     try:
         from .leaf_builder import (
@@ -603,7 +604,8 @@ def parse_csv_to_branches(day: int, plant_id: int = 1) -> Tuple[List[Dict], str]
     
     # Build paths
     script_dir = Path(__file__).parent
-    project_root = script_dir.parent.parent.parent
+    # From adapters/groimp_csv/ → adapters/ → exporterV2/ → src/ → project_root
+    project_root = script_dir.parent.parent.parent.parent
     csv_path = (project_root / "data" / "simulation_output" / "dynamic_output" / 
                 "graphs" / f"graph_day_{day}.csv")
     output_dir = project_root / "output"
@@ -618,11 +620,11 @@ def parse_csv_to_branches(day: int, plant_id: int = 1) -> Tuple[List[Dict], str]
     
     # Load lateral branches (order=1)
     print(f"[INFO] Loading lateral branches...")
-    lateral_branches = load_lateral_branches(str(csv_path), day, plant_id)
+    lateral_branches = load_lateral_branches(str(csv_path), day, plant_id, profile=profile)
     
     if lateral_branches:
         print(f"[INFO] Processing {len(lateral_branches)} lateral branches...")
-        lateral_branch_configs = lateral_branches_to_branch_config(lateral_branches, trunk_branch["id"])
+        lateral_branch_configs = lateral_branches_to_branch_config(lateral_branches, trunk_branch["id"], profile=profile)
         all_branches.extend(lateral_branch_configs)
         
         # Create mapping: (rank, organ_index) → branch_id for lateral branches
@@ -713,7 +715,7 @@ def parse_csv_to_branches(day: int, plant_id: int = 1) -> Tuple[List[Dict], str]
     
     # Import tree_config to check limit
     import importlib.util
-    config_path = Path(__file__).parent.parent / "tree_config.py"
+    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
     spec = importlib.util.spec_from_file_location("tree_config", config_path)
     tree_config = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tree_config)

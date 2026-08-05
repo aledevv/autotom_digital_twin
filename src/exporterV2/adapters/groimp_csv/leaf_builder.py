@@ -24,6 +24,7 @@ def calculate_leaf_orientation(leaf_dict: Dict) -> tuple:
     """
     # Import tree_config for phyllotaxis
     import importlib.util
+    # From adapters/groimp_csv/leaf_builder.py → core/tree_config.py
     config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
     spec = importlib.util.spec_from_file_location("tree_config", config_path)
     tree_config = importlib.util.module_from_spec(spec)
@@ -65,7 +66,7 @@ def leaf_to_petiole_rachis_branches(leaf_dict: Dict, parent_trunk_id: str) -> Li
     """
     # Import tree_config for clamping
     import importlib.util
-    config_path = Path(__file__).parent.parent / "tree_config.py"
+    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
     spec = importlib.util.spec_from_file_location("tree_config", config_path)
     tree_config = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tree_config)
@@ -191,7 +192,7 @@ def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: f
     """
     # Import tree_config for clamping
     import importlib.util
-    config_path = Path(__file__).parent.parent / "tree_config.py"
+    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
     spec = importlib.util.spec_from_file_location("tree_config", config_path)
     tree_config = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tree_config)
@@ -278,7 +279,7 @@ def create_terminal_petiolule(rachis_id: str, rachis_n_links: int, petiole_radiu
     """
     # Import tree_config for clamping
     import importlib.util
-    config_path = Path(__file__).parent.parent / "tree_config.py"
+    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
     spec = importlib.util.spec_from_file_location("tree_config", config_path)
     tree_config = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tree_config)

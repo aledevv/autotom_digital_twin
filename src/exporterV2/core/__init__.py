@@ -16,9 +16,15 @@ from .tree_config import (
     clamp_radius,
 )
 
-from .physics import apply_physx_scene_settings
-
-from . import usd
+# Lazy import for physics (requires pxr)
+def __getattr__(name):
+    if name == "apply_physx_scene_settings":
+        from .physics import apply_physx_scene_settings
+        return apply_physx_scene_settings
+    elif name == "usd":
+        from . import usd
+        return usd
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 __all__ = [
     "BRANCHES",

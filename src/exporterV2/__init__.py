@@ -11,7 +11,7 @@ Quick Start:
     stage, stem_path = build_stage("tree.usda")
 """
 
-# Re-export core functionality for convenience
+# Re-export core functionality for convenience (tree_config only, no pxr)
 from .core import (
     BRANCHES,
     GLOBAL_SCALE,
@@ -19,10 +19,17 @@ from .core import (
     MIN_LINK_RADIUS_WORLD,
     print_tree_summary,
     validate_branches,
-    apply_physx_scene_settings,
 )
 
-from .core.usd import build_stage
+# Lazy imports for USD/physics (require pxr)
+def __getattr__(name):
+    if name == "build_stage":
+        from .core.usd import build_stage
+        return build_stage
+    elif name == "apply_physx_scene_settings":
+        from .core.physics import apply_physx_scene_settings
+        return apply_physx_scene_settings
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 __all__ = [
     "build_stage",
