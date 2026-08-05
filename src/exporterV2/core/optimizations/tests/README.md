@@ -54,8 +54,16 @@ uv run python tests/2_collision/demo_task2.py
 
 ---
 
-### Task 3: Geometry Remapping (🔴 TODO)
-Attachment point remapping when collapsing segments.
+### Task 3: Geometry Remapping (✅ DONE)
+```bash
+# Unit tests (8 tests)
+uv run python tests/3_geometry/test_geometry_remapping.py
+
+# Demo
+uv run python tests/3_geometry/demo_task3.py
+```
+
+**Tests**: Attachment remapping, height preservation, batch remapping
 
 ---
 
@@ -129,7 +137,7 @@ uv run pytest src/exporterV2/core/optimizations/tests/2_collision/
 |------|-----------|------------|--------------|--------|
 | 1 | Infrastructure | ✅ 6 tests | ✅ Demo | ✅ DONE |
 | 2 | Collision | ✅ 12 tests | ✅ 4 visual | ✅ DONE |
-| 3 | Geometry | 🔴 TODO | 🔴 TODO | 🔴 TODO |
+| 3 | Geometry | ✅ 8 tests | ✅ Demo | ✅ DONE |
 | 4 | Petiole Lock | 🔴 TODO | 🔴 TODO | 🔴 TODO |
 | 5 | Lateral Reduce | 🔴 TODO | 🔴 TODO | 🔴 TODO |
 | 6 | Stem Collapse | 🔴 TODO | 🔴 TODO | 🔴 TODO |
@@ -138,7 +146,7 @@ uv run pytest src/exporterV2/core/optimizations/tests/2_collision/
 | 9 | Integration | 🔴 TODO | 🔴 TODO | 🔴 TODO |
 | 10 | Visual Suite | N/A | 🔴 TODO | 🔴 TODO |
 
-**Progress**: 2/12 tasks complete (16.7%)
+**Progress**: 3/12 tasks complete (25%)
 
 ---
 

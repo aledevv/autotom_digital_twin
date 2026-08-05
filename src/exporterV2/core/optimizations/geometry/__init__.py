@@ -1,23 +1,34 @@
 """
-Geometry Utilities
+geometry - Geometry utilities for optimization
 
-Geometric utilities for attachment remapping and bounding volume calculation.
-
-Components:
-    - Remapping: Attachment point recalculation when segments collapse
-    - Bounds: Bounding volume calculation for collision detection
-
-Example:
-    >>> from exporterV2.core.optimizations.geometry import remap_attachment_height
-    >>> new_idx, offset_z = remap_attachment_height(3, 5, 3, segment_heights)
+Provides utilities for:
+- Attachment point remapping when collapsing segments
+- Bounding volume calculation from branch configs
+- Height preservation across topology changes
 """
 
-# Exports (will be implemented in Task 3)
-# from .remapping import remap_attachment_height
-# from .bounds import CylinderGeometry, link_to_cylinder_geometry
+from .remapping import (
+    remap_attachment_height,
+    RemappingResult,
+    calculate_absolute_height,
+    find_new_attachment,
+)
+
+from .bounds import (
+    link_to_cylinder_geometry,
+    branch_to_cylinder_geometries,
+    get_link_dimensions,
+)
 
 __all__ = [
-    # "remap_attachment_height",
-    # "CylinderGeometry",
-    # "link_to_cylinder_geometry",
+    # Remapping
+    'remap_attachment_height',
+    'RemappingResult',
+    'calculate_absolute_height',
+    'find_new_attachment',
+    
+    # Bounds
+    'link_to_cylinder_geometry',
+    'branch_to_cylinder_geometries',
+    'get_link_dimensions',
 ]

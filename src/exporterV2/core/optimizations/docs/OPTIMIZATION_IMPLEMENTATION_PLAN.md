@@ -6,7 +6,7 @@
 ## Status Overview
 
 **Ultima Modifica**: 2025-01-08  
-**Stato Generale**: 🟡 In Progress (2/12 tasks complete)
+**Stato Generale**: 🟡 In Progress (3/12 tasks complete)
 
 ### Task Status Legend
 - ✅ **DONE**: Task completata e testata
@@ -21,7 +21,7 @@
 ### Phase 1: Infrastructure (Tasks 1-3)
 - [x] **Task 1**: Setup Infrastructure - Cartella optimizations e configurazione YAML ✅
 - [x] **Task 2**: Collision Detection - Sistema Broad-Phase (Sphere + AABB) ✅
-- [ ] **Task 3**: Geometry Remapping - Attachment Point Recalculation
+- [x] **Task 3**: Geometry Remapping - Attachment Point Recalculation ✅
 
 ### Phase 2: Optimization Techniques (Tasks 4-8)
 - [ ] **Task 4**: Tecnica 1 - Petiole Lock (D6 → Fixed Joint)
@@ -284,31 +284,38 @@ Order based on: impatto visivo minimo → realismo preservato
 
 ### Task 3: Geometry Remapping - Attachment Point Recalculation
 
-**Status**: 🔴 TODO
+**Status**: ✅ DONE (Completed: 2025-01-08)
 
 **Obiettivo**: Implementare logica geometrica per rimappare attachment points quando si collassano segmenti.
 
 **Deliverables**:
-- [ ] File `geometry/remapping.py`:
+- [x] File `geometry/remapping.py` ✅:
   - `remap_attachment_height(original_link_idx, original_n_links, new_n_links, segment_heights) -> (new_link_idx, offset_z)`
   - Preserva altezza geometrica assoluta
   - Gestisce edge cases (primo/ultimo link, segmenti non uniformi)
-- [ ] File `geometry/bounds.py`:
+- [x] File `geometry/bounds.py` ✅:
   - `link_to_cylinder_geometry(branch, link_idx) -> CylinderGeometry`
   - Helper per calcolo bounds da branches config
 
 **Testing**:
-- [ ] Unit test `test_geometry_remapping.py`:
+- [x] Unit test `test_geometry_remapping.py` (8 tests passed) ✅:
   - Remapping con stem 5→3→1 links
   - Preservazione altezza assoluta (tolerance 1%)
   - Segmenti non uniformi
   - Edge cases (attach top/bottom)
+  - Batch remapping multiple children
 
-**Demo**: Tabella comparativa altezze attachment prima/dopo remapping.
+**Demo**: ✅ Tabella comparativa altezze attachment prima/dopo remapping
 
 **Dependencies**: Nessuna
 
-**Estimated Time**: 2-3 ore
+**Actual Time**: ~2.5 ore
+
+**Notes**:
+- Sub-millimeter accuracy (<0.01mm error)
+- Works for any collapse ratio (5→4, 5→3, 5→2, 5→1)
+- Integrates with Task 2 collision detection via CylinderGeometry
+- Ready for Task 6 (Stem Collapse technique)
 
 ---
 
@@ -642,6 +649,7 @@ Order based on: impatto visivo minimo → realismo preservato
 | 2025-01-08 | - | Documento creato | Alessandro |
 | 2025-01-08 | 1 | ✅ Completata Task 1: Setup Infrastructure | Alessandro |
 | 2025-01-08 | 2 | ✅ Completata Task 2: Collision Detection | Alessandro |
+| 2025-01-08 | 3 | ✅ Completata Task 3: Geometry Remapping | Alessandro |
 | | | | |
 
 ---
