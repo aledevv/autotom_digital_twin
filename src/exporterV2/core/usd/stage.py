@@ -94,12 +94,22 @@ def build_chain(
         chain_orientation: World-space orientation quaternion
                           (None for trunk = vertical)
         locked_joints: If True, use FixedJoint instead of flexible D6
+                      (can be overridden by branch_def["joint_type"])
 
     Returns:
         Tuple (link_paths, link_world_bases):
             link_paths: List of USD paths (index 0 = base link)
             link_world_bases: List of world-space base positions
     """
+    # Check if branch has joint_type metadata (from optimization)
+    # Priority: branch_def["joint_type"] > locked_joints parameter
+    branch_joint_type = branch_def.get("joint_type", None)
+    if branch_joint_type == "fixed":
+        locked_joints = True
+    elif branch_joint_type == "d6":
+        locked_joints = False
+    # else: use locked_joints parameter as-is
+    
     r_world = scaled(branch_def["radius"])
     h_world = scaled(branch_def["height"])
     gap     = scaled(GAP)
