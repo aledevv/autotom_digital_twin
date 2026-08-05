@@ -376,7 +376,7 @@ def lateral_branches_to_branch_config(lateral_branches: List[Dict], trunk_id: st
     Convert lateral branches to BRANCHES format.
     
     Orientation logic is controlled by profile configuration.
-    Default (tomato): tilt=45°, symmetric rot (0°/180° for organ_index 0/1).
+    Default (tomato): tilt=45°, base rot (0°/180°) + random jitter with collision check.
     
     Args:
         lateral_branches: List of lateral branch dicts from load_lateral_branches()
@@ -392,6 +392,10 @@ def lateral_branches_to_branch_config(lateral_branches: List[Dict], trunk_id: st
     lateral_config = profile.get("lateral_branches", {})
     tilt_deg = lateral_config.get("tilt_deg", 45.0)
     rot_base_deg = lateral_config.get("rot_base_deg", [0.0, 180.0])
+    rot_jitter_deg = lateral_config.get("rot_jitter_deg", 0.0)
+    min_angle_sep = lateral_config.get("min_angle_separation_deg", 60.0)
+    
+    import random
     # Import tree_config directly to avoid pxr import in __init__
     import importlib.util
     # From adapters/groimp_csv/parser.py → core/tree_config.py
@@ -415,6 +419,10 @@ def lateral_branches_to_branch_config(lateral_branches: List[Dict], trunk_id: st
     # Convert each group to BRANCHES format
     branches = []
     
+    # Track rotations per parent_rank for anti-collision
+    # Key: parent_rank, Value: list of rotations
+    rotations_by_parent = defaultdict(list)
+    
     for (rank, organ_index), group in sorted(grouped.items()):
         # Calculate averages
         avg_radius = sum(b["width_m"] / 2.0 for b in group) / len(group)
@@ -431,12 +439,54 @@ def lateral_branches_to_branch_config(lateral_branches: List[Dict], trunk_id: st
                   f"{radius_world_original:.4f}m → {radius_world_clamped:.4f}m "
                   f"(min {MIN_LINK_RADIUS_WORLD}m at scale {GLOBAL_SCALE})")
         
-        # Determine orientation from profile
+        # Calculate rotation with jitter + anti-collision
+        # Base rotation from profile
         if organ_index < len(rot_base_deg):
-            rot_deg = rot_base_deg[organ_index]
+            rot_base = rot_base_deg[organ_index]
         else:
-            # Fallback for indices not in rot_base_deg
-            rot_deg = organ_index * 90.0
+            rot_base = organ_index * 90.0
+        
+        # Add random jitter
+        if rot_jitter_deg > 0:
+            random.seed(rank * 1000 + organ_index)
+            jitter = random.uniform(-rot_jitter_deg, rot_jitter_deg)
+            rot_deg = (rot_base + jitter) % 360.0
+        else:
+            rot_deg = rot_base
+        
+        # Anti-collision check: avoid branches too close in angle
+        # Check against branches on same parent_rank and adjacent ranks (±1)
+        collision_check_ranks = [parent_rank, parent_rank - 1, parent_rank + 1]
+        
+        max_attempts = 10
+        for attempt in range(max_attempts):
+            collision_found = False
+            
+            for check_rank in collision_check_ranks:
+                for existing_rot in rotations_by_parent.get(check_rank, []):
+                    # Calculate shortest angular distance
+                    angle_diff = abs(rot_deg - existing_rot)
+                    angle_diff = min(angle_diff, 360.0 - angle_diff)
+                    
+                    if angle_diff < min_angle_sep:
+                        # Collision detected! Adjust rotation
+                        collision_found = True
+                        # Shift by min_angle_sep + 5° for safety margin
+                        rot_deg = (existing_rot + min_angle_sep + 5.0) % 360.0
+                        break
+                
+                if collision_found:
+                    break
+            
+            if not collision_found:
+                break  # No collision, success!
+            
+            if attempt == max_attempts - 1:
+                print(f"[WARNING] Branch rank={rank} organ_index={organ_index}: "
+                      f"Could not fully resolve collision after {max_attempts} attempts, using rot={rot_deg:.1f}°")
+        
+        # Record this rotation for future collision checks
+        rotations_by_parent[parent_rank].append(rot_deg)
         
         # Create BRANCHES format dict
         branch = {

@@ -104,7 +104,7 @@ def leaf_to_petiole_rachis_branches(leaf_dict: Dict, parent_trunk_id: str) -> Li
         # Trunk leaves: use CSV data
         azimuth_deg, tilt_deg = calculate_leaf_orientation(leaf_dict)
     else:
-        # Lateral branch leaves: oriented perpendicular to branch + random variation
+        # Lateral branch leaves: oriented more coaxially with branch (upward)
         # Rotation is RELATIVE to parent branch axis (branch is already rotated 0°/180°)
         # So we always use same random range for both organ_index
         import random
@@ -117,8 +117,9 @@ def leaf_to_petiole_rachis_branches(leaf_dict: Dict, parent_trunk_id: str) -> Li
         # Normalize to [0, 360)
         azimuth_deg = azimuth_deg % 360.0
         
-        # tilt: ~75° to be nearly perpendicular to 45° branch, but slightly upward
-        tilt_deg = 75.0
+        # tilt: ~35° to be more coaxial with 45° branch (pointing upward along branch)
+        # Lower tilt = more aligned with branch axis
+        tilt_deg = 35.0
     
     # Create unique IDs with organ_index AND order to distinguish trunk/lateral leaves
     if order == 0:

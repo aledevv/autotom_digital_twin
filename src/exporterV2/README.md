@@ -133,8 +133,23 @@ branches, _ = parse_csv_to_branches(day=100, profile=MY_PROFILE)
 
 ---
 
+## Documentation
+
+Comprehensive documentation in `docs/`:
+
+- **[Architecture](docs/01_architecture.md)** - How ExporterV2 works (pipeline, modules, data flow)
+- **[vs V1](docs/02_vs_v1.md)** - Differences from V1, migration guide, when to use each
+- **[CSV Modifications](docs/03_csv_modifications.md)** - How we deviate from raw CSV (angles, filtering, jitter, collision checks)
+- **[Collision Checks](docs/04_collision_checks.md)** - Anti-collision system for lateral branches
+- **[Testing](docs/05_testing.md)** - Test suite, how to run, expected results
+- **[Implementation Notes](docs/06_implementation_notes.md)** - Lessons learned, tricks, common pitfalls
+- **[Troubleshooting](docs/07_troubleshooting.md)** - Common issues and solutions
+
+---
+
 ## Testing
 
+### Quick Tests
 ```bash
 # Test with different days
 ./run_mainV2.sh --day 1
@@ -145,6 +160,23 @@ branches, _ = parse_csv_to_branches(day=100, profile=MY_PROFILE)
 ls output/day_100/
 cat output/day_100/branches_v2_day_100.json
 ```
+
+### Automated Test Suite
+```bash
+# Run all tests from project root
+cd /home/alessandro/isaacsim/autotom_digital_twin
+
+# 1. Refactoring verification
+./src/exporterV2/tests/test_refactoring.sh
+
+# 2. Generate day 100
+./run_mainV2.sh --day 100
+
+# 3. Collision geometry checks
+python3 src/exporterV2/tests/test_collision_geometry.py output/day_100/branches_v2_day_100.json
+```
+
+See **[tests/README.md](tests/README.md)** for details.
 
 ---
 

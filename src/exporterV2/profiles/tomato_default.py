@@ -14,7 +14,9 @@ TOMATO_PROFILE = {
         "enabled": True,
         "organ_indices": [0, 1],           # Keep only opposite pairs (organ_index 0 and 1)
         "tilt_deg": 45.0,                  # Fixed tilt from trunk (vertical = 0°)
-        "rot_base_deg": [0.0, 180.0],      # Symmetric rotation: organ_0=0°, organ_1=180°
+        "rot_base_deg": [0.0, 180.0],      # Base rotation: organ_0=0°, organ_1=180°
+        "rot_jitter_deg": 45.0,            # Random jitter: ±45° from base
+        "min_angle_separation_deg": 60.0,  # Anti-collision: min angle between branches
     },
     
     # Trunk leaves configuration
@@ -31,7 +33,7 @@ TOMATO_PROFILE = {
         "enabled": True,
         "organ_indices": [0, 1],           # Same as lateral branches (opposite pairs)
         "clone_missing": True,              # Clone missing leaf if only 1 in pair exists
-        "tilt_deg": 75.0,                   # Nearly perpendicular to 45° branch
+        "tilt_deg": 35.0,                   # More coaxial with 45° branch (upward orientation)
         "rot_range_deg": (-90.0, 90.0),     # Random range relative to branch axis
         "rot_seed_formula": "rank * 1000 + organ_index",  # Deterministic randomness
     },
