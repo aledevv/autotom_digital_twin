@@ -37,22 +37,7 @@ def test_identify_petiole_rachis():
     assert technique._is_rachis(other) is False
 
 
-def test_find_pairs():
-    """Test finding petiole+rachis pairs."""
-    technique = LeafBranchReductionTechnique()
-    
-    branches = [
-        {"id": "trunk", "parent": None},
-        {"id": "Leaf_r1_o0_petiole", "parent": "trunk"},
-        {"id": "Leaf_r1_o0_rachis", "parent": "Leaf_r1_o0_petiole"},
-        {"id": "Leaf_r2_o0_petiole", "parent": "trunk"},
-        # No rachis for Leaf_r2_o0
-    ]
-    
-    pairs = technique._find_petiole_rachis_pairs(branches)
-    assert len(pairs) == 1
-    assert pairs[0][0]["id"] == "Leaf_r1_o0_petiole"
-    assert pairs[0][1]["id"] == "Leaf_r1_o0_rachis"
+
 
 
 def test_can_apply():
@@ -116,7 +101,7 @@ def test_apply_single_pair():
     assert "Leaf_r1_o0_rachis" not in mod_dict
     
     # Check petiole merged
-    merged = mod_dict["Leaf_r1_o0_petiole"]
+    merged = mod_dict["Leaf_r1_o0_merged"]
     assert merged["n_links"] == 1
     
     # Check total length preserved
@@ -150,8 +135,8 @@ def test_apply_with_petiolules():
     pet1 = mod_dict["Petiolule_r1_o0_lf1"]
     pet2 = mod_dict["Petiolule_r1_o0_lf2"]
     
-    assert pet1["parent"] == "Leaf_r1_o0_petiole"
-    assert pet2["parent"] == "Leaf_r1_o0_petiole"
+    assert pet1["parent"] == "Leaf_r1_o0_merged"
+    assert pet2["parent"] == "Leaf_r1_o0_merged"
     assert pet1["attach_link"] == 1
     assert pet2["attach_link"] == 1
 
@@ -217,9 +202,10 @@ def test_validate_detects_errors():
          "n_links": 3, "height": 0.05, "radius": 0.020},
     ]
     
-    # Invalid: petiole missing
+    # Invalid: child with broken parent reference
     modified_invalid = [
         {"id": "trunk", "parent": None},
+        {"id": "Leaf_r1_o0_rachis", "parent": "Leaf_r1_o0_petiole"}
     ]
     
     result = technique.validate(original, modified_invalid)

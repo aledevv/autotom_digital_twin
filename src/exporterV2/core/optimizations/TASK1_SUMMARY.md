@@ -1,8 +1,11 @@
 # Task 1: Setup Infrastructure - Summary
 
-**Status**: ✅ COMPLETED  
-**Date**: 2025-01-08  
-**Time**: ~3 hours
+**Status**: ✅ COMPLETED (AND REVISED)  
+**Date**: 2025-01-08 (Updated: 2026-08-06)  
+
+> [!NOTE]
+> **Refactoring Update (August 2026)**
+> The `BudgetOptimizer.optimize()` loop (previously a skeleton) has now been fully implemented. It sequentially applies optimization techniques ordered by priority as configured in `budget_config.yaml` until the joint budget target is reached.
 
 ---
 

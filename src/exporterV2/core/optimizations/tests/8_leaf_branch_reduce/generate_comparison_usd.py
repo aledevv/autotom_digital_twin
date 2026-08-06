@@ -213,82 +213,24 @@ def create_merged_plant():
     """
     Create fully merged plant: petiole+rachis merged.
     
-    Manually constructed to demonstrate the geometry remapping fix.
+    Uses LeafBranchReductionTechnique to merge petiole+rachis.
+    Petiolules attach directly to merged petiole.
+    
     Total: 5 + 1 + 1 + 3 = 10 links (saved 3 links vs baseline)
     """
-    branches = [
-        # Trunk (unchanged)
-        {
-            "id": "trunk",
-            "parent": None,
-            "n_links": 5,
-            "height": 0.20,
-            "radius": 0.03,
-            "tilt": 0.0,
-            "rot": 0.0,
-        },
-        # Lateral Branch (unchanged)
-        {
-            "id": "Branch_r3_o0",
-            "parent": "trunk",
-            "attach_link": 3,
-            "n_links": 1,
-            "height": 0.30,
-            "radius": 0.020,
-            "tilt": 45.0,
-            "rot": 90.0,
-        },
-        # Merged Petiole + Rachis (1 link, total length = 0.10 + 0.15 = 0.25)
-        {
-            "id": "Leaf_r3_o0_merged",
-            "parent": "Branch_r3_o0",
-            "attach_link": 1,
-            "n_links": 1,
-            "height": 0.25,
-            "radius": 0.010, # average radius
-            "tilt": 30.0, # Inherit petiole's original tilt
-            "rot": 0.0,
-        },
-        # Petiolules remapped to the single merged link
-        # Distances from base of leaf: 
-        # lf0 = petiole(0.10) + rachis_link1(0.05) = 0.15m (0.15/0.25 = 0.6)
-        # lf1 = petiole(0.10) + rachis_link2(0.10) = 0.20m (0.20/0.25 = 0.8)
-        # lf2 = petiole(0.10) + rachis_link3(0.15) = 0.25m (0.25/0.25 = 1.0)
-        {
-            "id": "Petiolule_r3_o0_lf0",
-            "parent": "Leaf_r3_o0_merged",
-            "attach_link": 1,
-            "attach_frac": 0.6,
-            "n_links": 1,
-            "height": 0.04,
-            "radius": 0.005,
-            "tilt": 60.0,
-            "rot": 0.0,
-        },
-        {
-            "id": "Petiolule_r3_o0_lf1",
-            "parent": "Leaf_r3_o0_merged",
-            "attach_link": 1,
-            "attach_frac": 0.8,
-            "n_links": 1,
-            "height": 0.04,
-            "radius": 0.005,
-            "tilt": 60.0,
-            "rot": 120.0,
-        },
-        {
-            "id": "Petiolule_r3_o0_lf2",
-            "parent": "Leaf_r3_o0_merged",
-            "attach_link": 1,
-            "attach_frac": 1.0,
-            "n_links": 1,
-            "height": 0.04,
-            "radius": 0.005,
-            "tilt": 60.0,
-            "rot": 240.0,
-        },
-    ]
-    return branches
+    baseline = create_baseline_plant()
+    
+    # Apply leaf branch reduction
+    from exporterV2.core.optimizations.techniques.leaf_branch_reduce import LeafBranchReductionTechnique
+    technique = LeafBranchReductionTechnique()
+    merged_branches, report = technique.apply(baseline)
+    
+    print(f"  Applied LeafBranchReductionTechnique:")
+    print(f"    - Pairs merged: {report.details['pairs_merged']}")
+    print(f"    - Links removed: {report.details['links_removed']}")
+    print(f"    - Petiolules remapped: {report.details['petiolules_remapped']}")
+    
+    return merged_branches
 
 
 def main():

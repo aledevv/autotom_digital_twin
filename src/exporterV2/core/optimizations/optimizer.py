@@ -247,6 +247,37 @@ class BudgetOptimizer:
             5. Validate after each technique
             6. Return optimized config + report
         """
+    def _get_technique(self, technique_config: Dict) -> OptimizationTechnique:
+        from .techniques import (
+            PetioleLockTechnique,
+            LateralBranchReductionTechnique,
+            LeafBranchReductionTechnique,
+        )
+        
+        tech_id = technique_config["id"]
+        
+        if tech_id == "petiole_lock":
+            return PetioleLockTechnique()
+        elif tech_id == "lateral_reduce":
+            min_segments = technique_config.get("params", {}).get("min_segments", 1)
+            return LateralBranchReductionTechnique(min_segments=min_segments)
+        elif tech_id == "leaf_branch_reduce":
+            return LeafBranchReductionTechnique()
+        else:
+            # We skip undefined tasks (e.g. stem_collapse, truss_static)
+            class DummyTechnique(OptimizationTechnique):
+                def __init__(self): self._name = tech_id; self._priority = 99
+                @property
+                def name(self): return self._name
+                @property
+                def priority(self): return self._priority
+                def can_apply(self, branches): return False
+                def estimate_reduction(self, branches): return 0
+                def apply(self, branches): return branches, None
+                def validate(self, orig, mod): from .techniques.base import ValidationResult; return ValidationResult(True, [], [])
+            return DummyTechnique()
+
+    def optimize(self, branches: List[Dict]) -> Tuple[List[Dict], FullOptimizationReport]:
         # Calculate initial state
         original_joints = self.calculate_total_joints(branches)
         lower_bound = self.calculate_lower_bound(branches)
@@ -284,29 +315,27 @@ class BudgetOptimizer:
         
         # Apply techniques sequentially
         current_branches = branches.copy()
+        current_joints = original_joints
         technique_reports = []
         
-        # NOTE: Technique application will be implemented in subsequent tasks
-        # For now, this is a skeleton that demonstrates the structure
-        
-        # TODO (Task 4-8): Implement technique application loop
-        # for technique_config in self.config.techniques:
-        #     if not technique_config["enabled"]:
-        #         continue
-        #     
-        #     technique = self._get_technique(technique_config)
-        #     
-        #     if technique.can_apply(current_branches, current_joints, budget):
-        #         modified, tech_report = technique.apply(current_branches)
-        #         validation = technique.validate(modified)
-        #         
-        #         if validation.valid:
-        #             current_branches = modified
-        #             technique_reports.append(tech_report)
-        #             current_joints = self.calculate_total_joints(current_branches)
-        #             
-        #             if current_joints <= budget:
-        #                 break  # Budget met!
+        for technique_config in self.config.techniques:
+            if not technique_config.get("enabled", True):
+                continue
+            
+            technique = self._get_technique(technique_config)
+            
+            if technique.can_apply(current_branches):
+                modified, tech_report = technique.apply(current_branches)
+                validation = technique.validate(current_branches, modified)
+                
+                if validation.valid:
+                    current_branches = modified
+                    if tech_report:  # Skip dummy reports
+                        technique_reports.append(tech_report)
+                    current_joints = self.calculate_total_joints(current_branches)
+                    
+                    if current_joints <= budget:
+                        break  # Budget met!
         
         final_joints = self.calculate_total_joints(current_branches)
         

@@ -1,8 +1,14 @@
 # Task 3: Geometry Remapping - Summary
 
-**Status**: ✅ COMPLETED  
-**Date**: 2025-01-08  
-**Time**: ~2.5 hours
+**Status**: ✅ COMPLETED (AND REVISED)  
+**Date**: 2025-01-08 (Updated: 2026-08-06)  
+
+> [!NOTE]
+> **Refactoring Update (August 2026)**
+> The original complex remapping logic (which computed absolute heights across 0-based arrays) was replaced with a highly precise, proportional 1-based approach. 
+> - Branches are now attached using `attach_frac` (a float 0.0-1.0) along a specific 1-based `attach_link`.
+> - The new `remap_link_attachment(attach_link, n_old, n_new)` mathematically scales attachments seamlessly (e.g. `k = floor(V) + 1`).
+> - The obsolete `bounds.py` dataclasses and the heavy absolute height calculator were removed.
 
 ---
 

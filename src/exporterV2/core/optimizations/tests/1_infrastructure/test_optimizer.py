@@ -9,12 +9,14 @@ import tempfile
 import yaml
 from pathlib import Path
 
-# Add parent directory to path for imports
+# Add optimizations directory to path
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+script_dir = os.path.dirname(os.path.abspath(__file__))
+optimizations_dir = os.path.join(script_dir, "../..")
+sys.path.insert(0, optimizations_dir)
 
-from exporterV2.core.optimizations.optimizer import BudgetOptimizer, BudgetConfig, FullOptimizationReport
+from optimizer import BudgetOptimizer, BudgetConfig, FullOptimizationReport
 
 
 # ==============================================================================
