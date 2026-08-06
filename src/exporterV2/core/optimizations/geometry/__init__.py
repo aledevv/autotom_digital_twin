@@ -8,10 +8,7 @@ Provides utilities for:
 """
 
 from .remapping import (
-    remap_attachment_height,
-    RemappingResult,
-    calculate_absolute_height,
-    find_new_attachment,
+    remap_link_attachment,
 )
 
 from .bounds import (
@@ -22,10 +19,7 @@ from .bounds import (
 
 __all__ = [
     # Remapping
-    'remap_attachment_height',
-    'RemappingResult',
-    'calculate_absolute_height',
-    'find_new_attachment',
+    'remap_link_attachment',
     
     # Bounds
     'link_to_cylinder_geometry',

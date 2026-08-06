@@ -1,0 +1,212 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    upAxis = "Z"
+)
+
+def Xform "World"
+{
+    def Xform "Stem" (
+        prepend apiSchemas = ["PhysicsArticulationRootAPI"]
+    )
+    {
+        def Xform "trunk_Link_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.33333334)
+            float physics:mass = 7.5398226
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.6666666666666666
+                double radius = 0.06
+                double3 xformOp:translate = (0, 0, 0.3333333333333333)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsFixedJoint "RootFixedJoint"
+            {
+                rel physics:body1 = </World/Stem/trunk_Link_01>
+            }
+        }
+
+        def Xform "trunk_Link_02" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.33333334)
+            prepend rel physics:filteredPairs = </World/Stem/trunk_Link_01>
+            float physics:mass = 7.5398226
+            double3 xformOp:translate = (0, 0, 0.6666666666666666)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.6666666666666666
+                double radius = 0.06
+                double3 xformOp:translate = (0, 0, 0.3333333333333333)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsFixedJoint "Joint_01_02"
+            {
+                rel physics:body0 = </World/Stem/trunk_Link_01>
+                rel physics:body1 = </World/Stem/trunk_Link_02>
+                point3f physics:localPos0 = (0, 0, 0.6666667)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "trunk_Link_03" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.33333334)
+            prepend rel physics:filteredPairs = </World/Stem/trunk_Link_02>
+            float physics:mass = 7.5398226
+            double3 xformOp:translate = (0, 0, 1.3333333333333333)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.6666666666666666
+                double radius = 0.06
+                double3 xformOp:translate = (0, 0, 0.3333333333333333)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsFixedJoint "Joint_02_03"
+            {
+                rel physics:body0 = </World/Stem/trunk_Link_02>
+                rel physics:body1 = </World/Stem/trunk_Link_03>
+                point3f physics:localPos0 = (0, 0, 0.6666667)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_A_Link_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.2)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/trunk_Link_03>,
+                </World/Stem/Branch_C_Link_01>,
+            ]
+            float physics:mass = 0.72382295
+            quatf xformOp:orient = (0.70710677, -0.70710677, 0, 0)
+            double3 xformOp:translate = (0, 0.03, 1.8)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.4
+                double radius = 0.024
+                double3 xformOp:translate = (0, 0, 0.2)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsFixedJoint "AttachJoint"
+            {
+                rel physics:body0 = </World/Stem/trunk_Link_03>
+                rel physics:body1 = </World/Stem/Branch_A_Link_01>
+                point3f physics:localPos0 = (0, 0.03, 0.46666667)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (0.70710677, -0.70710677, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_B_Link_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.2)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/trunk_Link_02>,
+                </World/Stem/trunk_Link_03>,
+            ]
+            float physics:mass = 0.72382295
+            quatf xformOp:orient = (0.35355338, -0.35355338, -0.61237246, 0.61237246)
+            double3 xformOp:translate = (-0.025980762113533163, -0.014999999999999993, 0.8)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.4
+                double radius = 0.024
+                double3 xformOp:translate = (0, 0, 0.2)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsFixedJoint "AttachJoint"
+            {
+                rel physics:body0 = </World/Stem/trunk_Link_02>
+                rel physics:body1 = </World/Stem/Branch_B_Link_01>
+                point3f physics:localPos0 = (-0.025980761, -0.015, 0.13333334)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (0.35355338, -0.35355338, -0.61237246, 0.61237246)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Branch_C_Link_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.2)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/trunk_Link_03>,
+                </World/Stem/Branch_A_Link_01>,
+            ]
+            float physics:mass = 0.72382295
+            quatf xformOp:orient = (-0.35355338, 0.35355338, -0.61237246, 0.61237246)
+            double3 xformOp:translate = (0.025980762113533156, -0.015000000000000025, 2)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.4
+                double radius = 0.024
+                double3 xformOp:translate = (0, 0, 0.2)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsFixedJoint "AttachJoint"
+            {
+                rel physics:body0 = </World/Stem/trunk_Link_03>
+                rel physics:body1 = </World/Stem/Branch_C_Link_01>
+                point3f physics:localPos0 = (0.025980761, -0.015, 0.6666667)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (-0.35355338, 0.35355338, -0.61237246, 0.61237246)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+    }
+}
+

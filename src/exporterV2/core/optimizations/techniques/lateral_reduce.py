@@ -35,16 +35,16 @@ except ImportError:
 
 # Import geometry remapping (Task 3)
 try:
-    from ..geometry.remapping import remap_attachment_height
+    from ..geometry.remapping import remap_link_attachment
 except ImportError:
     try:
         import sys
         import os
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-        from geometry.remapping import remap_attachment_height
+        from geometry.remapping import remap_link_attachment
     except ImportError:
         # Fallback if remapping not available
-        remap_attachment_height = None
+        remap_link_attachment = None
 
 
 @dataclass
@@ -257,21 +257,18 @@ class LateralBranchReductionTechnique(OptimizationTechnique):
                 old_attach = child["attach_link"]
                 
                 # Use geometry remapping to calculate new attachment
-                if remap_attachment_height:
+                if remap_link_attachment:
                     try:
-                        # Get segment heights (uniform for now)
-                        old_heights = [old_height] * old_n_links
-                        
-                        new_attach, _ = remap_attachment_height(
-                            original_link_idx=old_attach,
-                            original_n_links=old_n_links,
-                            new_n_links=new_n_links,
-                            segment_heights=old_heights
+                        new_attach, attach_frac = remap_link_attachment(
+                            attach_link=old_attach,
+                            n_old=old_n_links,
+                            n_new=new_n_links
                         )
                         
-                        # Update child's attach_link
+                        # Update child's attach_link and attach_frac
                         child_id = child["id"]
                         branch_dict[child_id]["attach_link"] = new_attach
+                        branch_dict[child_id]["attach_frac"] = attach_frac
                         children_remapped += 1
                     
                     except Exception as e:
@@ -279,12 +276,14 @@ class LateralBranchReductionTechnique(OptimizationTechnique):
                         new_attach = max(1, int(old_attach * new_n_links / old_n_links))
                         child_id = child["id"]
                         branch_dict[child_id]["attach_link"] = new_attach
+                        branch_dict[child_id]["attach_frac"] = 1.0
                         children_remapped += 1
                 else:
                     # Fallback if remapping not available
                     new_attach = max(1, int(old_attach * new_n_links / old_n_links))
                     child_id = child["id"]
                     branch_dict[child_id]["attach_link"] = new_attach
+                    branch_dict[child_id]["attach_frac"] = 1.0
                     children_remapped += 1
         
         # Convert back to list

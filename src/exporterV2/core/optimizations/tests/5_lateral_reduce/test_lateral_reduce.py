@@ -175,8 +175,13 @@ def test_apply_with_child_remapping():
     child = mod_dict["Petiole_r1_o0"]
     
     assert branch["n_links"] == 3  # 4 → 3
-    assert child["attach_link"] <= 3  # Must be valid for new n_links
-    assert child["attach_link"] >= 1
+    
+    # Original: link 3 of 4 -> H = 0.75
+    # New: 3 links. V = 0.75 * 3 = 2.25
+    # k_new = floor(2.25) + 1 = 3
+    # p_new = 0.25
+    assert child["attach_link"] == 3
+    assert child["attach_frac"] == 0.25
     assert report.details["children_remapped"] == 1
 
 

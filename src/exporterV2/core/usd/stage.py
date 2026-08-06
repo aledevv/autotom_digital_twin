@@ -263,7 +263,18 @@ def build_stage(output_path: str, branches=None, locked_joints: bool = False, sk
                 radial_distance = 0.0
             else:
                 radial_distance = p_r_world / 2.0
-            base_offset_local = Gf.Vec3d(0.0, radial_distance, p_h_world + gap)
+
+            # attach_frac: fractional position within the parent link [0.0, 1.0].
+            #   1.0 (default) = top of link + small gap (original behaviour, coaxial seams)
+            #   <1.0          = mid-link attachment (used by remapping; no gap needed,
+            #                   branch emerges from the side of the cylinder)
+            # This field is set by the remapping code after stem reduction.
+            attach_frac = b.get("attach_frac", 1.0)
+            if attach_frac >= 1.0:
+                z_local = p_h_world + gap        # top of link + gap (default)
+            else:
+                z_local = attach_frac * p_h_world  # sub-link: exact fraction, no gap
+            base_offset_local = Gf.Vec3d(0.0, radial_distance, z_local)
             
             rot_z_local = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_deg)
             offset_in_parent_frame = rot_z_local.TransformDir(base_offset_local)
