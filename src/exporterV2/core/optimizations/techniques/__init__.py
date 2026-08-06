@@ -17,7 +17,7 @@ from .petiole_lock import PetioleLockTechnique
 
 # Exports (will be implemented in subsequent tasks)
 from .lateral_reduce import LateralBranchReductionTechnique
-# from .stem_collapse import StemCollapseTechnique
+from .stem_collapse import StemCollapseTechnique
 # from .truss_static import TrussStaticTechnique
 from .leaf_branch_reduce import LeafBranchReductionTechnique
 
@@ -27,7 +27,7 @@ __all__ = [
     "ValidationResult",
     "PetioleLockTechnique",
     "LateralBranchReductionTechnique",
-    # "StemCollapseTechnique",
+    "StemCollapseTechnique",
     # "TrussStaticTechnique",
     "LeafBranchReductionTechnique",
 ]

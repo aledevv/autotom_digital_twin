@@ -251,6 +251,7 @@ class BudgetOptimizer:
         from .techniques import (
             PetioleLockTechnique,
             LateralBranchReductionTechnique,
+            StemCollapseTechnique,
             LeafBranchReductionTechnique,
         )
         
@@ -261,10 +262,13 @@ class BudgetOptimizer:
         elif tech_id == "lateral_reduce":
             min_segments = technique_config.get("params", {}).get("min_segments", 1)
             return LateralBranchReductionTechnique(min_segments=min_segments)
+        elif tech_id == "stem_collapse":
+            target_segments = technique_config.get("params", {}).get("target_segments", 3)
+            return StemCollapseTechnique(target_segments=target_segments)
         elif tech_id == "leaf_branch_reduce":
             return LeafBranchReductionTechnique()
         else:
-            # We skip undefined tasks (e.g. stem_collapse, truss_static)
+            # We skip undefined tasks (e.g. truss_static)
             class DummyTechnique(OptimizationTechnique):
                 def __init__(self): self._name = tech_id; self._priority = 99
                 @property
