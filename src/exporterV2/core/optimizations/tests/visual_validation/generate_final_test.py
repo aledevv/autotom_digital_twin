@@ -52,6 +52,14 @@ def categorize_branches(branches):
     for b in branches:
         bid = b.get("id", "")
         n = b.get("n_links", 1)
+        
+        # Only count D6 joints (exclude Fixed joints from petiolules)
+        joint_type = b.get("joint_type", "d6").lower()
+        if joint_type == "fixed":
+            # Still count the object, but mark joints as 0 for budget
+            n_budget = 0
+        else:
+            n_budget = n
 
         if bid == "trunk" or bid.startswith("trunk"):
             cat = "trunk"
@@ -59,15 +67,15 @@ def categorize_branches(branches):
             cat = "lateral"
         elif "_petiole" in bid and "_merged" not in bid:
             cat = "petiole"
+        elif "petiolule" in bid.lower():
+            cat = "petiolule"  # Check BEFORE rachis (petiolules contain "_rachis" in name!)
         elif "_rachis" in bid or "_merged" in bid:
             cat = "rachis"
-        elif "petiolule" in bid:
-            cat = "petiolule"
         else:
             cat = "other"
 
         categories[cat]["count"] += 1
-        categories[cat]["joints"] += n
+        categories[cat]["joints"] += n_budget  # Use budget-aware count
 
     return categories
 
@@ -90,7 +98,8 @@ def print_comparison_table(branches_before, branches_after, budget):
     for cat in ["trunk", "lateral", "petiole", "rachis", "petiolule", "other"]:
         b = before[cat]
         a = after[cat]
-        if b["count"] == 0 and a["count"] == 0:
+        # Show category if it has joints before OR after (not just count > 0)
+        if b["joints"] == 0 and a["joints"] == 0:
             continue
         delta = a["joints"] - b["joints"]
         pct   = (delta / b["joints"] * 100) if b["joints"] > 0 else 0
@@ -98,6 +107,11 @@ def print_comparison_table(branches_before, branches_after, budget):
         br_str = f"{b['count']}" if bdelta == 0 else f"{b['count']} → {a['count']}"
         d_str  = f"{delta:+d}" if delta != 0 else "–"
         p_str  = f"{pct:+.0f}%" if delta != 0 else "–"
+        
+        # Special note for petiolules converted to Fixed
+        if cat == "petiolule" and b["joints"] > 0 and a["joints"] == 0:
+            p_str = "→Fixed"  # Indicate they were locked, not removed
+        
         print(f"  {cat:<14} {br_str:>8}  {b['joints']:>8}  {a['joints']:>8}  {d_str:>8}  {p_str:>8}")
 
     print("  " + "-" * (W - 2))
@@ -153,8 +167,18 @@ def main():
         # Generate optimized USD
         print(f"[STEP 4/4] Generating optimized USD...")
         stage_optimized, _ = build_stage(str(OPTIMIZED_USD), branches=optimized_branches)
+        
+        # Save optimization metadata as custom attributes on root layer
+        root_prim = stage_optimized.GetPrimAtPath("/World")
+        if root_prim:
+            root_prim.SetCustomDataByKey("optimization:baseline_joints", original_joints)
+            root_prim.SetCustomDataByKey("optimization:final_joints", final_joints)
+            root_prim.SetCustomDataByKey("optimization:minimum_achievable", report.minimum_achievable)
+            root_prim.SetCustomDataByKey("optimization:budget", AGGRESSIVE_BUDGET)
+        
         stage_optimized.GetRootLayer().Save()
         print(f"  ✓ Saved: {OPTIMIZED_USD.name}  ({final_joints} joints)")
+        print(f"  ✓ Saved metadata: minimum_achievable={report.minimum_achievable}")
 
         # Detailed per-category table
         print_comparison_table(branches, optimized_branches, AGGRESSIVE_BUDGET)

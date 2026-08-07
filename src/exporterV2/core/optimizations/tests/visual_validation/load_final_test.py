@@ -36,15 +36,15 @@ import omni.kit.app
 
 def count_by_category(usd_path, root_prim_path="/World"):
     """
-    Count links per branch category from USD file.
+    Count D6 joints per branch category from USD file.
     
     Args:
         usd_path: Path to USD file
-        root_prim_path: Root prim to start traversal (e.g., "/World", "/Baseline/World")
+        root_prim_path: Root prim to start traversal (e.g., "/World")
     """
     stage = Usd.Stage.Open(str(usd_path))
     cats = {"trunk": 0, "lateral": 0, "petiole": 0, "rachis": 0, "petiolule": 0, "other": 0}
-    total = 0
+    total_d6 = 0
     
     root_prim = stage.GetPrimAtPath(root_prim_path)
     if not root_prim:
@@ -52,55 +52,79 @@ def count_by_category(usd_path, root_prim_path="/World"):
         root_prim = stage.GetPseudoRoot()
     
     for prim in Usd.PrimRange(root_prim):
-        path  = str(prim.GetPath())
+        # Check if this is a joint (D6Joint or FixedJoint prim type)
+        prim_type = prim.GetTypeName()
+        if prim_type not in ("PhysicsJoint", "PhysicsFixedJoint", "PhysicsRevoluteJoint"):
+            continue
+        
+        # Determine if it's a D6 joint (excludes Fixed joints)
+        # Fixed joints have type PhysicsFixedJoint
+        is_d6 = (prim_type != "PhysicsFixedJoint")
+        
+        # Only count D6 joints
+        if not is_d6:
+            continue
+            
+        # Extract branch ID from path
+        # Path format: /World/Stem/BranchID_Link_XX/Joint
+        # BranchID is embedded in the Link name before "_Link_"
+        # Examples:
+        #   /World/Stem/trunk_Link_02/Joint_01_02 → bid="trunk"
+        #   /World/Stem/Branch_r1_o0_Link_01/AttachJoint → bid="Branch_r1_o0"
+        #   /World/Stem/Leaf_r1_o0_petiole_Link_01/AttachJoint → bid="Leaf_r1_o0_petiole"
+        path = str(prim.GetPath())
         parts = path.split("/")
-        # Links are named like /World/Stem/Link_0, /World/Branch_r1_o0/Link_0
-        # or /Baseline/World/Stem/Link_0 in comparison stage
-        if len(parts) >= 2 and parts[-1].startswith("Link_"):
-            # Get branch ID (parent of Link)
-            bid = parts[-2]
-            if bid in ("Stem", "trunk"):
-                cats["trunk"] += 1
-            elif bid.startswith("Branch_r"):
-                cats["lateral"] += 1
-            elif "_petiole" in bid and "_merged" not in bid:
-                cats["petiole"] += 1
-            elif "_rachis" in bid or "_merged" in bid:
-                cats["rachis"] += 1
-            elif "petiolule" in bid or "Petiolule" in bid:
-                cats["petiolule"] += 1
-            else:
-                cats["other"] += 1
-            total += 1
+        
+        # Joint is child of Link, get Link name
+        if len(parts) < 2:
+            continue
+        link_name = parts[-2]  # Parent of Joint
+        
+        # Extract branch ID from link name (everything before "_Link_")
+        if "_Link_" not in link_name:
+            continue
+        bid = link_name.split("_Link_")[0]
+        
+        if not bid:
+            continue
+        
+        # Categorize based on branch ID
+        if bid in ("Stem", "trunk") or bid.startswith("trunk"):
+            cat = "trunk"
+        elif bid.startswith("Branch_r"):
+            cat = "lateral"
+        elif "_petiole" in bid and "_merged" not in bid:
+            cat = "petiole"
+        elif "petiolule" in bid.lower():
+            cat = "petiolule"  # Check BEFORE rachis
+        elif "_rachis" in bid or "_merged" in bid:
+            cat = "rachis"
+        else:
+            cat = "other"
+        
+        cats[cat] += 1
+        total_d6 += 1
     
-    return cats, total
+    return cats, total_d6
 
 
 def print_comparison_table():
     """Print joint breakdown comparing baseline vs optimized."""
-    # Hardcoded values from day 100 generation
-    # (Reading from USD in Isaac Sim context is unreliable)
-    baseline_total = 165
-    optimized_total = 49  # Final D6 joint count (excludes 91 Fixed petiolules)
+    print("\n[INFO] Reading joint counts from USD files...")
     
-    # Category breakdown (from generate_final_test.py output)
-    # Note: 91 petiolules converted to Fixed are not shown (don't count toward budget)
-    before_cats = {
-        "trunk": 10,
-        "lateral": 8,
-        "petiole": 19,
-        "rachis": 128,
-        "petiolule": 0,  # Not shown (will be Fixed in optimized)
-        "other": 0
-    }
-    after_cats = {
-        "trunk": 3,
-        "lateral": 8,
-        "petiole": 11,   # 8 petioles merged (19-8=11 remaining)
-        "rachis": 118,   # Stopped merging at budget
-        "petiolule": 0,  # 91 converted to Fixed (not counted)
-        "other": 0
-    }
+    # Read from actual USD files
+    before_cats, baseline_total = count_by_category(BASELINE_USD, "/World")
+    after_cats, optimized_total = count_by_category(OPTIMIZED_USD, "/World")
+    
+    print(f"  Baseline:  {baseline_total} D6 joints")
+    print(f"  Optimized: {optimized_total} D6 joints")
+    
+    # Read optimization metadata from optimized USD
+    stage_opt = Usd.Stage.Open(str(OPTIMIZED_USD))
+    root_prim = stage_opt.GetPrimAtPath("/World")
+    minimum_achievable = None
+    if root_prim:
+        minimum_achievable = root_prim.GetCustomDataByKey("optimization:minimum_achievable")
     
     W = 74
     print("\n" + "=" * W)
@@ -118,6 +142,11 @@ def print_comparison_table():
         pct   = (delta / b * 100) if b > 0 else 0.0
         d_str = f"{delta:+d}" if delta != 0 else "–"
         p_str = f"{pct:+.0f}%" if delta != 0 else "–"
+        
+        # Special note for petiolules converted to Fixed
+        if cat == "petiolule" and b > 0 and a == 0:
+            p_str = "→Fixed"
+        
         print(f"  {cat:<14} {b:>10}  {a:>10}  {d_str:>8}  {p_str:>8}")
     
     print("  " + "-" * (W - 2))
@@ -126,13 +155,14 @@ def print_comparison_table():
     print(f"  {'TOTAL':<14} {baseline_total:>10}  {optimized_total:>10}  {delta_tot:+8d}  {pct_tot:>+7.1f}%")
     print("  " + "-" * (W - 2))
     
-    # Show minimum achievable and status
-    minimum_achievable = 30  # From full optimization (all 19 leaves merged)
-    max_reduction_pct = (baseline_total - minimum_achievable) / baseline_total * 100
-    
     status = "✓ Within budget" if optimized_total <= BUDGET else f"⚠ Over by {optimized_total - BUDGET}"
     print(f"  Budget: {BUDGET}  |  {status}")
-    print(f"  Min achievable: {minimum_achievable} (max {max_reduction_pct:.1f}% reduction)")
+    
+    # Show minimum achievable if available
+    if minimum_achievable is not None:
+        max_reduction_pct = (baseline_total - minimum_achievable) / baseline_total * 100 if baseline_total > 0 else 0.0
+        print(f"  Min achievable: {minimum_achievable} (max {max_reduction_pct:.1f}% reduction)")
+    
     print("=" * W)
 
 
