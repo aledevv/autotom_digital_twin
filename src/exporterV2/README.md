@@ -138,12 +138,13 @@ branches, _ = parse_csv_to_branches(day=100, profile=MY_PROFILE)
 Comprehensive documentation in `docs/`:
 
 - **[Architecture](docs/01_architecture.md)** - How ExporterV2 works (pipeline, modules, data flow)
-- **[vs V1](docs/02_vs_v1.md)** - Differences from V1, migration guide, when to use each
-- **[CSV Modifications](docs/03_csv_modifications.md)** - How we deviate from raw CSV (angles, filtering, jitter, collision checks)
-- **[Collision Checks](docs/04_collision_checks.md)** - Anti-collision system for lateral branches
-- **[Testing](docs/05_testing.md)** - Test suite, how to run, expected results
-- **[Implementation Notes](docs/06_implementation_notes.md)** - Lessons learned, tricks, common pitfalls
-- **[Troubleshooting](docs/07_troubleshooting.md)** - Common issues and solutions
+- **[Physics & Mechanics](docs/02_physics_and_mechanics.md)** - Physical paradigms, joint mechanics, and collision setup
+- **[vs V1](docs/03_vs_v1.md)** - Differences from V1, migration guide, when to use each
+- **[CSV Modifications](docs/04_csv_modifications.md)** - How we deviate from raw CSV (angles, filtering, jitter)
+- **[Collision Checks](docs/05_collision_checks.md)** - Anti-collision system for lateral branches
+- **[Testing](docs/06_testing.md)** - Test suite, how to run, expected results
+- **[Implementation Notes](docs/07_implementation_notes.md)** - Lessons learned, tricks, common pitfalls
+- **[Troubleshooting](docs/08_troubleshooting.md)** - Common issues and solutions
 
 ---
 

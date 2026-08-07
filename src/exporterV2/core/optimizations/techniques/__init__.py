@@ -12,19 +12,20 @@ Available Techniques (by priority):
     5. LeafBranchReductionTechnique - Merge petiole+rachis
 """
 
-from .base import OptimizationTechnique, OptimizationReport, ValidationResult
+from .base import OptimizationTechnique, OptimizationReport, ValidationResult, count_d6_joints
 from .petiole_lock import PetioleLockTechnique
 
-# Exports (will be implemented in subsequent tasks)
+# Exports - only implemented techniques
 from .lateral_reduce import LateralBranchReductionTechnique
 from .stem_collapse import StemCollapseTechnique
-# from .truss_static import TrussStaticTechnique
+# from .truss_static import TrussStaticTechnique  # TODO: Task 7 - skipped (truss not in codebase)
 from .leaf_branch_reduce import LeafBranchReductionTechnique
 
 __all__ = [
     "OptimizationTechnique",
     "OptimizationReport",
     "ValidationResult",
+    "count_d6_joints",
     "PetioleLockTechnique",
     "LateralBranchReductionTechnique",
     "StemCollapseTechnique",

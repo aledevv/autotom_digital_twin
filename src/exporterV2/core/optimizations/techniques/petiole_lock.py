@@ -20,12 +20,12 @@ from typing import List, Dict, Tuple
 from dataclasses import dataclass
 
 try:
-    from .base import OptimizationTechnique, OptimizationReport, ValidationResult
+    from .base import OptimizationTechnique, OptimizationReport, ValidationResult, count_d6_joints
 except ImportError:
     import sys
     import os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from base import OptimizationTechnique, OptimizationReport, ValidationResult
+    from base import OptimizationTechnique, OptimizationReport, ValidationResult, count_d6_joints
 
 
 @dataclass
@@ -63,8 +63,8 @@ class PetioleLockTechnique(OptimizationTechnique):
         """
         Check if a branch is a petiolule.
         
-        Petiolules are identified by naming pattern: "Petiolule_*"
-        or by having parent that is a rachis.
+        Petiolules are identified by naming pattern containing "petiolule"
+        (e.g., "Leaf_r1_o0_rachis_petiolule_lat_0_left").
         
         Args:
             branch: Branch configuration dict
@@ -72,22 +72,10 @@ class PetioleLockTechnique(OptimizationTechnique):
         Returns:
             True if branch is a petiolule
         """
-        branch_id = branch.get("id", "")
+        branch_id = branch.get("id", "").lower()
         
-        # Check naming pattern
-        if branch_id.startswith("Petiolule_"):
-            return True
-        
-        # Check if it's a small terminal branch attached to rachis
-        # (Alternative identification if naming is inconsistent)
-        parent_id = branch.get("parent", "")
-        if parent_id and parent_id.startswith("Rachis_"):
-            # Additional check: petiolules are typically single-link
-            n_links = branch.get("n_links", 1)
-            if n_links <= 2:  # Allow up to 2 links for flexibility
-                return True
-        
-        return False
+        # Check if name contains "petiolule"
+        return "petiolule" in branch_id
     
     def _has_fixed_joint(self, branch: dict) -> bool:
         """
@@ -174,11 +162,14 @@ class PetioleLockTechnique(OptimizationTechnique):
             dof_reduced=petiolules_locked * 6
         )
         
-        # Create standard report
+        # Create standard report (only D6 joints count)
+        joints_before_total = count_d6_joints(branches)
+        joints_after_total = count_d6_joints(modified)
+        
         report = OptimizationReport(
             technique_name=self.name,
-            joints_before=len(branches),
-            joints_after=len(modified),
+            joints_before=joints_before_total,
+            joints_after=joints_after_total,
             joints_saved=0,  # No joints removed, only DOF reduced
             details={
                 "petiolules_found": detailed_report.petiolules_found,

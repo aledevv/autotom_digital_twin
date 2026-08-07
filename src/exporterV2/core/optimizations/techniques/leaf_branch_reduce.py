@@ -14,12 +14,12 @@ from typing import List, Dict, Tuple
 from dataclasses import dataclass
 
 try:
-    from .base import OptimizationTechnique, OptimizationReport, ValidationResult
+    from .base import OptimizationTechnique, OptimizationReport, ValidationResult, count_d6_joints
 except ImportError:
     import sys
     import os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from base import OptimizationTechnique, OptimizationReport, ValidationResult
+    from base import OptimizationTechnique, OptimizationReport, ValidationResult, count_d6_joints
 
 
 class LeafBranchReductionTechnique(OptimizationTechnique):
@@ -68,20 +68,23 @@ class LeafBranchReductionTechnique(OptimizationTechnique):
         return saved
     
     def apply(self, branches: List[dict]) -> Tuple[List[dict], OptimizationReport]:
-        """Apply petiole+rachis merge."""
+        """Apply petiole+rachis merge - merges ONE pair per call."""
         petioles = {b["id"]: b for b in branches if self._is_petiole(b)}
         rachis_list = [b for b in branches if self._is_rachis(b) and b.get("parent") in petioles]
         
         if not rachis_list:
             report = OptimizationReport(
                 technique_name=self.name,
-                joints_before=len(branches),
-                joints_after=len(branches),
+                joints_before=count_d6_joints(branches),
+                joints_after=count_d6_joints(branches),
                 joints_saved=0,
                 details={"pairs_merged": 0, "links_removed": 0, "petiolules_remapped": 0}
             )
             return branches, report
-            
+        
+        # CHANGE: Process only the FIRST mergeable pair (not all at once)
+        rachis = rachis_list[0]
+        
         modified = []
         links_removed = 0
         petiolules_remapped = 0
@@ -89,72 +92,65 @@ class LeafBranchReductionTechnique(OptimizationTechnique):
         # Build lookup for all branches to ease modification
         branch_dict = {b["id"]: b.copy() for b in branches}
         
-        for rachis in rachis_list:
-            petiole_id = rachis["parent"]
-            petiole = branch_dict[petiole_id]
-            rachis_id = rachis["id"]
-            
-            # Merge into petiole (rename it conceptually, but we can just update the petiole dict)
-            # The petiole's id remains the same, or we rename it to _merged
-            # To preserve references without breaking children not processed yet, 
-            # we'll create a new merged id or just use petiole_id.
-            # Wait, let's just rename petiole_id -> _merged and update all children.
-            base_name = petiole_id.replace("_petiole", "").replace("Petiole_", "Leaf_")
-            merged_id = f"{base_name}_merged" if not petiole_id.endswith("_merged") else petiole_id
-            
-            petiole_len = petiole.get("height", 0.0) * petiole.get("n_links", 1)
-            rachis_len = rachis.get("height", 0.0) * rachis.get("n_links", 1)
-            total_len = petiole_len + rachis_len
-            
-            # Update petiole to become the merged segment
-            branch_dict[petiole_id]["id"] = merged_id
-            branch_dict[petiole_id]["height"] = total_len
-            branch_dict[petiole_id]["n_links"] = 1
-            branch_dict[petiole_id]["radius"] = (petiole.get("radius", 0.01) + rachis.get("radius", 0.01)) / 2.0
-            
-            # Count savings (we removed the rachis n_links)
-            links_removed += rachis.get("n_links", 1)
-            
-            # Remap petiolules that were attached to the rachis
-            for b_id, b in branch_dict.items():
-                if b.get("parent") == rachis_id:
-                    # It was attached to the rachis
-                    # Calculate new absolute distance from base of merged segment
-                    # Original: petiole_len + (attach_link - 1) * rachis_link_height + ... (assuming top of link)
-                    old_attach_link = b.get("attach_link", 1)
-                    old_rachis_n = rachis.get("n_links", 1)
-                    
-                    # Fraction along rachis = old_attach_link / old_rachis_n
-                    rachis_fraction = old_attach_link / old_rachis_n
-                    
-                    # Distance from base of merged leaf
-                    absolute_dist = petiole_len + (rachis_fraction * rachis_len)
-                    
-                    # New attach_frac = absolute_dist / total_len
-                    new_frac = absolute_dist / total_len if total_len > 0 else 1.0
-                    
-                    b["parent"] = merged_id
-                    b["attach_link"] = 1
-                    b["attach_frac"] = new_frac
-                    petiolules_remapped += 1
-            
-            # Remove the rachis from the dictionary
-            del branch_dict[rachis_id]
-            
-            # If any other branches were attached to the petiole directly, update their parent
-            for b_id, b in branch_dict.items():
-                if b.get("parent") == petiole_id and b_id != merged_id:
-                    b["parent"] = merged_id
+        petiole_id = rachis["parent"]
+        petiole = branch_dict[petiole_id]
+        rachis_id = rachis["id"]
+        
+        # Merge into petiole
+        base_name = petiole_id.replace("_petiole", "").replace("Petiole_", "Leaf_")
+        merged_id = f"{base_name}_merged" if not petiole_id.endswith("_merged") else petiole_id
+        
+        petiole_len = petiole.get("height", 0.0) * petiole.get("n_links", 1)
+        rachis_len = rachis.get("height", 0.0) * rachis.get("n_links", 1)
+        total_len = petiole_len + rachis_len
+        
+        # Update petiole to become the merged segment
+        branch_dict[petiole_id]["id"] = merged_id
+        branch_dict[petiole_id]["height"] = total_len
+        branch_dict[petiole_id]["n_links"] = 1
+        branch_dict[petiole_id]["radius"] = (petiole.get("radius", 0.01) + rachis.get("radius", 0.01)) / 2.0
+        
+        # Count savings (we removed the rachis n_links)
+        links_removed += rachis.get("n_links", 1)
+        
+        # Remap petiolules that were attached to the rachis
+        for b_id, b in branch_dict.items():
+            if b.get("parent") == rachis_id:
+                # It was attached to the rachis
+                old_attach_link = b.get("attach_link", 1)
+                old_rachis_n = rachis.get("n_links", 1)
+                
+                # Fraction along rachis
+                rachis_fraction = old_attach_link / old_rachis_n
+                
+                # Distance from base of merged leaf
+                absolute_dist = petiole_len + (rachis_fraction * rachis_len)
+                
+                # New attach_frac
+                new_frac = absolute_dist / total_len if total_len > 0 else 1.0
+                
+                b["parent"] = merged_id
+                b["attach_link"] = 1
+                b["attach_frac"] = new_frac
+                petiolules_remapped += 1
+        
+        # Remove the rachis from the dictionary
+        del branch_dict[rachis_id]
+        
+        # If any other branches were attached to the petiole directly, update their parent
+        for b_id, b in branch_dict.items():
+            if b.get("parent") == petiole_id and b_id != merged_id:
+                b["parent"] = merged_id
 
         modified = list(branch_dict.values())
         
         report = OptimizationReport(
             technique_name=self.name,
-            joints_before=len(branches),
-            joints_after=len(modified),
+            joints_before=count_d6_joints(branches),
+            joints_after=count_d6_joints(modified),
             joints_saved=links_removed,
             details={
-                "pairs_merged": len(rachis_list),
+                "pairs_merged": 1,  # Only 1 pair per call now
                 "links_removed": links_removed,
                 "petiolules_remapped": petiolules_remapped
             }

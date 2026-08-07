@@ -17,11 +17,11 @@ Documentation:
     See docs/OPTIMIZATION_README.md for complete documentation index.
 """
 
-# Main API exports (will be implemented in subsequent tasks)
-# from .optimizer import BudgetOptimizer, OptimizationReport
+# Main API exports
+from .optimizer import BudgetOptimizer, FullOptimizationReport
 
 __version__ = "0.1.0"
 __all__ = [
-    # "BudgetOptimizer",
-    # "OptimizationReport",
+    "BudgetOptimizer",
+    "FullOptimizationReport",
 ]

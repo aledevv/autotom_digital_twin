@@ -72,6 +72,11 @@ exporterV2/
 - PhysX scene settings for Isaac Sim
 - Articulation configuration
 
+### `core/optimizations/`
+- **optimizer.py** - Joint-Budget reduction orchestrator
+- Hardware-imposed physics optimization (~250 joints max)
+- See `core/optimizations/docs/` for details
+
 ---
 
 ## Adapters (Data Sources)
@@ -140,12 +145,16 @@ TOMATO_PROFILE = {
      {"id": "Leaf_r1_o0_petiole", "parent": "trunk", ...},
    ]
         ↓
-4. Core (core/usd/stage.py)
+4. Optimization (core/optimizations/optimizer.py)
+   - Apply Joint-Budget LOD reduction (if enabled)
+   - Remap attachments and check collisions
+        ↓
+5. Core (core/usd/stage.py)
    - Generate USD geometry
    - Create articulation joints
    - Apply PhysX settings
         ↓
-5. USD Output (tree_v2_day_100.usda)
+6. USD Output (tree_v2_day_100.usda)
 ```
 
 ---
@@ -212,6 +221,7 @@ stage, stem = build_stage("output.usda", branches=branches)
 ---
 
 **See also:**
-- [02_vs_v1.md](02_vs_v1.md) - Comparison with v1
-- [03_csv_modifications.md](03_csv_modifications.md) - CSV deviations
-- [06_implementation_notes.md](06_implementation_notes.md) - Lessons learned
+- [02_physics_and_mechanics.md](02_physics_and_mechanics.md) - Physics and Mechanics
+- [03_vs_v1.md](03_vs_v1.md) - Comparison with v1
+- [04_csv_modifications.md](04_csv_modifications.md) - CSV deviations
+- [07_implementation_notes.md](07_implementation_notes.md) - Lessons learned

@@ -80,29 +80,31 @@ python src/plant_model/main.py
 
 ---
 
-## Feature Status Matrix (v1.5)
+## Feature Status Matrix (V2)
 
 | Category | Component / Feature | Status | Details |
 | :--- | :--- | :---: | :--- |
+| **Architecture**| Exporter V2 Modular Pipeline | ✅ | Separation of generic tree building, data adapters, and profiles. |
+| **Optimization**| Joint-Budget LOD System | ✅ | Reduces physics joints to stay within hardware limits (~250 joints). |
 | **Parsing** | Automated CSV topology & hierarchy mapping | ✅ | Automatically builds growth branches and relative attachments. |
-| **Visuals** | Stem (Internode) rendering | ✅ | Cylindrical representation based on width and length properties. |
-| **Visuals** | Root rendering | ✅ | Base grounding sphere under `z=0`. |
+| **Visuals** | Stem (Internode) & Root rendering | ✅ | Cylindrical representation and base grounding sphere. |
 | **Visuals** | Compound leaf mesh generation | ✅ | Visualizes petiole, rachis, segments, and leaf blades. |
-| **Visuals** | Fruits rendering | ✅ | Sphere approximations with dynamic colors based on ripening thermal age (Ripe Red vs Unripe Green-Yellow). |
-| **Physics** | Internode (Stem) rigid body colliders | ✅ | Bounding volume and custom density mass estimation. |
-| **Physics** | Stem Revolute Joints | ✅ | Flexible joint chains with height-interpolated stiffness & damping. |
-| **Debug** | Interactive HTML topology visualizer | ✅ | Explores nodes, orders, and ranks using Pyvis. |
-| **Others** | Random init and growth mutations | ✅ | Seed based random initial conditions + mutation for the shoot. |
-| **Visuals** | Improve visual appearance of leaves and stems | ❌ | Use some model like NeRF to reconstruct the plant shape/meshes from images. |
-| **Physics** | Leaf physics / rigid body colliders | ❌ | Bending and collision models are not supported yet. |
+| **Visuals** | Plant texturing and coloring | ❌ | Still pending: adding accurate colors and textures to the plant geometry. |
+| **Physics** | Stem Revolute Joints & Colliders | ✅ | Flexible joint chains with height-interpolated stiffness & damping. |
+| **Physics** | Truss & Pedicel physics | ❌ | Still pending: implementation of dynamic joints for trusses. |
 | **Physics** | Fruits massAPI and complex physics | ❌ | Only static/kinematic colliders; complex dynamic weight/mass physics is missing. |
-| **Physics** | Pedicel & truss rachis physics | ❌ | Treated as static/kinematic structures without dynamic joints. |
 | **Simulation** | Isaac Sim simulation integration | ❌ | Output is exported to USD, but not yet integrated into Isaac Sim simulation scenes. |
 
 ---
 
-### Python Stubs for IDE Autocomplition: 'typings' and '.vscode' folders
-This folder contains **USD stubs** to easily work with 'usd-core' python module on your IDE and get **autocomplitions**. In order to make it work, DO NOT delete the .vscode folder (files are already set up).
+## Future Optimization Plans
+
+- **Proximity-Based Physics Activation**: In an environment with multiple plants and a robot, physics will be dynamically activated only for the plants within the robot's action radius. This will drastically reduce computational costs for large greenhouse scenes.
+
+---
+
+### Python Stubs for IDE Autocompletion: 'typings' and '.vscode' folders
+This folder contains **USD stubs** to easily work with 'usd-core' python module on your IDE and get **autocompletions**. In order to make it work, DO NOT delete the .vscode folder (files are already set up).
 
 > ⚠️ This only works in **VSCode**.
 

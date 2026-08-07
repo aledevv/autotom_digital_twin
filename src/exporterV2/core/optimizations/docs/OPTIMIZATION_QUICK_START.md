@@ -1,59 +1,31 @@
 # Joint-Budget Optimization - Quick Start Guide
 
-> **Quick reference** per iniziare l'implementazione e usare il sistema di ottimizzazione.
+> **Quick reference** for using and extending the optimization system.
 
-## Per Iniziare l'Implementazione
+## Getting Started
 
-### 1. Leggi i Documenti
+### 1. Key Documents
 
-1. **OPTIMIZATION_IMPLEMENTATION_PLAN.md** - Checklist dettagliata di tutte le 12 task
-2. **OPTIMIZATION_DESIGN.md** - Architettura tecnica e specifiche implementative
-3. **Questo file** - Quick reference per iniziare
-
-### 2. Setup Iniziale
-
-```bash
-# Crea la struttura cartelle (Task 1)
-cd src/exporterV2/core
-mkdir -p optimizations/{techniques,collision,geometry,tests/visual_validation}
-```
-
-### 3. Ordine di Implementazione Consigliato
-
-**Phase 1 - Infrastructure** (Task 1-3):
-- Task 1: Setup base (optimizer.py, base.py, budget_config.yaml)
-- Task 2: Collision detection (sphere, aabb, broad_phase)
-- Task 3: Geometry remapping
-
-**Phase 2 - Techniques** (Task 4-8):
-- Task 4: Petiole lock (più semplice, no remapping)
-- Task 5: Lateral reduce (medio, no remapping)
-- Task 6: Stem collapse (complesso, usa remapping + collision)
-- Task 7: Truss static (placeholder se truss non implementato)
-- Task 8: Leaf branch reduce
-
-**Phase 3 - Integration** (Task 9-12):
-- Task 9: Integration tests
-- Task 10: Visual validation
-- Task 11: Parse pipeline integration
-- Task 12: Documentation
+1. **[7_Comprehensive_Optimization_Report.md](./notion_pages/7_Comprehensive_Optimization_Report.md)** - Exhaustive technical report & thesis material
+2. **[OPTIMIZATION_README.md](./OPTIMIZATION_README.md)** - Overview and documentation index
+3. **This file** - Quick reference for usage, configuration, and troubleshooting
 
 ---
 
-## Per Usare il Sistema (Dopo Implementazione)
+## System Usage
 
-### Uso Base
+### Basic Python API
 
 ```python
 from exporterV2.core.optimizations import BudgetOptimizer
 
-# Load optimizer with default config
+# Load optimizer with default config (budget_config.yaml)
 optimizer = BudgetOptimizer()
 
 # Optimize branches configuration
 optimized_branches, report = optimizer.optimize(branches)
 
-# Print report
+# Print detailed report
 print(report)
 # Output:
 # ========================================
@@ -73,20 +45,20 @@ print(report)
 # ========================================
 ```
 
-### Con Parse Pipeline
+### Integration in Parse Pipeline
 
 ```python
 # In main.py
 branches, json_path = parse_csv_to_branches(day=50, optimize=True)
 ```
 
-### CLI
+### Command-Line Interface (CLI)
 
 ```bash
-# Run with optimization
+# Run with optimization flag
 ./run_mainV2.sh --day 50 --optimize
 
-# Output includes optimization report before USD generation
+# Output includes optimization report prior to USD generation
 ```
 
 ---
@@ -97,79 +69,79 @@ branches, json_path = parse_csv_to_branches(day=50, optimize=True)
 exporterV2/core/optimizations/
 ├── __init__.py                 # Exports: BudgetOptimizer
 ├── optimizer.py                # Main orchestrator class
-├── budget_config.yaml          # Configuration (edit this!)
+├── budget_config.yaml          # Configuration file
 │
 ├── techniques/
 │   ├── base.py                 # Abstract base: OptimizationTechnique
-│   ├── petiole_lock.py         # Priority 1
-│   ├── lateral_reduce.py       # Priority 2
-│   ├── stem_collapse.py        # Priority 3
-│   ├── truss_static.py         # Priority 4
-│   └── leaf_branch_reduce.py   # Priority 5
+│   ├── petiole_lock.py         # Priority 1: D6 -> Fixed
+│   ├── lateral_reduce.py       # Priority 2: Reduce lateral segments
+│   ├── stem_collapse.py        # Priority 3: Collapse trunk + remap
+│   ├── truss_static.py         # Priority 4: Pre-bent static geometry
+│   └── leaf_branch_reduce.py   # Priority 5: Merge petiole + rachis
 │
 ├── collision/
-│   ├── sphere.py               # Stage 1: Fast pre-check
-│   ├── aabb.py                 # Stage 2: Precision
-│   └── broad_phase.py          # Orchestration
+│   ├── sphere.py               # Stage 1: Fast sphere overlap check
+│   ├── aabb.py                 # Stage 2: Precision AABB check
+│   └── broad_phase.py          # Collision orchestration
 │
 ├── geometry/
 │   ├── remapping.py            # Attachment height remapping
 │   └── bounds.py               # Bounding volume helpers
 │
-└── tests/
-    ├── test_optimizer.py
-    ├── test_*.py               # Per-technique tests
-    └── visual_validation/
-        └── run_visual_test.py
+└── docs/
+    ├── OPTIMIZATION_README.md  # Main documentation index
+    ├── OPTIMIZATION_QUICK_START.md # Quick reference guide
+    ├── RESEARCH_VALIDATION.md  # Academic & research background
+    ├── notion_pages/           # Thesis & Notion-ready pages (1-7)
+    └── llm_context/            # Historical design & task summaries
 ```
 
 ---
 
 ## Configuration Quick Ref
 
-### budget_config.yaml Key Sections
+### Key Sections in `budget_config.yaml`
 
 ```yaml
 budget:
-  max_joints: 250              # ← EDIT THIS for your hardware
+  max_joints: 250              # ← Edit for your hardware target
 
 structural_limits:
   trunk: { min_links: 1 }
   lateral_branch: { min_links: 1 }
   petiole: { min_links: 1 }
-  # ...
 
 techniques:
   - id: "petiole_lock"
     priority: 1                # ← Lower number = applied first
     enabled: true              # ← Set false to disable technique
     params:
-      # technique-specific params
+      convert_all_petiolules: true
 ```
 
-### Enable/Disable Techniques
+### Enabling / Disabling Techniques
 
 ```yaml
 techniques:
   - id: "stem_collapse"
-    enabled: false             # Disable stem collapse
+    enabled: false             # Disable stem collapse technique
 ```
 
-### Adjust Collision Safety Margin
+### Adjusting Collision Safety Margin
 
 ```yaml
 techniques:
   - id: "stem_collapse"
     params:
       collision_check:
-        safety_margin: 0.02    # Increase for more conservative checks
+        safety_margin: 0.02    # Increase for more conservative checks (meters)
 ```
 
 ---
 
 ## Testing Reference
 
-### Run All Tests
+### Run All Integration Tests
 
 ```bash
 cd src/exporterV2
@@ -182,10 +154,10 @@ pytest core/optimizations/tests/ -v
 pytest core/optimizations/tests/test_stem_collapse.py -v
 ```
 
-### Run Visual Validation
+### Run Visual Validation in Isaac Sim
 
 ```bash
-# Generate test USD files and load in IsaacSim
+# Generate test USD files and load in Isaac Sim
 python core/optimizations/tests/visual_validation/run_visual_test.py
 ```
 
@@ -195,79 +167,21 @@ python core/optimizations/tests/visual_validation/run_visual_test.py
 
 ### Issue: "Budget impossible to meet (lower bound > budget)"
 
-**Causa**: La pianta richiede più joints del budget anche nella versione minima.
+**Cause**: The plant topology requires more joints than the budget even in its minimal structural state.
 
-**Soluzioni**:
-1. Aumenta `max_joints` in config
-2. Riduci complessità pianta (meno foglie, meno lateral branches)
-3. Usa profilo semplificato (es. `SIMPLE_PLANT_PROFILE`)
+**Solutions**:
+1. Increase `max_joints` in `budget_config.yaml`.
+2. Reduce initial plant growth day or complexity (fewer leaves/lateral branches).
+3. Use a simplified plant profile.
 
 ### Issue: "Collision detected after remapping"
 
-**Causa**: Stem collapse ha creato overlap tra branches.
+**Cause**: Stem collapse created overlapping geometries among sibling branches.
 
-**Soluzioni**:
-1. Aumenta `safety_margin` in collision config
-2. Disabilita `stem_collapse` temporaneamente
-3. Debug con visual validation per vedere overlap
-
-### Issue: "Technique X has no effect"
-
-**Causa**: Technique `can_apply()` ritorna False.
-
-**Debug**:
-```python
-# In optimizer, add debug print:
-if not technique.can_apply(branches, current_joints, budget):
-    print(f"[DEBUG] {technique.name} cannot apply: <reason>")
-```
-
----
-
-## Development Workflow
-
-### Starting a New Task
-
-1. **Check Implementation Plan**: Verifica status e dipendenze
-2. **Read Design Doc**: Sezione relativa al task
-3. **Write Tests First**: TDD approach quando possibile
-4. **Implement**: Segui specifiche nel design doc
-5. **Run Tests**: Assicurati passino tutti
-6. **Update Plan**: Marca task come ✅ DONE
-
-### Committing Changes
-
-```bash
-# After completing Task N
-git add .
-git commit -m "feat(optimizations): Complete Task N - <description>
-
-- Implemented <component>
-- Added tests for <feature>
-- All tests passing
-
-Refs: OPTIMIZATION_IMPLEMENTATION_PLAN.md Task N"
-```
-
-### Debugging Tips
-
-1. **Enable debug logging**:
-   ```yaml
-   # budget_config.yaml
-   logging:
-     level: "DEBUG"
-     show_collision_details: true
-   ```
-
-2. **Use pytest with prints**:
-   ```bash
-   pytest -s tests/test_optimizer.py  # -s shows print statements
-   ```
-
-3. **Visual validation**:
-   - Genera USD prima e dopo ottimizzazione
-   - Carica in IsaacSim side-by-side
-   - Verifica posizioni branches preservate
+**Solutions**:
+1. Increase `safety_margin` in the collision configuration.
+2. Temporarily disable `stem_collapse`.
+3. Use 3D visual validation tools to inspect the spatial overlaps.
 
 ---
 
@@ -287,37 +201,27 @@ lower_bound = (
 
 ### Attachment Remapping
 
-```
+```python
 absolute_height_before = sum(heights[0:original_link_idx])
 new_link_idx = int(absolute_height_before / new_segment_height)
 offset_z = absolute_height_before - (new_link_idx * new_segment_height)
 ```
 
-### Collision Check
+### Two-Stage Collision Check
 
-```
-Stage 1 (Fast):
-  distance = |center1 - center2|
-  overlap = distance < (radius1 + radius2 + margin)
+```python
+# Stage 1 (Fast Sphere Check):
+distance = (center1 - center2).length()
+sphere_overlap = distance < (radius1 + radius2 + margin)
 
-Stage 2 (Precision):
-  For each axis (x, y, z):
-    overlap_axis = (min1 <= max2) AND (max1 >= min2)
-  overlap_total = overlap_x AND overlap_y AND overlap_z
+# Stage 2 (Precision AABB Check):
+# Evaluated across X, Y, and Z axes
+aabb_overlap = (min1.x <= max2.x and max1.x >= min2.x) and \
+               (min1.y <= max2.y and max1.y >= min2.y) and \
+               (min1.z <= max2.z and max1.z >= min2.z)
 ```
 
 ---
 
-## Next Steps
-
-✅ **Ready to Start**: Go to Task 1 in `OPTIMIZATION_IMPLEMENTATION_PLAN.md`
-
-📖 **Need More Details**: Read `OPTIMIZATION_DESIGN.md`
-
-❓ **Questions**: Check design decisions section in design doc
-
-🐛 **Issues**: Add to GitHub issues or update implementation plan
-
----
-
-**Last Updated**: YYYY-MM-DD
+**Last Updated**: 2026-08-07  
+**Status**: Production Ready

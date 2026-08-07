@@ -9,6 +9,28 @@ from typing import List, Dict, Tuple
 from dataclasses import dataclass, field
 
 
+def count_d6_joints(branches: List[Dict]) -> int:
+    """
+    Count only D6 joints (excludes Fixed joints).
+    
+    Fixed joints (locked petiolules) don't count toward budget because
+    they don't contribute to simulation complexity in PhysX.
+    
+    Args:
+        branches: List of branch configurations
+    
+    Returns:
+        Total D6 joint count
+    """
+    total = 0
+    for branch in branches:
+        # Skip Fixed joints (locked petiolules)
+        if branch.get("joint_type", "d6").lower() == "fixed":
+            continue
+        total += branch.get("n_links", 1)
+    return total
+
+
 @dataclass
 class OptimizationReport:
     """Report for a single technique application."""

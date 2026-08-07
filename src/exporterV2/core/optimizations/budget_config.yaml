@@ -5,9 +5,11 @@
 # Documentation: See docs/OPTIMIZATION_QUICK_START.md for configuration guide
 
 # Budget and thresholds
+# Note: Isaac Sim/PhysX has a strict limitation of ~250 joints per articulation.
+# Exceeding this limit causes solver instability, "melting" behavior, or engine crashes.
 budget:
   max_joints: 250                 # Hard limit (hardware-imposed for Isaac Sim/PhysX)
-  warning_threshold: 230          # Warn if approaching limit (for monitoring)
+  warning_threshold: 230          # Warn if approaching limit (for monitoring and logging)
 
 # Structural minimum links for each component type
 # These are the absolute minimum required to maintain plant topology
@@ -37,8 +39,9 @@ structural_limits:
     description: "Truss needs at least 1 link for fruit attachment"
 
 # Optimization technique configurations
-# Priority: lower number = applied first (higher priority)
-# Enabled: set to false to disable a technique
+# The optimizer applies techniques sequentially based on 'priority' (lower number = applied first).
+# It uses a greedy approach: it stops immediately once the total joint count falls below 'max_joints'.
+# Enabled: set to false to completely bypass a technique during the optimization loop.
 techniques:
   # Priority 1: Petiole Lock (minimal visual impact, high DOF reduction)
   - id: "petiole_lock"

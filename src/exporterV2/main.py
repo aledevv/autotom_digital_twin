@@ -21,6 +21,7 @@ import argparse
 parser = argparse.ArgumentParser(description="exporterV2 Tree Loader")
 parser.add_argument("--day", type=int, help="Load plant from CSV for specified day")
 parser.add_argument("--plant-id", type=int, default=1, help="Plant ID (default: 1)")
+parser.add_argument("--optimize", action="store_true", help="Apply joint-budget optimization")
 args = parser.parse_args()
 
 # Bootstrap Isaac Sim
@@ -40,6 +41,11 @@ sys.path.insert(0, os.path.dirname(SCRIPT_DIR))
 from exporterV2.core.usd import build_stage, get_output_usd_path
 from exporterV2.core.physics import apply_physx_scene_settings, apply_physx_articulation_settings
 from exporterV2.core.tree_config import BRANCHES
+
+# ANSI color codes for terminal output
+RED = '\033[91m'
+BLUE = '\033[94m'
+RESET = '\033[0m'
 # ==============================================================================
 # MAIN
 # ==============================================================================
@@ -66,6 +72,35 @@ def main():
         print(f"\n[CONFIG] Using static configuration from tree_config.py")
         branches = BRANCHES
         usd_path = get_output_usd_path()
+    
+    # Apply optimization if requested
+    if args.optimize:
+        print("\n[OPTIMIZE] Applying joint-budget optimization...")
+        try:
+            from exporterV2.core.optimizations import BudgetOptimizer
+            
+            optimizer = BudgetOptimizer()
+            original_joints = sum(b.get("n_links", 1) for b in branches)
+            
+            branches, report = optimizer.optimize(branches)
+            
+            # Print optimization report
+            print("\n" + "=" * 80)
+            print(str(report))
+            print("=" * 80 + "\n")
+            
+        except ValueError as e:
+            # Budget impossible (below lower bound)
+            print(f"\n{RED}[ERROR] Optimization failed: {e}{RESET}", file=sys.stderr)
+            print(f"{BLUE}[HINT] Remove --optimize flag to generate unoptimized USD{RESET}", file=sys.stderr)
+            simulation_app.close()
+            sys.exit(1)
+        except Exception as e:
+            print(f"\n{RED}[ERROR] Unexpected optimization error: {e}{RESET}", file=sys.stderr)
+            import traceback
+            traceback.print_exc()
+            simulation_app.close()
+            sys.exit(1)
     
     # Step 1: Generate USD
     print("\n[STEP 1/3] Generating tree USD stage...")

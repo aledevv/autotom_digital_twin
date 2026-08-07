@@ -1,120 +1,99 @@
 # Joint-Budget Optimization System - Documentation Index
 
-> **Sistema di ottimizzazione incrementale per ridurre joints in piante USD Isaac Sim**
+> **Incremental optimization system to reduce joint count in USD plant models for Isaac Sim/PhysX.**
 
-## 📚 Documentazione Disponibile
+## 📚 Available Documentation
 
-### 1. [OPTIMIZATION_IMPLEMENTATION_PLAN.md](./OPTIMIZATION_IMPLEMENTATION_PLAN.md)
-**Cosa contiene**: Checklist dettagliata delle 12 task di implementazione con status tracking.
+### 1. [7_Comprehensive_Optimization_Report.md](./notion_pages/7_Comprehensive_Optimization_Report.md)
+**Contents**: The exhaustive technical paper for the thesis, describing architecture, algorithms, and empirical results.
 
-**Quando usarlo**:
-- Iniziare nuova task
-- Verificare dipendenze tra task
-- Tracciare progresso implementazione
-- Stimare effort rimanente
-
-**Aggiornamenti**: Marca task come ✅ DONE man mano che completi
+**When to use it**:
+- Exporting to Notion for thesis integration
+- Deep-dive technical understanding of the entire pipeline
+- Results analysis (Day 100 benchmark)
+- Study of implementation trade-offs
 
 ---
 
-### 2. [OPTIMIZATION_DESIGN.md](./OPTIMIZATION_DESIGN.md)
-**Cosa contiene**: Architettura tecnica, specifiche componenti, algoritmi dettagliati, decisioni di design.
+### 2. [llm_context/ (Archive)](./llm_context/)
+**Contents**: Archive folder containing technical design documents (Design, Implementation Plan, Task Summaries).
 
-**Quando usarlo**:
-- Capire come funziona un componente
-- Implementare una tecnica di ottimizzazione
-- Estendere il sistema (nuova tecnica, nuovo collision stage)
-- Risolvere dubbi architetturali
-
-**Sezioni chiave**:
-- Component Specifications
-- Optimization Techniques (5 tecniche dettagliate)
-- Collision Detection System (Sphere + AABB)
-- Geometry Remapping (algoritmi)
-- Configuration Schema (YAML completo)
-- Design Decisions (rationale)
+**When to use it**:
+- Providing context for LLMs in future conversations
+- Historical debugging of design decisions
+- Technical backup of individual implementation phases (Tasks 1-12)
 
 ---
 
 ### 3. [OPTIMIZATION_QUICK_START.md](./OPTIMIZATION_QUICK_START.md)
-**Cosa contiene**: Guida rapida per iniziare, esempi d'uso, troubleshooting.
+**Contents**: Quick reference guide to get started, usage examples, configuration, and troubleshooting.
 
-**Quando usarlo**:
-- Primo approccio al sistema
-- Quick reference durante implementazione
-- Debugging problemi comuni
-- Esempi di utilizzo API
-
-**Sezioni chiave**:
-- Ordine implementazione consigliato
-- Esempi codice per usare il sistema
-- File structure reference
-- Common issues & solutions
+**When to use it**:
+- First approach to the system
+- Quick reference during usage and development
+- Debugging common issues
+- API code examples
 
 ---
 
-### 4. Questo File (README)
-**Cosa contiene**: Overview generale e index della documentazione.
+### 4. This File (README)
+**Contents**: General overview and documentation index.
 
 ---
 
 ## 🎯 Quick Navigation
 
-| Voglio... | Vai a... |
+| Goal... | Go to... |
 |-----------|----------|
-| Iniziare implementazione | [Implementation Plan](./OPTIMIZATION_IMPLEMENTATION_PLAN.md) → Task 1 |
-| Capire architettura | [Design Doc](./OPTIMIZATION_DESIGN.md) → Architecture |
-| Implementare una tecnica | [Design Doc](./OPTIMIZATION_DESIGN.md) → Optimization Techniques |
-| Capire collision detection | [Design Doc](./OPTIMIZATION_DESIGN.md) → Collision Detection System |
-| Esempi codice | [Quick Start](./OPTIMIZATION_QUICK_START.md) → Uso Base |
-| Troubleshooting | [Quick Start](./OPTIMIZATION_QUICK_START.md) → Common Issues |
-| Configurare budget | [Quick Start](./OPTIMIZATION_QUICK_START.md) → Configuration |
-| Testare | [Quick Start](./OPTIMIZATION_QUICK_START.md) → Testing Reference |
+| Get started using the system | [Quick Start](./OPTIMIZATION_QUICK_START.md) |
+| Read Technical Paper / Thesis Report | [Comprehensive Report](./notion_pages/7_Comprehensive_Optimization_Report.md) |
+| LLM Context / Design History | [llm_context/](./llm_context/) |
+| Troubleshooting | [Quick Start](./OPTIMIZATION_QUICK_START.md#common-issues--solutions) |
+| Configure budget | [Quick Start](./OPTIMIZATION_QUICK_START.md#configuration-quick-ref) |
+| Testing Reference | [Quick Start](./OPTIMIZATION_QUICK_START.md#testing-reference) |
 
 ---
 
 ## 📋 Executive Summary
 
-### Problema
-Isaac Sim/PhysX ha un limite hardware-imposed di ~250 joints per articolazioni. Piante di pomodoro al day 160 con truss e frutti superano questo limite, causando instabilità o crash.
+### Problem
+Isaac Sim/PhysX has a hardware-imposed limit of ~250 joints per articulation. Day 100+ tomato plants with multiple branches, trusses, and fruits exceed this limit, causing physics solver instability or engine crashes.
 
-### Soluzione
-Sistema di ottimizzazione incrementale che applica 5 tecniche LOD-based in ordine di impatto visivo minimo, riducendo joints fino a rientrare nel budget mantenendo integrità strutturale.
+### Solution
+An incremental optimization system that applies 5 LOD-based techniques ordered by minimal visual impact, reducing joints until fitting within the budget while maintaining structural integrity.
 
-### Tecniche (Priority Order)
+### Techniques (Priority Order)
 1. **Petiole Lock** (Priority 1): D6 → Fixed joint (no geometry change)
-2. **Lateral Reduce** (Priority 2): Riduci segments lateral branches
-3. **Stem Collapse** (Priority 3): Collassa trunk + remap attachments
+2. **Lateral Reduce** (Priority 2): Reduce segments in lateral branches
+3. **Stem Collapse** (Priority 3): Collapse trunk segments + remap attachments
 4. **Truss Static** (Priority 4): Pre-bent static geometry
-5. **Leaf Branch Reduce** (Priority 5): Merge petiole+rachis
+5. **Leaf Branch Reduce** (Priority 5): Merge petiole + rachis
 
 ### Key Features
-- ✅ **Incremental**: Applica tecniche progressivamente, stop quando budget raggiunto
-- ✅ **Safe**: Validazione geometrica + collision check dopo ogni step
-- ✅ **Transparent**: Report dettagliato con breakdown per tecnica
-- ✅ **Configurable**: YAML esterno per budget, limiti, parametri
-- ✅ **Extensible**: Plugin architecture per nuove tecniche
+- ✅ **Incremental**: Applies techniques progressively, stopping immediately when budget is met
+- ✅ **Safe**: Geometric validation + collision checks after each step
+- ✅ **Transparent**: Detailed report with breakdown per technique
+- ✅ **Configurable**: External YAML for budget, limits, parameters
+- ✅ **Extensible**: Plugin architecture for new techniques
 
 ### Validation
-- **Research-backed**: Approccio validato da letteratura LOD/MOR (vedi `Research_Joint-Budget Optimization for USD Tomato Plant Exporter Approach Validation and SOTA Review.md`)
-- **Industry standard**: Collision detection broad-phase (Sphere + AABB) usato in game engines
+- **Research-backed**: Approach validated by LOD/MOR literature (see `Research_Joint-Budget Optimization for USD Tomato Plant Exporter Approach Validation and SOTA Review.md`)
+- **Industry standard**: Two-stage broad-phase collision detection (Sphere + AABB)
 
 ---
 
 ## 🚀 Getting Started
 
-### Per Implementatori
+### For Developers & Researchers
 
-1. **Leggi** [Implementation Plan](./OPTIMIZATION_IMPLEMENTATION_PLAN.md) per overview delle 12 task
-2. **Inizia** con Task 1 (Setup Infrastructure)
-3. **Consulta** [Design Doc](./OPTIMIZATION_DESIGN.md) durante implementazione
-4. **Usa** [Quick Start](./OPTIMIZATION_QUICK_START.md) per riferimenti rapidi
-5. **Aggiorna** Implementation Plan man mano che completi task
+1. **Read** [Comprehensive Report](./notion_pages/7_Comprehensive_Optimization_Report.md) for technical details and algorithms.
+2. **Consult** `llm_context/` directory for historical design notes and task summaries.
+3. **Use** [Quick Start](./OPTIMIZATION_QUICK_START.md) for quick references on running tests and configuring the environment.
 
-### Per Utilizzatori (Dopo Implementazione)
+### For Users
 
 ```python
-# Esempio base
+# Basic Example
 from exporterV2.core.optimizations import BudgetOptimizer
 
 optimizer = BudgetOptimizer()
@@ -123,27 +102,18 @@ print(report)
 ```
 
 ```bash
-# Da CLI
+# From CLI
 ./run_mainV2.sh --day 50 --optimize
 ```
 
-Vedi [Quick Start](./OPTIMIZATION_QUICK_START.md) per esempi completi.
+See [Quick Start](./OPTIMIZATION_QUICK_START.md) for full examples.
 
 ---
 
-## 📊 Implementation Status
+## 📊 Project Status
 
-**Ultima Verifica**: YYYY-MM-DD
-
-| Phase | Tasks | Status |
-|-------|-------|--------|
-| Phase 1: Infrastructure | 1-3 | 🔴 Not Started |
-| Phase 2: Techniques | 4-8 | 🔴 Not Started |
-| Phase 3: Integration | 9-12 | 🔴 Not Started |
-
-**Next Step**: Task 1 - Setup Infrastructure
-
-Vedi [Implementation Plan](./OPTIMIZATION_IMPLEMENTATION_PLAN.md) per dettagli.
+✅ **Project Completed**: All phases (Infrastructure, Techniques, Integration, and Visual Validation) have been successfully implemented, tested, and the documentation has been organized for thesis work.
+See [Comprehensive Report](./notion_pages/7_Comprehensive_Optimization_Report.md) for results.
 
 ---
 
@@ -164,25 +134,17 @@ Optimized Branches Config
 build_stage() → USD Export
 ```
 
-Vedi [Design Doc](./OPTIMIZATION_DESIGN.md) → Architecture per dettagli.
+See [Comprehensive Report](./notion_pages/7_Comprehensive_Optimization_Report.md) for architecture details.
 
 ---
 
 ## 📝 Notes
 
 ### Design Principles
-- **Minimal Visual Impact**: Priorità tecniche che preservano realismo
-- **Structural Integrity**: Mai scendere sotto lower bound
-- **Fail Safe**: Errore chiaro se ottimizzazione insufficiente
-- **Transparent**: Report traccia ogni passo
-
-### Research Foundation
-Approccio validato da 3 domini:
-- **Skeletal Animation**: Bone-count LOD reduction
-- **Vegetation Rendering**: Tree branch LOD simplification
-- **Multibody Dynamics**: Model order reduction (MOR)
-
-Vedi `Research_Joint-Budget Optimization for USD Tomato Plant Exporter Approach Validation and SOTA Review.md`
+- **Minimal Visual Impact**: Priority to techniques preserving realistic appearance
+- **Structural Integrity**: Never drop below structural lower bound
+- **Fail Safe**: Clear error message if budget cannot be met
+- **Transparent**: Report tracks every step
 
 ---
 
@@ -195,16 +157,5 @@ Vedi `Research_Joint-Budget Optimization for USD Tomato Plant Exporter Approach 
 
 ---
 
-## 📞 Support
-
-Per domande, problemi o suggerimenti:
-- Controlla [Quick Start - Common Issues](./OPTIMIZATION_QUICK_START.md#common-issues--solutions)
-- Leggi Design Decisions in [Design Doc](./OPTIMIZATION_DESIGN.md#design-decisions)
-- Apri issue su GitHub
-- Contatta il team
-
----
-
-**Documenti creati**: 2024-01-XX  
-**Versione**: 1.0  
-**Autore**: Alessandro (Planning Agent)
+**Version**: 2.0  
+**Author**: Alessandro

@@ -73,6 +73,7 @@ class FullOptimizationReport:
     technique_reports: List[OptimizationReport] = field(default_factory=list)
     success: bool = False
     error_message: Optional[str] = None
+    minimum_achievable: Optional[int] = None  # Minimum if all techniques fully applied
     
     @property
     def total_reduction(self) -> int:
@@ -86,6 +87,14 @@ class FullOptimizationReport:
             return 0.0
         return (self.total_reduction / self.original_joints) * 100.0
     
+    @property
+    def max_reduction_percentage(self) -> float:
+        """Maximum achievable reduction percentage (if fully optimized)."""
+        if self.original_joints == 0 or self.minimum_achievable is None:
+            return 0.0
+        max_reduction = self.original_joints - self.minimum_achievable
+        return (max_reduction / self.original_joints) * 100.0
+    
     def __str__(self) -> str:
         """Human-readable full report."""
         lines = [
@@ -95,8 +104,14 @@ class FullOptimizationReport:
             f"Original joints: {self.original_joints}",
             f"Budget: {self.budget}",
             f"Lower bound: {self.lower_bound}",
-            "",
         ]
+        
+        # Add minimum achievable info if available
+        if self.minimum_achievable is not None and self.minimum_achievable != self.final_joints:
+            lines.append(f"Minimum achievable: {self.minimum_achievable} "
+                        f"(max {self.max_reduction_percentage:.1f}% reduction)")
+        
+        lines.append("")
         
         if self.technique_reports:
             lines.append("Techniques applied:")
@@ -154,20 +169,28 @@ class BudgetOptimizer:
     
     def calculate_total_joints(self, branches: List[Dict]) -> int:
         """
-        Calculate total number of joints in current configuration.
+        Calculate total number of D6 joints in current configuration.
         
         Args:
             branches: Branches configuration list
         
         Returns:
-            Total joint count
+            Total D6 joint count (excludes Fixed joints from petiolules)
         
         Note:
-            Total joints = sum of n_links for all branches.
+            Only D6 joints count toward the budget. Fixed joints (locked petiolules)
+            are excluded because they don't contribute to simulation complexity.
+            
             In PhysX articulations, each link represents a rigid body,
             and joints are between consecutive links.
         """
-        return sum(branch["n_links"] for branch in branches)
+        total = 0
+        for branch in branches:
+            # Skip Fixed joints (locked petiolules)
+            if branch.get("joint_type", "d6").lower() == "fixed":
+                continue
+            total += branch.get("n_links", 1)
+        return total
     
     def calculate_lower_bound(self, branches: List[Dict]) -> int:
         """
@@ -203,7 +226,7 @@ class BudgetOptimizer:
                    "Branch_" in b.get("id", ""))
         
         def is_petiole(b: Dict) -> bool:
-            return "Petiole_" in b.get("id", "")
+            return "petiole" in b.get("id", "").lower()
         
         def is_truss(b: Dict) -> bool:
             return "Truss_" in b.get("id", "") or "truss" in b.get("id", "").lower()
@@ -248,12 +271,21 @@ class BudgetOptimizer:
             6. Return optimized config + report
         """
     def _get_technique(self, technique_config: Dict) -> OptimizationTechnique:
-        from .techniques import (
-            PetioleLockTechnique,
-            LateralBranchReductionTechnique,
-            StemCollapseTechnique,
-            LeafBranchReductionTechnique,
-        )
+        # Import with fallback for both package and standalone use
+        try:
+            from .techniques import (
+                PetioleLockTechnique,
+                LateralBranchReductionTechnique,
+                StemCollapseTechnique,
+                LeafBranchReductionTechnique,
+            )
+        except ImportError:
+            from techniques import (
+                PetioleLockTechnique,
+                LateralBranchReductionTechnique,
+                StemCollapseTechnique,
+                LeafBranchReductionTechnique,
+            )
         
         tech_id = technique_config["id"]
         
@@ -268,7 +300,8 @@ class BudgetOptimizer:
         elif tech_id == "leaf_branch_reduce":
             return LeafBranchReductionTechnique()
         else:
-            # We skip undefined tasks (e.g. truss_static)
+            # We skip undefined/unimplemented techniques (e.g. truss_static)
+            # Return dummy technique that does nothing
             class DummyTechnique(OptimizationTechnique):
                 def __init__(self): self._name = tech_id; self._priority = 99
                 @property
@@ -278,7 +311,12 @@ class BudgetOptimizer:
                 def can_apply(self, branches): return False
                 def estimate_reduction(self, branches): return 0
                 def apply(self, branches): return branches, None
-                def validate(self, orig, mod): from .techniques.base import ValidationResult; return ValidationResult(True, [], [])
+                def validate(self, orig, mod): 
+                    try:
+                        from .techniques.base import ValidationResult
+                    except ImportError:
+                        from techniques.base import ValidationResult
+                    return ValidationResult(True, [], [])
             return DummyTechnique()
 
     def optimize(self, branches: List[Dict]) -> Tuple[List[Dict], FullOptimizationReport]:
@@ -328,7 +366,15 @@ class BudgetOptimizer:
             
             technique = self._get_technique(technique_config)
             
-            if technique.can_apply(current_branches):
+            # Apply technique iteratively until one of:
+            # 1. Budget is met (current_joints <= budget)
+            # 2. Technique cannot reduce further (can_apply returns False)
+            # 3. Safety limit reached (prevent infinite loops)
+            iteration = 0
+            max_iterations = 1000
+            prev_joints = current_joints
+            
+            while technique.can_apply(current_branches) and iteration < max_iterations:
                 modified, tech_report = technique.apply(current_branches)
                 validation = technique.validate(current_branches, modified)
                 
@@ -336,12 +382,74 @@ class BudgetOptimizer:
                     current_branches = modified
                     if tech_report:  # Skip dummy reports
                         technique_reports.append(tech_report)
+                    
+                    prev_joints = current_joints
                     current_joints = self.calculate_total_joints(current_branches)
                     
+                    # Stop if no progress (stuck)
+                    if current_joints == prev_joints:
+                        break
+                    
+                    # Stop if budget met
                     if current_joints <= budget:
-                        break  # Budget met!
+                        break  # Exit inner loop (budget met)
+                else:
+                    # Validation failed, stop this technique
+                    break
+                
+                iteration += 1
+            
+            # Stop outer loop if budget met
+            if current_joints <= budget:
+                break  # Exit outer loop (budget met)
         
         final_joints = self.calculate_total_joints(current_branches)
+        success = (final_joints <= budget)
+        
+        # Calculate minimum achievable (if all techniques were fully applied)
+        # This is done by checking if any technique can still be applied
+        minimum_achievable = final_joints
+        temp_branches = current_branches.copy()
+        for technique_config in self.config.techniques:
+            if not technique_config.get("enabled", True):
+                continue
+            technique = self._get_technique(technique_config)
+            # Estimate how many more joints could be saved if this technique was fully applied
+            if technique.can_apply(temp_branches):
+                estimated_reduction = technique.estimate_reduction(temp_branches)
+                minimum_achievable -= estimated_reduction
+        
+        # Ensure minimum doesn't go below lower bound
+        if minimum_achievable < lower_bound:
+            minimum_achievable = lower_bound
+        
+        # Check if we reached the minimum possible (no more techniques can apply)
+        reached_minimum = True
+        for technique_config in self.config.techniques:
+            if not technique_config.get("enabled", True):
+                continue
+            technique = self._get_technique(technique_config)
+            if technique.can_apply(current_branches):
+                reached_minimum = False
+                break
+        
+        # Determine error message if budget not met
+        error_message = None
+        if not success:
+            if reached_minimum:
+                error_message = (
+                    f"Optimization reached minimum possible ({final_joints} joints) "
+                    f"but could not meet budget ({budget} joints). "
+                    f"Budget is {final_joints - budget} joints too aggressive. "
+                    f"Consider increasing budget or reducing plant complexity."
+                )
+            else:
+                potential_reduction = final_joints - minimum_achievable
+                error_message = (
+                    f"Optimization stopped at {final_joints} joints (budget: {budget} joints). "
+                    f"Minimum achievable: ~{minimum_achievable} joints "
+                    f"({potential_reduction} more joints could be saved with full optimization)."
+                )
         
         report = FullOptimizationReport(
             original_joints=original_joints,
@@ -349,7 +457,9 @@ class BudgetOptimizer:
             budget=budget,
             lower_bound=lower_bound,
             technique_reports=technique_reports,
-            success=(final_joints <= budget)
+            success=success,
+            error_message=error_message,
+            minimum_achievable=minimum_achievable
         )
         
         return (current_branches, report)

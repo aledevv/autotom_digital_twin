@@ -7,26 +7,58 @@ MAIN_V2="$SCRIPT_DIR/src/exporterV2/main.py"
 
 # Parse command line arguments
 DAY=""
+OPTIMIZE=""
 while [[ $# -gt 0 ]]; do
   case $1 in
     --day)
       DAY="$2"
       shift 2
       ;;
+    --optimize)
+      OPTIMIZE="--optimize"
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: $0 [--day N] [--optimize]"
+      echo ""
+      echo "Options:"
+      echo "  --day N       Load plant from CSV for day N"
+      echo "  --optimize    Apply joint-budget optimization"
+      echo "  -h, --help    Show this help message"
+      exit 0
+      ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: $0 [--day N]"
+      echo "Usage: $0 [--day N] [--optimize]"
       exit 1
       ;;
   esac
 done
 
-# Run with or without --day flag
+# Build command with optional flags
+CMD="$ISAACSIM_DIR/python.sh $MAIN_V2"
 if [ -n "$DAY" ]; then
-  echo "=== Loading ExporterV2 from CSV (day $DAY) ==="
-  "$ISAACSIM_DIR/python.sh" "$MAIN_V2" --day "$DAY"
-else
-  echo "=== Loading ExporterV2 from static config ==="
-  echo "=== Configuration: BRANCHES in src/exporterV2/tree_config.py ==="
-  "$ISAACSIM_DIR/python.sh" "$MAIN_V2"
+  CMD="$CMD --day $DAY"
 fi
+if [ -n "$OPTIMIZE" ]; then
+  CMD="$CMD --optimize"
+fi
+
+# Run with appropriate message
+if [ -n "$DAY" ]; then
+  if [ -n "$OPTIMIZE" ]; then
+    echo "=== Loading ExporterV2 from CSV (day $DAY) with optimization ==="
+  else
+    echo "=== Loading ExporterV2 from CSV (day $DAY) ==="
+  fi
+else
+  if [ -n "$OPTIMIZE" ]; then
+    echo "=== Loading ExporterV2 from static config with optimization ==="
+  else
+    echo "=== Loading ExporterV2 from static config ==="
+  fi
+  echo "=== Configuration: BRANCHES in src/exporterV2/tree_config.py ==="
+fi
+
+# Execute
+eval $CMD

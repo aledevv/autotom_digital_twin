@@ -26,12 +26,12 @@ from typing import List, Dict, Tuple
 from dataclasses import dataclass
 
 try:
-    from .base import OptimizationTechnique, OptimizationReport, ValidationResult
+    from .base import OptimizationTechnique, OptimizationReport, ValidationResult, count_d6_joints
 except ImportError:
     import sys
     import os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from base import OptimizationTechnique, OptimizationReport, ValidationResult
+    from base import OptimizationTechnique, OptimizationReport, ValidationResult, count_d6_joints
 
 # Import geometry remapping (Task 3)
 try:
@@ -210,8 +210,8 @@ class LateralBranchReductionTechnique(OptimizationTechnique):
             # No branches to reduce
             report = OptimizationReport(
                 technique_name=self.name,
-                joints_before=len(branches),
-                joints_after=len(branches),
+                joints_before=count_d6_joints(branches),
+                joints_after=count_d6_joints(branches),
                 joints_saved=0,
                 details={
                     "branches_found": 0,
@@ -254,37 +254,31 @@ class LateralBranchReductionTechnique(OptimizationTechnique):
             children = [b for b in branches if b.get("parent") == branch_id]
             
             for child in children:
-                old_attach = child["attach_link"]
+                old_attach_link = child["attach_link"]
+                old_attach_frac = child.get("attach_frac", 1.0)
                 
-                # Use geometry remapping to calculate new attachment
-                if remap_link_attachment:
-                    try:
-                        new_attach, attach_frac = remap_link_attachment(
-                            attach_link=old_attach,
-                            n_old=old_n_links,
-                            n_new=new_n_links
-                        )
-                        
-                        # Update child's attach_link and attach_frac
-                        child_id = child["id"]
-                        branch_dict[child_id]["attach_link"] = new_attach
-                        branch_dict[child_id]["attach_frac"] = attach_frac
-                        children_remapped += 1
-                    
-                    except Exception as e:
-                        # Fallback: proportional mapping
-                        new_attach = max(1, int(old_attach * new_n_links / old_n_links))
-                        child_id = child["id"]
-                        branch_dict[child_id]["attach_link"] = new_attach
-                        branch_dict[child_id]["attach_frac"] = 1.0
-                        children_remapped += 1
-                else:
-                    # Fallback if remapping not available
-                    new_attach = max(1, int(old_attach * new_n_links / old_n_links))
-                    child_id = child["id"]
-                    branch_dict[child_id]["attach_link"] = new_attach
-                    branch_dict[child_id]["attach_frac"] = 1.0
-                    children_remapped += 1
+                # Calculate absolute height position (0-indexed continuous)
+                # Convert 1-based link + frac to absolute position
+                abs_height_fraction = (old_attach_link - 1 + old_attach_frac) / old_n_links
+                
+                # Map to new coordinate system
+                new_position = abs_height_fraction * new_n_links
+                new_attach_link = int(new_position) + 1  # Convert back to 1-based
+                new_attach_frac = new_position - int(new_position)
+                
+                # Clamp to valid range
+                if new_attach_link > new_n_links:
+                    new_attach_link = new_n_links
+                    new_attach_frac = 1.0
+                elif new_attach_link < 1:
+                    new_attach_link = 1
+                    new_attach_frac = 0.0
+                
+                # Update child's attach_link and attach_frac
+                child_id = child["id"]
+                branch_dict[child_id]["attach_link"] = new_attach_link
+                branch_dict[child_id]["attach_frac"] = new_attach_frac
+                children_remapped += 1
         
         # Convert back to list
         modified = list(branch_dict.values())
@@ -292,8 +286,8 @@ class LateralBranchReductionTechnique(OptimizationTechnique):
         # Create report
         report = OptimizationReport(
             technique_name=self.name,
-            joints_before=len(branches),
-            joints_after=len(modified),
+            joints_before=count_d6_joints(branches),
+            joints_after=count_d6_joints(modified),
             joints_saved=links_removed,
             details={
                 "branches_found": len(reducible),
