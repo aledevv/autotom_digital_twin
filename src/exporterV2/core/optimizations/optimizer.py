@@ -275,6 +275,7 @@ class BudgetOptimizer:
         try:
             from .techniques import (
                 PetioleLockTechnique,
+                ThinLinkLockTechnique,
                 LateralBranchReductionTechnique,
                 StemCollapseTechnique,
                 LeafBranchReductionTechnique,
@@ -282,6 +283,7 @@ class BudgetOptimizer:
         except ImportError:
             from techniques import (
                 PetioleLockTechnique,
+                ThinLinkLockTechnique,
                 LateralBranchReductionTechnique,
                 StemCollapseTechnique,
                 LeafBranchReductionTechnique,
@@ -291,6 +293,8 @@ class BudgetOptimizer:
         
         if tech_id == "petiole_lock":
             return PetioleLockTechnique()
+        elif tech_id == "thin_link_lock":
+            return ThinLinkLockTechnique()
         elif tech_id == "lateral_reduce":
             min_segments = technique_config.get("params", {}).get("min_segments", 1)
             return LateralBranchReductionTechnique(min_segments=min_segments)

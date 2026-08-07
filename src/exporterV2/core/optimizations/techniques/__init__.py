@@ -6,6 +6,7 @@ Each technique implements the OptimizationTechnique abstract base class.
 
 Available Techniques (by priority):
     1. PetioleLockTechnique - Convert D6 joints to Fixed ✅
+    1.5 ThinLinkLockTechnique - Convert thin segment joints to Fixed ✅
     2. LateralBranchReductionTechnique - Reduce lateral branch segments
     3. StemCollapseTechnique - Collapse main stem with remapping
     4. TrussStaticTechnique - Pre-bent static truss geometry
@@ -14,6 +15,7 @@ Available Techniques (by priority):
 
 from .base import OptimizationTechnique, OptimizationReport, ValidationResult, count_d6_joints
 from .petiole_lock import PetioleLockTechnique
+from .thin_link_lock import ThinLinkLockTechnique
 
 # Exports - only implemented techniques
 from .lateral_reduce import LateralBranchReductionTechnique
@@ -27,6 +29,7 @@ __all__ = [
     "ValidationResult",
     "count_d6_joints",
     "PetioleLockTechnique",
+    "ThinLinkLockTechnique",
     "LateralBranchReductionTechnique",
     "StemCollapseTechnique",
     # "TrussStaticTechnique",

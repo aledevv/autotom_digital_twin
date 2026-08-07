@@ -43,6 +43,13 @@ structural_limits:
 # It uses a greedy approach: it stops immediately once the total joint count falls below 'max_joints'.
 # Enabled: set to false to completely bypass a technique during the optimization loop.
 techniques:
+  # Priority 1: Thin Link Lock (safety feature to prevent physics instability)
+  - id: "thin_link_lock"
+    priority: 1
+    description: "Convert joints of very thin branches to Fixed joints"
+    enabled: true
+    params: {}
+
   # Priority 1: Petiole Lock (minimal visual impact, high DOF reduction)
   - id: "petiole_lock"
     priority: 1

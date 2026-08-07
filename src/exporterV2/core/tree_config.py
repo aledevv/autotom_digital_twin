@@ -39,7 +39,7 @@ MAX_N_LINK = 200  # PhysX articulation limit (for 16GB GPU, max tested ~250)
 # GLOBAL SCALE & PHYSICS CONSTANTS
 # ==============================================================================
 
-GLOBAL_SCALE = 2.0      # All raw dimensions are multiplied by this
+GLOBAL_SCALE = 1.0      # All raw dimensions are multiplied by this
 
 BEND_LIMIT_DEG = 30.0   # +/- deg soft limit on rotX/rotY joint drives
 GAP            = 0.0  # Gap between adjacent links [m, pre-scale]
@@ -51,13 +51,13 @@ PHYLLOTAXIS = 137.5  # [deg]
 # Minimum link radius for PhysX stability (post-scale, in world units)
 # Links with radius below this threshold (after scaling) may cause numerical
 # instability in the articulation solver. Value determined empirically.
-MIN_LINK_RADIUS_WORLD = 0.002  # [m] 4mm minimum for PhysX stability
+MIN_LINK_RADIUS_WORLD = 0.002  # [m] 2mm minimum for PhysX stability
 
 
 class BioConfig:
     """Biological parameters for plant tissue."""
-    YOUNG_MODULUS = 50.0e6   # [Pa] 20-50 MPa - mature tomato stem
-    DAMPING_RATIO = 0.15      # 0.1-0.2 zeta, dimensionless
+    YOUNG_MODULUS = 50.0e5   # [Pa] 20-50 MPa - mature tomato stem
+    DAMPING_RATIO = 0.1      # 0.1-0.2 zeta, dimensionless
     PLANT_DENSITY = 1000.0   # [kg/m^3] plant tissue density
 
 
