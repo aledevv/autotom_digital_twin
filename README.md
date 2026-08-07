@@ -9,7 +9,7 @@
 This repository is dedicated to generating high-fidelity **Universal Scene Description (USD)** digital twins of tomato plants. The pipeline transforms outputs from the [GroIMP FSP-model-dwarf-tomato](https://github.com/Micbut/FSP-model-dwarf-tomato) growth simulator into interactive, physics-enabled 3D USD scenes optimized for robotics simulation in **NVIDIA Isaac Sim**.
 
 > [!IMPORTANT]
-> **Exporter V2 (`src/exporterV2`) is the active, state-of-the-art exporter pipeline.**  
+> **Exporter V2 (`src/exporterV2`) is the active, latest exporter pipeline.**  
 > Unlike V1 (which generated static/kinematic USD models), Exporter V2 builds **fully articulated, physics-driven multibody plants** equipped with PhysX D6 joint dynamics, automated collision filtering, cultivar profiles, and a **Joint-Budget LOD Optimization System** to guarantee real-time Isaac Sim simulation stability.
 
 ---
