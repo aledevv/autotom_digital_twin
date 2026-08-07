@@ -86,13 +86,13 @@ Monolithic CSV parser and static USD exporter.
 | **Architecture**| Exporter V2 Modular Pipeline | ✅ | Clean separation of generic tree building, data adapters, and profiles. |
 | **Optimization**| Joint-Budget LOD System | ✅ | Reduces physics joints to stay within hardware limits (~250 joints max). |
 | **Parsing** | Automated CSV topology & hierarchy mapping | ✅ | Automatically builds growth branches and relative attachments. |
-| **Physics** | Stem Revolute Joints & D6 Colliders | ✅ | Flexible joint chains with height-interpolated stiffness & damping. |
+| **Simulation** | Isaac Sim simulation integration | ✅ | USD models generated with articulated PhysX joints for Isaac Sim. |
 | **Visuals** | Stem (Internode) & Root rendering | ✅ | Cylindrical representation and base grounding sphere. |
 | **Visuals** | Compound leaf mesh generation | ✅ | Visualizes petiole, rachis, segments, and leaf blades. |
+| **Physics** | Stem Revolute Joints & D6 Colliders | ✅ | Flexible joint chains with height-interpolated stiffness & damping. |
+| **Physics** | Fruits massAPI and rigid physics | ✅ | Mass properties, rigid colliders, and ripening thermal age colors. |
 | **Visuals** | Plant texturing and coloring | ❌ | Still pending: adding accurate colors and textures to the plant geometry. |
 | **Physics** | Truss & Pedicel physics | ❌ | Still pending: implementation of dynamic joints for trusses. |
-| **Physics** | Fruits massAPI and dynamic weight | ❌ | Static/kinematic colliders present; full dynamic weight physics pending. |
-| **Simulation** | Isaac Sim multi-plant scene integration | ❌ | Standalone USD models exported; multi-plant scene orchestration pending. |
 
 ---
 
