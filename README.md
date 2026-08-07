@@ -1,6 +1,6 @@
 # AutoTom Digital Twin 🍅
 
-[![Version](https://img.shields.io/badge/version-v1.5-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-v2.0-green.svg)](#)
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue.svg)](https://www.python.org/)
 [![USD](https://img.shields.io/badge/USD-UsdCore-green.svg)](https://openusd.org/)
 [![Dependency Manager](https://img.shields.io/badge/dependency_manager-uv-purple.svg)](https://github.com/astral-sh/uv)
