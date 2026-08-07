@@ -87,13 +87,14 @@ python src/plant_model/main.py
 | **Architecture**| Exporter V2 Modular Pipeline | ✅ | Separation of generic tree building, data adapters, and profiles. |
 | **Optimization**| Joint-Budget LOD System | ✅ | Reduces physics joints to stay within hardware limits (~250 joints). |
 | **Parsing** | Automated CSV topology & hierarchy mapping | ✅ | Automatically builds growth branches and relative attachments. |
+| **Simulation** | Isaac Sim simulation integration | ✅ | Output is exported to USD, but not yet integrated into Isaac Sim simulation scenes. |
 | **Visuals** | Stem (Internode) & Root rendering | ✅ | Cylindrical representation and base grounding sphere. |
 | **Visuals** | Compound leaf mesh generation | ✅ | Visualizes petiole, rachis, segments, and leaf blades. |
 | **Visuals** | Plant texturing and coloring | ❌ | Still pending: adding accurate colors and textures to the plant geometry. |
 | **Physics** | Stem Revolute Joints & Colliders | ✅ | Flexible joint chains with height-interpolated stiffness & damping. |
+| **Physics** | Fruits massAPI and complex physics | ✅ | Only static/kinematic colliders; complex dynamic weight/mass physics is missing. |
 | **Physics** | Truss & Pedicel physics | ❌ | Still pending: implementation of dynamic joints for trusses. |
-| **Physics** | Fruits massAPI and complex physics | ❌ | Only static/kinematic colliders; complex dynamic weight/mass physics is missing. |
-| **Simulation** | Isaac Sim simulation integration | ❌ | Output is exported to USD, but not yet integrated into Isaac Sim simulation scenes. |
+
 
 ---
 
