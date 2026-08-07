@@ -1,7 +1,7 @@
 # AutoTom Digital Twin 🍅
 
 [![Version](https://img.shields.io/badge/version-v2.0-blue.svg)](#)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.14%2B-blue.svg)](https://www.python.org/)
 [![USD](https://img.shields.io/badge/USD-OpenUSD-green.svg)](https://openusd.org/)
 [![Isaac Sim](https://img.shields.io/badge/Isaac%20Sim-PhysX-nvidia.svg)](https://developer.nvidia.com/isaac-sim)
 [![Dependency Manager](https://img.shields.io/badge/dependency_manager-uv-purple.svg)](https://github.com/astral-sh/uv)
@@ -89,8 +89,8 @@ Monolithic CSV parser and static USD exporter.
 | **Physics** | Stem Revolute Joints & D6 Colliders | ✅ | Flexible joint chains with height-interpolated stiffness & damping. |
 | **Visuals** | Stem (Internode) & Root rendering | ✅ | Cylindrical representation and base grounding sphere. |
 | **Visuals** | Compound leaf mesh generation | ✅ | Visualizes petiole, rachis, segments, and leaf blades. |
-| **Visuals** | Plant texturing and coloring | ❌ | *In Progress:* Adding high-fidelity realistic colors and textures to plant geometry. |
-| **Physics** | Truss & Pedicel physics | ❌ | *In Progress:* Dynamic articulated joint support for fruit trusses. |
+| **Visuals** | Plant texturing and coloring | ❌ | Still pending: adding accurate colors and textures to the plant geometry. |
+| **Physics** | Truss & Pedicel physics | ❌ | Still pending: implementation of dynamic joints for trusses. |
 | **Physics** | Fruits massAPI and dynamic weight | ❌ | Static/kinematic colliders present; full dynamic weight physics pending. |
 | **Simulation** | Isaac Sim multi-plant scene integration | ❌ | Standalone USD models exported; multi-plant scene orchestration pending. |
 
