@@ -13,7 +13,7 @@ Usage:
 import sys
 from pathlib import Path
 
-# Path setup (same as generate_combinations_usd.py)
+# Path setup
 script_dir = Path(__file__).parent.resolve()
 src_dir = (script_dir / "../../../../../../src").resolve()
 optimizations_dir = (script_dir / "../..").resolve()
@@ -29,99 +29,154 @@ from exporterV2.core.usd import build_stage
 # Configuration
 DAY = 100
 PLANT_ID = 1
-AGGRESSIVE_BUDGET = 50  # Forces all optimizations
+AGGRESSIVE_BUDGET = 50
 
 OUTPUT_DIR = Path(__file__).parent / "usd_output_before_after"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-BASELINE_USD = OUTPUT_DIR / "day_100_baseline.usda"
-OPTIMIZED_USD = OUTPUT_DIR / "day_100_optimized_budget_50.usda"
+BASELINE_USD = OUTPUT_DIR / f"day_{DAY}_baseline.usda"
+OPTIMIZED_USD = OUTPUT_DIR / f"day_{DAY}_optimized_budget_{AGGRESSIVE_BUDGET}.usda"
+
+
+def categorize_branches(branches):
+    """Group branches by type and count joints per category."""
+    categories = {
+        "trunk":     {"count": 0, "joints": 0},
+        "lateral":   {"count": 0, "joints": 0},
+        "petiole":   {"count": 0, "joints": 0},
+        "rachis":    {"count": 0, "joints": 0},
+        "petiolule": {"count": 0, "joints": 0},
+        "other":     {"count": 0, "joints": 0},
+    }
+
+    for b in branches:
+        bid = b.get("id", "")
+        n = b.get("n_links", 1)
+
+        if bid == "trunk" or bid.startswith("trunk"):
+            cat = "trunk"
+        elif bid.startswith("Branch_r"):
+            cat = "lateral"
+        elif "_petiole" in bid and "_merged" not in bid:
+            cat = "petiole"
+        elif "_rachis" in bid or "_merged" in bid:
+            cat = "rachis"
+        elif "petiolule" in bid:
+            cat = "petiolule"
+        else:
+            cat = "other"
+
+        categories[cat]["count"] += 1
+        categories[cat]["joints"] += n
+
+    return categories
+
+
+def print_comparison_table(branches_before, branches_after, budget):
+    """Print a detailed before/after joint breakdown table."""
+    before = categorize_branches(branches_before)
+    after  = categorize_branches(branches_after)
+
+    total_before = sum(v["joints"] for v in before.values())
+    total_after  = sum(v["joints"] for v in after.values())
+
+    W = 74
+    print("\n" + "=" * W)
+    print("  JOINT BREAKDOWN: Before vs After Optimization")
+    print("=" * W)
+    print(f"  {'Category':<14} {'Objects':>8}  {'Joints':>8}  {'After':>8}  {'Delta':>8}  {'Change':>8}")
+    print("  " + "-" * (W - 2))
+
+    for cat in ["trunk", "lateral", "petiole", "rachis", "petiolule", "other"]:
+        b = before[cat]
+        a = after[cat]
+        if b["count"] == 0 and a["count"] == 0:
+            continue
+        delta = a["joints"] - b["joints"]
+        pct   = (delta / b["joints"] * 100) if b["joints"] > 0 else 0
+        bdelta = a["count"] - b["count"]
+        br_str = f"{b['count']}" if bdelta == 0 else f"{b['count']} → {a['count']}"
+        d_str  = f"{delta:+d}" if delta != 0 else "–"
+        p_str  = f"{pct:+.0f}%" if delta != 0 else "–"
+        print(f"  {cat:<14} {br_str:>8}  {b['joints']:>8}  {a['joints']:>8}  {d_str:>8}  {p_str:>8}")
+
+    print("  " + "-" * (W - 2))
+    total_delta = total_after - total_before
+    total_pct   = total_delta / total_before * 100 if total_before > 0 else 0
+    print(f"  {'TOTAL':<14} {'':>8}  {total_before:>8}  {total_after:>8}  {total_delta:+8d}  {total_pct:>+7.1f}%")
+    print("  " + "-" * (W - 2))
+    
+    # Use count_d6_joints on branches_after for accurate final count (excludes Fixed petiolules)
+    from techniques.base import count_d6_joints
+    actual_final_joints = count_d6_joints(branches_after)
+    status = "✓ Within budget" if actual_final_joints <= budget else f"⚠ Over by {actual_final_joints - budget}"
+    print(f"  Budget: {budget}  |  Final: {actual_final_joints} joints  |  {status}")
+    print("=" * W + "\n")
 
 
 def main():
     print("=" * 80)
     print("  Before/After Optimization USD Generator")
     print("=" * 80)
-    
+
     # Load plant from CSV
     print(f"\n[STEP 1/4] Loading plant from CSV (day {DAY})...")
     branches, _ = parse_csv_to_branches(DAY, PLANT_ID)
     original_joints = count_d6_joints(branches)
     print(f"  ✓ Loaded: {len(branches)} branches, {original_joints} joints")
-    
+
     # Calculate lower bound
     optimizer = BudgetOptimizer()
     lower_bound = optimizer.calculate_lower_bound(branches)
     print(f"  Lower bound: {lower_bound} joints")
-    print(f"  Target budget: {AGGRESSIVE_BUDGET} joints (aggressive)")
-    
+    print(f"  Target budget: {AGGRESSIVE_BUDGET} joints")
+
     # Generate baseline USD
     print(f"\n[STEP 2/4] Generating baseline USD...")
     stage_baseline, _ = build_stage(str(BASELINE_USD), branches=branches)
     stage_baseline.GetRootLayer().Save()
-    print(f"  ✓ Saved: {BASELINE_USD}")
-    print(f"     Joints: {original_joints}")
-    
-    # Optimize with aggressive budget
+    print(f"  ✓ Saved: {BASELINE_USD.name}  ({original_joints} joints)")
+
+    # Optimize
     print(f"\n[STEP 3/4] Applying optimization (budget={AGGRESSIVE_BUDGET})...")
-    
-    # Temporarily modify budget
     original_budget = optimizer.config.max_joints
     optimizer.config.max_joints = AGGRESSIVE_BUDGET
-    
+
     try:
         optimized_branches, report = optimizer.optimize(branches)
         final_joints = count_d6_joints(optimized_branches)
-        
-        # Print report
+
         print("\n" + "-" * 80)
         print(str(report))
         print("-" * 80 + "\n")
-        
+
         # Generate optimized USD
         print(f"[STEP 4/4] Generating optimized USD...")
         stage_optimized, _ = build_stage(str(OPTIMIZED_USD), branches=optimized_branches)
         stage_optimized.GetRootLayer().Save()
-        print(f"  ✓ Saved: {OPTIMIZED_USD}")
-        print(f"     Joints: {final_joints}")
-        
-        # Summary
-        print("\n" + "=" * 80)
-        print("  Comparison Summary")
+        print(f"  ✓ Saved: {OPTIMIZED_USD.name}  ({final_joints} joints)")
+
+        # Detailed per-category table
+        print_comparison_table(branches, optimized_branches, AGGRESSIVE_BUDGET)
+
+        # Final summary
         print("=" * 80)
-        print(f"Baseline:  {BASELINE_USD.name}")
-        print(f"           {original_joints} joints, {len(branches)} branches")
-        print()
-        print(f"Optimized: {OPTIMIZED_USD.name}")
-        print(f"           {final_joints} joints, {len(optimized_branches)} branches")
-        print(f"           Budget: {AGGRESSIVE_BUDGET}")
-        print(f"           Reduction: {original_joints - final_joints} joints ({((original_joints - final_joints) / original_joints * 100):.1f}%)")
-        
-        if report.success:
-            print(f"           Status: ✓ Within budget")
-        else:
-            print(f"           Status: ⚠ Over budget by {final_joints - AGGRESSIVE_BUDGET}")
-        
-        print("\n" + "=" * 80)
-        print("  Load in Isaac Sim:")
+        print("  Summary")
         print("=" * 80)
-        print(f"Baseline:")
-        print(f"  ~/isaacsim/python.sh -m isaacsim '{BASELINE_USD}'")
-        print()
-        print(f"Optimized:")
-        print(f"  ~/isaacsim/python.sh -m isaacsim '{OPTIMIZED_USD}'")
-        print()
-        print(f"Or load both side-by-side using Isaac Sim file browser")
+        print(f"  Baseline:  {original_joints} joints, {len(branches)} branches")
+        print(f"  Optimized: {final_joints} joints, {len(optimized_branches)} branches")
+        reduction = original_joints - final_joints
+        print(f"  Reduction: {reduction} joints ({reduction / original_joints * 100:.1f}%)")
+        print(f"  Status:    {'✓ Within budget' if report.success else f'⚠ Over by {final_joints - AGGRESSIVE_BUDGET}'}")
         print("=" * 80 + "\n")
-        
+
     except ValueError as e:
         print(f"\n[ERROR] Optimization failed: {e}")
         print(f"[HINT] Budget {AGGRESSIVE_BUDGET} is below lower bound {lower_bound}")
         return 1
     finally:
-        # Restore original budget
         optimizer.config.max_joints = original_budget
-    
+
     return 0
 
 
