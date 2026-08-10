@@ -55,3 +55,52 @@ def create_rigid_segment(
     UsdPhysics.CollisionAPI.Apply(cyl.GetPrim())
 
     return link_path
+
+
+def create_sphere_rigid_body(
+    stage,
+    parent_path: str,
+    sphere_name: str,
+    radius: float,
+    world_pos: Gf.Vec3d,
+    mass: float,
+    orientation: Gf.Quatf = None,
+) -> str:
+    """
+    Create one rigid sphere body directly under parent_path.
+    
+    Used for tomatoes and other spherical objects that need physics.
+    The sphere is a rigid body with collision enabled.
+
+    Args:
+        stage: USD stage
+        parent_path: Parent path for the sphere (e.g., /World/Stem)
+        sphere_name: Name for this sphere (e.g., "Tomato_01")
+        radius: Sphere radius [m]
+        world_pos: World-space position (center of sphere)
+        mass: Sphere mass [kg]
+        orientation: Optional world-space orientation (None = identity)
+
+    Returns:
+        USD path of the created sphere
+    """
+    sphere_path = f"{parent_path}/{sphere_name}"
+
+    xform = UsdGeom.Xform.Define(stage, sphere_path)
+    xform.AddTranslateOp().Set(world_pos)
+    if orientation is not None:
+        xform.AddOrientOp().Set(orientation)
+
+    UsdPhysics.RigidBodyAPI.Apply(xform.GetPrim())
+    mass_api = UsdPhysics.MassAPI.Apply(xform.GetPrim())
+    mass_api.CreateMassAttr().Set(mass)
+    # Sphere COM is at its center (no offset needed)
+    mass_api.CreateCenterOfMassAttr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+
+    sphere = UsdGeom.Sphere.Define(stage, f"{sphere_path}/Sphere")
+    sphere.GetRadiusAttr().Set(radius)
+    # Sphere doesn't need translation offset (already centered at xform position)
+
+    UsdPhysics.CollisionAPI.Apply(sphere.GetPrim())
+
+    return sphere_path

@@ -178,6 +178,72 @@ def load_lateral_branches(csv_path: str, day: int, plant_id: int = 1, profile: d
     return filtered_branches
 
 
+def load_trusses(csv_path: str, day: int, plant_id: int = 1, order: int = 0) -> List[Dict]:
+    """
+    Load trusses (fruit clusters) from groIMP CSV export.
+    
+    Args:
+        csv_path: Path to CSV file (e.g., graph_day_96.csv)
+        day: Simulation day
+        plant_id: Plant identifier (default: 1)
+        order: Truss order (0=trunk trusses, 1=lateral branch trusses)
+    
+    Returns:
+        List of truss dicts with fields: rank, organ_index, parent_rank, order,
+        fruit_nr, fruit_radii, fruit_age_dd, fruit_ripening_dd, truss_angle
+        Sorted by rank, then organ_index (ascending)
+    
+    Raises:
+        FileNotFoundError: If CSV file doesn't exist
+    """
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"CSV file not found: {csv_path}")
+    
+    # Read CSV with space handling
+    df = pd.read_csv(csv_path, skipinitialspace=True)
+    
+    # Clean column names
+    df.columns = df.columns.str.strip()
+    
+    # Filter for trusses (Fruits organ_class) with specified order
+    mask = (
+        (df["day"] == day) &
+        (df["plant_id"] == plant_id) &
+        (df["organ_class"].str.strip() == "Fruits") &
+        (df["order"] == order)
+    )
+    truss_df = df[mask].copy()
+    
+    if truss_df.empty:
+        order_str = "trunk" if order == 0 else f"lateral (order={order})"
+        print(f"[INFO] No {order_str} trusses found for day={day}, plant_id={plant_id}")
+        return []
+    
+    # Sort by rank, then organ_index
+    truss_df = truss_df.sort_values(["rank", "organ_index"])
+    
+    # Extract truss data
+    trusses = []
+    for _, row in truss_df.iterrows():
+        truss_data = {
+            "rank": int(row["rank"]),
+            "organ_index": int(row["organ_index"]),
+            "parent_rank": int(row["parent_rank"]),
+            "order": int(row["order"]),
+            "fruit_nr": int(row["fruit_nr"]),
+            "fruit_radii": _parse_float_array(row["fruit_radii"]),
+            "fruit_age_dd": _parse_float_array(row["fruit_age_dd"]),
+            "fruit_ripening_dd": float(row["fruit_ripening_dd"]),
+            "truss_angle": float(row["fruit_truss_angle"]),
+        }
+        trusses.append(truss_data)
+    
+    order_str = "trunk" if order == 0 else f"lateral (order={order})"
+    print(f"[INFO] Found {len(trusses)} {order_str} trusses for day {day}")
+    
+    return trusses
+
+
 def load_leaves(csv_path: str, day: int, plant_id: int = 1, order: int = 0) -> List[Dict]:
     """
     Load leaves from groIMP CSV export with opposite pair filtering.

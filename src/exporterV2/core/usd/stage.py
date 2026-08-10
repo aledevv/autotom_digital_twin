@@ -16,13 +16,13 @@ if __name__ == "__main__" or "exporterV2" not in sys.modules:
         sys.path.insert(0, SRC_DIR)
     from exporterV2.core.tree_config import (
         GLOBAL_SCALE, BRANCHES, GAP,
-        compute_mass, calculate_physics_params, scaled,
+        compute_mass, calculate_physics_params, calculate_truss_physics_params, scaled,
         validate_branches,
     )
 else:
     from ..tree_config import (
         GLOBAL_SCALE, BRANCHES, GAP,
-        compute_mass, calculate_physics_params, scaled,
+        compute_mass, calculate_physics_params, calculate_truss_physics_params, scaled,
         validate_branches,
     )
 
@@ -84,6 +84,7 @@ def build_chain(
     attachment_local_rot0: Gf.Quatf = None,
     chain_orientation: Gf.Quatf = None,
     locked_joints: bool = False,
+    use_truss_physics: bool = False,
 ):
     """
     Build one chain of n_links rigid segments.
@@ -95,6 +96,8 @@ def build_chain(
                           (None for trunk = vertical)
         locked_joints: If True, use FixedJoint instead of flexible D6
                       (can be overridden by branch_def["joint_type"])
+        use_truss_physics: If True, use calculate_truss_physics_params instead of calculate_physics_params
+                          (for rachis and pedicels with custom stiffness/damping)
 
     Returns:
         Tuple (link_paths, link_world_bases):
@@ -116,7 +119,12 @@ def build_chain(
     n_links = branch_def["n_links"]
     bid     = branch_def["id"]
     mass    = compute_mass(r_world, h_world)
-    K, D    = calculate_physics_params(r_world, h_world, mass)
+    
+    # Use truss physics if requested (for rachis/pedicels)
+    if use_truss_physics:
+        K, D = calculate_truss_physics_params(r_world, h_world, mass)
+    else:
+        K, D = calculate_physics_params(r_world, h_world, mass)
 
     # Attachment joint is stiffer to handle branch connection
     # Scale damping by sqrt(5) to maintain same damping ratio

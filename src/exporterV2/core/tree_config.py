@@ -39,7 +39,7 @@ MAX_N_LINK = 200  # PhysX articulation limit (for 16GB GPU, max tested ~250)
 # GLOBAL SCALE & PHYSICS CONSTANTS
 # ==============================================================================
 
-GLOBAL_SCALE = 1.0      # All raw dimensions are multiplied by this
+GLOBAL_SCALE = 2.0      # All raw dimensions are multiplied by this
 
 BEND_LIMIT_DEG = 30.0   # +/- deg soft limit on rotX/rotY joint drives
 GAP            = 0.0  # Gap between adjacent links [m, pre-scale]
@@ -56,9 +56,24 @@ MIN_LINK_RADIUS_WORLD = 0.002  # [m] 2mm minimum for PhysX stability
 
 class BioConfig:
     """Biological parameters for plant tissue."""
-    YOUNG_MODULUS = 50.0e6   # [Pa] 20-50 MPa - mature tomato stem
+    YOUNG_MODULUS = 50.0e7   # [Pa] 20-50 MPa - mature tomato stem
     DAMPING_RATIO = 0.1      # 0.1-0.2 zeta, dimensionless
     PLANT_DENSITY = 1000.0   # [kg/m^3] plant tissue density
+
+
+class TrussPhysicsConfig:
+    """
+    Custom physics parameters for truss structures (rachis + pedicels).
+    
+    Trusses have different mechanical properties than stems/branches:
+    - Higher stiffness to prevent excessive drooping
+    - Higher damping to reduce oscillations
+    - Custom minimum K to handle thin pedicels
+    """
+    YOUNG_MODULUS = 20.0e6  # [Pa] 200 MPa - stiffer than stem
+    DAMPING_RATIO = 0.4      # Higher damping to reduce oscillations
+    PLANT_DENSITY = 1000.0   # [kg/m^3] same as stem
+    MIN_K = 0.001             # [N·m/rad] Minimum stiffness for thin pedicels
 
 
 # ==============================================================================
@@ -185,8 +200,46 @@ def calculate_physics_params(radius: float, height: float, mass: float):
     """
     I = compute_second_moment(radius)
     K = (BioConfig.YOUNG_MODULUS * I) / height
+    
     J = compute_moment_of_inertia(radius, height, mass)
     D = 2.0 * BioConfig.DAMPING_RATIO * math.sqrt(K * J)
+
+    # Isaac Sim expects stiffness and damping w.r.t. degrees (not radians)
+    rad_to_deg = math.pi / 180.0
+    K_deg = K * rad_to_deg
+    D_deg = D * rad_to_deg
+
+    return K_deg, D_deg
+
+
+def calculate_truss_physics_params(radius: float, height: float, mass: float):
+    """
+    Compute spring constant K and damper D for truss components (rachis + pedicels).
+    
+    Uses custom TrussPhysicsConfig with higher stiffness and damping to:
+    - Prevent excessive drooping
+    - Reduce oscillations
+    - Handle thin pedicels (r ~ 2-3mm)
+    
+    Args:
+        radius: Cylinder radius in world-unit meters
+        height: Cylinder height in world-unit meters
+        mass: Cylinder mass in kilograms
+    
+    Returns:
+        Tuple (K, D):
+            K: Spring constant [N*m/rad]
+            D: Damping coefficient [N*m*s/rad]
+    """
+    I = compute_second_moment(radius)
+    K = (TrussPhysicsConfig.YOUNG_MODULUS * I) / height
+    
+    # Apply minimum stiffness for thin pedicels
+    if K < TrussPhysicsConfig.MIN_K:
+        K = TrussPhysicsConfig.MIN_K
+    
+    J = compute_moment_of_inertia(radius, height, mass)
+    D = 2.0 * TrussPhysicsConfig.DAMPING_RATIO * math.sqrt(K * J)
 
     # Isaac Sim expects stiffness and damping w.r.t. degrees (not radians)
     rad_to_deg = math.pi / 180.0

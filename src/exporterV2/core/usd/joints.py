@@ -166,3 +166,92 @@ def create_attachment_joint_locked(
     joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
     
     add_attachment_collision_filters(stage, child_link_path, parent_link_path)
+
+
+# ==============================================================================
+# LEAF NODE ATTACHMENT (for spheres and other terminal bodies)
+# ==============================================================================
+
+def create_fixed_joint_to_tip(
+    stage,
+    parent_link_path: str,
+    child_body_path: str,
+    parent_height: float,
+    child_offset: float = 0.0,
+) -> None:
+    """
+    Create FixedJoint attaching a rigid body (leaf node) to the tip of a parent link.
+    
+    Used for tomatoes attached to pedicel tips, or other terminal bodies that should
+    not be part of the articulation chain but rigidly attached.
+    
+    The child body is excluded from articulation chain (no flexibility, no spring-damping).
+    This is different from create_internal_joint_locked which is still part of the chain.
+    
+    Args:
+        stage: USD stage
+        parent_link_path: Path to parent link (e.g., pedicel)
+        child_body_path: Path to child rigid body (e.g., tomato sphere)
+        parent_height: Height of parent cylinder [m]
+        child_offset: Additional offset from tip [m] (default: 0.0)
+            Positive offset moves child further away from parent tip.
+            Useful for positioning sphere center at desired location.
+    
+    Example:
+        # Attach tomato sphere (radius=0.03m) to pedicel (height=0.01m)
+        # Sphere center should be 0.03m beyond pedicel tip
+        create_fixed_joint_to_tip(
+            stage, pedicel_path, tomato_path,
+            parent_height=0.01,
+            child_offset=0.03  # = sphere radius
+        )
+    """
+    joint = UsdPhysics.FixedJoint.Define(stage, f"{child_body_path}/FixedJoint")
+    joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_link_path)])
+    joint.CreateBody1Rel().SetTargets([Sdf.Path(child_body_path)])
+    
+    # Parent anchor: tip of parent link
+    joint.CreateLocalPos0Attr().Set(Gf.Vec3f(0.0, 0.0, parent_height))
+    
+    # Child anchor: at child origin, but offset if needed
+    # Negative offset because we're measuring from child's perspective
+    joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, -child_offset))
+    
+    # Both rotations identity (child inherits parent orientation)
+    joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+    joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+    
+    # Filter collision between child and parent
+    add_collision_filter(stage, child_body_path, parent_link_path)
+
+
+def create_fixed_joint_attachment(
+    stage,
+    parent_link_path: str,
+    child_body_path: str,
+    local_pos0: Gf.Vec3f,
+    local_rot0: Gf.Quatf,
+) -> None:
+    """
+    Create FixedJoint attaching a rigid body (leaf node) at arbitrary position on parent.
+    
+    More general version of create_fixed_joint_to_tip that allows custom attachment
+    point and orientation. Used for complex attachment scenarios.
+    
+    Args:
+        stage: USD stage
+        parent_link_path: Path to parent link
+        child_body_path: Path to child rigid body
+        local_pos0: Attachment point in parent-link local frame
+        local_rot0: Child orientation in parent-link local frame
+    """
+    joint = UsdPhysics.FixedJoint.Define(stage, f"{child_body_path}/FixedJoint")
+    joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_link_path)])
+    joint.CreateBody1Rel().SetTargets([Sdf.Path(child_body_path)])
+    joint.CreateLocalPos0Attr().Set(local_pos0)
+    joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+    joint.CreateLocalRot0Attr().Set(local_rot0)
+    joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+    
+    # Filter collision between child and parent
+    add_collision_filter(stage, child_body_path, parent_link_path)
