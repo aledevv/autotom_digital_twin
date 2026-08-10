@@ -142,9 +142,14 @@ def test_apply_with_petiolules():
 
 
 def test_apply_multiple_pairs():
-    """Test merging multiple petiole+rachis pairs."""
+    """Test merging multiple petiole+rachis pairs.
+
+    apply() is intentionally designed to merge ONE pair per call — the
+    BudgetOptimizer's while loop calls it repeatedly until can_apply()
+    returns False. This test mirrors that pattern.
+    """
     technique = LeafBranchReductionTechnique()
-    
+
     branches = [
         {"id": "trunk", "parent": None},
         # Leaf 1
@@ -158,17 +163,27 @@ def test_apply_multiple_pairs():
         {"id": "Leaf_r2_o0_rachis", "parent": "Leaf_r2_o0_petiole", "attach_link": 1,
          "n_links": 2, "height": 0.06, "radius": 0.025},
     ]
-    
-    modified, report = technique.apply(branches)
-    
-    # Check both pairs merged
-    assert report.details["pairs_merged"] == 2
-    assert report.joints_saved == 5  # 3 + 2 rachis links
-    
-    # Check both rachis removed
-    mod_dict = {b["id"]: b for b in modified}
-    assert "Leaf_r1_o0_rachis" not in mod_dict
-    assert "Leaf_r2_o0_rachis" not in mod_dict
+
+    # First call: merges one pair
+    step1, report1 = technique.apply(branches)
+    assert report1.details["pairs_merged"] == 1
+
+    # Second call: merges the remaining pair
+    assert technique.can_apply(step1), "Technique should still be applicable after first merge"
+    step2, report2 = technique.apply(step1)
+    assert report2.details["pairs_merged"] == 1
+
+    # After two iterations both rachis should be gone
+    mod_dict = {b["id"]: b for b in step2}
+    assert "Leaf_r1_o0_rachis" not in mod_dict, "First rachis should be removed"
+    assert "Leaf_r2_o0_rachis" not in mod_dict, "Second rachis should be removed"
+
+    # Cumulative joints saved = 3 + 2 = 5
+    total_saved = report1.joints_saved + report2.joints_saved
+    assert total_saved == 5, f"Expected 5 total joints saved, got {total_saved}"
+
+    # No more pairs to merge
+    assert not technique.can_apply(step2), "No more pairs should remain"
 
 
 def test_validate_success():

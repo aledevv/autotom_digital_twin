@@ -295,5 +295,44 @@ def test_no_reducible_branches():
     assert modified == branches
 
 
+def test_skip_fixed_branches():
+    """Test that Fixed branches are excluded from lateral reduction.
+
+    When thin_link_lock or petiole_lock runs before lateral_reduce (as per
+    priority order), a lateral branch may already have joint_type="fixed".
+    lateral_reduce must NOT reduce such branches — they carry zero D6 joints,
+    so reducing their n_links saves nothing and the report would be wrong.
+    """
+    technique = LateralBranchReductionTechnique(min_segments=1)
+
+    branches = [
+        {"id": "trunk", "parent": None, "n_links": 5, "height": 0.20, "radius": 0.10},
+        # Normal lateral branch — should be reduced
+        {"id": "Branch_r1_o0", "parent": "trunk", "attach_link": 2,
+         "n_links": 3, "height": 0.15, "radius": 0.03},
+        # Thin lateral branch already converted to Fixed — must NOT be reduced
+        {"id": "Branch_r1_o1", "parent": "trunk", "attach_link": 4,
+         "n_links": 3, "height": 0.10, "radius": 0.001, "joint_type": "fixed"},
+    ]
+
+    # Fixed branch should not count as reducible
+    assert technique._can_reduce(branches[2]) is False, \
+        "Fixed branch should not be reducible"
+
+    modified, report = technique.apply(branches)
+
+    mod_dict = {b["id"]: b for b in modified}
+
+    # Only the normal branch is reduced
+    assert mod_dict["Branch_r1_o0"]["n_links"] == 2
+    # Fixed branch must be completely unchanged
+    assert mod_dict["Branch_r1_o1"]["n_links"] == 3
+    assert mod_dict["Branch_r1_o1"]["joint_type"] == "fixed"
+
+    # Report must only count D6 joints actually saved
+    assert report.joints_saved == 1, "Only one D6 joint saved (Fixed branch excluded)"
+    assert report.details["branches_reduced"] == 1
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

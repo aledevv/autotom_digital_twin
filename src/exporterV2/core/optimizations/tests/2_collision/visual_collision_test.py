@@ -162,7 +162,7 @@ def test_scenario_1_no_collision():
     print(f"  ✓ Saved: {output_path}")
     print(f"    Sphere overlap: {sphere_overlap}, AABB overlap: {aabb_overlap}")
     
-    return fig
+    plt.close(fig)
 
 
 def test_scenario_2_collision():
@@ -218,7 +218,7 @@ def test_scenario_2_collision():
     print(f"  ✓ Saved: {output_path}")
     print(f"    Sphere overlap: {sphere_overlap}, AABB overlap: {aabb_overlap}")
     
-    return fig
+    plt.close(fig)
 
 
 def test_scenario_3_false_positive():
@@ -274,8 +274,7 @@ def test_scenario_3_false_positive():
     print(f"  ✓ Saved: {output_path}")
     print(f"    Sphere overlap: {sphere_overlap}, AABB overlap: {aabb_overlap}")
     print(f"    → Demonstrates value of two-stage checking!")
-    
-    return fig
+    plt.close(fig)
 
 
 def main():

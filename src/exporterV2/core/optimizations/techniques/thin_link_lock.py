@@ -55,5 +55,5 @@ class ThinLinkLockTechnique(BaseLockTechnique):
         Check if a branch is below the minimum safe radius threshold.
         """
         radius_world = branch.get("radius", 0.0) * GLOBAL_SCALE
-        # Consideriamo anche i rami che sono stati "clampati" esattamente al valore minimo
+        # Also include branches clamped exactly to the minimum threshold (within epsilon tolerance)
         return radius_world <= (MIN_LINK_RADIUS_WORLD + 1e-6)

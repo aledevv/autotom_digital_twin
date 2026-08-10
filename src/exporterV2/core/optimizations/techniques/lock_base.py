@@ -35,7 +35,7 @@ class BaseLockTechnique(OptimizationTechnique):
         """
         return branch.get("joint_type", "d6").lower() == "fixed"
     
-    def can_apply(self, branches: List[dict], current_joints: int = 0, budget: int = 0) -> bool:
+    def can_apply(self, branches: List[dict]) -> bool:
         """
         Check if technique can be applied (i.e. there are targets not yet fixed).
         """

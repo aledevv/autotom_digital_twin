@@ -44,19 +44,29 @@ def load_and_position_usd(stage, usd_path, x_offset=0.0):
 
 
 def setup_camera(stage):
-    """Setup camera to view both plants."""
+    """Setup camera to view both plants.
+
+    Uses omni.kit.viewport.utility (Isaac Sim 4.x API).
+    The SetActiveCamera kit command was removed in recent Isaac Sim versions.
+    Camera setup is non-critical — the user can navigate manually if this fails.
+    """
     camera_path = "/World/Camera"
     camera = UsdGeom.Camera.Define(stage, camera_path)
-    
-    # Position camera to see both plants
+
+    # Position camera to see both plants side-by-side
     camera.AddTranslateOp().Set(Gf.Vec3d(0.0, -3.0, 1.5))
     camera.AddRotateXYZOp().Set(Gf.Vec3f(20.0, 0.0, 0.0))
-    
-    # Set as active camera
-    omni.kit.commands.execute(
-        "SetActiveCamera",
-        camera_path=camera_path
-    )
+
+    # Activate camera via viewport utility (Isaac Sim 4.x)
+    try:
+        import omni.kit.viewport.utility as vpu
+        viewport = vpu.get_active_viewport()
+        if viewport is not None:
+            viewport.set_active_camera(camera_path)
+            carb.log_info(f"Active camera set to {camera_path}")
+    except Exception as exc:
+        carb.log_warn(f"Could not set active camera (non-critical): {exc}")
+        carb.log_warn("Navigate to the camera manually in the Viewport menu.")
 
 
 def add_ground_plane(stage):

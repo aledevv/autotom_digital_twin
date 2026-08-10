@@ -275,7 +275,7 @@ def main():
     if t1.can_apply(prev):
         s1, rep1 = t1.apply(prev)
         j1 = count_d6_joints(s1)
-        print(f"  Petiolules locked : {rep1.details['petiolules_locked']}")
+        print(f"  Petiolules locked : {rep1.details['items_locked']}")
         print(f"  DOF reduced       : {rep1.details['dof_reduced']}")
         print(f"  D6 joints         : {joints0} → {j1}  (Δ {j1 - joints0:+d})")
         d1 = branch_diff(prev, s1)

@@ -151,7 +151,7 @@ def main():
     print(f"  ✓ Estimated DOF reduction: {dof_reduction}")
     
     branches_locked, report = technique.apply(branches)
-    print(f"  ✓ Locked {report.details['petiolules_locked']} petiolules")
+    print(f"  ✓ Locked {report.details['items_locked']} petiolules")
     print(f"  ✓ Reduced {report.details['dof_reduced']} DOF")
     
     # Generate petiole_lock USD

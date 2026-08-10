@@ -11,7 +11,6 @@ Usage:
 """
 
 from typing import List, Dict, Tuple
-from dataclasses import dataclass
 
 try:
     from .base import OptimizationTechnique, OptimizationReport, ValidationResult, count_d6_joints
@@ -159,13 +158,42 @@ class LeafBranchReductionTechnique(OptimizationTechnique):
         return modified, report
 
     def validate(self, original: List[dict], modified: List[dict]) -> ValidationResult:
-        """Validate merged geometry."""
-        # Simple validation: ensure no broken parent references
-        mod_ids = {b["id"] for b in modified}
+        """Validate merged geometry.
+
+        Checks:
+        1. No broken parent references in the modified list.
+        2. Any merged segment preserves total botanical length within 1% tolerance.
+           A length error here would visually distort the plant in Isaac Sim.
+        """
+        mod_ids = {b["id"]: b for b in modified}
+        orig_ids = {b["id"]: b for b in original}
         errors = []
+        warnings = []
+
+        # Check 1: No orphaned parent references
         for b in modified:
             parent = b.get("parent")
             if parent is not None and parent not in mod_ids:
                 errors.append(f"Branch {b['id']} has missing parent {parent}")
-                
-        return ValidationResult(len(errors) == 0, errors, [])
+
+        # Check 2: Merged segments preserve total length
+        for b in modified:
+            bid = b["id"]
+            if bid.endswith("_merged"):
+                petiole_id = bid.replace("_merged", "_petiole")
+                rachis_id = bid.replace("_merged", "_rachis")
+                if petiole_id in orig_ids and rachis_id in orig_ids:
+                    pet = orig_ids[petiole_id]
+                    rach = orig_ids[rachis_id]
+                    orig_len = pet.get("height", 0) * pet.get("n_links", 1) + \
+                               rach.get("height", 0) * rach.get("n_links", 1)
+                    merged_len = b.get("height", 0) * b.get("n_links", 1)
+                    if orig_len > 0:
+                        err = abs(orig_len - merged_len) / orig_len
+                        if err > 0.01:
+                            errors.append(
+                                f"Merged segment {bid}: length mismatch "
+                                f"{orig_len:.4f} → {merged_len:.4f} ({err*100:.1f}% error)"
+                            )
+
+        return ValidationResult(len(errors) == 0, errors, warnings)

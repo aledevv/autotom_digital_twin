@@ -169,7 +169,6 @@ def test_optimizer_init_with_config_path(temp_config_file):
     optimizer = BudgetOptimizer(config_path=temp_config_file)
     
     assert optimizer.config.max_joints == 250
-    assert optimizer.technique_registry is not None
 
 
 def test_optimizer_init_auto_detect_config():

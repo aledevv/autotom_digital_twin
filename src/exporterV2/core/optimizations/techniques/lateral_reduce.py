@@ -23,7 +23,6 @@ Usage:
 """
 
 from typing import List, Dict, Tuple
-from dataclasses import dataclass
 
 try:
     from .base import OptimizationTechnique, OptimizationReport, ValidationResult, count_d6_joints
@@ -47,13 +46,6 @@ except ImportError:
         remap_link_attachment = None
 
 
-@dataclass
-class LateralReductionReport:
-    """Detailed report for lateral branch reduction."""
-    branches_found: int
-    branches_reduced: int
-    links_removed: int
-    children_remapped: int
 
 
 class LateralBranchReductionTechnique(OptimizationTechnique):
@@ -118,16 +110,19 @@ class LateralBranchReductionTechnique(OptimizationTechnique):
     def _can_reduce(self, branch: dict) -> bool:
         """
         Check if a lateral branch can be reduced.
-        
+
         Args:
             branch: Branch configuration dict
-        
+
         Returns:
-            True if n_links > min_segments
+            True if the branch is a non-Fixed lateral branch/leaf with n_links > min_segments.
+            Fixed branches (locked by petiole_lock or thin_link_lock) are excluded because
+            reducing their n_links saves zero D6 joints and would produce a wrong report.
         """
         if not (self._is_lateral_branch(branch) or self._is_lateral_leaf(branch)):
             return False
-        
+        if branch.get("joint_type", "d6").lower() == "fixed":
+            return False
         n_links = branch.get("n_links", 1)
         return n_links > self._min_segments
     

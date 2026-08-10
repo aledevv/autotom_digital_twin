@@ -18,25 +18,41 @@ from techniques.thin_link_lock import ThinLinkLockTechnique
 
 
 def test_identify_thin_links():
-    """Test thin link identification."""
+    """Test thin link identification.
+
+    The threshold is: radius * GLOBAL_SCALE <= MIN_LINK_RADIUS_WORLD + 1e-6
+    We derive all test values from the config constants so this test never
+    goes stale when GLOBAL_SCALE or MIN_LINK_RADIUS_WORLD changes.
+    """
     print("\n[TEST] Identify Thin Links...")
-    
+
+    # Import config constants to derive thresholds dynamically
+    import sys, os
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
+    from tree_config import MIN_LINK_RADIUS_WORLD, GLOBAL_SCALE
+
+    # Compute the pre-scale boundary (world threshold / scale)
+    thin_threshold = MIN_LINK_RADIUS_WORLD / GLOBAL_SCALE  # exactly at boundary
+    below = thin_threshold * 0.5                           # well below → target
+    at_boundary = thin_threshold                           # exactly at boundary → target (epsilon)
+    just_above = thin_threshold + 1e-4 / GLOBAL_SCALE     # just above → NOT target
+    thick = thin_threshold * 10                            # well above → NOT target
+
     technique = ThinLinkLockTechnique()
-    
-    # MIN_LINK_RADIUS_WORLD is 0.002, GLOBAL_SCALE is 2.0
-    # pre-scale target is <= 0.001
+
     branches = [
-        {"id": "trunk", "n_links": 5, "radius": 0.05},           # 0.100m world -> not target
-        {"id": "branch_1", "n_links": 3, "radius": 0.005},       # 0.010m world -> not target
-        {"id": "branch_2", "n_links": 2, "radius": 0.001},       # 0.002m world -> target
-        {"id": "branch_3", "n_links": 1, "radius": 0.0005},      # 0.001m world -> target
-        {"id": "branch_4", "n_links": 1, "radius": 0.0010001},   # 0.0020002m world -> target (within 1e-6 epsilon)
-        {"id": "branch_5", "n_links": 1, "radius": 0.002},       # 0.004m world -> not target
+        {"id": "thick_1",    "n_links": 5, "radius": thick},        # not target
+        {"id": "just_above", "n_links": 3, "radius": just_above},   # not target
+        {"id": "at_limit",   "n_links": 2, "radius": at_boundary},  # target (within epsilon)
+        {"id": "below_1",    "n_links": 1, "radius": below},        # target
+        {"id": "thick_2",    "n_links": 1, "radius": thick * 2},    # not target
     ]
-    
-    target_count = sum(1 for b in branches if technique._is_target(b))
-    assert target_count == 3, f"Expected 3 thin links, found {target_count}"
-    print(f"  ✓ Identified {target_count} thin links")
+
+    targets = [b["id"] for b in branches if technique._is_target(b)]
+    assert len(targets) == 2, f"Expected 2 thin links, found {len(targets)}: {targets}"
+    assert "at_limit" in targets, "Branch exactly at threshold should be a target"
+    assert "below_1" in targets, "Branch below threshold should be a target"
+    print(f"  ✓ Identified {len(targets)} thin links (threshold={thin_threshold:.6f} pre-scale)")
 
 
 def test_can_apply():

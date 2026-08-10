@@ -23,7 +23,6 @@ Usage:
 """
 
 from typing import List, Dict, Tuple
-from dataclasses import dataclass
 
 try:
     from .base import OptimizationTechnique, OptimizationReport, ValidationResult, count_d6_joints
@@ -47,14 +46,6 @@ except ImportError:
         remap_link_attachment = None
 
 
-@dataclass
-class StemCollapseReport:
-    """Detailed report for stem collapse."""
-    trunk_found: bool
-    original_links: int
-    final_links: int
-    links_removed: int
-    children_remapped: int
 
 
 class StemCollapseTechnique(OptimizationTechnique):

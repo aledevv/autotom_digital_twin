@@ -138,21 +138,18 @@ class OptimizationTechnique(ABC):
         pass
     
     @abstractmethod
-    def can_apply(self, branches: List[Dict], 
-                  current_joints: int, budget: int) -> bool:
+    def can_apply(self, branches: List[Dict]) -> bool:
         """
         Check if technique can be applied to current configuration.
         
         Args:
             branches: Current branches configuration
-            current_joints: Total joints in current configuration
-            budget: Target joint budget
         
         Returns:
             True if technique is applicable, False otherwise
         
         Example:
-            def can_apply(self, branches, current_joints, budget):
+            def can_apply(self, branches):
                 # Check if there are lateral branches with > min_segments
                 min_seg = self.params.get("min_segments", 1)
                 for b in branches:
@@ -222,29 +219,35 @@ class OptimizationTechnique(ABC):
         pass
     
     @abstractmethod
-    def validate(self, branches: List[Dict]) -> ValidationResult:
+    def validate(self, original: List[Dict], modified: List[Dict]) -> ValidationResult:
         """
-        Validate the result (geometry, collisions, structural integrity).
-        
+        Validate that the modified configuration is structurally correct.
+
+        Called by the optimizer after each apply() to decide whether to keep
+        the modification. If validation fails, the modification is discarded.
+
         Args:
-            branches: Branches configuration to validate
-        
+            original: Branch configuration BEFORE apply() was called
+            modified: Branch configuration AFTER apply() was called
+
         Returns:
-            ValidationResult with validation status and any errors/warnings
-        
+            ValidationResult with validation status, errors, and warnings
+
         Example:
-            def validate(self, branches):
+            def validate(self, original, modified):
                 errors = []
                 warnings = []
-                
-                # Check structural limits
-                if not self._check_min_links(branches):
-                    errors.append("Branch below minimum link count")
-                
-                # Check geometry
-                if not self._check_attachment_valid(branches):
-                    errors.append("Invalid attachment point")
-                
+
+                # Check branch count unchanged
+                if len(original) != len(modified):
+                    errors.append("Branch count changed unexpectedly")
+
+                # Check no orphaned parents
+                mod_ids = {b["id"] for b in modified}
+                for b in modified:
+                    if b.get("parent") and b["parent"] not in mod_ids:
+                        errors.append(f"{b['id']}: parent missing")
+
                 return ValidationResult(
                     valid=len(errors) == 0,
                     errors=errors,

@@ -165,7 +165,6 @@ class BudgetOptimizer:
             config_path = Path(__file__).parent / "budget_config.yaml"
         
         self.config = BudgetConfig.load(str(config_path))
-        self.technique_registry = {}  # Will be populated when techniques are implemented
     
     def calculate_total_joints(self, branches: List[Dict]) -> int:
         """
@@ -247,29 +246,6 @@ class BudgetOptimizer:
         
         return lower_bound
     
-    def optimize(self, branches: List[Dict]) -> Tuple[List[Dict], FullOptimizationReport]:
-        """
-        Apply optimization techniques until budget met or exhausted.
-        
-        Args:
-            branches: Original branches configuration
-        
-        Returns:
-            Tuple (optimized_branches, report):
-                optimized_branches: Modified branches configuration
-                report: FullOptimizationReport with details
-        
-        Raises:
-            ValueError: If budget is impossible to meet (below lower bound)
-        
-        Algorithm:
-            1. Calculate total joints and lower bound
-            2. If within budget → return unchanged
-            3. If below lower bound → raise BuildError
-            4. Apply techniques by priority until budget met
-            5. Validate after each technique
-            6. Return optimized config + report
-        """
     def _get_technique(self, technique_config: Dict) -> OptimizationTechnique:
         # Import with fallback for both package and standalone use
         try:
@@ -324,6 +300,28 @@ class BudgetOptimizer:
             return DummyTechnique()
 
     def optimize(self, branches: List[Dict]) -> Tuple[List[Dict], FullOptimizationReport]:
+        """
+        Apply optimization techniques until budget met or techniques exhausted.
+
+        Args:
+            branches: Original branches configuration
+
+        Returns:
+            Tuple (optimized_branches, report):
+                optimized_branches: Modified branches configuration
+                report: FullOptimizationReport with details
+
+        Raises:
+            ValueError: If budget is impossible to meet (below lower bound)
+
+        Algorithm:
+            1. Calculate total joints and lower bound
+            2. If already within budget → return unchanged
+            3. If lower bound > budget → raise ValueError
+            4. Apply enabled techniques by priority until budget met
+            5. Validate after each technique application
+            6. Return optimized config + full report
+        """
         # Calculate initial state
         original_joints = self.calculate_total_joints(branches)
         lower_bound = self.calculate_lower_bound(branches)
