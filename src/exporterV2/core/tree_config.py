@@ -56,7 +56,7 @@ MIN_LINK_RADIUS_WORLD = 0.002  # [m] 2mm minimum for PhysX stability
 
 class BioConfig:
     """Biological parameters for plant tissue."""
-    YOUNG_MODULUS = 50.0e5   # [Pa] 20-50 MPa - mature tomato stem
+    YOUNG_MODULUS = 50.0e6   # [Pa] 20-50 MPa - mature tomato stem
     DAMPING_RATIO = 0.1      # 0.1-0.2 zeta, dimensionless
     PLANT_DENSITY = 1000.0   # [kg/m^3] plant tissue density
 

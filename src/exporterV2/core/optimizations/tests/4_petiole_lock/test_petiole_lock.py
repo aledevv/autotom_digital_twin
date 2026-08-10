@@ -32,7 +32,7 @@ def test_identify_petiolules():
         {"id": "Petiolule_r1_o0_l0_lf1", "n_links": 1, "parent": "Rachis_r1_o0_l0"},
     ]
     
-    petiolule_count = sum(1 for b in branches if technique._is_petiolule(b))
+    petiolule_count = sum(1 for b in branches if technique._is_target(b))
     assert petiolule_count == 2, f"Expected 2 petiolules, found {petiolule_count}"
     print(f"  ✓ Identified {petiolule_count} petiolules")
 
@@ -85,8 +85,8 @@ def test_estimate_reduction():
     ]
     
     reduction = technique.estimate_reduction(branches)
-    # 3 petiolules * 6 DOF each = 18 DOF (one already fixed, so not counted)
-    assert reduction == 18, f"Expected 18 DOF reduction, got {reduction}"
+    # 3 petiolules (each 1 link) = 3 joints (one already fixed, so not counted)
+    assert reduction == 3, f"Expected 3 joints reduction, got {reduction}"
     print(f"  ✓ Estimated {reduction} DOF reduction (3 petiolules × 6 DOF)")
 
 
@@ -104,7 +104,7 @@ def test_apply_simple():
     
     modified, report = technique.apply(branches)
     
-    assert report.joints_saved == 0, f"Should report 0 joints saved (only DOF reduced)"
+    assert report.joints_saved == 2, f"Should report 2 joints saved"
     assert report.details["dof_reduced"] == 12, f"Expected 12 DOF reduced, got {report.details['dof_reduced']}"
     
     # Check that petiolules got joint_type metadata
