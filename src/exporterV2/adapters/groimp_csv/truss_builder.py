@@ -9,6 +9,26 @@ from typing import List, Dict
 from pathlib import Path
 
 
+def _fruit_layout(n_fruits: int) -> tuple[int, bool]:
+    """
+    Return the number of lateral fruit pairs and whether a terminal fruit exists.
+    Even fruit counts are all lateral pairs; odd counts keep one terminal fruit.
+    """
+    n_fruits = max(int(n_fruits), 0)
+    return n_fruits // 2, (n_fruits % 2) == 1
+
+
+def _load_tree_config():
+    """Load tree_config without importing pxr-dependent USD modules."""
+    import importlib.util
+
+    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
+    spec = importlib.util.spec_from_file_location("tree_config", config_path)
+    tree_config = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tree_config)
+    return tree_config
+
+
 def truss_rachis_to_branch(
     truss_dict: Dict,
     parent_trunk_id: str,
@@ -37,29 +57,28 @@ def truss_rachis_to_branch(
     Returns:
         Branch dict for rachis in BRANCHES format
     """
-    # Import tree_config for clamping and phyllotaxis
-    import importlib.util
-    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
-    spec = importlib.util.spec_from_file_location("tree_config", config_path)
-    tree_config = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(tree_config)
-    
+    tree_config = _load_tree_config()
+    truss_geometry = tree_config.TrussGeometryConfig
     clamp_radius = tree_config.clamp_radius
     GLOBAL_SCALE = tree_config.GLOBAL_SCALE
     MIN_LINK_RADIUS_WORLD = tree_config.MIN_LINK_RADIUS_WORLD
     PHYLLOTAXIS = tree_config.PHYLLOTAXIS
     
     # Extract truss parameters with defaults
-    rachis_length = truss_dict.get("rachis_length", 0.12)  # Default 12cm
-    rachis_radius_prescale = truss_dict.get("rachis_radius", 0.001)  # Default 1mm
     n_fruits = truss_dict.get("n_fruits", 5)  # Default 5 fruits
+    lateral_pairs, has_terminal = _fruit_layout(n_fruits)
+    default_rachis_links = max(lateral_pairs + int(has_terminal), 1)
+    rachis_length = truss_dict.get(
+        "rachis_length",
+        truss_geometry.RACHIS_SEGMENT_LENGTH * default_rachis_links,
+    )
+    rachis_radius_prescale = truss_dict.get("rachis_radius", truss_geometry.RACHIS_RADIUS)
     parent_rank = truss_dict.get("parent_rank", rank)
     
     # Orientation: use phyllotaxis if not specified
     tilt_deg = truss_dict.get("tilt_deg", None)
     if tilt_deg is None:
-        # Default tilt: slightly downward (tomato trusses droop)
-        tilt_deg = 60.0  # 60° from vertical = 30° below horizontal
+        tilt_deg = truss_geometry.INITIAL_TILT_DEG
     
     azimuth_deg = truss_dict.get("azimuth_deg", None)
     if azimuth_deg is None:
@@ -74,13 +93,7 @@ def truss_rachis_to_branch(
               f"{rachis_radius_prescale * GLOBAL_SCALE:.5f}m → {rachis_r * GLOBAL_SCALE:.5f}m "
               f"(world-space, min={MIN_LINK_RADIUS_WORLD}m)")
     
-    # Calculate number of rachis links
-    # Each fruit pair (lateral) needs an attachment point, plus terminal fruit
-    # For n_fruits total: (n_fruits - 1) / 2 lateral pairs + 1 terminal
-    # But we need at least n_fruits/2 links for even distribution
-    # Use max(n_fruits // 2, 1) to ensure at least 1 link
-    lateral_pairs = max((n_fruits - 1) // 2, 0)  # Number of lateral pairs
-    n_rachis_links = max(lateral_pairs + 1, 1)  # +1 for terminal, min 1
+    n_rachis_links = max(lateral_pairs + int(has_terminal), 1)
     
     # Create unique ID
     truss_id_base = f"Truss_r{rank}_o{organ_index}"
@@ -98,6 +111,7 @@ def truss_rachis_to_branch(
         "height": rachis_length / n_rachis_links,  # Distribute evenly
         "tilt": tilt_deg,
         "rot": azimuth_deg,
+        "physics_profile": "truss",
     }
     
     return rachis_branch
@@ -128,23 +142,18 @@ def create_lateral_pedicels(
     Returns:
         List of pedicel branch dicts (2 per lateral pair)
     """
-    # Import tree_config for clamping
-    import importlib.util
-    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
-    spec = importlib.util.spec_from_file_location("tree_config", config_path)
-    tree_config = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(tree_config)
-    
+    tree_config = _load_tree_config()
+    truss_geometry = tree_config.TrussGeometryConfig
     clamp_radius = tree_config.clamp_radius
     
     # Extract parameters
     n_fruits = truss_dict.get("n_fruits", 5)
-    pedicel_length = truss_dict.get("pedicel_length", 0.008)  # Default 8mm
+    pedicel_length = truss_dict.get("pedicel_length", truss_geometry.PEDICEL_LENGTH)
     pedicel_radius_prescale = truss_dict.get("pedicel_radius", None)
     
-    # If pedicel radius not specified, use 60% of rachis radius (like rachis to petiole)
+    # If pedicel radius is not specified, use the configured truss pedicel radius.
     if pedicel_radius_prescale is None:
-        pedicel_radius_prescale = rachis_radius * 0.6
+        pedicel_radius_prescale = truss_geometry.PEDICEL_RADIUS
     
     # Apply radius clamping
     pedicel_r, clamped = clamp_radius(pedicel_radius_prescale)
@@ -155,9 +164,7 @@ def create_lateral_pedicels(
     # Pedicel angle (inclination from rachis axis)
     pedicel_angle = truss_dict.get("pedicel_angle", 90.0)  # Default perpendicular
     
-    # Calculate number of lateral pairs
-    # Last fruit is terminal, rest are lateral pairs
-    lateral_pairs = max((n_fruits - 1) // 2, 0)
+    lateral_pairs, _ = _fruit_layout(n_fruits)
     
     if lateral_pairs <= 0:
         return []  # Only terminal fruit, no lateral pairs
@@ -184,6 +191,7 @@ def create_lateral_pedicels(
             "height": pedicel_length,
             "tilt": pedicel_angle,
             "rot": 90.0,  # Left = +90° from rachis direction
+            "physics_profile": "truss",
         })
         
         # Create right pedicel (rot = 270°)
@@ -196,6 +204,7 @@ def create_lateral_pedicels(
             "height": pedicel_length,
             "tilt": pedicel_angle,
             "rot": 270.0,  # Right = -90° (or 270°) from rachis direction
+            "physics_profile": "truss",
         })
     
     return branches
@@ -223,22 +232,17 @@ def create_terminal_pedicel(
     Returns:
         Terminal pedicel branch dict
     """
-    # Import tree_config for clamping
-    import importlib.util
-    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
-    spec = importlib.util.spec_from_file_location("tree_config", config_path)
-    tree_config = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(tree_config)
-    
+    tree_config = _load_tree_config()
+    truss_geometry = tree_config.TrussGeometryConfig
     clamp_radius = tree_config.clamp_radius
     
     # Extract parameters
-    pedicel_length = truss_dict.get("pedicel_length", 0.008)  # Default 8mm
+    pedicel_length = truss_dict.get("pedicel_length", truss_geometry.PEDICEL_LENGTH)
     pedicel_radius_prescale = truss_dict.get("pedicel_radius", None)
     
-    # If pedicel radius not specified, use 60% of rachis radius
+    # If pedicel radius is not specified, use the configured truss pedicel radius.
     if pedicel_radius_prescale is None:
-        pedicel_radius_prescale = rachis_radius * 0.6
+        pedicel_radius_prescale = truss_geometry.PEDICEL_RADIUS
     
     # Apply radius clamping
     pedicel_r, clamped = clamp_radius(pedicel_radius_prescale)
@@ -255,6 +259,7 @@ def create_terminal_pedicel(
         "height": pedicel_length,
         "tilt": 0.0,  # Aligned with rachis (coaxial)
         "rot": 0.0,
+        "physics_profile": "truss",
     }
 
 
@@ -318,7 +323,8 @@ def truss_to_branch_config(
     
     # Create terminal pedicel (if n_fruits > 0)
     n_fruits = truss_dict.get("n_fruits", 5)
-    if n_fruits > 0:
+    _, has_terminal = _fruit_layout(n_fruits)
+    if has_terminal:
         terminal_pedicel = create_terminal_pedicel(
             truss_dict,
             rachis_id,
@@ -374,8 +380,31 @@ def create_tomato_definitions(
         # Default: 3cm radius (medium tomato)
         tomato_radii = [0.03] * n_fruits
     
-    # Ensure we have enough pedicels for tomatoes
+    # Drop invalid fruit radii before mass calculation. GroIMP can emit zeros
+    # for fruits that are not physically present yet.
+    valid_radii = []
+    valid_indices = []
+    for i, radius in enumerate(tomato_radii):
+        if radius > 0.0:
+            valid_indices.append(i)
+            valid_radii.append(radius)
+        else:
+            print(f"[WARNING] Skipping tomato {i} with non-positive radius: {radius}")
+    tomato_radii = valid_radii
     n_tomatoes = len(tomato_radii)
+
+    if maturation_states is not None:
+        maturation_states = [
+            maturation_states[i] if i < len(maturation_states) else 0.0
+            for i in valid_indices
+        ]
+    if tomato_masses is not None:
+        tomato_masses = [
+            tomato_masses[i] if i < len(tomato_masses) else None
+            for i in valid_indices
+        ]
+
+    # Ensure we have enough pedicels for tomatoes
     if n_tomatoes > len(pedicel_ids):
         print(f"[WARNING] More tomatoes ({n_tomatoes}) than pedicels ({len(pedicel_ids)}). "
               f"Truncating to {len(pedicel_ids)} tomatoes.")
@@ -392,6 +421,12 @@ def create_tomato_definitions(
             volume = (4.0/3.0) * math.pi * (radius ** 3)
             mass = volume * TOMATO_DENSITY
             tomato_masses.append(mass)
+    else:
+        tomato_masses = [
+            mass if mass is not None and mass > 0.0
+            else ((4.0/3.0) * math.pi * (tomato_radii[i] ** 3) * TOMATO_DENSITY)
+            for i, mass in enumerate(tomato_masses[:n_tomatoes])
+        ]
     
     # Default maturation: all unripe
     if maturation_states is None:

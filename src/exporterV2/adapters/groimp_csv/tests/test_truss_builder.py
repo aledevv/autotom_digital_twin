@@ -344,6 +344,43 @@ def test_complete_config():
     return True
 
 
+def test_even_fruit_count():
+    """Test that even fruit counts create all lateral fruits and no terminal."""
+    print("\n" + "="*80)
+    print("TEST: Even Fruit Count")
+    print("="*80)
+
+    truss_dict = {
+        "rachis_length": 0.12,
+        "rachis_radius": 0.001,
+        "n_fruits": 8,
+        "pedicel_length": 0.008,
+        "parent_rank": 2,
+        "tomato_radii": [0.02] * 8,
+    }
+
+    branches, tomatoes = truss_to_complete_config(
+        truss_dict,
+        parent_trunk_id="trunk",
+        rank=2
+    )
+
+    pedicels = branches[1:]
+    terminal_pedicels = [b for b in pedicels if "term" in b["id"]]
+
+    print(f"\nGenerated {len(pedicels)} pedicels and {len(tomatoes)} tomatoes")
+
+    assert len(pedicels) == 8, f"Expected 8 pedicels, got {len(pedicels)}"
+    assert len(tomatoes) == 8, f"Expected 8 tomatoes, got {len(tomatoes)}"
+    assert not terminal_pedicels, "Even fruit counts should not create a terminal pedicel"
+
+    for tomato in tomatoes:
+        assert tomato["pedicel_id"] in [p["id"] for p in pedicels], "Tomato should reference a valid pedicel"
+
+    print("\n✓ Even fruit count test PASSED")
+    return True
+
+
 if __name__ == "__main__":
     try:
         print("\n" + "="*80)
@@ -357,6 +394,7 @@ if __name__ == "__main__":
         test_radius_clamping()
         test_tomato_definitions()
         test_complete_config()
+        test_even_fruit_count()
         
         print("\n" + "="*80)
         print("  ALL TESTS PASSED ✓")

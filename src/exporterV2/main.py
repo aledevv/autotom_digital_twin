@@ -41,6 +41,7 @@ sys.path.insert(0, os.path.dirname(SCRIPT_DIR))
 from exporterV2.core.usd import build_stage, get_output_usd_path
 from exporterV2.core.physics import apply_physx_scene_settings, apply_physx_articulation_settings
 from exporterV2.core.tree_config import BRANCHES
+from exporterV2.core.optimizations.techniques.base import count_d6_joints
 
 # ANSI color codes for terminal output
 RED = '\033[91m'
@@ -61,7 +62,11 @@ def main():
         # Load from CSV
         from exporterV2.adapters.groimp_csv import parse_csv_to_branches
         print(f"\n[CONFIG] Loading plant from CSV (day {args.day}, plant_id {args.plant_id})")
-        branches, json_path = parse_csv_to_branches(args.day, args.plant_id)
+        branches, terminal_bodies, json_path = parse_csv_to_branches(
+            args.day,
+            args.plant_id,
+            include_terminal_bodies=True,
+        )
         print(f"[CONFIG] Configuration saved: {json_path}")
         
         # Use day-specific USD path
@@ -71,6 +76,7 @@ def main():
         # Use static config
         print(f"\n[CONFIG] Using static configuration from tree_config.py")
         branches = BRANCHES
+        terminal_bodies = []
         usd_path = get_output_usd_path()
     
     # Apply optimization if requested
@@ -80,9 +86,14 @@ def main():
             from exporterV2.core.optimizations import BudgetOptimizer
             
             optimizer = BudgetOptimizer()
-            original_joints = sum(b.get("n_links", 1) for b in branches)
             
             branches, report = optimizer.optimize(branches)
+
+            branch_ids = {b["id"] for b in branches}
+            terminal_bodies = [
+                body for body in terminal_bodies
+                if body.get("parent_branch_id") in branch_ids
+            ]
             
             # Print optimization report
             print("\n" + "=" * 80)
@@ -105,9 +116,13 @@ def main():
     # Step 1: Generate USD
     print("\n[STEP 1/3] Generating tree USD stage...")
     total_links = sum(b["n_links"] for b in branches)
-    print(f"  Configuration: {len(branches)} branches, {total_links} total links")
+    total_d6_joints = count_d6_joints(branches)
+    print(
+        f"  Configuration: {len(branches)} branches, {total_links} total links, "
+        f"{total_d6_joints} D6 joints, {len(terminal_bodies)} terminal bodies"
+    )
     
-    stage, stem_path = build_stage(usd_path, branches=branches)
+    stage, stem_path = build_stage(usd_path, branches=branches, terminal_bodies=terminal_bodies)
     
     # Step 2: Apply PhysX settings
     print("\n[STEP 2/3] Applying PhysX configuration...")

@@ -33,7 +33,7 @@ Run standalone to verify physics:
 
 import math
 
-MAX_N_LINK = 200  # PhysX articulation limit (for 16GB GPU, max tested ~250)
+MAX_N_JOINTS = 200  # D6-joint budget for stable Isaac Sim runs
 
 # ==============================================================================
 # GLOBAL SCALE & PHYSICS CONSTANTS
@@ -54,9 +54,25 @@ PHYLLOTAXIS = 137.5  # [deg]
 MIN_LINK_RADIUS_WORLD = 0.002  # [m] 2mm minimum for PhysX stability
 
 
+class TrussGeometryConfig:
+    """
+    Geometry constants for adapter-generated tomato trusses.
+
+    Length and radius values are pre-scale dimensions and are multiplied by
+    GLOBAL_SCALE when USD geometry is built.
+    """
+    INITIAL_TILT_DEG = 45.0
+    MIN_TILT_DEG = 45.0
+    MAX_TILT_DEG = 95.0
+    RACHIS_SEGMENT_LENGTH = 0.020
+    RACHIS_RADIUS = 0.00075
+    PEDICEL_LENGTH = 0.006
+    PEDICEL_RADIUS = 0.0005
+
+
 class BioConfig:
     """Biological parameters for plant tissue."""
-    YOUNG_MODULUS = 50.0e7   # [Pa] 20-50 MPa - mature tomato stem
+    YOUNG_MODULUS = 10.0e7   # [Pa] 20-50 MPa - mature tomato stem
     DAMPING_RATIO = 0.1      # 0.1-0.2 zeta, dimensionless
     PLANT_DENSITY = 1000.0   # [kg/m^3] plant tissue density
 
@@ -70,8 +86,8 @@ class TrussPhysicsConfig:
     - Higher damping to reduce oscillations
     - Custom minimum K to handle thin pedicels
     """
-    YOUNG_MODULUS = 20.0e6  # [Pa] 200 MPa - stiffer than stem
-    DAMPING_RATIO = 0.4      # Higher damping to reduce oscillations
+    YOUNG_MODULUS = 25.0e7  # [Pa] stiffer than stem
+    DAMPING_RATIO = 1.0      # Higher damping to reduce oscillations
     PLANT_DENSITY = 1000.0   # [kg/m^3] same as stem
     MIN_K = 0.001             # [N·m/rad] Minimum stiffness for thin pedicels
 
@@ -262,7 +278,7 @@ def validate_branches(branches: list, skip_limit_check: bool = False) -> None:
       - Exactly one root (parent=None)
       - Every parent id exists in the list
       - attach_link is within [1, parent.n_links] for non-root branches
-      - Total link count <= MAX_N_LINK (unless skip_limit_check=True)
+      - Total D6 joint count <= MAX_N_JOINTS (unless skip_limit_check=True)
     
     Args:
         branches: List of branch definitions to validate
@@ -293,6 +309,13 @@ def validate_branches(branches: list, skip_limit_check: bool = False) -> None:
 
     # Validate each branch
     for b in branches:
+        for key in ("n_links", "radius", "height"):
+            if b.get(key, 0) <= 0:
+                raise ValueError(
+                    f"[tree_config] Branch '{b['id']}' has invalid {key}={b.get(key)}. "
+                    f"Expected a positive value."
+                )
+
         if b.get("parent") is None:
             continue  # Root branch - skip parent checks
 
@@ -321,12 +344,17 @@ def validate_branches(branches: list, skip_limit_check: bool = False) -> None:
                 f"[1, {parent_nlinks}] for parent '{parent_id}'."
             )
 
-    # Check total link count limit
-    total = sum(b["n_links"] for b in branches)
-    if total > MAX_N_LINK and not skip_limit_check:
+    # Check D6 joint budget. Fixed branches are intentionally excluded because
+    # they are much cheaper for Isaac Sim than D6 articulation joints.
+    total = sum(
+        b["n_links"]
+        for b in branches
+        if b.get("joint_type", "d6").lower() != "fixed"
+    )
+    if total > MAX_N_JOINTS and not skip_limit_check:
         raise ValueError(
-            f"[tree_config] Total link count {total} exceeds PhysX articulation limit of {MAX_N_LINK}. "
-            f"Reduce n_links in some branches."
+            f"[tree_config] D6 joint count {total} exceeds PhysX articulation budget of {MAX_N_JOINTS}. "
+            f"Run the optimizer or reduce D6 branches."
         )
 
 
@@ -350,7 +378,7 @@ def print_tree_summary(branches=None) -> None:
     print(hdr)
     print("-" * 88)
 
-    total_links = 0
+    total_d6_joints = 0
     for b in branches:
         r_w  = scaled(b["radius"])
         h_w  = scaled(b["height"])
@@ -361,11 +389,12 @@ def print_tree_summary(branches=None) -> None:
         pa   = b.get("parent") or "-"
         print(f"  {b['id']:<12} {pa:<12} {al:>5} {r_w:>8.4f} {h_w:>8.4f} "
               f"{m:>9.3f} {K:>12.2f} {D:>12.4f} {T:>7.4f}")
-        total_links += b["n_links"]
+        if b.get("joint_type", "d6").lower() != "fixed":
+            total_d6_joints += b["n_links"]
 
     print("-" * 88)
-    status = "OK" if total_links <= MAX_N_LINK else "EXCEEDS LIMIT"
-    print(f"  Total links: {total_links}  (PhysX limit: {MAX_N_LINK})  [{status}]")
+    status = "OK" if total_d6_joints <= MAX_N_JOINTS else "EXCEEDS LIMIT"
+    print(f"  D6 joints: {total_d6_joints}  (PhysX budget: {MAX_N_JOINTS})  [{status}]")
     print()
 
 

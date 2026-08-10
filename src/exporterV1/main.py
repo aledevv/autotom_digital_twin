@@ -3,7 +3,7 @@ from exporterV1.debug_viz import visualize_snapshot
 from exporterV1.usd_exporter import export_plant_usd
 from exporterV1.graph_export import export_graph_json
 
-day = 1
+day = 50
 plant_id = 1
 
 # for day in range(1, 161):

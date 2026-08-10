@@ -37,7 +37,7 @@ TOMATO_PROFILE = {
         "rot_range_deg": (-90.0, 90.0),     # Random range relative to branch axis
         "rot_seed_formula": "rank * 1000 + organ_index",  # Deterministic randomness
     },
-    
+
     # General CSV parsing
     "csv": {
         "day_column": "day",

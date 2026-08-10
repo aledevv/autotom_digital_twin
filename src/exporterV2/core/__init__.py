@@ -8,9 +8,10 @@ Works with any plant/tree structure.
 from .tree_config import (
     BRANCHES,
     GLOBAL_SCALE,
-    MAX_N_LINK,
+    MAX_N_JOINTS,
     MIN_LINK_RADIUS_WORLD,
     PHYLLOTAXIS,
+    TrussGeometryConfig,
     print_tree_summary,
     validate_branches,
     clamp_radius,
@@ -29,9 +30,10 @@ def __getattr__(name):
 __all__ = [
     "BRANCHES",
     "GLOBAL_SCALE",
-    "MAX_N_LINK",
+    "MAX_N_JOINTS",
     "MIN_LINK_RADIUS_WORLD",
     "PHYLLOTAXIS",
+    "TrussGeometryConfig",
     "print_tree_summary",
     "validate_branches",
     "clamp_radius",

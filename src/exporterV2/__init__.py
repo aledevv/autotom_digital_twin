@@ -15,8 +15,9 @@ Quick Start:
 from .core import (
     BRANCHES,
     GLOBAL_SCALE,
-    MAX_N_LINK,
+    MAX_N_JOINTS,
     MIN_LINK_RADIUS_WORLD,
+    TrussGeometryConfig,
     print_tree_summary,
     validate_branches,
 )
@@ -35,8 +36,9 @@ __all__ = [
     "build_stage",
     "BRANCHES",
     "GLOBAL_SCALE",
-    "MAX_N_LINK",
+    "MAX_N_JOINTS",
     "MIN_LINK_RADIUS_WORLD",
+    "TrussGeometryConfig",
     "print_tree_summary",
     "validate_branches",
     "apply_physx_scene_settings",

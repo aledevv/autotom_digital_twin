@@ -12,6 +12,10 @@ from typing import List, Dict, Tuple
 from pathlib import Path
 from collections import defaultdict
 
+from exporterV2.core import tree_config
+
+TRUSS_GEOMETRY = tree_config.TrussGeometryConfig
+
 
 def _parse_float_array(val_str: str) -> List[float]:
     """
@@ -23,6 +27,104 @@ def _parse_float_array(val_str: str) -> List[float]:
     if s in ("0", "0.0", "", "nan", "None"):
         return []
     return [float(x) for x in s.split("_")]
+
+
+def _count_d6_joints(branches: List[Dict]) -> int:
+    """Count only branches that still use D6 joints."""
+    return sum(
+        b.get("n_links", 1)
+        for b in branches
+        if b.get("joint_type", "d6").lower() != "fixed"
+    )
+
+
+def _filter_invalid_branches(branches: List[Dict]) -> List[Dict]:
+    """
+    Remove branches with invalid dimensions and descendants that depend on them.
+    """
+    valid = []
+    removed_ids = set()
+
+    for branch in branches:
+        bid = branch["id"]
+        parent = branch.get("parent")
+
+        invalid_parent = parent in removed_ids
+        invalid_geometry = (
+            branch.get("n_links", 0) <= 0
+            or branch.get("radius", 0.0) <= 0.0
+            or branch.get("height", 0.0) <= 0.0
+        )
+
+        if invalid_parent or invalid_geometry:
+            removed_ids.add(bid)
+            reason = "parent was skipped" if invalid_parent else "invalid dimensions"
+            print(f"[WARNING] Skipping branch '{bid}' ({reason})")
+            continue
+
+        valid.append(branch)
+
+    return valid
+
+
+def _normalize_terminal_bodies(tomatoes: List[Dict]) -> List[Dict]:
+    """Convert truss tomato definitions to the generic terminal body schema."""
+    terminal_bodies = []
+
+    for tomato in tomatoes:
+        radius = tomato.get("radius", 0.0)
+        mass = tomato.get("mass", 0.0)
+        parent_branch_id = tomato.get("pedicel_id") or tomato.get("parent_branch_id")
+
+        if radius <= 0.0 or mass <= 0.0 or not parent_branch_id:
+            print(f"[WARNING] Skipping terminal body '{tomato.get('id', '<unknown>')}' with invalid data")
+            continue
+
+        terminal_bodies.append({
+            "id": tomato["id"],
+            "kind": "tomato",
+            "shape": "sphere",
+            "parent_branch_id": parent_branch_id,
+            "radius": radius,
+            "mass": mass,
+            "maturation": tomato.get("maturation", 0.0),
+        })
+
+    return terminal_bodies
+
+
+def _filter_terminal_bodies(terminal_bodies: List[Dict], branches: List[Dict]) -> List[Dict]:
+    """Keep only terminal bodies whose parent branch survived filtering/optimization."""
+    branch_ids = {b["id"] for b in branches}
+    filtered = []
+
+    for body in terminal_bodies:
+        parent_branch_id = body.get("parent_branch_id")
+        if parent_branch_id not in branch_ids:
+            print(
+                f"[WARNING] Skipping terminal body '{body.get('id', '<unknown>')}' "
+                f"because parent branch '{parent_branch_id}' is missing"
+            )
+            continue
+        filtered.append(body)
+
+    return filtered
+
+
+def _truss_tilt_from_groimp_angle(truss_angle: float, n_fruits: int) -> float:
+    """
+    Convert GroIMP fruit_truss_angle to exporter tilt from vertical.
+
+    The CSV angle bends each truss segment. V2 represents the rachis as a
+    straight articulated chain, so use the average bend as the initial pose.
+    """
+    bend_steps = max(n_fruits - 2, 0) / 2.0
+    tilt_deg = TRUSS_GEOMETRY.INITIAL_TILT_DEG + truss_angle * bend_steps
+
+    return max(
+        TRUSS_GEOMETRY.MIN_TILT_DEG,
+        min(tilt_deg, TRUSS_GEOMETRY.MAX_TILT_DEG),
+    )
 
 
 def load_trunk_internodes(csv_path: str, day: int, plant_id: int = 1) -> List[Dict]:
@@ -628,7 +730,8 @@ def save_branches_json(
     day: int,
     output_dir: str,
     internodes: List[Dict],
-    csv_filename: str
+    csv_filename: str,
+    terminal_bodies: List[Dict] = None,
 ) -> str:
     """
     Save BRANCHES configuration to JSON with metadata.
@@ -665,11 +768,16 @@ def save_branches_json(
             "source_csv": csv_filename,
             "n_branches": len(branches),
             "total_links": sum(b["n_links"] for b in branches),
+            "d6_joints": _count_d6_joints(branches),
+            "n_terminal_bodies": len(terminal_bodies or []),
             "global_scale": tree_config.GLOBAL_SCALE,
             "min_radius_world_m": tree_config.MIN_LINK_RADIUS_WORLD,
         },
         "branches": branches
     }
+
+    if terminal_bodies:
+        data["terminal_bodies"] = terminal_bodies
     
     # Save with pretty formatting
     with open(output_path, "w") as f:
@@ -678,7 +786,13 @@ def save_branches_json(
     return str(output_path.absolute())
 
 
-def parse_csv_to_branches(day: int, plant_id: int = 1, profile: dict = None) -> Tuple[List[Dict], str]:
+def parse_csv_to_branches(
+    day: int,
+    plant_id: int = 1,
+    profile: dict = None,
+    include_terminal_bodies: bool = False,
+    save_json: bool = True,
+) -> Tuple[List[Dict], str]:
     """
     Complete pipeline: CSV → internodes + leaves → BRANCHES → JSON.
     
@@ -686,10 +800,14 @@ def parse_csv_to_branches(day: int, plant_id: int = 1, profile: dict = None) -> 
         day: Simulation day
         plant_id: Plant identifier (default: 1)
         profile: Cultivar profile dict (default: None = load tomato default)
+        include_terminal_bodies: If True, return terminal rigid body definitions
+        save_json: If True, save the parsed configuration JSON
     
     Returns:
-        Tuple (branches_list, json_path):
+        Tuple (branches_list, json_path) by default, or
+        Tuple (branches_list, terminal_bodies, json_path) when include_terminal_bodies=True:
             branches_list: List of branch dicts in BRANCHES format (trunk + leaves)
+            terminal_bodies: Optional tomato/terminal body definitions
             json_path: Absolute path to saved JSON file
     
     Raises:
@@ -707,6 +825,7 @@ def parse_csv_to_branches(day: int, plant_id: int = 1, profile: dict = None) -> 
             create_lateral_petiolules,
             create_terminal_petiolule,
         )
+        from .truss_builder import truss_to_complete_config
     except ImportError:
         # Standalone execution
         import sys
@@ -717,6 +836,7 @@ def parse_csv_to_branches(day: int, plant_id: int = 1, profile: dict = None) -> 
             create_lateral_petiolules,
             create_terminal_petiolule,
         )
+        from truss_builder import truss_to_complete_config
     
     # Build paths
     script_dir = Path(__file__).parent
@@ -733,6 +853,7 @@ def parse_csv_to_branches(day: int, plant_id: int = 1, profile: dict = None) -> 
     # Convert trunk to BRANCHES format
     trunk_branch = internodes_to_branch_config(internodes)
     all_branches = [trunk_branch]
+    terminal_bodies = []
     
     # Load lateral branches (order=1)
     print(f"[INFO] Loading lateral branches...")
@@ -824,10 +945,79 @@ def parse_csv_to_branches(day: int, plant_id: int = 1, profile: dict = None) -> 
                         leaf["organ_index"]
                     )
                     all_branches.append(terminal)
+
+    # Load trunk trusses (order=0). Truss morphology is adapter-specific to GroIMP.
+    print(f"[INFO] Loading trunk trusses...")
+    trunk_trusses = load_trusses(str(csv_path), day, plant_id, order=0)
+
+    if trunk_trusses:
+        print(f"[INFO] Processing {len(trunk_trusses)} trunk trusses...")
+        max_trunk_link = trunk_branch["n_links"]
+
+        for truss in trunk_trusses:
+            fruit_radii = [r for r in truss["fruit_radii"] if r > 0.0]
+            if not fruit_radii:
+                print(
+                    f"[WARNING] Skipping truss rank={truss['rank']} organ_index={truss['organ_index']} "
+                    f"because it has no positive fruit radii"
+                )
+                continue
+
+            ripening_dd = truss.get("fruit_ripening_dd", 0.0)
+            maturation = []
+            for age_dd in truss.get("fruit_age_dd", []):
+                if ripening_dd > 0.0:
+                    maturation.append(max(0.0, min(age_dd / ripening_dd, 1.0)))
+                else:
+                    maturation.append(0.0)
+
+            n_fruits = min(truss["fruit_nr"], len(fruit_radii))
+            lateral_pairs = n_fruits // 2
+            has_terminal = (n_fruits % 2) == 1
+            rachis_links = max(lateral_pairs + int(has_terminal), 1)
+
+            truss_dict = {
+                "n_fruits": n_fruits,
+                "parent_rank": truss["parent_rank"],
+                "rachis_length": TRUSS_GEOMETRY.RACHIS_SEGMENT_LENGTH * rachis_links,
+                "rachis_radius": TRUSS_GEOMETRY.RACHIS_RADIUS,
+                "pedicel_length": TRUSS_GEOMETRY.PEDICEL_LENGTH,
+                "pedicel_radius": TRUSS_GEOMETRY.PEDICEL_RADIUS,
+                "tilt_deg": _truss_tilt_from_groimp_angle(truss["truss_angle"], n_fruits),
+                "azimuth_deg": (truss["rank"] * profile.get("phyllotaxis_deg", 137.5)) % 360.0,
+                "tomato_radii": fruit_radii,
+                "maturation": maturation,
+            }
+
+            truss_branches, tomatoes = truss_to_complete_config(
+                truss_dict,
+                parent_trunk_id=trunk_branch["id"],
+                rank=truss["rank"],
+                organ_index=truss["organ_index"],
+            )
+
+            if truss_branches:
+                rachis = truss_branches[0]
+                if rachis["attach_link"] > max_trunk_link:
+                    print(
+                        f"[WARNING] Truss '{rachis['id']}' attach_link={rachis['attach_link']} "
+                        f"exceeds trunk links ({max_trunk_link}); clamping to {max_trunk_link}"
+                    )
+                    rachis["attach_link"] = max_trunk_link
+
+            all_branches.extend(truss_branches)
+            terminal_bodies.extend(_normalize_terminal_bodies(tomatoes))
     
+    all_branches = _filter_invalid_branches(all_branches)
+    terminal_bodies = _filter_terminal_bodies(terminal_bodies, all_branches)
+
     # Calculate stats
     total_links = sum(b["n_links"] for b in all_branches)
-    print(f"[INFO] Total branches: {len(all_branches)}, total links: {total_links}")
+    d6_joints = _count_d6_joints(all_branches)
+    print(
+        f"[INFO] Total branches: {len(all_branches)}, total links: {total_links}, "
+        f"D6 joints: {d6_joints}, terminal bodies: {len(terminal_bodies)}"
+    )
     
     # Import tree_config to check limit
     import importlib.util
@@ -836,19 +1026,25 @@ def parse_csv_to_branches(day: int, plant_id: int = 1, profile: dict = None) -> 
     tree_config = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tree_config)
     
-    if total_links > tree_config.MAX_N_LINK:
-        print(f"[WARNING] Total links ({total_links}) exceeds PhysX limit ({tree_config.MAX_N_LINK})")
-        print(f"[WARNING] Consider reducing GLOBAL_SCALE or skipping some leaves")
+    if d6_joints > tree_config.MAX_N_JOINTS:
+        print(f"[WARNING] D6 joints ({d6_joints}) exceed PhysX budget ({tree_config.MAX_N_JOINTS})")
+        print(f"[WARNING] Run with --optimize or reduce dynamic branch complexity")
     
     # Save to JSON
-    json_path = save_branches_json(
-        all_branches,
-        day,
-        str(output_dir),
-        internodes,
-        f"graph_day_{day}.csv"
-    )
-    
+    json_path = None
+    if save_json:
+        json_path = save_branches_json(
+            all_branches,
+            day,
+            str(output_dir),
+            internodes,
+            f"graph_day_{day}.csv",
+            terminal_bodies=terminal_bodies,
+        )
+
+    if include_terminal_bodies:
+        return all_branches, terminal_bodies, json_path
+
     return all_branches, json_path
 
 
