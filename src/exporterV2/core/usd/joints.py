@@ -8,6 +8,53 @@ from pxr import Usd, UsdPhysics, Gf, Sdf
 from .collision import add_collision_filter, add_attachment_collision_filters
 
 
+def _set_optional_joint_attr(joint, create_method_name: str, attr_name: str, sdf_type, value) -> None:
+    create_method = getattr(joint, create_method_name, None)
+    if create_method is not None:
+        create_method().Set(value)
+    else:
+        joint.GetPrim().CreateAttribute(attr_name, sdf_type).Set(value)
+
+
+def configure_detachable_joint(
+    joint,
+    break_force: float = None,
+    break_torque: float = None,
+    exclude_from_articulation: bool = False,
+) -> None:
+    """Author USD physics attributes needed for a breakable terminal joint."""
+    if break_force is not None:
+        if break_force <= 0.0:
+            raise ValueError(f"break_force must be positive, got {break_force}")
+        _set_optional_joint_attr(
+            joint,
+            "CreateBreakForceAttr",
+            "physics:breakForce",
+            Sdf.ValueTypeNames.Float,
+            float(break_force),
+        )
+
+    if break_torque is not None:
+        if break_torque <= 0.0:
+            raise ValueError(f"break_torque must be positive, got {break_torque}")
+        _set_optional_joint_attr(
+            joint,
+            "CreateBreakTorqueAttr",
+            "physics:breakTorque",
+            Sdf.ValueTypeNames.Float,
+            float(break_torque),
+        )
+
+    if exclude_from_articulation:
+        _set_optional_joint_attr(
+            joint,
+            "CreateExcludeFromArticulationAttr",
+            "physics:excludeFromArticulation",
+            Sdf.ValueTypeNames.Bool,
+            True,
+        )
+
+
 # BEND_LIMIT_DEG imported from tree_config at runtime
 def _get_bend_limit():
     """Get BEND_LIMIT_DEG from tree_config."""
@@ -254,6 +301,9 @@ def create_fixed_joint_to_tip(
     parent_height: float,
     child_offset: float = 0.0,
     joint_name: str = "FixedJoint",
+    break_force: float = None,
+    break_torque: float = None,
+    exclude_from_articulation: bool = False,
 ) -> None:
     """
     Create FixedJoint attaching a rigid body (leaf node) to the tip of a parent link.
@@ -261,8 +311,8 @@ def create_fixed_joint_to_tip(
     Used for tomatoes attached to pedicel tips, or other terminal bodies that should
     not be part of the articulation chain but rigidly attached.
     
-    The child body is excluded from articulation chain (no flexibility, no spring-damping).
-    This is different from create_internal_joint_locked which is still part of the chain.
+    Set exclude_from_articulation=True for detachable terminal bodies. This is
+    different from create_internal_joint_locked which is still part of the chain.
     
     Args:
         stage: USD stage
@@ -273,6 +323,10 @@ def create_fixed_joint_to_tip(
             Positive offset moves child further away from parent tip.
             Useful for positioning sphere center at desired location.
         joint_name: USD prim name for the terminal body's fixed attachment.
+        break_force: Optional USD joint break force threshold [N].
+        break_torque: Optional USD joint break torque threshold [N*m].
+        exclude_from_articulation: Whether PhysX should keep this joint out of
+            the articulation chain.
     
     Example:
         # Attach tomato sphere (radius=0.03m) to pedicel (height=0.01m)
@@ -297,6 +351,12 @@ def create_fixed_joint_to_tip(
     # Both rotations identity (child inherits parent orientation)
     joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
     joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+    configure_detachable_joint(
+        joint,
+        break_force=break_force,
+        break_torque=break_torque,
+        exclude_from_articulation=exclude_from_articulation,
+    )
     
     # Filter collision between child and parent
     add_collision_filter(stage, child_body_path, parent_link_path)

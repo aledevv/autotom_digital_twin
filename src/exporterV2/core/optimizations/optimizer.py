@@ -29,6 +29,7 @@ class BudgetConfig:
     """Parsed configuration from budget_config.yaml."""
     max_joints: int
     warning_threshold: int
+    max_rigid_bodies: Optional[int]
     structural_limits: Dict[str, Dict]
     techniques: List[Dict]
     logging: Dict
@@ -57,6 +58,7 @@ class BudgetConfig:
         return cls(
             max_joints=budget['max_joints'],
             warning_threshold=budget.get('warning_threshold', budget['max_joints'] - 20),
+            max_rigid_bodies=budget.get('max_rigid_bodies'),
             structural_limits=config['structural_limits'],
             techniques=sorted(config['techniques'], key=lambda t: t['priority']),
             logging=config.get('logging', {'level': 'INFO'})
@@ -70,6 +72,9 @@ class FullOptimizationReport:
     final_joints: int
     budget: int
     lower_bound: int
+    original_rigid_bodies: Optional[int] = None
+    final_rigid_bodies: Optional[int] = None
+    rigid_body_budget: Optional[int] = None
     technique_reports: List[OptimizationReport] = field(default_factory=list)
     success: bool = False
     error_message: Optional[str] = None
@@ -105,6 +110,11 @@ class FullOptimizationReport:
             f"Budget: {self.budget}",
             f"Lower bound: {self.lower_bound}",
         ]
+        if self.rigid_body_budget is not None:
+            lines.extend([
+                f"Original rigid bodies: {self.original_rigid_bodies}",
+                f"Rigid body budget: {self.rigid_body_budget}",
+            ])
         
         # Add minimum achievable info if available
         if self.minimum_achievable is not None and self.minimum_achievable != self.final_joints:
@@ -127,6 +137,8 @@ class FullOptimizationReport:
         if self.success:
             status = "✓"
             lines.append(f"Final joints: {self.final_joints} {status}")
+            if self.rigid_body_budget is not None:
+                lines.append(f"Final rigid bodies: {self.final_rigid_bodies} {status}")
             lines.append(f"Total reduction: -{self.total_reduction} joints "
                         f"({self.reduction_percentage:.1f}%)")
         else:
@@ -190,6 +202,33 @@ class BudgetOptimizer:
                 continue
             total += branch.get("n_links", 1)
         return total
+
+    def calculate_total_rigid_bodies(
+        self,
+        branches: List[Dict],
+        terminal_body_count: int = 0,
+    ) -> int:
+        """
+        Estimate the number of rigid bodies authored into the USD stage.
+
+        Every branch link becomes a rigid body. Terminal bodies, such as
+        tomatoes attached to pedicels, are separate rigid bodies and must be
+        supplied by the caller because they are not part of the branch list.
+        """
+        return (
+            sum(int(branch.get("n_links", 1)) for branch in branches)
+            + int(terminal_body_count)
+        )
+
+    def _rigid_body_budget_met(
+        self,
+        rigid_body_count: int,
+    ) -> bool:
+        """Return True when no rigid-body budget is configured or it is met."""
+        return (
+            self.config.max_rigid_bodies is None
+            or rigid_body_count <= self.config.max_rigid_bodies
+        )
     
     def calculate_lower_bound(self, branches: List[Dict]) -> int:
         """
@@ -311,12 +350,18 @@ class BudgetOptimizer:
                     return ValidationResult(True, [], [])
             return DummyTechnique()
 
-    def optimize(self, branches: List[Dict]) -> Tuple[List[Dict], FullOptimizationReport]:
+    def optimize(
+        self,
+        branches: List[Dict],
+        terminal_body_count: int = 0,
+    ) -> Tuple[List[Dict], FullOptimizationReport]:
         """
         Apply optimization techniques until budget met or techniques exhausted.
 
         Args:
             branches: Original branches configuration
+            terminal_body_count: Number of extra rigid bodies, e.g. tomatoes,
+                that will be authored in the stage but are not in ``branches``.
 
         Returns:
             Tuple (optimized_branches, report):
@@ -336,16 +381,25 @@ class BudgetOptimizer:
         """
         # Calculate initial state
         original_joints = self.calculate_total_joints(branches)
+        original_rigid_bodies = self.calculate_total_rigid_bodies(
+            branches,
+            terminal_body_count,
+        )
         lower_bound = self.calculate_lower_bound(branches)
         budget = self.config.max_joints
+        rigid_body_budget = self.config.max_rigid_bodies
+        rigid_body_budget_met = self._rigid_body_budget_met(original_rigid_bodies)
         
         # Check if already within budget
-        if original_joints <= budget:
+        if original_joints <= budget and rigid_body_budget_met:
             report = FullOptimizationReport(
                 original_joints=original_joints,
                 final_joints=original_joints,
                 budget=budget,
                 lower_bound=lower_bound,
+                original_rigid_bodies=original_rigid_bodies,
+                final_rigid_bodies=original_rigid_bodies,
+                rigid_body_budget=rigid_body_budget,
                 success=True,
                 technique_reports=[]
             )
@@ -363,6 +417,9 @@ class BudgetOptimizer:
                 final_joints=original_joints,
                 budget=budget,
                 lower_bound=lower_bound,
+                original_rigid_bodies=original_rigid_bodies,
+                final_rigid_bodies=original_rigid_bodies,
+                rigid_body_budget=rigid_body_budget,
                 success=False,
                 error_message=error_msg,
                 technique_reports=[]
@@ -372,6 +429,7 @@ class BudgetOptimizer:
         # Apply techniques sequentially
         current_branches = branches.copy()
         current_joints = original_joints
+        current_rigid_bodies = original_rigid_bodies
         technique_reports = []
         
         for technique_config in self.config.techniques:
@@ -387,26 +445,52 @@ class BudgetOptimizer:
             iteration = 0
             max_iterations = 1000
             prev_joints = current_joints
+            prev_rigid_bodies = current_rigid_bodies
             
             while technique.can_apply(current_branches) and iteration < max_iterations:
                 modified, tech_report = technique.apply(current_branches)
                 validation = technique.validate(current_branches, modified)
                 
                 if validation.valid:
+                    modified_joints = self.calculate_total_joints(modified)
+                    modified_rigid_bodies = self.calculate_total_rigid_bodies(
+                        modified,
+                        terminal_body_count,
+                    )
+
+                    joints_budget_met = current_joints <= budget
+                    rigid_budget_unmet = not self._rigid_body_budget_met(current_rigid_bodies)
+                    rigid_body_improved = modified_rigid_bodies < current_rigid_bodies
+
+                    # If the D6 budget is already satisfied, do not spend time
+                    # on techniques that only reshuffle or increase rigid bodies.
+                    # This keeps truss staticization from making loader pressure
+                    # worse when the remaining problem is USD/PhysX object count.
+                    if joints_budget_met and rigid_budget_unmet and not rigid_body_improved:
+                        break
+
                     current_branches = modified
                     if tech_report:  # Skip dummy reports
                         technique_reports.append(tech_report)
                     
                     prev_joints = current_joints
-                    current_joints = self.calculate_total_joints(current_branches)
+                    prev_rigid_bodies = current_rigid_bodies
+                    current_joints = modified_joints
+                    current_rigid_bodies = modified_rigid_bodies
                     
                     # Stop if no progress (stuck)
-                    if current_joints == prev_joints:
+                    if (
+                        current_joints == prev_joints
+                        and current_rigid_bodies == prev_rigid_bodies
+                    ):
                         break
                     
-                    # Stop if budget met
-                    if current_joints <= budget:
-                        break  # Exit inner loop (budget met)
+                    # Stop if all configured budgets are met
+                    if (
+                        current_joints <= budget
+                        and self._rigid_body_budget_met(current_rigid_bodies)
+                    ):
+                        break  # Exit inner loop (budgets met)
                 else:
                     # Validation failed, stop this technique
                     break
@@ -414,11 +498,21 @@ class BudgetOptimizer:
                 iteration += 1
             
             # Stop outer loop if budget met
-            if current_joints <= budget:
-                break  # Exit outer loop (budget met)
+            if (
+                current_joints <= budget
+                and self._rigid_body_budget_met(current_rigid_bodies)
+            ):
+                break  # Exit outer loop (budgets met)
         
         final_joints = self.calculate_total_joints(current_branches)
-        success = (final_joints <= budget)
+        final_rigid_bodies = self.calculate_total_rigid_bodies(
+            current_branches,
+            terminal_body_count,
+        )
+        success = (
+            final_joints <= budget
+            and self._rigid_body_budget_met(final_rigid_bodies)
+        )
         
         # Calculate minimum achievable (if all techniques were fully applied)
         # This is done by checking if any technique can still be applied
@@ -450,7 +544,14 @@ class BudgetOptimizer:
         # Determine error message if budget not met
         error_message = None
         if not success:
-            if reached_minimum:
+            if final_joints <= budget and rigid_body_budget is not None:
+                error_message = (
+                    f"Optimization met the D6 budget ({final_joints}/{budget}) "
+                    f"but stopped at {final_rigid_bodies} rigid bodies "
+                    f"(budget: {rigid_body_budget}). "
+                    f"Consider increasing max_rigid_bodies or disabling dense organs."
+                )
+            elif reached_minimum:
                 error_message = (
                     f"Optimization reached minimum possible ({final_joints} joints) "
                     f"but could not meet budget ({budget} joints). "
@@ -470,6 +571,9 @@ class BudgetOptimizer:
             final_joints=final_joints,
             budget=budget,
             lower_bound=lower_bound,
+            original_rigid_bodies=original_rigid_bodies,
+            final_rigid_bodies=final_rigid_bodies,
+            rigid_body_budget=rigid_body_budget,
             technique_reports=technique_reports,
             success=success,
             error_message=error_message,

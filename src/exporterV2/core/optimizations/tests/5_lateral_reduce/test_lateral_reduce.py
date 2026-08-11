@@ -33,7 +33,9 @@ def test_identify_lateral_branches():
     
     # Lateral leaf
     leaf1 = {"id": "LateralLeaf_r2_o1", "n_links": 2}
+    leaf2 = {"id": "LatLeaf_r2_o1", "n_links": 2}
     assert technique._is_lateral_leaf(leaf1) is True
+    assert technique._is_lateral_leaf(leaf2) is True
     
     # Not lateral
     trunk = {"id": "trunk", "n_links": 5}

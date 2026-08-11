@@ -113,7 +113,7 @@ class TrussGeometryConfig:
 class BioConfig:
     """Biological parameters for plant tissue."""
     YOUNG_MODULUS = 70.0e6   # [Pa] 20-50 MPa - mature tomato stem
-    DAMPING_RATIO = 1.0      # Critically damped (zeta=1.0) to prevent 30s oscillations
+    DAMPING_RATIO = 0.3     # Critically damped (zeta=1.0) to prevent 30s oscillations
     PLANT_DENSITY = 1000.0   # [kg/m^3] plant tissue density
 
 
@@ -126,14 +126,21 @@ class TrussPhysicsConfig:
     - Higher damping to reduce oscillations
     - Custom minimum K to handle thin pedicels
     """
-    YOUNG_MODULUS = 30.0e7  # [Pa] stiffer than stem
-    DAMPING_RATIO = 1.5      # Higher damping to reduce oscillations
+    YOUNG_MODULUS = 80.0e7  # [Pa] stiffer than stem
+    DAMPING_RATIO = 2.5      # Higher damping to reduce oscillations
     PLANT_DENSITY = 873.0   # [kg/m^3] same as stem
     MIN_K = 0.001             # [N·m/rad] Minimum stiffness for thin pedicels
     PEDICEL_BEND_LIMIT_DEG = 25.0
     # Real pedicels are much shorter than the visual-lab sample, so they need a
     # softer attachment drive for tomato weight to produce visible droop.
     PEDICEL_DRIVE_STIFFNESS_SCALE = 0.10
+    # Detachable tomato attachment. This is comfortably above the static weight
+    # of the generated tomatoes, so gravity alone should not break the joint.
+    TOMATO_DETACHMENT_BREAK_FORCE_N = 50.0
+    TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION = True
+    # When the fixed joint is excluded, keep tomatoes outside the articulation
+    # root and attach them as regular rigid bodies through the breakable joint.
+    TOMATO_DETACHMENT_BODY_PARENT_PATH = "/World/TerminalBodies"
 
 
 # ==============================================================================

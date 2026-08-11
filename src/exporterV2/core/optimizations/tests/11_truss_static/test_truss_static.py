@@ -161,11 +161,15 @@ def test_one_link_rachis_is_curved_without_changing_joint_count():
 
 def test_usd_uses_official_pedicel_and_static_root_overrides(tmp_path):
     branches, terminal_bodies = make_truss()
+    detachable_terminal_bodies = [
+        {**body, "exclude_from_articulation": True}
+        for body in terminal_bodies
+    ]
     dynamic_path = tmp_path / "dynamic.usda"
-    dynamic_stage, _ = build_stage(
+    dynamic_stage, stem_path = build_stage(
         str(dynamic_path),
         branches=branches,
-        terminal_bodies=terminal_bodies,
+        terminal_bodies=detachable_terminal_bodies,
         skip_limit_check=True,
     )
     dynamic_stage.GetRootLayer().Save()
@@ -182,7 +186,15 @@ def test_usd_uses_official_pedicel_and_static_root_overrides(tmp_path):
         if prim.GetTypeName() == "PhysicsFixedJoint"
         and prim.GetName() == "TerminalBodyFixedJoint"
     ]
-    assert len(terminal_joints) == len(terminal_bodies)
+    assert len(terminal_joints) == len(detachable_terminal_bodies)
+    for prim in terminal_joints:
+        assert prim.GetAttribute("physics:breakForce").Get() == pytest.approx(
+            TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N
+        )
+        assert prim.GetAttribute("physics:excludeFromArticulation").Get() is True
+        body1_path = str(prim.GetRelationship("physics:body1").GetTargets()[0])
+        assert body1_path.startswith(TrussPhysicsConfig.TOMATO_DETACHMENT_BODY_PARENT_PATH)
+        assert not body1_path.startswith(f"{stem_path}/")
     for prim in pedicel_joints:
         limit = UsdPhysics.LimitAPI.Get(prim, "rotX")
         assert limit.GetLowAttr().Get() == -TrussPhysicsConfig.PEDICEL_BEND_LIMIT_DEG

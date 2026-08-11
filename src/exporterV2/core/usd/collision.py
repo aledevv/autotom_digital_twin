@@ -150,7 +150,7 @@ def check_sphere_sphere_intersection(
     distance = math.sqrt(dx**2 + dy**2 + dz**2)
     min_distance = radius_a + radius_b + margin
     
-    intersects = distance < min_distance
+    intersects = distance <= min_distance
     overlap = min_distance - distance
     
     return intersects, distance, overlap
@@ -211,7 +211,7 @@ def check_sphere_cylinder_intersection(
     radial_distance = math.sqrt(dx_closest**2 + dy_closest**2 + dz_closest**2)
     min_distance = sphere_radius + cyl_radius + margin
     
-    intersects = radial_distance < min_distance
+    intersects = radial_distance <= min_distance
     distance = radial_distance - cyl_radius
     overlap = min_distance - radial_distance
     

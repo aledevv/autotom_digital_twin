@@ -96,7 +96,10 @@ def main():
             
             optimizer = BudgetOptimizer()
             
-            branches, report = optimizer.optimize(branches)
+            branches, report = optimizer.optimize(
+                branches,
+                terminal_body_count=len(terminal_bodies),
+            )
 
             branch_ids = {b["id"] for b in branches}
             terminal_bodies = [

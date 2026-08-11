@@ -109,6 +109,7 @@ def test_load_valid_config(temp_config_file):
     
     assert config.max_joints == 250
     assert config.warning_threshold == 230
+    assert config.max_rigid_bodies is None
     assert "trunk" in config.structural_limits
     assert len(config.techniques) == 2
     assert config.techniques[0]["priority"] == 1  # Sorted by priority
@@ -278,6 +279,66 @@ def test_optimize_already_within_budget(temp_config_file):
     assert report.final_joints == 10
     assert len(report.technique_reports) == 0
     assert optimized == branches  # No changes
+
+
+def test_optimize_continues_for_rigid_body_budget(valid_config_dict, tmp_path):
+    """Keep optimizing when D6 joints are fine but the USD body count is high."""
+    config = valid_config_dict.copy()
+    config["budget"] = {
+        "max_joints": 10,
+        "max_rigid_bodies": 7,
+        "warning_threshold": 8,
+    }
+    config["techniques"] = [
+        {
+            "id": "leaf_branch_reduce",
+            "priority": 1,
+            "enabled": True,
+            "params": {},
+        }
+    ]
+    config_path = tmp_path / "body_budget.yaml"
+    config_path.write_text(yaml.dump(config))
+
+    branches = [
+        {"id": "trunk", "parent": None, "n_links": 1, "joint_type": "fixed"},
+        {
+            "id": "Leaf_r1_o0_petiole",
+            "parent": "trunk",
+            "attach_link": 1,
+            "n_links": 1,
+            "height": 0.02,
+            "radius": 0.002,
+        },
+        {
+            "id": "Leaf_r1_o0_rachis",
+            "parent": "Leaf_r1_o0_petiole",
+            "attach_link": 1,
+            "n_links": 3,
+            "height": 0.02,
+            "radius": 0.001,
+        },
+        {
+            "id": "Leaf_r1_o0_rachis_petiolule_term",
+            "parent": "Leaf_r1_o0_rachis",
+            "attach_link": 3,
+            "n_links": 1,
+            "height": 0.01,
+            "radius": 0.001,
+        },
+    ]
+
+    optimizer = BudgetOptimizer(config_path=str(config_path))
+    optimized, report = optimizer.optimize(branches, terminal_body_count=3)
+
+    assert report.success is True
+    assert report.original_joints <= report.budget
+    assert report.original_rigid_bodies == 9
+    assert report.final_rigid_bodies <= report.rigid_body_budget
+    assert [item.technique_name for item in report.technique_reports] == [
+        "leaf_branch_reduce"
+    ]
+    assert any(branch["id"] == "Leaf_r1_o0_merged" for branch in optimized)
 
 
 def test_optimize_budget_impossible(temp_config_file):

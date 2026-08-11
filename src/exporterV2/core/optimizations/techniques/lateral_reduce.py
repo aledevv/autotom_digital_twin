@@ -96,7 +96,8 @@ class LateralBranchReductionTechnique(OptimizationTechnique):
         """
         Check if a branch is a lateral leaf.
         
-        Lateral leaves are identified by naming pattern: "LateralLeaf_*"
+        Lateral leaves are identified by naming pattern: "LatLeaf_*"
+        from the GroIMP adapter, with "LateralLeaf_*" kept for older tests.
         
         Args:
             branch: Branch configuration dict
@@ -105,7 +106,10 @@ class LateralBranchReductionTechnique(OptimizationTechnique):
             True if branch is a lateral leaf
         """
         branch_id = branch.get("id", "")
-        return branch_id.startswith("LateralLeaf_r") and "_o" in branch_id
+        return (
+            branch_id.startswith("LatLeaf_r")
+            or branch_id.startswith("LateralLeaf_r")
+        ) and "_o" in branch_id
     
     def _can_reduce(self, branch: dict) -> bool:
         """

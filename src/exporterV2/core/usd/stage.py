@@ -41,6 +41,7 @@ from .joints import (
     create_fixed_joint_to_tip,
 )
 from .collision import (
+    add_collision_filter,
     add_sibling_collision_filtering,
     check_sphere_sphere_intersection,
     check_sphere_cylinder_intersection,
@@ -114,15 +115,37 @@ def setup_base_stage(path: str, legacy_physics: bool = False):
     return stage, stem_path
 
 
-def validate_terminal_body_clearance(terminal_body_records, branch_registry, branches, margin: float = 0.002):
+def validate_terminal_body_clearance(
+    terminal_body_records,
+    branch_registry,
+    branches,
+    margin: float = 0.002,
+    stage=None,
+    apply_filters: bool = False,
+):
     """
     Warn about terminal body intersections before the simulation starts.
+
+    When ``apply_filters`` is true, detected initial overlaps are also collision
+    filtered. This avoids impossible fixed-body contact constraints during
+    PhysX scene initialization while preserving the visible geometry and mass.
     """
     if not terminal_body_records:
         return
 
     warnings = []
+    filtered_pairs = set()
     branch_defs = {b["id"]: b for b in branches}
+
+    def maybe_filter(path_a: str, path_b: str) -> None:
+        if not (apply_filters and stage and path_a and path_b):
+            return
+        key = tuple(sorted((path_a, path_b)))
+        if key in filtered_pairs:
+            return
+        add_collision_filter(stage, path_a, path_b)
+        add_collision_filter(stage, path_b, path_a)
+        filtered_pairs.add(key)
 
     for i, body_a in enumerate(terminal_body_records):
         for body_b in terminal_body_records[i + 1:]:
@@ -138,9 +161,10 @@ def validate_terminal_body_clearance(terminal_body_records, branch_registry, bra
                     f"terminal bodies '{body_a['id']}' and '{body_b['id']}' overlap "
                     f"by {overlap * 1000.0:.1f}mm (distance={distance * 1000.0:.1f}mm)"
                 )
+                maybe_filter(body_a.get("path"), body_b.get("path"))
 
     for body in terminal_body_records:
-        for branch_id, (_, link_bases, axis, _) in branch_registry.items():
+        for branch_id, (link_paths, link_bases, axis, _) in branch_registry.items():
             if branch_id == body["parent_branch_id"]:
                 continue
 
@@ -163,6 +187,7 @@ def validate_terminal_body_clearance(terminal_body_records, branch_registry, bra
                         f"terminal body '{body['id']}' intersects '{branch_id}_Link_{link_idx + 1:02d}' "
                         f"by {overlap * 1000.0:.1f}mm"
                     )
+                    maybe_filter(body.get("path"), link_paths[link_idx])
 
     if warnings:
         print("\n" + "=" * 80)
@@ -172,6 +197,8 @@ def validate_terminal_body_clearance(terminal_body_records, branch_registry, bra
             print(f"[WARNING] {warning}")
         if len(warnings) > 25:
             print(f"[WARNING] ... {len(warnings) - 25} additional geometry warnings omitted")
+        if filtered_pairs:
+            print(f"[INFO] Added {len(filtered_pairs) * 2} terminal-body collision filters")
         print("=" * 80 + "\n")
     else:
         print("[INFO] Terminal body geometry validation: no intersections detected")
@@ -411,7 +438,6 @@ def build_stage(
     
     if legacy_physics:
         # Revert to legacy non-physics units to simulate original behavior
-        from pxr import UsdGeom, UsdPhysics
         UsdGeom.SetStageMetersPerUnit(stage, 0.01) # fallback to default cm
 
     # Registry: branch_id → (link_paths, base_positions, axis_vector, orientation_quat)
@@ -557,10 +583,31 @@ def build_stage(
         parent_link_path = parent_paths[-1]
         parent_base = parent_bases[-1]
         body_pos = parent_base + parent_axis * (parent_height + radius)
+        break_force = body.get(
+            "break_force",
+            TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N,
+        )
+        exclude_from_articulation = body.get(
+            "exclude_from_articulation",
+            TrussPhysicsConfig.TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION,
+        )
+        body_parent_path = body.get("parent_path")
+        if body_parent_path is None:
+            body_parent_path = (
+                getattr(
+                    TrussPhysicsConfig,
+                    "TOMATO_DETACHMENT_BODY_PARENT_PATH",
+                    "/World/TerminalBodies",
+                )
+                if exclude_from_articulation
+                else stem_path
+            )
+        if body_parent_path != stem_path:
+            UsdGeom.Xform.Define(stage, body_parent_path)
 
         body_path = create_sphere_rigid_body(
             stage,
-            stem_path,
+            body_parent_path,
             body["id"],
             radius,
             body_pos,
@@ -574,21 +621,32 @@ def build_stage(
             parent_height=parent_height,
             child_offset=radius,
             joint_name="TerminalBodyFixedJoint",
+            break_force=break_force,
+            exclude_from_articulation=exclude_from_articulation,
         )
 
         terminal_body_records.append({
             "id": body["id"],
+            "path": body_path,
             "parent_branch_id": parent_branch_id,
             "pos": (body_pos[0], body_pos[1], body_pos[2]),
             "radius": radius,
         })
 
+        break_force_label = "disabled" if break_force is None else f"{break_force:.2f}N"
         print(
             f"[INFO] terminal body '{body['id']}': sphere r={radius:.3f}m, "
-            f"parent='{parent_branch_id}'"
+            f"parent='{parent_branch_id}', body_parent='{body_parent_path}', "
+            f"break_force={break_force_label}"
         )
 
-    validate_terminal_body_clearance(terminal_body_records, branch_registry, branches)
+    validate_terminal_body_clearance(
+        terminal_body_records,
+        branch_registry,
+        branches,
+        stage=stage,
+        apply_filters=True,
+    )
 
     # Add sibling collision filtering
     add_sibling_collision_filtering(stage, branches, branch_registry)
