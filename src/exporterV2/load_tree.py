@@ -27,6 +27,7 @@ if SRC_DIR not in sys.path:
 
 from exporterV2.core.usd import build_stage, get_output_usd_path
 from exporterV2.core.physics import apply_physx_scene_settings, apply_physx_articulation_settings
+from exporterV2.core.tree_config import BRANCHES, limit_branch_resolution
 
 USD_PATH = get_output_usd_path()
 
@@ -36,7 +37,8 @@ USD_PATH = get_output_usd_path()
 # ==============================================================================
 
 print("[INFO] Generating tree USD stage...")
-stage, stem_path = build_stage(USD_PATH)
+branches, _ = limit_branch_resolution(BRANCHES)
+stage, stem_path = build_stage(USD_PATH, branches=branches)
 
 apply_physx_scene_settings(stage)
 apply_physx_articulation_settings(stage, stem_path)

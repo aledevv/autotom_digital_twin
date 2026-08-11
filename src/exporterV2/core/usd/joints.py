@@ -21,8 +21,13 @@ def _get_bend_limit():
     return BEND_LIMIT_DEG
 
 
-def configure_joint_drives(joint, stiff: float, damp: float) -> None:
-    """Configure D6 joint drives: lock translations, spring-drive rotX/rotY, lock rotZ."""
+def configure_joint_drives(
+    joint,
+    stiff: float,
+    damp: float,
+    bend_axes=("rotX", "rotY"),
+) -> None:
+    """Configure D6 drives on selected bend axes and lock all remaining axes."""
     BEND_LIMIT_DEG = _get_bend_limit()
     
     # Lock all translations
@@ -31,22 +36,31 @@ def configure_joint_drives(joint, stiff: float, damp: float) -> None:
         lim.CreateLowAttr().Set(1.0)
         lim.CreateHighAttr().Set(-1.0)
 
-    # Spring-drive on rotX/rotY (bending)
-    for axis in ["rotX", "rotY"]:
+    for axis in ("rotX", "rotY", "rotZ"):
         lim = UsdPhysics.LimitAPI.Apply(joint.GetPrim(), axis)
-        lim.CreateLowAttr().Set(-BEND_LIMIT_DEG)
-        lim.CreateHighAttr().Set(BEND_LIMIT_DEG)
+        if axis in bend_axes:
+            lim.CreateLowAttr().Set(-BEND_LIMIT_DEG)
+            lim.CreateHighAttr().Set(BEND_LIMIT_DEG)
+            drv = UsdPhysics.DriveAPI.Apply(joint.GetPrim(), axis)
+            drv.CreateTypeAttr().Set("force")
+            drv.CreateStiffnessAttr().Set(stiff)
+            drv.CreateDampingAttr().Set(damp)
+            drv.CreateTargetPositionAttr().Set(0.0)
+        else:
+            lim.CreateLowAttr().Set(1.0)
+            lim.CreateHighAttr().Set(-1.0)
 
-        drv = UsdPhysics.DriveAPI.Apply(joint.GetPrim(), axis)
-        drv.CreateTypeAttr().Set("force")
-        drv.CreateStiffnessAttr().Set(stiff)
-        drv.CreateDampingAttr().Set(damp)
-        drv.CreateTargetPositionAttr().Set(0.0)
 
-    # Lock rotZ (prevent twisting)
-    lim_z = UsdPhysics.LimitAPI.Apply(joint.GetPrim(), "rotZ")
-    lim_z.CreateLowAttr().Set(1.0)
-    lim_z.CreateHighAttr().Set(-1.0)
+def configure_revolute_drive(joint, stiff: float, damp: float) -> None:
+    """Configure a planar revolute spring using the same degree-based gains as D6."""
+    joint.CreateAxisAttr().Set("X")
+    joint.CreateLowerLimitAttr().Set(-_get_bend_limit())
+    joint.CreateUpperLimitAttr().Set(_get_bend_limit())
+    drive = UsdPhysics.DriveAPI.Apply(joint.GetPrim(), "angular")
+    drive.CreateTypeAttr().Set("force")
+    drive.CreateStiffnessAttr().Set(stiff)
+    drive.CreateDampingAttr().Set(damp)
+    drive.CreateTargetPositionAttr().Set(0.0)
 
 
 def anchor_link_to_world(stage, link_path: str) -> None:
@@ -64,6 +78,7 @@ def create_internal_joint(
     gap: float,
     stiff: float,
     damp: float,
+    bend_axes=("rotX", "rotY"),
 ) -> None:
     """
     D6 bending joint between consecutive links in the same chain.
@@ -79,9 +94,31 @@ def create_internal_joint(
     joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
     joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
     joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
-    configure_joint_drives(joint, stiff, damp)
+    configure_joint_drives(joint, stiff, damp, bend_axes=bend_axes)
     
     # Filter collision between parent and child
+    add_collision_filter(stage, child_path, parent_path)
+
+
+def create_internal_revolute_joint(
+    stage,
+    parent_path: str,
+    child_path: str,
+    joint_name: str,
+    parent_height: float,
+    gap: float,
+    stiff: float,
+    damp: float,
+) -> None:
+    """Planar counterpart of ``create_internal_joint`` for solver diagnosis."""
+    joint = UsdPhysics.RevoluteJoint.Define(stage, f"{child_path}/{joint_name}")
+    joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_path)])
+    joint.CreateBody1Rel().SetTargets([Sdf.Path(child_path)])
+    joint.CreateLocalPos0Attr().Set(Gf.Vec3f(0.0, 0.0, parent_height + gap))
+    joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+    joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+    joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+    configure_revolute_drive(joint, stiff, damp)
     add_collision_filter(stage, child_path, parent_path)
 
 
@@ -93,6 +130,7 @@ def create_attachment_joint(
     local_rot0: Gf.Quatf,
     stiff: float,
     damp: float,
+    bend_axes=("rotX", "rotY"),
 ) -> None:
     """
     D6 joint attaching first link of a branch to a parent chain link.
@@ -110,9 +148,30 @@ def create_attachment_joint(
     joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
     joint.CreateLocalRot0Attr().Set(local_rot0)
     joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
-    configure_joint_drives(joint, stiff, damp)
+    configure_joint_drives(joint, stiff, damp, bend_axes=bend_axes)
     
     # Filter collisions with parent and its neighbor
+    add_attachment_collision_filters(stage, child_link_path, parent_link_path)
+
+
+def create_attachment_revolute_joint(
+    stage,
+    parent_link_path: str,
+    child_link_path: str,
+    local_pos0: Gf.Vec3f,
+    local_rot0: Gf.Quatf,
+    stiff: float,
+    damp: float,
+) -> None:
+    """Attach a branch through one planar rotational spring."""
+    joint = UsdPhysics.RevoluteJoint.Define(stage, f"{child_link_path}/AttachJoint")
+    joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_link_path)])
+    joint.CreateBody1Rel().SetTargets([Sdf.Path(child_link_path)])
+    joint.CreateLocalPos0Attr().Set(local_pos0)
+    joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+    joint.CreateLocalRot0Attr().Set(local_rot0)
+    joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+    configure_revolute_drive(joint, stiff, damp)
     add_attachment_collision_filters(stage, child_link_path, parent_link_path)
 
 

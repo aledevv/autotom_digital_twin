@@ -16,6 +16,7 @@ def create_rigid_segment(
     world_pos: Gf.Vec3d,
     mass: float,
     orientation: Gf.Quatf = None,
+    collision_enabled: bool = True,
 ) -> str:
     """
     Create one rigid cylinder link directly under stem_path.
@@ -52,7 +53,8 @@ def create_rigid_segment(
     cyl.GetAxisAttr().Set("Z")
     cyl.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, height / 2.0))
 
-    UsdPhysics.CollisionAPI.Apply(cyl.GetPrim())
+    if collision_enabled:
+        UsdPhysics.CollisionAPI.Apply(cyl.GetPrim())
 
     return link_path
 

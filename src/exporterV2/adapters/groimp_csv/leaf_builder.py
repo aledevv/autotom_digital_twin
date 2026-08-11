@@ -46,7 +46,12 @@ def calculate_leaf_orientation(leaf_dict: Dict) -> tuple:
     return azimuth_deg, tilt_deg
 
 
-def leaf_to_petiole_rachis_branches(leaf_dict: Dict, parent_trunk_id: str) -> List[Dict]:
+def leaf_to_petiole_rachis_branches(
+    leaf_dict: Dict,
+    parent_trunk_id: str,
+    *,
+    include_rachis: bool = True,
+) -> List[Dict]:
     """
     Convert leaf CSV data to petiole and rachis branch definitions.
     
@@ -151,7 +156,7 @@ def leaf_to_petiole_rachis_branches(leaf_dict: Dict, parent_trunk_id: str) -> Li
     
     # Create rachis branch if length > 0
     rachis_length = leaf_dict["rachis_length"]
-    if rachis_length > 1e-6:
+    if include_rachis and rachis_length > 1e-6:
         # Calculate number of rachis links based on lateral blade pairs
         # Each pair needs an attachment point + 1 for terminal
         blades_nr = leaf_dict["blades_nr"]

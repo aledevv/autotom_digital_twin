@@ -3,7 +3,7 @@ import sys
 import argparse
 
 parser = argparse.ArgumentParser(description="Compare Cantilevers Side-by-Side")
-parser.add_argument("--n", type=int, default=10, choices=[3, 5, 10, 20], help="Number of links (N) to compare")
+parser.add_argument("--n", type=int, default=10, choices=[3, 5, 10, 15, 20], help="Number of links (N) to compare")
 parser.add_argument(
     "--benchmark",
     default="synthetic_solid_40cm",
@@ -26,8 +26,9 @@ def compare_cantilevers(n_links, benchmark):
     repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_dir))))
     data_dir = os.path.join(repo_root, "data", "usd_models", "physics_tests")
     
-    baseline_usd = os.path.join(data_dir, f"cantilever_{benchmark}_legacy_current_N{n_links}.usda")
-    fixes_usd = os.path.join(data_dir, f"cantilever_{benchmark}_new_physics_N{n_links}.usda")
+    suffix = f"fixed_d6_biaxial_N{n_links}.usda"
+    baseline_usd = os.path.join(data_dir, f"cantilever_{benchmark}_legacy_current_{suffix}")
+    fixes_usd = os.path.join(data_dir, f"cantilever_{benchmark}_new_physics_{suffix}")
     
     if not os.path.exists(baseline_usd) or not os.path.exists(fixes_usd):
         print(f"[Error] Missing USD files for {benchmark} N={n_links}. Did you run the generator?")

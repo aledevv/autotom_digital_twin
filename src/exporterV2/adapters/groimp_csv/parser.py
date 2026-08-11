@@ -17,6 +17,49 @@ from exporterV2.core import tree_config
 TRUSS_GEOMETRY = tree_config.TrussGeometryConfig
 
 
+def _effective_generation_settings(profile: dict) -> Dict[str, bool]:
+    """Combine global debug switches with cultivar-profile permissions."""
+    config = tree_config.OrganGenerationConfig
+    lateral_profile = profile.get("lateral_branches", {}).get("enabled", True)
+    trunk_leaf_profile = profile.get("trunk_leaves", {}).get("enabled", True)
+    lateral_leaf_profile = profile.get("lateral_leaves", {}).get("enabled", True)
+    truss_profile = profile.get("trusses", {}).get("enabled", True)
+
+    lateral_branches = config.CREATE_LATERAL_BRANCHES and lateral_profile
+    leaf_base = config.CREATE_LEAF_BRANCHES and config.CREATE_PETIOLES
+    return {
+        "lateral_branches": lateral_branches,
+        "trunk_leaves": leaf_base and trunk_leaf_profile,
+        "lateral_leaves": leaf_base and lateral_branches and lateral_leaf_profile,
+        "petioles": leaf_base,
+        "leaf_rachis": leaf_base and config.CREATE_LEAF_RACHIS,
+        "petiolules": leaf_base and config.CREATE_LEAF_RACHIS and config.CREATE_PETIOLULES,
+        "trusses": config.CREATE_TRUSSES and config.CREATE_TRUSS_RACHIS and truss_profile,
+        "truss_rachis": config.CREATE_TRUSSES and config.CREATE_TRUSS_RACHIS and truss_profile,
+        "pedicels": (
+            config.CREATE_TRUSSES
+            and config.CREATE_TRUSS_RACHIS
+            and config.CREATE_PEDICELS
+            and truss_profile
+        ),
+        "tomatoes": (
+            config.CREATE_TRUSSES
+            and config.CREATE_TRUSS_RACHIS
+            and config.CREATE_PEDICELS
+            and config.CREATE_TOMATOES
+            and truss_profile
+        ),
+    }
+
+
+def _print_generation_settings(settings: Dict[str, bool]) -> None:
+    values = ", ".join(
+        f"{name}={'on' if enabled else 'off'}"
+        for name, enabled in settings.items()
+    )
+    print(f"[CONFIG] Organ generation: {values}")
+
+
 def _parse_float_array(val_str: str) -> List[float]:
     """
     Parse float arrays from CSV strings.
@@ -732,6 +775,8 @@ def save_branches_json(
     internodes: List[Dict],
     csv_filename: str,
     terminal_bodies: List[Dict] = None,
+    generation_settings: Dict[str, bool] = None,
+    resolution_changes: List[Dict] = None,
 ) -> str:
     """
     Save BRANCHES configuration to JSON with metadata.
@@ -772,6 +817,17 @@ def save_branches_json(
             "n_terminal_bodies": len(terminal_bodies or []),
             "global_scale": tree_config.GLOBAL_SCALE,
             "min_radius_world_m": tree_config.MIN_LINK_RADIUS_WORLD,
+            "physics_runtime": {
+                "physics_hz": tree_config.PhysicsRuntimeConfig.PHYSICS_HZ,
+                "solver_position_iterations": tree_config.PhysicsRuntimeConfig.SOLVER_POSITION_ITERATIONS,
+                "solver_velocity_iterations": tree_config.PhysicsRuntimeConfig.SOLVER_VELOCITY_ITERATIONS,
+                "enable_gpu_dynamics": tree_config.PhysicsRuntimeConfig.ENABLE_GPU_DYNAMICS,
+            },
+            "branch_resolution": {
+                "max_links_per_branch": tree_config.BranchResolutionConfig.MAX_LINKS_PER_BRANCH,
+                "capped_branch_count": len(resolution_changes or []),
+            },
+            "organ_generation": generation_settings or {},
         },
         "branches": branches
     }
@@ -818,6 +874,8 @@ def parse_csv_to_branches(
     if profile is None:
         from exporterV2.profiles.tomato_default import TOMATO_PROFILE
         profile = TOMATO_PROFILE
+    generation_settings = _effective_generation_settings(profile)
+    _print_generation_settings(generation_settings)
     # Import leaf_builder - handle both package and standalone execution
     try:
         from .leaf_builder import (
@@ -856,8 +914,12 @@ def parse_csv_to_branches(
     terminal_bodies = []
     
     # Load lateral branches (order=1)
-    print(f"[INFO] Loading lateral branches...")
-    lateral_branches = load_lateral_branches(str(csv_path), day, plant_id, profile=profile)
+    lateral_branches = []
+    if generation_settings["lateral_branches"]:
+        print(f"[INFO] Loading lateral branches...")
+        lateral_branches = load_lateral_branches(str(csv_path), day, plant_id, profile=profile)
+    else:
+        print("[CONFIG] Skipping lateral branches and their descendants")
     
     if lateral_branches:
         print(f"[INFO] Processing {len(lateral_branches)} lateral branches...")
@@ -874,14 +936,22 @@ def parse_csv_to_branches(
         lateral_branch_map = {}
     
     # Load trunk leaves (order=0)
-    print(f"[INFO] Loading trunk leaves...")
-    trunk_leaves = load_leaves(str(csv_path), day, plant_id, order=0)
+    trunk_leaves = []
+    if generation_settings["trunk_leaves"]:
+        print(f"[INFO] Loading trunk leaves...")
+        trunk_leaves = load_leaves(str(csv_path), day, plant_id, order=0)
+    else:
+        print("[CONFIG] Skipping trunk leaf systems")
     
     if trunk_leaves:
         print(f"[INFO] Processing {len(trunk_leaves)} trunk leaves...")
         for leaf in trunk_leaves:
             # Petiole + Rachis
-            petiole_rachis = leaf_to_petiole_rachis_branches(leaf, trunk_branch["id"])
+            petiole_rachis = leaf_to_petiole_rachis_branches(
+                leaf,
+                trunk_branch["id"],
+                include_rachis=generation_settings["leaf_rachis"],
+            )
             all_branches.extend(petiole_rachis)
             
             # Check if rachis was created
@@ -890,21 +960,22 @@ def parse_csv_to_branches(
                 petiole_r = petiole_rachis[0]["radius"]
                 
                 # Lateral petiolules
-                laterals = create_lateral_petiolules(leaf, rachis_branch["id"], petiole_r)
-                all_branches.extend(laterals)
-                
-                # Terminal petiolule
-                terminal = create_terminal_petiolule(
-                    rachis_branch["id"], 
-                    rachis_branch["n_links"], 
-                    petiole_r, 
-                    leaf["rank"],
-                    leaf["organ_index"]
-                )
-                all_branches.append(terminal)
+                if generation_settings["petiolules"]:
+                    laterals = create_lateral_petiolules(leaf, rachis_branch["id"], petiole_r)
+                    all_branches.extend(laterals)
+
+                    # Terminal petiolule
+                    terminal = create_terminal_petiolule(
+                        rachis_branch["id"],
+                        rachis_branch["n_links"],
+                        petiole_r,
+                        leaf["rank"],
+                        leaf["organ_index"]
+                    )
+                    all_branches.append(terminal)
     
     # Load lateral branch leaves (order=1)
-    if lateral_branch_map:
+    if lateral_branch_map and generation_settings["lateral_leaves"]:
         print(f"[INFO] Loading lateral branch leaves...")
         lateral_leaves = load_leaves(str(csv_path), day, plant_id, order=1)
         
@@ -924,7 +995,11 @@ def parse_csv_to_branches(
                     continue
                 
                 # Petiole + Rachis (attach to lateral branch)
-                petiole_rachis = leaf_to_petiole_rachis_branches(leaf, parent_branch_id)
+                petiole_rachis = leaf_to_petiole_rachis_branches(
+                    leaf,
+                    parent_branch_id,
+                    include_rachis=generation_settings["leaf_rachis"],
+                )
                 all_branches.extend(petiole_rachis)
                 
                 # Check if rachis was created
@@ -933,22 +1008,29 @@ def parse_csv_to_branches(
                     petiole_r = petiole_rachis[0]["radius"]
                     
                     # Lateral petiolules
-                    laterals = create_lateral_petiolules(leaf, rachis_branch["id"], petiole_r)
-                    all_branches.extend(laterals)
-                    
-                    # Terminal petiolule
-                    terminal = create_terminal_petiolule(
-                        rachis_branch["id"], 
-                        rachis_branch["n_links"], 
-                        petiole_r, 
-                        leaf["rank"],
-                        leaf["organ_index"]
-                    )
-                    all_branches.append(terminal)
+                    if generation_settings["petiolules"]:
+                        laterals = create_lateral_petiolules(leaf, rachis_branch["id"], petiole_r)
+                        all_branches.extend(laterals)
+
+                        # Terminal petiolule
+                        terminal = create_terminal_petiolule(
+                            rachis_branch["id"],
+                            rachis_branch["n_links"],
+                            petiole_r,
+                            leaf["rank"],
+                            leaf["organ_index"]
+                        )
+                        all_branches.append(terminal)
+    elif lateral_branch_map:
+        print("[CONFIG] Skipping lateral leaf systems")
 
     # Load trunk trusses (order=0). Truss morphology is adapter-specific to GroIMP.
-    print(f"[INFO] Loading trunk trusses...")
-    trunk_trusses = load_trusses(str(csv_path), day, plant_id, order=0)
+    trunk_trusses = []
+    if generation_settings["trusses"]:
+        print(f"[INFO] Loading trunk trusses...")
+        trunk_trusses = load_trusses(str(csv_path), day, plant_id, order=0)
+    else:
+        print("[CONFIG] Skipping trusses and their descendants")
 
     if trunk_trusses:
         print(f"[INFO] Processing {len(trunk_trusses)} trunk trusses...")
@@ -994,6 +1076,8 @@ def parse_csv_to_branches(
                 parent_trunk_id=trunk_branch["id"],
                 rank=truss["rank"],
                 organ_index=truss["organ_index"],
+                include_pedicels=generation_settings["pedicels"],
+                include_tomatoes=generation_settings["tomatoes"],
             )
 
             if truss_branches:
@@ -1009,6 +1093,12 @@ def parse_csv_to_branches(
             terminal_bodies.extend(_normalize_terminal_bodies(tomatoes))
     
     all_branches = _filter_invalid_branches(all_branches)
+    all_branches, resolution_changes = tree_config.limit_branch_resolution(all_branches)
+    print(
+        f"[CONFIG] Branch resolution: max="
+        f"{tree_config.BranchResolutionConfig.MAX_LINKS_PER_BRANCH}, "
+        f"capped={len(resolution_changes)}"
+    )
     terminal_bodies = _filter_terminal_bodies(terminal_bodies, all_branches)
 
     # Calculate stats
@@ -1018,13 +1108,6 @@ def parse_csv_to_branches(
         f"[INFO] Total branches: {len(all_branches)}, total links: {total_links}, "
         f"D6 joints: {d6_joints}, terminal bodies: {len(terminal_bodies)}"
     )
-    
-    # Import tree_config to check limit
-    import importlib.util
-    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
-    spec = importlib.util.spec_from_file_location("tree_config", config_path)
-    tree_config = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(tree_config)
     
     if d6_joints > tree_config.MAX_N_JOINTS:
         print(f"[WARNING] D6 joints ({d6_joints}) exceed PhysX budget ({tree_config.MAX_N_JOINTS})")
@@ -1040,6 +1123,8 @@ def parse_csv_to_branches(
             internodes,
             f"graph_day_{day}.csv",
             terminal_bodies=terminal_bodies,
+            generation_settings=generation_settings,
+            resolution_changes=resolution_changes,
         )
 
     if include_terminal_bodies:

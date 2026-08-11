@@ -4,6 +4,7 @@ stage.py - USD Stage Setup and Orchestration
 Top-level functions for building tree USD stages with articulated physics.
 """
 
+import math
 import os
 import sys
 from pxr import Usd, UsdGeom, Gf, UsdPhysics, Sdf
@@ -33,6 +34,8 @@ from .joints import (
     anchor_link_to_world,
     create_internal_joint,
     create_attachment_joint,
+    create_internal_revolute_joint,
+    create_attachment_revolute_joint,
     create_internal_joint_locked,
     create_attachment_joint_locked,
     create_fixed_joint_to_tip,
@@ -213,7 +216,7 @@ def build_chain(
     branch_joint_type = branch_def.get("joint_type", None)
     if branch_joint_type == "fixed":
         locked_joints = True
-    elif branch_joint_type == "d6":
+    elif branch_joint_type in {"d6", "d6_planar", "revolute_planar"}:
         locked_joints = False
     # else: use locked_joints parameter as-is
     
@@ -267,7 +270,6 @@ def build_chain(
         
         K_attach_rad = compute_hinge_stiffness_rad(p_h_world, parent_EI, h_world, branch_EI)
         
-        import math
         rad_to_deg = math.pi / 180.0
         K_attach_deg = K_attach_rad * rad_to_deg
         
@@ -282,6 +284,12 @@ def build_chain(
         K_attach = K * 5.0
         D_attach = D * 2.236  # sqrt(5) ≈ 2.236
 
+    if branch_def.get("attachment_stiffness_rad") is not None:
+        K_attach_override = float(branch_def["attachment_stiffness_rad"]) * (3.141592653589793 / 180.0)
+        stiffness_ratio = K_attach_override / K if K > 0 else 1.0
+        K_attach = K_attach_override
+        D_attach = D * math.sqrt(stiffness_ratio)
+
     step = chain_axis * (h_world + gap)
 
     link_paths       = []
@@ -295,6 +303,7 @@ def build_chain(
             stage, stem_path, link_name,
             r_world, h_world, cur_pos, mass,
             orientation=chain_orientation,
+            collision_enabled=branch_def.get("collision_enabled", True),
         )
 
         if prev_link is None:
@@ -308,11 +317,18 @@ def build_chain(
                         stage, parent_link_path, link_path,
                         attachment_local_pos0, attachment_local_rot0,
                     )
+                elif branch_joint_type == "revolute_planar":
+                    create_attachment_revolute_joint(
+                        stage, parent_link_path, link_path,
+                        attachment_local_pos0, attachment_local_rot0,
+                        K_attach, D_attach,
+                    )
                 else:
                     create_attachment_joint(
                         stage, parent_link_path, link_path,
                         attachment_local_pos0, attachment_local_rot0,
                         K_attach, D_attach,
+                        bend_axes=("rotX",) if branch_joint_type == "d6_planar" else ("rotX", "rotY"),
                     )
         else:
             # Internal joint to previous link
@@ -322,11 +338,18 @@ def build_chain(
                     f"Joint_{i:02d}_{i + 1:02d}",
                     h_world, gap,
                 )
+            elif branch_joint_type == "revolute_planar":
+                create_internal_revolute_joint(
+                    stage, prev_link, link_path,
+                    f"Joint_{i:02d}_{i + 1:02d}",
+                    h_world, gap, K, D,
+                )
             else:
                 create_internal_joint(
                     stage, prev_link, link_path,
                     f"Joint_{i:02d}_{i + 1:02d}",
                     h_world, gap, K, D,
+                    bend_axes=("rotX",) if branch_joint_type == "d6_planar" else ("rotX", "rotY"),
                 )
 
         link_paths.append(link_path)

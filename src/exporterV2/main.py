@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(SCRIPT_DIR))
 
 from exporterV2.core.usd import build_stage, get_output_usd_path
 from exporterV2.core.physics import apply_physx_scene_settings, apply_physx_articulation_settings
-from exporterV2.core.tree_config import BRANCHES
+from exporterV2.core.tree_config import BRANCHES, BranchResolutionConfig, limit_branch_resolution
 from exporterV2.core.optimizations.techniques.base import count_d6_joints
 
 # ANSI color codes for terminal output
@@ -78,6 +78,15 @@ def main():
         branches = BRANCHES
         terminal_bodies = []
         usd_path = get_output_usd_path()
+
+    # Apply the configured upper bound before any budget optimization. CSV
+    # branches are already limited before JSON export; this call is idempotent.
+    branches, resolution_changes = limit_branch_resolution(branches)
+    print(
+        f"[CONFIG] Branch resolution cap applied: "
+        f"max={BranchResolutionConfig.MAX_LINKS_PER_BRANCH}, "
+        f"capped={len(resolution_changes)}"
+    )
     
     # Apply optimization if requested
     if args.optimize:

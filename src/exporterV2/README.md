@@ -21,6 +21,40 @@ exporterV2/
 ./run_mainV2.sh --day 100
 ```
 
+### Runtime and Debug Configuration
+
+Edit only `core/tree_config.py`. `PhysicsRuntimeConfig` controls physics rate,
+solver iterations, and GPU dynamics; `BranchResolutionConfig` sets the
+pre-optimization maximum links per chain; `OrganGenerationConfig` enables or
+disables complete organ hierarchies.
+
+For example:
+
+```python
+class PhysicsRuntimeConfig:
+    PHYSICS_HZ = 480
+    SOLVER_POSITION_ITERATIONS = 32
+    SOLVER_VELOCITY_ITERATIONS = 4
+
+class BranchResolutionConfig:
+    MAX_LINKS_PER_BRANCH = 10
+
+class OrganGenerationConfig:
+    CREATE_LEAF_BRANCHES = False
+    CREATE_TRUSSES = False
+```
+
+Then regenerate normally:
+
+```bash
+./run_mainV2.sh --day 100
+./run_mainV2.sh --day 100 --optimize
+```
+
+Disabling a parent automatically disables its descendants. The branch limit
+preserves total length and child attachment height; optimization may still
+reduce the number of links below that maximum.
+
 ### Python API
 ```python
 from exporterV2.adapters.groimp_csv import parse_csv_to_branches
@@ -55,6 +89,9 @@ stage, stem_path = build_stage("output.usda")
 ### `core/tree_config.py`
 - `BRANCHES` - Tree configuration format
 - `GLOBAL_SCALE` - World-space scaling
+- `PhysicsRuntimeConfig` - PhysX runtime defaults
+- `BranchResolutionConfig` - Maximum initial chain resolution
+- `OrganGenerationConfig` - Hierarchical debug switches
 - `validate_branches()` - Configuration validation
 - `clamp_radius()` - PhysX stability constraints
 

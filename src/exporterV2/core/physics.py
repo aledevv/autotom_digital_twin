@@ -6,13 +6,26 @@ Shared PhysX scene and articulation settings for Isaac Sim simulations.
 
 from pxr import UsdPhysics, PhysxSchema, Gf
 
+from .tree_config import PhysicsRuntimeConfig
 
-def apply_physx_scene_settings(stage) -> None:
+
+def apply_physx_scene_settings(
+    stage,
+    physics_hz: float | None = None,
+    enable_gpu_dynamics: bool | None = None,
+) -> None:
     """
     Configure PhysicsScene for stiff articulation drives.
     
     Settings optimized for plant stems with high stiffness joints.
     """
+    if physics_hz is None:
+        physics_hz = PhysicsRuntimeConfig.PHYSICS_HZ
+    if enable_gpu_dynamics is None:
+        enable_gpu_dynamics = PhysicsRuntimeConfig.ENABLE_GPU_DYNAMICS
+    if physics_hz <= 0:
+        raise ValueError("physics_hz must be positive")
+
     scene_path = "/World/PhysicsScene"
     usd_scene = UsdPhysics.Scene.Define(stage, scene_path)
     usd_scene.CreateGravityDirectionAttr().Set(Gf.Vec3f(0.0, 0.0, -1.0))
@@ -20,22 +33,36 @@ def apply_physx_scene_settings(stage) -> None:
 
     physx = PhysxSchema.PhysxSceneAPI.Apply(usd_scene.GetPrim())
     physx.CreateSolverTypeAttr().Set("TGS")
-    physx.CreateTimeStepsPerSecondAttr().Set(480)
+    physx.CreateTimeStepsPerSecondAttr().Set(int(physics_hz))
     physx.CreateEnableCCDAttr().Set(True)
     physx.CreateEnableStabilizationAttr().Set(True)
-    physx.CreateEnableGPUDynamicsAttr().Set(True)
+    physx.CreateEnableGPUDynamicsAttr().Set(enable_gpu_dynamics)
     physx.CreateBroadphaseTypeAttr().Set("MBP")
 
 
-def apply_physx_articulation_settings(stage, stem_path: str) -> None:
+def apply_physx_articulation_settings(
+    stage,
+    stem_path: str,
+    solver_position_iterations: int | None = None,
+    solver_velocity_iterations: int | None = None,
+) -> None:
     """
-    Configure articulation iteration counts for mixed stiffness levels.
-    
-    Higher iteration counts needed for stable simulation of stiff joints.
+    Configure articulation iteration counts for TGS.
+
+    The cantilever benchmark shows that the previous 255/32 setting can make
+    low-load D6 joints timestep-dependent or fully locked at high update rates.
     """
+    if solver_position_iterations is None:
+        solver_position_iterations = PhysicsRuntimeConfig.SOLVER_POSITION_ITERATIONS
+    if solver_velocity_iterations is None:
+        solver_velocity_iterations = PhysicsRuntimeConfig.SOLVER_VELOCITY_ITERATIONS
+    if not 1 <= solver_position_iterations <= 255:
+        raise ValueError("solver_position_iterations must be in [1, 255]")
+    if not 1 <= solver_velocity_iterations <= 255:
+        raise ValueError("solver_velocity_iterations must be in [1, 255]")
     prim = stage.GetPrimAtPath(stem_path)
     art = PhysxSchema.PhysxArticulationAPI.Apply(prim)
-    art.CreateSolverPositionIterationCountAttr().Set(255)
-    art.CreateSolverVelocityIterationCountAttr().Set(32)
+    art.CreateSolverPositionIterationCountAttr().Set(solver_position_iterations)
+    art.CreateSolverVelocityIterationCountAttr().Set(solver_velocity_iterations)
     art.CreateEnabledSelfCollisionsAttr().Set(False)
     art.CreateSleepThresholdAttr().Set(0.0)

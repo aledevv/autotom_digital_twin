@@ -268,6 +268,8 @@ def truss_to_branch_config(
     parent_trunk_id: str,
     rank: int,
     organ_index: int = 0,
+    *,
+    include_pedicels: bool = True,
 ) -> List[Dict]:
     """
     Convert truss data to complete branch configuration.
@@ -313,18 +315,19 @@ def truss_to_branch_config(
     rachis_radius = rachis_branch["radius"]
     
     # Create lateral pedicels
-    lateral_pedicels = create_lateral_pedicels(
-        truss_dict,
-        rachis_id,
-        rachis_n_links,
-        rachis_radius
-    )
-    branches.extend(lateral_pedicels)
+    if include_pedicels:
+        lateral_pedicels = create_lateral_pedicels(
+            truss_dict,
+            rachis_id,
+            rachis_n_links,
+            rachis_radius
+        )
+        branches.extend(lateral_pedicels)
     
     # Create terminal pedicel (if n_fruits > 0)
     n_fruits = truss_dict.get("n_fruits", 5)
     _, has_terminal = _fruit_layout(n_fruits)
-    if has_terminal:
+    if include_pedicels and has_terminal:
         terminal_pedicel = create_terminal_pedicel(
             truss_dict,
             rachis_id,
@@ -451,6 +454,9 @@ def truss_to_complete_config(
     parent_trunk_id: str,
     rank: int,
     organ_index: int = 0,
+    *,
+    include_pedicels: bool = True,
+    include_tomatoes: bool = True,
 ) -> tuple:
     """
     Convert truss data to complete configuration including tomatoes.
@@ -474,16 +480,19 @@ def truss_to_complete_config(
         truss_dict,
         parent_trunk_id,
         rank,
-        organ_index
+        organ_index,
+        include_pedicels=include_pedicels,
     )
     
     # Extract pedicel IDs (all branches except rachis)
     pedicel_ids = [b["id"] for b in branches[1:]]  # Skip rachis (first branch)
     
     # Generate tomato definitions
-    tomatoes = create_tomato_definitions(
-        truss_dict,
-        pedicel_ids
-    )
+    tomatoes = []
+    if include_pedicels and include_tomatoes:
+        tomatoes = create_tomato_definitions(
+            truss_dict,
+            pedicel_ids
+        )
     
     return branches, tomatoes

@@ -11,10 +11,14 @@ from .tree_config import (
     MAX_N_JOINTS,
     MIN_LINK_RADIUS_WORLD,
     PHYLLOTAXIS,
+    PhysicsRuntimeConfig,
+    BranchResolutionConfig,
+    OrganGenerationConfig,
     TrussGeometryConfig,
     print_tree_summary,
     validate_branches,
     clamp_radius,
+    limit_branch_resolution,
 )
 
 # Lazy import for physics (requires pxr)
@@ -33,10 +37,14 @@ __all__ = [
     "MAX_N_JOINTS",
     "MIN_LINK_RADIUS_WORLD",
     "PHYLLOTAXIS",
+    "PhysicsRuntimeConfig",
+    "BranchResolutionConfig",
+    "OrganGenerationConfig",
     "TrussGeometryConfig",
     "print_tree_summary",
     "validate_branches",
     "clamp_radius",
+    "limit_branch_resolution",
     "apply_physx_scene_settings",
     "usd",
 ]

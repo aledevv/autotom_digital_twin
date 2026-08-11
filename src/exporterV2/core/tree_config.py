@@ -39,6 +39,37 @@ import math
 
 MAX_N_JOINTS = 200  # D6-joint budget for stable Isaac Sim runs
 
+
+class PhysicsRuntimeConfig:
+    """Runtime PhysX defaults used by the exporter entry points."""
+
+    PHYSICS_HZ = 480
+    SOLVER_POSITION_ITERATIONS = 32
+    SOLVER_VELOCITY_ITERATIONS = 4
+    ENABLE_GPU_DYNAMICS = True
+
+
+class BranchResolutionConfig:
+    """Initial spatial-resolution limits applied before optimization."""
+
+    MAX_LINKS_PER_BRANCH = 10
+
+
+class OrganGenerationConfig:
+    """Global debug switches for CSV-derived organ hierarchies."""
+
+    CREATE_LATERAL_BRANCHES = True
+
+    CREATE_LEAF_BRANCHES = True
+    CREATE_PETIOLES = True
+    CREATE_LEAF_RACHIS = True
+    CREATE_PETIOLULES = True
+
+    CREATE_TRUSSES = False
+    CREATE_TRUSS_RACHIS = True
+    CREATE_PEDICELS = True
+    CREATE_TOMATOES = True
+
 # ==============================================================================
 # GLOBAL SCALE & PHYSICS CONSTANTS
 # ==============================================================================
@@ -76,7 +107,7 @@ class TrussGeometryConfig:
 
 class BioConfig:
     """Biological parameters for plant tissue."""
-    YOUNG_MODULUS = 10.0e7   # [Pa] 20-50 MPa - mature tomato stem
+    YOUNG_MODULUS = 70.0e6   # [Pa] 20-50 MPa - mature tomato stem
     DAMPING_RATIO = 1.0      # Critically damped (zeta=1.0) to prevent 30s oscillations
     PLANT_DENSITY = 1000.0   # [kg/m^3] plant tissue density
 
@@ -173,6 +204,97 @@ def clamp_radius(radius_prescale: float) -> tuple[float, bool]:
         return (clamped_prescale, True)
     
     return (radius_prescale, False)
+
+
+def _remap_attachment(
+    attach_link: int,
+    attach_frac: float,
+    old_n_links: int,
+    new_n_links: int,
+) -> tuple[int, float]:
+    """Preserve a child's normalized axial attachment after parent resampling."""
+    if not 1 <= attach_link <= old_n_links:
+        raise ValueError(
+            f"attach_link={attach_link} is outside [1, {old_n_links}]"
+        )
+    if not 0.0 <= attach_frac <= 1.0:
+        raise ValueError(f"attach_frac={attach_frac} is outside [0, 1]")
+
+    axial_fraction = (attach_link - 1 + attach_frac) / old_n_links
+    if axial_fraction >= 1.0:
+        return new_n_links, 1.0
+
+    new_position = axial_fraction * new_n_links
+    zero_based_link = math.floor(new_position)
+    return zero_based_link + 1, new_position - zero_based_link
+
+
+def limit_branch_resolution(
+    branches: list[dict],
+    max_links: int | None = None,
+    *,
+    verbose: bool = True,
+) -> tuple[list[dict], list[dict]]:
+    """
+    Cap every chain while preserving total length and child attachment height.
+
+    This is a pre-optimization upper bound. Optimizers remain free to reduce
+    ``n_links`` further. Input dictionaries are never modified.
+
+    Returns:
+        ``(limited_branches, changes)`` where each change records the branch
+        id and its old/new resolution.
+    """
+    if max_links is None:
+        max_links = BranchResolutionConfig.MAX_LINKS_PER_BRANCH
+    if not isinstance(max_links, int) or max_links <= 0:
+        raise ValueError("max_links must be a positive integer")
+
+    limited = [branch.copy() for branch in branches]
+    children_by_parent: dict[str, list[dict]] = {}
+    for branch in limited:
+        parent_id = branch.get("parent")
+        if parent_id is not None:
+            children_by_parent.setdefault(parent_id, []).append(branch)
+
+    changes = []
+    for branch in limited:
+        old_n_links = branch.get("n_links", 0)
+        if old_n_links <= max_links:
+            continue
+
+        old_height = branch.get("height", 0.0)
+        new_n_links = max_links
+        branch["n_links"] = new_n_links
+        branch["height"] = old_height * old_n_links / new_n_links
+
+        remapped_children = 0
+        for child in children_by_parent.get(branch["id"], []):
+            new_link, new_frac = _remap_attachment(
+                child["attach_link"],
+                child.get("attach_frac", 1.0),
+                old_n_links,
+                new_n_links,
+            )
+            child["attach_link"] = new_link
+            child["attach_frac"] = new_frac
+            remapped_children += 1
+
+        change = {
+            "branch_id": branch["id"],
+            "old_n_links": old_n_links,
+            "new_n_links": new_n_links,
+            "children_remapped": remapped_children,
+        }
+        changes.append(change)
+        if verbose:
+            print(
+                f"[CONFIG] Capped branch '{branch['id']}': "
+                f"{old_n_links} -> {new_n_links} links "
+                f"({remapped_children} children remapped)"
+            )
+
+    return limited, changes
 
 
 def compute_cross_section_area(radius: float, inner_radius: float = 0.0) -> float:
