@@ -35,7 +35,7 @@ def apply_physx_articulation_settings(stage, stem_path: str) -> None:
     """
     prim = stage.GetPrimAtPath(stem_path)
     art = PhysxSchema.PhysxArticulationAPI.Apply(prim)
-    art.CreateSolverPositionIterationCountAttr().Set(64)
-    art.CreateSolverVelocityIterationCountAttr().Set(8)
+    art.CreateSolverPositionIterationCountAttr().Set(255)
+    art.CreateSolverVelocityIterationCountAttr().Set(32)
     art.CreateEnabledSelfCollisionsAttr().Set(False)
     art.CreateSleepThresholdAttr().Set(0.0)

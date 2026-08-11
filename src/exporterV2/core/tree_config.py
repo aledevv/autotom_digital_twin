@@ -4,10 +4,11 @@ tree_config.py - Tree Model Configuration
 Configuration and physics helpers for recursive tree articulation.
 
 Physics (Euler-Bernoulli beam theory):
-    I  = pi r^4 / 4              [m^4]
+    A  = pi (ro^2 - ri^2)        [m^2]
+    I  = pi (ro^4 - ri^4) / 4    [m^4]
     K  = E * I / L               [N*m/rad]
-    D  = 2*zeta * sqrt(K * M)    [N*m*s/rad]
-    M  = rho * pi * r^2 * h      [kg]
+    D  = 2*zeta * sqrt(K * J)    [N*m*s/rad]
+    M  = rho * A * h             [kg]
 
 All dimensions in BRANCHES are PRE-scale (meters at GLOBAL_SCALE=1).
 The generator multiplies by GLOBAL_SCALE before building USD or computing physics.
@@ -23,6 +24,9 @@ Each dict describes one chain (trunk or branch). Fields:
                            1 = first (bottom) link, n_links = top link.
   n_links     (int)        Number of rigid segments in this chain.
   radius      (float)      Cylinder radius [m, pre-scale].
+  inner_radius(float)      Optional hollow-section inner radius [m, pre-scale].
+  young_modulus(float)     Optional branch-specific Young's modulus [Pa].
+  density     (float)      Optional branch-specific density [kg/m^3].
   height      (float)      Cylinder height per link [m, pre-scale].
   tilt        (float)      Tilt angle away from parent local-Z axis [deg].
   rot         (float)      Azimuthal rotation around parent local-Z axis [deg].
@@ -73,7 +77,7 @@ class TrussGeometryConfig:
 class BioConfig:
     """Biological parameters for plant tissue."""
     YOUNG_MODULUS = 10.0e7   # [Pa] 20-50 MPa - mature tomato stem
-    DAMPING_RATIO = 0.1      # 0.1-0.2 zeta, dimensionless
+    DAMPING_RATIO = 1.0      # Critically damped (zeta=1.0) to prevent 30s oscillations
     PLANT_DENSITY = 1000.0   # [kg/m^3] plant tissue density
 
 
@@ -171,36 +175,89 @@ def clamp_radius(radius_prescale: float) -> tuple[float, bool]:
     return (radius_prescale, False)
 
 
-def compute_mass(radius: float, height: float) -> float:
+def compute_cross_section_area(radius: float, inner_radius: float = 0.0) -> float:
+    """Cross-sectional area for a solid or hollow circular stem [m^2]."""
+    if inner_radius < 0.0:
+        raise ValueError("inner_radius must be non-negative")
+    if inner_radius >= radius:
+        raise ValueError("inner_radius must be smaller than radius")
+    return math.pi * (radius**2 - inner_radius**2)
+
+
+def compute_mass(
+    radius: float,
+    height: float,
+    density: float = BioConfig.PLANT_DENSITY,
+    inner_radius: float = 0.0,
+) -> float:
     """
     Cylindrical segment mass [kg].
     
     Args:
         radius: Cylinder radius in world-unit meters
         height: Cylinder height in world-unit meters
+        density: Material density [kg/m^3]
+        inner_radius: Hollow-section inner radius in world-unit meters
     
     Returns:
         Mass in kilograms
     """
-    return BioConfig.PLANT_DENSITY * math.pi * (radius ** 2) * height
+    return density * compute_cross_section_area(radius, inner_radius) * height
 
 
-def compute_second_moment(radius: float) -> float:
-    """Second moment of area for a solid cylinder [m^4]."""
-    return (math.pi * (radius ** 4)) / 4.0
+def compute_second_moment(radius: float, inner_radius: float = 0.0) -> float:
+    """Second moment of area for a solid or hollow circular stem [m^4]."""
+    if inner_radius < 0.0:
+        raise ValueError("inner_radius must be non-negative")
+    if inner_radius >= radius:
+        raise ValueError("inner_radius must be smaller than radius")
+    return math.pi * (radius**4 - inner_radius**4) / 4.0
 
 
-def compute_moment_of_inertia(radius: float, height: float, mass: float) -> float:
+def compute_flexural_rigidity(
+    radius: float,
+    young_modulus: float,
+    inner_radius: float = 0.0,
+) -> float:
+    """Compute flexural rigidity (EI) [N*m^2]."""
+    I = compute_second_moment(radius, inner_radius)
+    return young_modulus * I
+
+
+def compute_hinge_stiffness_rad(len_L: float, EI_L: float, len_R: float, EI_R: float) -> float:
+    """
+    Compute rotational hinge stiffness in series [N*m/rad].
+    Represents half of the left link and half of the right link in bending.
+    """
+    compliance = (0.5 * len_L / EI_L) + (0.5 * len_R / EI_R)
+    return 1.0 / compliance
+
+
+def compute_moment_of_inertia(
+    radius: float,
+    height: float,
+    mass: float,
+    inner_radius: float = 0.0,
+) -> float:
     """
     Moment of inertia of a solid cylinder about an axis through one end.
     Uses parallel-axis theorem.
     """
-    J_center = mass * (3.0 * radius**2 + height**2) / 12.0
+    radial_term = radius**2 + inner_radius**2
+    J_center = mass * (3.0 * radial_term + height**2) / 12.0
     J_pivot = J_center + mass * (height / 2.0)**2
     return J_pivot
 
 
-def calculate_physics_params(radius: float, height: float, mass: float):
+def calculate_physics_params(
+    radius: float,
+    height: float,
+    mass: float,
+    legacy_physics: bool = False,
+    young_modulus: float = BioConfig.YOUNG_MODULUS,
+    damping_ratio: float | None = None,
+    inner_radius: float = 0.0,
+):
     """
     Compute spring constant K and damper D for a cylindrical link.
     
@@ -208,17 +265,22 @@ def calculate_physics_params(radius: float, height: float, mass: float):
         radius: Cylinder radius in world-unit meters
         height: Cylinder height in world-unit meters
         mass: Cylinder mass in kilograms
+        young_modulus: Structural Young's modulus [Pa]
+        damping_ratio: Optional damping ratio override
+        inner_radius: Hollow-section inner radius in world-unit meters
     
     Returns:
         Tuple (K, D):
-            K: Spring constant [N*m/rad]
-            D: Damping coefficient [N*m*s/rad]
+            K: USD angular spring constant [N*m/degree]
+            D: USD angular damping coefficient [N*m*s/degree]
     """
-    I = compute_second_moment(radius)
-    K = (BioConfig.YOUNG_MODULUS * I) / height
+    I = compute_second_moment(radius, inner_radius)
+    K = (young_modulus * I) / height
     
-    J = compute_moment_of_inertia(radius, height, mass)
-    D = 2.0 * BioConfig.DAMPING_RATIO * math.sqrt(K * J)
+    J = compute_moment_of_inertia(radius, height, mass, inner_radius)
+    if damping_ratio is None:
+        damping_ratio = 0.1 if legacy_physics else BioConfig.DAMPING_RATIO
+    D = 2.0 * damping_ratio * math.sqrt(K * J)
 
     # Isaac Sim expects stiffness and damping w.r.t. degrees (not radians)
     rad_to_deg = math.pi / 180.0

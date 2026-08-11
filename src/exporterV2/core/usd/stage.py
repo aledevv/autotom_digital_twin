@@ -17,13 +17,15 @@ if __name__ == "__main__" or "exporterV2" not in sys.modules:
     from exporterV2.core.tree_config import (
         GLOBAL_SCALE, BRANCHES, GAP,
         compute_mass, calculate_physics_params, calculate_truss_physics_params, scaled,
-        validate_branches,
+        validate_branches, compute_flexural_rigidity, compute_hinge_stiffness_rad,
+        BioConfig, TrussPhysicsConfig
     )
 else:
     from ..tree_config import (
         GLOBAL_SCALE, BRANCHES, GAP,
         compute_mass, calculate_physics_params, calculate_truss_physics_params, scaled,
-        validate_branches,
+        validate_branches, compute_flexural_rigidity, compute_hinge_stiffness_rad,
+        BioConfig, TrussPhysicsConfig
     )
 
 from .geometry import create_rigid_segment, create_sphere_rigid_body
@@ -42,6 +44,34 @@ from .collision import (
 )
 
 
+def _branch_inner_radius_world(branch_def: dict) -> float:
+    return scaled(branch_def.get("inner_radius", 0.0))
+
+
+def _branch_density(branch_def: dict, use_truss_physics: bool = False) -> float:
+    if "density" in branch_def:
+        return branch_def["density"]
+    if use_truss_physics:
+        return TrussPhysicsConfig.PLANT_DENSITY
+    return BioConfig.PLANT_DENSITY
+
+
+def _branch_young_modulus(branch_def: dict, use_truss_physics: bool = False) -> float:
+    if "young_modulus" in branch_def:
+        return branch_def["young_modulus"]
+    if use_truss_physics:
+        return TrussPhysicsConfig.YOUNG_MODULUS
+    return BioConfig.YOUNG_MODULUS
+
+
+def _branch_damping_ratio(branch_def: dict, use_truss_physics: bool = False):
+    if "damping_ratio" in branch_def:
+        return branch_def["damping_ratio"]
+    if use_truss_physics:
+        return TrussPhysicsConfig.DAMPING_RATIO
+    return None
+
+
 def get_output_usd_path() -> str:
     """Get the default output path for generated USD file."""
     # Navigate from usd → exporterV2 → src → project_root
@@ -52,7 +82,7 @@ def get_output_usd_path() -> str:
     return os.path.join(output_dir, "tree_v2.usda")
 
 
-def setup_base_stage(path: str):
+def setup_base_stage(path: str, legacy_physics: bool = False):
     """Create or clear USD stage with World and Stem prims."""
     existing_layer = Sdf.Layer.Find(path)
     if existing_layer:
@@ -69,6 +99,10 @@ def setup_base_stage(path: str):
     world_prim = UsdGeom.Xform.Define(stage, "/World")
     stage.SetDefaultPrim(world_prim.GetPrim())
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
+    
+    if not legacy_physics:
+        UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+        UsdPhysics.SetStageKilogramsPerUnit(stage, 1.0)
 
     stem_path = "/World/Stem"
     stem_prim = UsdGeom.Xform.Define(stage, stem_path)
@@ -153,6 +187,8 @@ def build_chain(
     chain_orientation: Gf.Quatf = None,
     locked_joints: bool = False,
     use_truss_physics: bool = False,
+    parent_def: dict = None,
+    legacy_physics: bool = False,
 ):
     """
     Build one chain of n_links rigid segments.
@@ -183,21 +219,68 @@ def build_chain(
     
     r_world = scaled(branch_def["radius"])
     h_world = scaled(branch_def["height"])
+    inner_radius_world = _branch_inner_radius_world(branch_def)
     gap     = scaled(GAP)
     n_links = branch_def["n_links"]
     bid     = branch_def["id"]
-    mass    = compute_mass(r_world, h_world)
+    density = _branch_density(branch_def, use_truss_physics=use_truss_physics)
+    mass    = compute_mass(r_world, h_world, density=density, inner_radius=inner_radius_world)
     
     # Use truss physics if requested (for rachis/pedicels)
     if use_truss_physics:
-        K, D = calculate_truss_physics_params(r_world, h_world, mass)
+        young_modulus = _branch_young_modulus(branch_def, use_truss_physics=True)
+        damping_ratio = _branch_damping_ratio(branch_def, use_truss_physics=True)
+        if "young_modulus" in branch_def or "inner_radius" in branch_def or damping_ratio is not None:
+            K, D = calculate_physics_params(
+                r_world,
+                h_world,
+                mass,
+                legacy_physics=legacy_physics,
+                young_modulus=young_modulus,
+                damping_ratio=damping_ratio,
+                inner_radius=inner_radius_world,
+            )
+        else:
+            K, D = calculate_truss_physics_params(r_world, h_world, mass)
     else:
-        K, D = calculate_physics_params(r_world, h_world, mass)
+        young_modulus = _branch_young_modulus(branch_def)
+        K, D = calculate_physics_params(
+            r_world,
+            h_world,
+            mass,
+            legacy_physics=legacy_physics,
+            young_modulus=young_modulus,
+            damping_ratio=_branch_damping_ratio(branch_def),
+            inner_radius=inner_radius_world,
+        )
 
-    # Attachment joint is stiffer to handle branch connection
-    # Scale damping by sqrt(5) to maintain same damping ratio
-    K_attach = K * 5.0
-    D_attach = D * 2.236  # sqrt(5) ≈ 2.236
+    if not legacy_physics and not is_root and parent_def is not None:
+        p_r_world = scaled(parent_def["radius"])
+        p_h_world = scaled(parent_def["height"])
+        p_inner_radius_world = _branch_inner_radius_world(parent_def)
+        
+        p_use_truss = parent_def.get("physics_profile") == "truss"
+        p_ym = _branch_young_modulus(parent_def, use_truss_physics=p_use_truss)
+        
+        branch_EI = compute_flexural_rigidity(r_world, young_modulus, inner_radius_world)
+        parent_EI = compute_flexural_rigidity(p_r_world, p_ym, p_inner_radius_world)
+        
+        K_attach_rad = compute_hinge_stiffness_rad(p_h_world, parent_EI, h_world, branch_EI)
+        
+        import math
+        rad_to_deg = math.pi / 180.0
+        K_attach_deg = K_attach_rad * rad_to_deg
+        
+        # Scale damping to maintain same damping ratio: D scales with sqrt(K)
+        stiffness_ratio = K_attach_deg / K if K > 0 else 1.0
+        D_attach_deg = D * math.sqrt(stiffness_ratio)
+        
+        K_attach = K_attach_deg
+        D_attach = D_attach_deg
+    else:
+        # Fallback if no parent def is provided
+        K_attach = K * 5.0
+        D_attach = D * 2.236  # sqrt(5) ≈ 2.236
 
     step = chain_axis * (h_world + gap)
 
@@ -220,7 +303,7 @@ def build_chain(
                 anchor_link_to_world(stage, link_path)
             else:
                 # Attach to parent chain
-                if locked_joints:
+                if locked_joints or branch_def.get("attachment_joint_type") == "fixed":
                     create_attachment_joint_locked(
                         stage, parent_link_path, link_path,
                         attachment_local_pos0, attachment_local_rot0,
@@ -260,6 +343,7 @@ def build_stage(
     locked_joints: bool = False,
     skip_limit_check: bool = False,
     terminal_bodies=None,
+    legacy_physics: bool = False,
 ):
     """
     Build the full tree USD stage from BRANCHES configuration.
@@ -283,7 +367,12 @@ def build_stage(
 
     validate_branches(branches, skip_limit_check=skip_limit_check)
 
-    stage, stem_path = setup_base_stage(output_path)
+    stage, stem_path = setup_base_stage(output_path, legacy_physics=legacy_physics)
+    
+    if legacy_physics:
+        # Revert to legacy non-physics units to simulate original behavior
+        from pxr import UsdGeom, UsdPhysics
+        UsdGeom.SetStageMetersPerUnit(stage, 0.01) # fallback to default cm
 
     # Registry: branch_id → (link_paths, base_positions, axis_vector, orientation_quat)
     branch_registry = {}
@@ -392,6 +481,8 @@ def build_stage(
                 chain_orientation=chain_orientation,
                 locked_joints=locked_joints,
                 use_truss_physics=b.get("physics_profile") == "truss",
+                parent_def=parent_def,
+                legacy_physics=legacy_physics,
             )
             
             branch_registry[bid] = (link_paths, link_bases, chain_axis, chain_orientation)
