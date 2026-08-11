@@ -19,14 +19,14 @@ if __name__ == "__main__" or "exporterV2" not in sys.modules:
         GLOBAL_SCALE, BRANCHES, GAP,
         compute_mass, calculate_physics_params, calculate_truss_physics_params, scaled,
         validate_branches, compute_flexural_rigidity, compute_hinge_stiffness_rad,
-        BioConfig, TrussPhysicsConfig
+        BioConfig, TrussPhysicsConfig, PhysicsRuntimeConfig
     )
 else:
     from ..tree_config import (
         GLOBAL_SCALE, BRANCHES, GAP,
         compute_mass, calculate_physics_params, calculate_truss_physics_params, scaled,
         validate_branches, compute_flexural_rigidity, compute_hinge_stiffness_rad,
-        BioConfig, TrussPhysicsConfig
+        BioConfig, TrussPhysicsConfig, PhysicsRuntimeConfig
     )
 
 from .geometry import create_rigid_segment, create_sphere_rigid_body
@@ -218,6 +218,8 @@ def build_chain(
         locked_joints = True
     elif branch_joint_type in {"d6", "d6_planar", "revolute_planar"}:
         locked_joints = False
+    elif is_root and PhysicsRuntimeConfig.RIGID_TRUNK:
+        locked_joints = True
     # else: use locked_joints parameter as-is
     
     r_world = scaled(branch_def["radius"])
@@ -290,6 +292,19 @@ def build_chain(
         K_attach = K_attach_override
         D_attach = D * math.sqrt(stiffness_ratio)
 
+    drive_stiffness_scale = float(branch_def.get("drive_stiffness_scale", 1.0))
+    if drive_stiffness_scale <= 0.0:
+        raise ValueError(
+            f"Branch '{bid}' drive_stiffness_scale must be positive, "
+            f"got {drive_stiffness_scale}"
+        )
+    damping_scale = math.sqrt(drive_stiffness_scale)
+    K *= drive_stiffness_scale
+    D *= damping_scale
+    K_attach *= drive_stiffness_scale
+    D_attach *= damping_scale
+    bend_limit_deg = branch_def.get("bend_limit_deg")
+
     step = chain_axis * (h_world + gap)
 
     link_paths       = []
@@ -329,6 +344,7 @@ def build_chain(
                         attachment_local_pos0, attachment_local_rot0,
                         K_attach, D_attach,
                         bend_axes=("rotX",) if branch_joint_type == "d6_planar" else ("rotX", "rotY"),
+                        bend_limit_deg=bend_limit_deg,
                     )
         else:
             # Internal joint to previous link
@@ -350,6 +366,7 @@ def build_chain(
                     f"Joint_{i:02d}_{i + 1:02d}",
                     h_world, gap, K, D,
                     bend_axes=("rotX",) if branch_joint_type == "d6_planar" else ("rotX", "rotY"),
+                    bend_limit_deg=bend_limit_deg,
                 )
 
         link_paths.append(link_path)
@@ -556,6 +573,7 @@ def build_stage(
             body_path,
             parent_height=parent_height,
             child_offset=radius,
+            joint_name="TerminalBodyFixedJoint",
         )
 
         terminal_body_records.append({

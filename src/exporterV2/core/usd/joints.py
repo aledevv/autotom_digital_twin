@@ -26,9 +26,11 @@ def configure_joint_drives(
     stiff: float,
     damp: float,
     bend_axes=("rotX", "rotY"),
+    bend_limit_deg: float = None,
 ) -> None:
     """Configure D6 drives on selected bend axes and lock all remaining axes."""
-    BEND_LIMIT_DEG = _get_bend_limit()
+    if bend_limit_deg is None:
+        bend_limit_deg = _get_bend_limit()
     
     # Lock all translations
     for axis in ["transX", "transY", "transZ"]:
@@ -39,8 +41,8 @@ def configure_joint_drives(
     for axis in ("rotX", "rotY", "rotZ"):
         lim = UsdPhysics.LimitAPI.Apply(joint.GetPrim(), axis)
         if axis in bend_axes:
-            lim.CreateLowAttr().Set(-BEND_LIMIT_DEG)
-            lim.CreateHighAttr().Set(BEND_LIMIT_DEG)
+            lim.CreateLowAttr().Set(-bend_limit_deg)
+            lim.CreateHighAttr().Set(bend_limit_deg)
             drv = UsdPhysics.DriveAPI.Apply(joint.GetPrim(), axis)
             drv.CreateTypeAttr().Set("force")
             drv.CreateStiffnessAttr().Set(stiff)
@@ -79,6 +81,7 @@ def create_internal_joint(
     stiff: float,
     damp: float,
     bend_axes=("rotX", "rotY"),
+    bend_limit_deg: float = None,
 ) -> None:
     """
     D6 bending joint between consecutive links in the same chain.
@@ -94,7 +97,13 @@ def create_internal_joint(
     joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
     joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
     joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
-    configure_joint_drives(joint, stiff, damp, bend_axes=bend_axes)
+    configure_joint_drives(
+        joint,
+        stiff,
+        damp,
+        bend_axes=bend_axes,
+        bend_limit_deg=bend_limit_deg,
+    )
     
     # Filter collision between parent and child
     add_collision_filter(stage, child_path, parent_path)
@@ -131,6 +140,7 @@ def create_attachment_joint(
     stiff: float,
     damp: float,
     bend_axes=("rotX", "rotY"),
+    bend_limit_deg: float = None,
 ) -> None:
     """
     D6 joint attaching first link of a branch to a parent chain link.
@@ -148,7 +158,13 @@ def create_attachment_joint(
     joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
     joint.CreateLocalRot0Attr().Set(local_rot0)
     joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
-    configure_joint_drives(joint, stiff, damp, bend_axes=bend_axes)
+    configure_joint_drives(
+        joint,
+        stiff,
+        damp,
+        bend_axes=bend_axes,
+        bend_limit_deg=bend_limit_deg,
+    )
     
     # Filter collisions with parent and its neighbor
     add_attachment_collision_filters(stage, child_link_path, parent_link_path)
@@ -237,6 +253,7 @@ def create_fixed_joint_to_tip(
     child_body_path: str,
     parent_height: float,
     child_offset: float = 0.0,
+    joint_name: str = "FixedJoint",
 ) -> None:
     """
     Create FixedJoint attaching a rigid body (leaf node) to the tip of a parent link.
@@ -255,6 +272,7 @@ def create_fixed_joint_to_tip(
         child_offset: Additional offset from tip [m] (default: 0.0)
             Positive offset moves child further away from parent tip.
             Useful for positioning sphere center at desired location.
+        joint_name: USD prim name for the terminal body's fixed attachment.
     
     Example:
         # Attach tomato sphere (radius=0.03m) to pedicel (height=0.01m)
@@ -265,7 +283,7 @@ def create_fixed_joint_to_tip(
             child_offset=0.03  # = sphere radius
         )
     """
-    joint = UsdPhysics.FixedJoint.Define(stage, f"{child_body_path}/FixedJoint")
+    joint = UsdPhysics.FixedJoint.Define(stage, f"{child_body_path}/{joint_name}")
     joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_link_path)])
     joint.CreateBody1Rel().SetTargets([Sdf.Path(child_body_path)])
     

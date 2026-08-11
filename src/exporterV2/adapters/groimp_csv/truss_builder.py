@@ -192,6 +192,9 @@ def create_lateral_pedicels(
             "tilt": pedicel_angle,
             "rot": 90.0,  # Left = +90° from rachis direction
             "physics_profile": "truss",
+            "joint_type": "d6",
+            "bend_limit_deg": tree_config.TrussPhysicsConfig.PEDICEL_BEND_LIMIT_DEG,
+            "drive_stiffness_scale": tree_config.TrussPhysicsConfig.PEDICEL_DRIVE_STIFFNESS_SCALE,
         })
         
         # Create right pedicel (rot = 270°)
@@ -205,6 +208,9 @@ def create_lateral_pedicels(
             "tilt": pedicel_angle,
             "rot": 270.0,  # Right = -90° (or 270°) from rachis direction
             "physics_profile": "truss",
+            "joint_type": "d6",
+            "bend_limit_deg": tree_config.TrussPhysicsConfig.PEDICEL_BEND_LIMIT_DEG,
+            "drive_stiffness_scale": tree_config.TrussPhysicsConfig.PEDICEL_DRIVE_STIFFNESS_SCALE,
         })
     
     return branches
@@ -260,6 +266,9 @@ def create_terminal_pedicel(
         "tilt": 0.0,  # Aligned with rachis (coaxial)
         "rot": 0.0,
         "physics_profile": "truss",
+        "joint_type": "d6",
+        "bend_limit_deg": tree_config.TrussPhysicsConfig.PEDICEL_BEND_LIMIT_DEG,
+        "drive_stiffness_scale": tree_config.TrussPhysicsConfig.PEDICEL_DRIVE_STIFFNESS_SCALE,
     }
 
 

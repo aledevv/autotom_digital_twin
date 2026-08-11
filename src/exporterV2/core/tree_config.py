@@ -30,6 +30,9 @@ Each dict describes one chain (trunk or branch). Fields:
   height      (float)      Cylinder height per link [m, pre-scale].
   tilt        (float)      Tilt angle away from parent local-Z axis [deg].
   rot         (float)      Azimuthal rotation around parent local-Z axis [deg].
+  joint_type  (str)        Optional joint mode: d6, fixed, d6_planar, or revolute_planar.
+  bend_limit_deg (float)   Optional branch-specific D6 angular limit [deg].
+  drive_stiffness_scale (float) Optional positive multiplier for D6 stiffness.
 
 Run standalone to verify physics:
     python -m exporterV2.tree_config
@@ -43,6 +46,8 @@ MAX_N_JOINTS = 200  # D6-joint budget for stable Isaac Sim runs
 class PhysicsRuntimeConfig:
     """Runtime PhysX defaults used by the exporter entry points."""
 
+    # RigidTrunk feature flag: keep the main stem stable for fruit-heavy tests.
+    RIGID_TRUNK = True
     PHYSICS_HZ = 480
     SOLVER_POSITION_ITERATIONS = 32
     SOLVER_VELOCITY_ITERATIONS = 4
@@ -65,7 +70,7 @@ class OrganGenerationConfig:
     CREATE_LEAF_RACHIS = True
     CREATE_PETIOLULES = True
 
-    CREATE_TRUSSES = False
+    CREATE_TRUSSES = True
     CREATE_TRUSS_RACHIS = True
     CREATE_PEDICELS = True
     CREATE_TOMATOES = True
@@ -121,10 +126,14 @@ class TrussPhysicsConfig:
     - Higher damping to reduce oscillations
     - Custom minimum K to handle thin pedicels
     """
-    YOUNG_MODULUS = 25.0e7  # [Pa] stiffer than stem
-    DAMPING_RATIO = 1.0      # Higher damping to reduce oscillations
-    PLANT_DENSITY = 1000.0   # [kg/m^3] same as stem
+    YOUNG_MODULUS = 30.0e7  # [Pa] stiffer than stem
+    DAMPING_RATIO = 1.5      # Higher damping to reduce oscillations
+    PLANT_DENSITY = 873.0   # [kg/m^3] same as stem
     MIN_K = 0.001             # [N·m/rad] Minimum stiffness for thin pedicels
+    PEDICEL_BEND_LIMIT_DEG = 25.0
+    # Real pedicels are much shorter than the visual-lab sample, so they need a
+    # softer attachment drive for tomato weight to produce visible droop.
+    PEDICEL_DRIVE_STIFFNESS_SCALE = 0.10
 
 
 # ==============================================================================
@@ -141,6 +150,7 @@ BRANCHES = [
         "height"     : 0.20,   # 20 cm -> 2.0 m world
         "tilt"       : 0.0,
         "rot"        : 0.0,
+        "joint_type" : "fixed" if PhysicsRuntimeConfig.RIGID_TRUNK else "d6",
     },
     {
         "id"         : "branchA",

@@ -2,15 +2,16 @@
   "metadata": {
     "day": 30,
     "plant_id": 1,
-    "generated_at": "2026-08-11T14:47:36.860977",
+    "generated_at": "2026-08-11T15:58:45.676949",
     "source_csv": "graph_day_30.csv",
-    "n_branches": 104,
-    "total_links": 128,
-    "d6_joints": 128,
-    "n_terminal_bodies": 0,
+    "n_branches": 110,
+    "total_links": 135,
+    "d6_joints": 126,
+    "n_terminal_bodies": 4,
     "global_scale": 2.0,
     "min_radius_world_m": 0.002,
     "physics_runtime": {
+      "rigid_trunk": true,
       "physics_hz": 480,
       "solver_position_iterations": 32,
       "solver_velocity_iterations": 4,
@@ -27,10 +28,10 @@
       "petioles": true,
       "leaf_rachis": true,
       "petiolules": true,
-      "trusses": false,
-      "truss_rachis": false,
-      "pedicels": false,
-      "tomatoes": false
+      "trusses": true,
+      "truss_rachis": true,
+      "pedicels": true,
+      "tomatoes": true
     }
   },
   "branches": [
@@ -40,9 +41,10 @@
       "attach_link": null,
       "n_links": 9,
       "radius": 0.0038642640586322888,
-      "height": 0.01950056022222222,
+      "height": 0.019500560222222223,
       "tilt": 0.0,
-      "rot": 0.0
+      "rot": 0.0,
+      "joint_type": "fixed"
     },
     {
       "id": "Branch_r1_o0",
@@ -1073,6 +1075,122 @@
       "height": 0.01,
       "tilt": 0.0,
       "rot": 0.0
+    },
+    {
+      "id": "Truss_r6_o0_rachis",
+      "parent": "trunk",
+      "attach_link": 7,
+      "n_links": 2,
+      "radius": 0.001,
+      "height": 0.02,
+      "tilt": 49.5,
+      "rot": 105.0,
+      "physics_profile": "truss"
+    },
+    {
+      "id": "Truss_r6_o0_rachis_pedicel_lat_0_L",
+      "parent": "Truss_r6_o0_rachis",
+      "attach_link": 1,
+      "n_links": 1,
+      "radius": 0.001,
+      "height": 0.006,
+      "tilt": 90.0,
+      "rot": 90.0,
+      "physics_profile": "truss",
+      "joint_type": "d6",
+      "bend_limit_deg": 25.0,
+      "drive_stiffness_scale": 0.3
+    },
+    {
+      "id": "Truss_r6_o0_rachis_pedicel_lat_0_R",
+      "parent": "Truss_r6_o0_rachis",
+      "attach_link": 1,
+      "n_links": 1,
+      "radius": 0.001,
+      "height": 0.006,
+      "tilt": 90.0,
+      "rot": 270.0,
+      "physics_profile": "truss",
+      "joint_type": "d6",
+      "bend_limit_deg": 25.0,
+      "drive_stiffness_scale": 0.3
+    },
+    {
+      "id": "Truss_r6_o0_rachis_pedicel_term",
+      "parent": "Truss_r6_o0_rachis",
+      "attach_link": 2,
+      "n_links": 1,
+      "radius": 0.001,
+      "height": 0.006,
+      "tilt": 0.0,
+      "rot": 0.0,
+      "physics_profile": "truss",
+      "joint_type": "d6",
+      "bend_limit_deg": 25.0,
+      "drive_stiffness_scale": 0.3
+    },
+    {
+      "id": "Truss_r7_o0_rachis",
+      "parent": "trunk",
+      "attach_link": 8,
+      "n_links": 1,
+      "radius": 0.001,
+      "height": 0.02,
+      "tilt": 45.0,
+      "rot": 242.5,
+      "physics_profile": "truss"
+    },
+    {
+      "id": "Truss_r7_o0_rachis_pedicel_term",
+      "parent": "Truss_r7_o0_rachis",
+      "attach_link": 1,
+      "n_links": 1,
+      "radius": 0.001,
+      "height": 0.006,
+      "tilt": 0.0,
+      "rot": 0.0,
+      "physics_profile": "truss",
+      "joint_type": "d6",
+      "bend_limit_deg": 25.0,
+      "drive_stiffness_scale": 0.3
+    }
+  ],
+  "terminal_bodies": [
+    {
+      "id": "Truss_r6_o0_rachis_pedicel_lat_0_L_tomato",
+      "kind": "tomato",
+      "shape": "sphere",
+      "parent_branch_id": "Truss_r6_o0_rachis_pedicel_lat_0_L",
+      "radius": 0.0081690075,
+      "mass": 0.00228347622219621,
+      "maturation": 0.15281679736408565
+    },
+    {
+      "id": "Truss_r6_o0_rachis_pedicel_lat_0_R_tomato",
+      "kind": "tomato",
+      "shape": "sphere",
+      "parent_branch_id": "Truss_r6_o0_rachis_pedicel_lat_0_R",
+      "radius": 0.006849615,
+      "mass": 0.0013461302816627442,
+      "maturation": 0.10196808896210872
+    },
+    {
+      "id": "Truss_r6_o0_rachis_pedicel_term_tomato",
+      "kind": "tomato",
+      "shape": "sphere",
+      "parent_branch_id": "Truss_r6_o0_rachis_pedicel_term",
+      "radius": 0.0036485589,
+      "mass": 0.00020344765769265142,
+      "maturation": 0.025539743822075783
+    },
+    {
+      "id": "Truss_r7_o0_rachis_pedicel_term_tomato",
+      "kind": "tomato",
+      "shape": "sphere",
+      "parent_branch_id": "Truss_r7_o0_rachis_pedicel_term",
+      "radius": 0.005017522,
+      "mass": 0.0005291227874459295,
+      "maturation": 0.05106712355848435
     }
   ]
 }

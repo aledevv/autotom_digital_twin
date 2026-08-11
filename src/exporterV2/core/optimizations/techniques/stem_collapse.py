@@ -120,6 +120,8 @@ class StemCollapseTechnique(OptimizationTechnique):
         trunk = self._find_trunk(branches)
         if not trunk:
             return False
+        if trunk.get("joint_type", "d6").lower() == "fixed":
+            return False
         
         current_links = trunk.get("n_links", 1)
         return current_links > self._target_segments
@@ -136,6 +138,8 @@ class StemCollapseTechnique(OptimizationTechnique):
         """
         trunk = self._find_trunk(branches)
         if not trunk:
+            return 0
+        if trunk.get("joint_type", "d6").lower() == "fixed":
             return 0
         
         current_links = trunk.get("n_links", 1)
@@ -158,14 +162,15 @@ class StemCollapseTechnique(OptimizationTechnique):
         """
         trunk = self._find_trunk(branches)
         
-        if not trunk:
+        if not trunk or trunk.get("joint_type", "d6").lower() == "fixed":
             report = OptimizationReport(
                 technique_name=self.name,
                 joints_before=count_d6_joints(branches),
                 joints_after=count_d6_joints(branches),
                 joints_saved=0,
                 details={
-                    "trunk_found": False,
+                    "trunk_found": trunk is not None,
+                    "trunk_fixed": trunk is not None,
                     "original_links": 0,
                     "final_links": 0,
                     "links_removed": 0,

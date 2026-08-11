@@ -84,11 +84,14 @@ techniques:
   # Priority 4: Truss Static (medium visual impact, medium joint reduction)
   - id: "truss_static"
     priority: 4
-    description: "Convert truss to pre-bent static geometry (no physics)"
+    description: "Lock pedicels, then convert rachis to a pre-bent rigid block with one root D6"
     enabled: true
     params:
-      min_segments: 1             # Minimum segments for truss
-      prebend_angle: 15           # Prebend angle in degrees per original segment
+      curve_segments: 5
+      bend_per_segment_deg: 8
+      pedicel_droop_deg: 10
+      root_bend_limit_deg: 18
+      root_drive_stiffness_scale: 0.40
   
   # Priority 5: Leaf Branch Reduction (high visual impact, medium-high joint reduction)
   - id: "leaf_branch_reduce"

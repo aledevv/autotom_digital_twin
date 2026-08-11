@@ -9,11 +9,8 @@ Available Techniques (by priority):
     1.5 ThinLinkLockTechnique    - Convert thin segment D6 joints to Fixed
     2.0 LateralBranchReductionTechnique - Reduce lateral branch segments
     3.0 StemCollapseTechnique    - Collapse main stem with child remapping
+    4.0 TrussStaticTechnique     - Lock pedicels, then create a pre-bent truss block
     5.0 LeafBranchReductionTechnique    - Merge petiole+rachis into one segment
-
-Note:
-    TrussStaticTechnique (priority 4) is not yet implemented — truss components
-    are not part of the current plant model.
 """
 
 from .base import OptimizationTechnique, OptimizationReport, ValidationResult, count_d6_joints
@@ -22,6 +19,7 @@ from .thin_link_lock import ThinLinkLockTechnique
 from .lateral_reduce import LateralBranchReductionTechnique
 from .stem_collapse import StemCollapseTechnique
 from .leaf_branch_reduce import LeafBranchReductionTechnique
+from .truss_static import TrussStaticTechnique
 
 __all__ = [
     "OptimizationTechnique",
@@ -33,4 +31,5 @@ __all__ = [
     "LateralBranchReductionTechnique",
     "StemCollapseTechnique",
     "LeafBranchReductionTechnique",
+    "TrussStaticTechnique",
 ]

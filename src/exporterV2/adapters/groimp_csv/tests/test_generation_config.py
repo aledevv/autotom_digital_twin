@@ -16,6 +16,7 @@ from exporterV2.core.optimizations.techniques.lateral_reduce import (
 )
 from exporterV2.core.tree_config import (
     OrganGenerationConfig,
+    PhysicsRuntimeConfig,
     limit_branch_resolution,
 )
 
@@ -84,6 +85,21 @@ def test_resolution_cap_preserves_lengths_and_nested_attachment_positions():
         original_positions["child"],
         abs_tol=1e-12,
     )
+
+
+def test_rigid_trunk_flag_controls_generated_joint_type(monkeypatch):
+    internodes = [
+        {"rank": 0, "organ_index": 0, "width_m": 0.02, "length": 0.10},
+        {"rank": 1, "organ_index": 0, "width_m": 0.02, "length": 0.12},
+    ]
+
+    monkeypatch.setattr(PhysicsRuntimeConfig, "RIGID_TRUNK", True)
+    rigid = parser.internodes_to_branch_config(internodes)
+    assert rigid["joint_type"] == "fixed"
+
+    monkeypatch.setattr(PhysicsRuntimeConfig, "RIGID_TRUNK", False)
+    flexible = parser.internodes_to_branch_config(internodes)
+    assert flexible["joint_type"] == "d6"
 
 
 def test_optimizer_can_reduce_below_configured_cap():
@@ -263,6 +279,7 @@ def test_json_metadata_records_effective_configuration(tmp_path):
     data = json.loads(Path(output_path).read_text())
     metadata = data["metadata"]
     assert metadata["physics_runtime"]["physics_hz"] == 480
+    assert metadata["physics_runtime"]["rigid_trunk"] is True
     assert metadata["physics_runtime"]["solver_position_iterations"] == 32
     assert metadata["physics_runtime"]["solver_velocity_iterations"] == 4
     assert metadata["branch_resolution"]["max_links_per_branch"] == 10

@@ -217,7 +217,10 @@ class BudgetOptimizer:
         
         # Component type identification helpers
         def is_trunk(b: Dict) -> bool:
-            return b.get("parent") is None
+            return (
+                b.get("parent") is None
+                and b.get("joint_type", "d6").lower() != "fixed"
+            )
         
         def is_lateral_branch(b: Dict) -> bool:
             # Lateral branches have parent = trunk and specific naming
@@ -228,7 +231,12 @@ class BudgetOptimizer:
             return "petiole" in b.get("id", "").lower()
         
         def is_truss(b: Dict) -> bool:
-            return "Truss_" in b.get("id", "") or "truss" in b.get("id", "").lower()
+            branch_id = b.get("id", "").lower()
+            return (
+                "truss" in branch_id
+                and "_pedicel_" not in branch_id
+                and "_static_curve_" not in branch_id
+            )
         
         # Count by component type
         trunk_count = sum(1 for b in branches if is_trunk(b))
@@ -254,6 +262,7 @@ class BudgetOptimizer:
                 ThinLinkLockTechnique,
                 LateralBranchReductionTechnique,
                 StemCollapseTechnique,
+                TrussStaticTechnique,
                 LeafBranchReductionTechnique,
             )
         except ImportError:
@@ -262,6 +271,7 @@ class BudgetOptimizer:
                 ThinLinkLockTechnique,
                 LateralBranchReductionTechnique,
                 StemCollapseTechnique,
+                TrussStaticTechnique,
                 LeafBranchReductionTechnique,
             )
         
@@ -277,10 +287,12 @@ class BudgetOptimizer:
         elif tech_id == "stem_collapse":
             target_segments = technique_config.get("params", {}).get("target_segments", 3)
             return StemCollapseTechnique(target_segments=target_segments)
+        elif tech_id == "truss_static":
+            return TrussStaticTechnique(params=technique_config.get("params", {}))
         elif tech_id == "leaf_branch_reduce":
             return LeafBranchReductionTechnique()
         else:
-            # We skip undefined/unimplemented techniques (e.g. truss_static)
+            # Skip undefined techniques while preserving config compatibility.
             # Return dummy technique that does nothing
             class DummyTechnique(OptimizationTechnique):
                 def __init__(self): self._name = tech_id; self._priority = 99

@@ -729,13 +729,6 @@ def internodes_to_branch_config(internodes: List[Dict]) -> Dict:
     Returns:
         Branch dict in BRANCHES format (trunk configuration)
     """
-    # Load tree_config directly to avoid pxr import in __init__
-    import importlib.util
-    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
-    spec = importlib.util.spec_from_file_location("tree_config", config_path)
-    tree_config = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(tree_config)
-    
     clamp_radius = tree_config.clamp_radius
     GLOBAL_SCALE = tree_config.GLOBAL_SCALE
     MIN_LINK_RADIUS_WORLD = tree_config.MIN_LINK_RADIUS_WORLD
@@ -763,6 +756,9 @@ def internodes_to_branch_config(internodes: List[Dict]) -> Dict:
         "height": avg_height,
         "tilt": 0.0,
         "rot": 0.0,
+        "joint_type": (
+            "fixed" if tree_config.PhysicsRuntimeConfig.RIGID_TRUNK else "d6"
+        ),
     }
     
     return branch
@@ -818,6 +814,7 @@ def save_branches_json(
             "global_scale": tree_config.GLOBAL_SCALE,
             "min_radius_world_m": tree_config.MIN_LINK_RADIUS_WORLD,
             "physics_runtime": {
+                "rigid_trunk": tree_config.PhysicsRuntimeConfig.RIGID_TRUNK,
                 "physics_hz": tree_config.PhysicsRuntimeConfig.PHYSICS_HZ,
                 "solver_position_iterations": tree_config.PhysicsRuntimeConfig.SOLVER_POSITION_ITERATIONS,
                 "solver_velocity_iterations": tree_config.PhysicsRuntimeConfig.SOLVER_VELOCITY_ITERATIONS,

@@ -27,14 +27,14 @@
 - [x] **Task 4**: Tecnica 1 - Petiole Lock (D6 → Fixed Joint) ✅
 - [x] **Task 5**: Tecnica 2 - Lateral Branch Reduction ✅
 - [x] **Task 6**: Tecnica 3 - Stem Collapse con Remapping ✅
-- [ ] **Task 7**: Tecnica 4 - Truss Static Pre-bent ⚠️ SKIPPED (truss non in codebase)
+- [ ] **Task 7**: Tecnica 4 - Truss Static Pre-bent
 - [x] **Task 8**: Tecnica 5 - Leaf Branch Reduction (Petiole+Rachis merge) ✅
 
 ### Phase 3: Integration & Validation (Tasks 9-12)
 - [x] **Task 9**: Integration Tests - Composizione Tecniche ✅ (6/6 test, incluso CSV reale)
 - [x] **Task 10**: Visual Validation Suite ✅
 - [x] **Task 11**: Integrazione con Parse Pipeline e Visual Validation ✅
-- [ ] **Task 12**: Documentazione Implementazione 🔴 TODO (vedi TASK_12_TODO.md)
+- [x] **Task 12**: Documentazione Implementazione ✅
 
 ---
 
