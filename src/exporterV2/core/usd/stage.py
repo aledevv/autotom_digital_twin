@@ -19,14 +19,14 @@ if __name__ == "__main__" or "exporterV2" not in sys.modules:
         GLOBAL_SCALE, BRANCHES, GAP,
         compute_mass, calculate_physics_params, calculate_truss_physics_params, scaled,
         validate_branches, compute_flexural_rigidity, compute_hinge_stiffness_rad,
-        BioConfig, TrussPhysicsConfig, PhysicsRuntimeConfig, PlantColors
+        BioConfig, TrussPhysicsConfig, PhysicsRuntimeConfig, PlantColors, OutputConfig
     )
 else:
     from ..tree_config import (
         GLOBAL_SCALE, BRANCHES, GAP,
         compute_mass, calculate_physics_params, calculate_truss_physics_params, scaled,
         validate_branches, compute_flexural_rigidity, compute_hinge_stiffness_rad,
-        BioConfig, TrussPhysicsConfig, PhysicsRuntimeConfig, PlantColors
+        BioConfig, TrussPhysicsConfig, PhysicsRuntimeConfig, PlantColors, OutputConfig
     )
 
 from .geometry import create_rigid_segment, create_sphere_rigid_body
@@ -227,19 +227,43 @@ def validate_terminal_body_clearance(
                     maybe_filter(body.get("path"), link_paths[link_idx])
 
     if warnings:
-        print("\n" + "=" * 80)
-        print("  TERMINAL BODY GEOMETRY WARNINGS")
-        print("=" * 80)
-        for warning in warnings[:25]:
-            print(f"[WARNING] {warning}")
-        if len(warnings) > 25:
-            print(f"[WARNING] ... {len(warnings) - 25} additional geometry warnings omitted")
-        if filtered_pairs:
-            print(f"[INFO] Added {len(filtered_pairs) * 2} terminal-body collision filters")
-        print("=" * 80 + "\n")
-    else:
-        print("[INFO] Terminal body geometry validation: no intersections detected")
+        if OutputConfig.TERMINAL_GEOMETRY_WARNINGS_VERBOSE:
+            # Full detailed output
+            print("\n" + "=" * 80)
+            print("  TERMINAL BODY GEOMETRY WARNINGS")
+            print("=" * 80)
 
+            for warning in warnings[:25]:
+                print(f"[WARNING] {warning}")
+
+            if len(warnings) > 25:
+                print(
+                    f"[WARNING] ... {len(warnings) - 25} "
+                    "additional geometry warnings omitted"
+                )
+
+            if filtered_pairs:
+                print(
+                    f"[INFO] Added {len(filtered_pairs) * 2} "
+                    "terminal-body collision filters"
+                )
+
+            print("=" * 80 + "\n")
+
+        else:
+            # Compact output
+            print(
+                f"[WARNING] Terminal body geometry: "
+                f"{len(warnings)} intersections detected, "
+                f"{len(filtered_pairs)} collision pairs filtered"
+            )
+
+    else:
+        if OutputConfig.STEP_1_VERBOSE:
+            print(
+                "[INFO] Terminal body geometry validation: "
+                "no intersections detected"
+            )
 
 def build_chain(
     stage,
@@ -508,9 +532,9 @@ def build_stage(
             # Root trunk (vertical)
             chain_axis = Gf.Vec3d(0.0, 0.0, 1.0)
             start_pos  = Gf.Vec3d(0.0, 0.0, 0.0)
-
-            print(f"[INFO] '{bid}' (root): {b['n_links']} links, "
-                  f"r={r_world:.3f}m, h={h_world:.3f}m")
+            if OutputConfig.STEP_1_VERBOSE:
+                print(f"[INFO] '{bid}' (root): {b['n_links']} links, "
+                    f"r={r_world:.3f}m, h={h_world:.3f}m")
 
             link_paths, link_bases = build_chain(
                 stage, stem_path, b,
@@ -586,10 +610,11 @@ def build_stage(
             )
             local_rot0 = Gf.Quatf(branch_rot_in_parent_frame.GetQuat())
 
-            print(f"[INFO] '{bid}': {b['n_links']} links, "
-                  f"r={r_world:.3f}m, h={h_world:.3f}m, "
-                  f"parent='{parent_id}' link {b['attach_link']}, "
-                  f"tilt={tilt_deg}deg, rot={rot_deg}deg, roll={roll_deg}deg")
+            if OutputConfig.STEP_1_VERBOSE:
+                print(f"[INFO] '{bid}': {b['n_links']} links, "
+                      f"r={r_world:.3f}m, h={h_world:.3f}m, "
+                      f"parent='{parent_id}' link {b['attach_link']}, "
+                      f"tilt={tilt_deg}deg, rot={rot_deg}deg, roll={roll_deg}deg")
 
             link_paths, link_bases = build_chain(
                 stage, stem_path, b,
@@ -720,17 +745,20 @@ def build_stage(
             })
 
             break_force_label = "disabled" if break_force is None else f"{break_force:.2f}N"
-            print(
-                f"[INFO] terminal body '{body['id']}': sphere r={radius:.3f}m, "
-                f"parent='{parent_branch_id}', body_parent='{body_parent_path}', "
-                f"detachment={'enabled' if detachment_enabled else 'disabled'}, "
-                f"break_force={break_force_label}"
-            )
+            
+            if OutputConfig.STEP_1_VERBOSE:
+                print(
+                    f"[INFO] terminal body '{body['id']}': sphere r={radius:.3f}m, "
+                    f"parent='{parent_branch_id}', body_parent='{body_parent_path}', "
+                    f"detachment={'enabled' if detachment_enabled else 'disabled'}, "
+                    f"break_force={break_force_label}"
+                )
         else:
-            print(
-                f"[INFO] terminal body '{body['id']}': mesh, "
-                f"parent='{parent_branch_id}', body_parent='{body_parent_path}'"
-            )
+            if OutputConfig.STEP_1_VERBOSE:
+                print(
+                    f"[INFO] terminal body '{body['id']}': mesh, "
+                    f"parent='{parent_branch_id}', body_parent='{body_parent_path}'"
+                )
 
     validate_terminal_body_clearance(
         terminal_body_records,

@@ -52,6 +52,12 @@ def _effective_generation_settings(profile: dict) -> Dict[str, bool]:
     }
 
 
+def _info(message: str) -> None:
+    """Print detailed plant-generation info only when enabled."""
+    if tree_config.LoggingConfig.VERBOSE_PLANT_INFO:
+        print(f"[INFO] {message}")
+
+
 def _print_generation_settings(settings: Dict[str, bool]) -> None:
     values = ", ".join(
         f"{name}={'on' if enabled else 'off'}"
@@ -221,7 +227,7 @@ def load_trunk_internodes(csv_path: str, day: int, plant_id: int = 1) -> List[Di
             "length": float(row["length"]),
         })
     
-    print(f"[INFO] Found {len(internodes)} trunk internodes for day {day}")
+    _info(f"Found {len(internodes)} trunk internodes for day {day}")
     
     return internodes
 

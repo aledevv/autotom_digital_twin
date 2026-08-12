@@ -75,6 +75,21 @@ class OrganGenerationConfig:
     CREATE_PEDICELS = True
     CREATE_TOMATOES = True
 
+
+class LoggingConfig:
+    """Console logging controls."""
+
+    # Print detailed CSV parsing / plant-component information.
+    VERBOSE_PLANT_INFO = False
+
+
+class OutputConfig:
+    """Console output controls."""
+
+    STEP_1_VERBOSE = False   # USD generation / geometry details
+
+    TERMINAL_GEOMETRY_WARNINGS_VERBOSE = False # True = print every geometry warning, False = print only one compact summary
+
 # ==============================================================================
 # GLOBAL SCALE & PHYSICS CONSTANTS
 # ==============================================================================

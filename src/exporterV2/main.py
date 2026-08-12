@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(SCRIPT_DIR))
 
 from exporterV2.core.usd import build_stage, get_output_usd_path
 from exporterV2.core.physics import apply_physx_scene_settings, apply_physx_articulation_settings
-from exporterV2.core.tree_config import BRANCHES, BranchResolutionConfig, limit_branch_resolution
+from exporterV2.core.tree_config import BRANCHES, BranchResolutionConfig, limit_branch_resolution, MAX_N_JOINTS
 from exporterV2.core.optimizations.techniques.base import count_d6_joints
 
 # ANSI color codes for terminal output
@@ -88,15 +88,17 @@ def main():
         f"capped={len(resolution_changes)}"
     )
     
+    optimization_report = None
+
     # Apply optimization if requested
     if args.optimize:
         print("\n[OPTIMIZE] Applying joint-budget optimization...")
         try:
             from exporterV2.core.optimizations import BudgetOptimizer
             
-            optimizer = BudgetOptimizer()
+            optimizer = BudgetOptimizer(max_joints=MAX_N_JOINTS)
             
-            branches, report = optimizer.optimize(
+            branches, optimization_report = optimizer.optimize(
                 branches,
                 terminal_body_count=len(terminal_bodies),
             )
@@ -106,11 +108,6 @@ def main():
                 body for body in terminal_bodies
                 if body.get("parent_branch_id") in branch_ids
             ]
-            
-            # Print optimization report
-            print("\n" + "=" * 80)
-            print(str(report))
-            print("=" * 80 + "\n")
             
         except ValueError as e:
             # Budget impossible (below lower bound)
@@ -162,6 +159,10 @@ def main():
     # Initialize simulation
     my_world = World(stage_units_in_meters=1.0)
     my_world.reset()
+
+    # Optimization report goes to console only when optimization was actually run.
+    if optimization_report is not None:
+        print(str(optimization_report))
     
     print("\n" + "=" * 80)
     print("  ✓ Simulation running — close the window to exit")

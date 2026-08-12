@@ -34,33 +34,52 @@ class BudgetConfig:
     logging: Dict
     
     @classmethod
-    def load(cls, config_path: str) -> 'BudgetConfig':
-        """Load configuration from YAML file."""
+    def load(
+        cls,
+        config_path: str,
+        max_joints: Optional[int] = None,
+    ) -> 'BudgetConfig':
+
         path = Path(config_path)
         if not path.exists():
             raise FileNotFoundError(f"Config file not found: {config_path}")
-        
+
         with open(path, 'r') as f:
             config = yaml.safe_load(f)
-        
-        # Validate required sections
+
         required_sections = ['budget', 'structural_limits', 'techniques']
         for section in required_sections:
             if section not in config:
                 raise ValueError(f"Missing required section '{section}' in config")
-        
-        # Extract and validate budget section
+
         budget = config['budget']
-        if budget['max_joints'] <= 0:
+
+        # Runtime value has priority over YAML fallback
+        effective_max_joints = (
+            max_joints
+            if max_joints is not None
+            else budget.get('max_joints')
+        )
+
+        if effective_max_joints is None:
+            raise ValueError("max_joints must be provided")
+
+        if effective_max_joints <= 0:
             raise ValueError("max_joints must be positive")
-        
+
         return cls(
-            max_joints=budget['max_joints'],
-            warning_threshold=budget.get('warning_threshold', budget['max_joints'] - 20),
+            max_joints=effective_max_joints,
+            warning_threshold=budget.get(
+                'warning_threshold',
+                effective_max_joints - 20,
+            ),
             max_rigid_bodies=budget.get('max_rigid_bodies'),
             structural_limits=config['structural_limits'],
-            techniques=sorted(config['techniques'], key=lambda t: t['priority']),
-            logging=config.get('logging', {'level': 'INFO'})
+            techniques=sorted(
+                config['techniques'],
+                key=lambda t: t['priority'],
+            ),
+            logging=config.get('logging', {'level': 'INFO'}),
         )
 
 
@@ -100,53 +119,100 @@ class FullOptimizationReport:
         return (max_reduction / self.original_joints) * 100.0
     
     def __str__(self) -> str:
-        """Human-readable full report."""
+        """Compact human-readable optimization report."""
+
         lines = [
             "=" * 60,
             "  Joint-Budget Optimization Report",
             "=" * 60,
-            f"Original joints: {self.original_joints}",
-            f"Budget: {self.budget}",
-            f"Lower bound: {self.lower_bound}",
         ]
+
+        # ------------------------------------------------------------------
+        # Techniques applied
+        # ------------------------------------------------------------------
+        lines.append("Techniques applied:")
+
+        if self.technique_reports:
+            aggregated = {}
+
+            for report in self.technique_reports:
+                name = report.technique_name
+
+                if name not in aggregated:
+                    aggregated[name] = {
+                        "before": report.joints_before,
+                        "after": report.joints_after,
+                        "saved": report.joints_saved,
+                        "passes": 1,
+                    }
+                else:
+                    aggregated[name]["after"] = report.joints_after
+                    aggregated[name]["saved"] += report.joints_saved
+                    aggregated[name]["passes"] += 1
+
+            for i, (name, data) in enumerate(aggregated.items(), 1):
+                pass_suffix = (
+                    f", {data['passes']} passes"
+                    if data["passes"] > 1
+                    else ""
+                )
+
+                lines.append(
+                    f"  {i}. {name}: "
+                    f"{data['before']} -> {data['after']} "
+                    f"(-{data['saved']} joints{pass_suffix})"
+                )
+        else:
+            lines.append("  None")
+
+        # ------------------------------------------------------------------
+        # Joint summary
+        # ------------------------------------------------------------------
+        lines.extend([
+            "",
+            "Joint summary:",
+            f"  Original joints:        {self.original_joints}",
+            f"  Budget:                 {self.budget}",
+            f"  Final joints:           {self.final_joints}",
+        ])
+
+        if self.minimum_achievable is not None:
+            lines.append(
+                f"  Minimum achievable:     {self.minimum_achievable}"
+            )
+
+        lines.extend([
+            f"  Structural lower bound: {self.lower_bound}",
+            f"  Total reduction:        -{self.total_reduction} "
+            f"({self.reduction_percentage:.1f}%)",
+        ])
+
+        # ------------------------------------------------------------------
+        # Rigid-body summary
+        # ------------------------------------------------------------------
         if self.rigid_body_budget is not None:
             lines.extend([
-                f"Original rigid bodies: {self.original_rigid_bodies}",
-                f"Rigid body budget: {self.rigid_body_budget}",
+                "",
+                "Rigid-body summary:",
+                f"  Original rigid bodies:  {self.original_rigid_bodies}",
+                f"  Budget:                 {self.rigid_body_budget}",
+                f"  Final rigid bodies:     {self.final_rigid_bodies}",
             ])
-        
-        # Add minimum achievable info if available
-        if self.minimum_achievable is not None and self.minimum_achievable != self.final_joints:
-            lines.append(f"Minimum achievable: {self.minimum_achievable} "
-                        f"(max {self.max_reduction_percentage:.1f}% reduction)")
-        
+
+        # ------------------------------------------------------------------
+        # Status / errors
+        # ------------------------------------------------------------------
         lines.append("")
-        
-        if self.technique_reports:
-            lines.append("Techniques applied:")
-            for i, report in enumerate(self.technique_reports, 1):
-                lines.append(f"  {i}. {report.technique_name}: "
-                           f"{report.joints_before} → {report.joints_after} "
-                           f"(-{report.joints_saved} joints)")
-                if report.details:
-                    for key, value in report.details.items():
-                        lines.append(f"      - {key}: {value}")
-            lines.append("")
-        
+
         if self.success:
-            status = "✓"
-            lines.append(f"Final joints: {self.final_joints} {status}")
-            if self.rigid_body_budget is not None:
-                lines.append(f"Final rigid bodies: {self.final_rigid_bodies} {status}")
-            lines.append(f"Total reduction: -{self.total_reduction} joints "
-                        f"({self.reduction_percentage:.1f}%)")
+            lines.append("Status: SUCCESS ✓")
         else:
-            status = "✗"
-            lines.append(f"Status: FAILED {status}")
+            lines.append("Status: FAILED ✗")
             if self.error_message:
                 lines.append(f"Error: {self.error_message}")
-        
+
         lines.append("=" * 60)
+
         return "\n".join(lines)
 
 
@@ -164,18 +230,19 @@ class BudgetOptimizer:
         ...     print(f"Reduced from {report.original_joints} to {report.final_joints} joints")
     """
     
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None, max_joints: Optional[int] = None):
         """
         Initialize optimizer with configuration.
         
         Args:
+            max_joints: Maximum number of joints (overrides config)
             config_path: Path to budget_config.yaml (default: auto-detect)
         """
         if config_path is None:
             # Auto-detect config path (same directory as this file)
             config_path = Path(__file__).parent / "budget_config.yaml"
         
-        self.config = BudgetConfig.load(str(config_path))
+        self.config = BudgetConfig.load(str(config_path), max_joints=max_joints)
     
     def calculate_total_joints(self, branches: List[Dict]) -> int:
         """
