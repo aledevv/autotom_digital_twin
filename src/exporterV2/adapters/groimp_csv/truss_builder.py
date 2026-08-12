@@ -8,6 +8,8 @@ Similar to leaf structure but terminates with tomatoes (spheres) instead of leaf
 from typing import List, Dict
 from pathlib import Path
 
+TOMATO_DENSITY = 1000.0  # kg/m^3, close to water
+
 
 def _fruit_layout(n_fruits: int) -> tuple[int, bool]:
     """
@@ -27,6 +29,52 @@ def _load_tree_config():
     tree_config = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tree_config)
     return tree_config
+
+
+def _pedicel_geometry(truss_dict: Dict, rachis_id: str, *, terminal: bool = False):
+    """Return shared pedicel geometry and physics config for one truss."""
+    tree_config = _load_tree_config()
+    truss_geometry = tree_config.TrussGeometryConfig
+    pedicel_length = truss_dict.get("pedicel_length", truss_geometry.PEDICEL_LENGTH)
+    pedicel_radius_prescale = truss_dict.get(
+        "pedicel_radius",
+        truss_geometry.PEDICEL_RADIUS,
+    )
+    pedicel_r, clamped = tree_config.clamp_radius(pedicel_radius_prescale)
+
+    if clamped:
+        label = "terminal pedicel" if terminal else "pedicel"
+        print(f"[WARNING] Truss {rachis_id} {label} radius clamped")
+
+    return tree_config, pedicel_length, pedicel_r
+
+
+def _make_pedicel_branch(
+    tree_config,
+    *,
+    branch_id: str,
+    rachis_id: str,
+    attach_link: int,
+    radius: float,
+    height: float,
+    tilt: float,
+    rot: float,
+) -> Dict:
+    """Create one truss pedicel branch with the standard soft D6 settings."""
+    return {
+        "id": branch_id,
+        "parent": rachis_id,
+        "attach_link": attach_link,
+        "n_links": 1,
+        "radius": radius,
+        "height": height,
+        "tilt": tilt,
+        "rot": rot,
+        "physics_profile": "truss",
+        "joint_type": "d6",
+        "bend_limit_deg": tree_config.TrussPhysicsConfig.PEDICEL_BEND_LIMIT_DEG,
+        "drive_stiffness_scale": tree_config.TrussPhysicsConfig.PEDICEL_DRIVE_STIFFNESS_SCALE,
+    }
 
 
 def truss_rachis_to_branch(
@@ -137,82 +185,43 @@ def create_lateral_pedicels(
             - pedicel_angle: Inclination angle from rachis [deg] (optional)
         rachis_id: ID of parent rachis branch
         rachis_n_links: Number of links in the rachis
-        rachis_radius: Radius of rachis (pre-scale) for scaling pedicel radius
+        rachis_radius: Reserved for API compatibility; current pedicel radius
+            comes from TrussGeometryConfig or truss_dict["pedicel_radius"].
     
     Returns:
         List of pedicel branch dicts (2 per lateral pair)
     """
-    tree_config = _load_tree_config()
-    truss_geometry = tree_config.TrussGeometryConfig
-    clamp_radius = tree_config.clamp_radius
-    
-    # Extract parameters
+    _ = rachis_radius
     n_fruits = truss_dict.get("n_fruits", 5)
-    pedicel_length = truss_dict.get("pedicel_length", truss_geometry.PEDICEL_LENGTH)
-    pedicel_radius_prescale = truss_dict.get("pedicel_radius", None)
-    
-    # If pedicel radius is not specified, use the configured truss pedicel radius.
-    if pedicel_radius_prescale is None:
-        pedicel_radius_prescale = truss_geometry.PEDICEL_RADIUS
-    
-    # Apply radius clamping
-    pedicel_r, clamped = clamp_radius(pedicel_radius_prescale)
-    
-    if clamped:
-        print(f"[WARNING] Truss {rachis_id} pedicel radius clamped")
-    
-    # Pedicel angle (inclination from rachis axis)
-    pedicel_angle = truss_dict.get("pedicel_angle", 90.0)  # Default perpendicular
-    
     lateral_pairs, _ = _fruit_layout(n_fruits)
-    
+
     if lateral_pairs <= 0:
         return []  # Only terminal fruit, no lateral pairs
-    
+
+    tree_config, pedicel_length, pedicel_r = _pedicel_geometry(
+        truss_dict,
+        rachis_id,
+        terminal=True,
+    )
+    pedicel_angle = truss_dict.get("pedicel_angle", 90.0)  # Default perpendicular
     branches = []
-    
-    # Create lateral pedicel pairs
+
     for j in range(lateral_pairs):
-        # Determine which link of the rachis to attach to (1-based)
-        # Distribute evenly along rachis
-        attach_link_idx = j + 1  # 1-based: first pair on link 1, second on link 2, etc.
-        
-        # Ensure we don't exceed rachis links
-        if attach_link_idx > rachis_n_links:
-            attach_link_idx = rachis_n_links
-        
-        # Create left pedicel (rot = 90°)
-        branches.append({
-            "id": f"{rachis_id}_pedicel_lat_{j}_L",
-            "parent": rachis_id,
-            "attach_link": attach_link_idx,
-            "n_links": 1,
-            "radius": pedicel_r,
-            "height": pedicel_length,
-            "tilt": pedicel_angle,
-            "rot": 90.0,  # Left = +90° from rachis direction
-            "physics_profile": "truss",
-            "joint_type": "d6",
-            "bend_limit_deg": tree_config.TrussPhysicsConfig.PEDICEL_BEND_LIMIT_DEG,
-            "drive_stiffness_scale": tree_config.TrussPhysicsConfig.PEDICEL_DRIVE_STIFFNESS_SCALE,
-        })
-        
-        # Create right pedicel (rot = 270°)
-        branches.append({
-            "id": f"{rachis_id}_pedicel_lat_{j}_R",
-            "parent": rachis_id,
-            "attach_link": attach_link_idx,
-            "n_links": 1,
-            "radius": pedicel_r,
-            "height": pedicel_length,
-            "tilt": pedicel_angle,
-            "rot": 270.0,  # Right = -90° (or 270°) from rachis direction
-            "physics_profile": "truss",
-            "joint_type": "d6",
-            "bend_limit_deg": tree_config.TrussPhysicsConfig.PEDICEL_BEND_LIMIT_DEG,
-            "drive_stiffness_scale": tree_config.TrussPhysicsConfig.PEDICEL_DRIVE_STIFFNESS_SCALE,
-        })
-    
+        attach_link_idx = min(j + 1, rachis_n_links)
+        for suffix, rot in (("L", 90.0), ("R", 270.0)):
+            branches.append(
+                _make_pedicel_branch(
+                    tree_config,
+                    branch_id=f"{rachis_id}_pedicel_lat_{j}_{suffix}",
+                    rachis_id=rachis_id,
+                    attach_link=attach_link_idx,
+                    radius=pedicel_r,
+                    height=pedicel_length,
+                    tilt=pedicel_angle,
+                    rot=rot,
+                )
+            )
+
     return branches
 
 
@@ -233,43 +242,24 @@ def create_terminal_pedicel(
             - pedicel_radius: Radius of pedicel [m, pre-scale] (optional)
         rachis_id: ID of parent rachis branch
         rachis_n_links: Number of links in the rachis
-        rachis_radius: Radius of rachis (pre-scale) for scaling pedicel radius
+        rachis_radius: Reserved for API compatibility; current pedicel radius
+            comes from TrussGeometryConfig or truss_dict["pedicel_radius"].
     
     Returns:
         Terminal pedicel branch dict
     """
-    tree_config = _load_tree_config()
-    truss_geometry = tree_config.TrussGeometryConfig
-    clamp_radius = tree_config.clamp_radius
-    
-    # Extract parameters
-    pedicel_length = truss_dict.get("pedicel_length", truss_geometry.PEDICEL_LENGTH)
-    pedicel_radius_prescale = truss_dict.get("pedicel_radius", None)
-    
-    # If pedicel radius is not specified, use the configured truss pedicel radius.
-    if pedicel_radius_prescale is None:
-        pedicel_radius_prescale = truss_geometry.PEDICEL_RADIUS
-    
-    # Apply radius clamping
-    pedicel_r, clamped = clamp_radius(pedicel_radius_prescale)
-    
-    if clamped:
-        print(f"[WARNING] Truss {rachis_id} terminal pedicel radius clamped")
-    
-    return {
-        "id": f"{rachis_id}_pedicel_term",
-        "parent": rachis_id,
-        "attach_link": rachis_n_links,  # Last link of rachis
-        "n_links": 1,
-        "radius": pedicel_r,
-        "height": pedicel_length,
-        "tilt": 0.0,  # Aligned with rachis (coaxial)
-        "rot": 0.0,
-        "physics_profile": "truss",
-        "joint_type": "d6",
-        "bend_limit_deg": tree_config.TrussPhysicsConfig.PEDICEL_BEND_LIMIT_DEG,
-        "drive_stiffness_scale": tree_config.TrussPhysicsConfig.PEDICEL_DRIVE_STIFFNESS_SCALE,
-    }
+    _ = rachis_radius
+    tree_config, pedicel_length, pedicel_r = _pedicel_geometry(truss_dict, rachis_id)
+    return _make_pedicel_branch(
+        tree_config,
+        branch_id=f"{rachis_id}_pedicel_term",
+        rachis_id=rachis_id,
+        attach_link=rachis_n_links,
+        radius=pedicel_r,
+        height=pedicel_length,
+        tilt=0.0,
+        rot=0.0,
+    )
 
 
 def truss_to_branch_config(
@@ -288,7 +278,7 @@ def truss_to_branch_config(
     2. Lateral pedicel branches (pairs, alternating ±90°)
     3. Terminal pedicel branch (coaxial with rachis)
     
-    Tomato spheres are NOT included here (they're handled separately as leaf nodes).
+    Tomato spheres are NOT included here; terminal-body authoring handles them.
     
     Args:
         truss_dict: Truss dict with keys:
@@ -361,7 +351,8 @@ def create_tomato_definitions(
     Create tomato sphere definitions for attachment to pedicel tips.
     
     Each tomato is a sphere that will be rigidly attached to a pedicel tip
-    with a FixedJoint. Tomatoes are excluded from the articulation chain.
+    with a FixedJoint. USD authoring decides whether that joint remains in the
+    articulation or uses the experimental native detachment settings.
     
     Args:
         truss_dict: Truss dict with keys:
@@ -423,20 +414,15 @@ def create_tomato_definitions(
         tomato_radii = tomato_radii[:len(pedicel_ids)]
         n_tomatoes = len(pedicel_ids)
     
-    # Calculate masses if not provided (using sphere volume * tomato density)
-    # Tomato density: ~1000 kg/m^3 (similar to water)
-    TOMATO_DENSITY = 1000.0  # kg/m^3
-    
+    def mass_from_radius(radius: float) -> float:
+        return (4.0 / 3.0) * math.pi * (radius ** 3) * TOMATO_DENSITY
+
     if tomato_masses is None:
-        tomato_masses = []
-        for radius in tomato_radii:
-            volume = (4.0/3.0) * math.pi * (radius ** 3)
-            mass = volume * TOMATO_DENSITY
-            tomato_masses.append(mass)
+        tomato_masses = [mass_from_radius(radius) for radius in tomato_radii]
     else:
         tomato_masses = [
             mass if mass is not None and mass > 0.0
-            else ((4.0/3.0) * math.pi * (tomato_radii[i] ** 3) * TOMATO_DENSITY)
+            else mass_from_radius(tomato_radii[i])
             for i, mass in enumerate(tomato_masses[:n_tomatoes])
         ]
     

@@ -159,17 +159,14 @@ def test_one_link_rachis_is_curved_without_changing_joint_count():
     assert not technique.can_apply(static)
 
 
-def test_usd_uses_official_pedicel_and_static_root_overrides(tmp_path):
+def test_usd_uses_official_pedicel_and_static_root_overrides(tmp_path, monkeypatch):
+    monkeypatch.setattr(TrussPhysicsConfig, "TOMATO_DETACHMENT_ENABLED", True)
     branches, terminal_bodies = make_truss()
-    detachable_terminal_bodies = [
-        {**body, "exclude_from_articulation": True}
-        for body in terminal_bodies
-    ]
     dynamic_path = tmp_path / "dynamic.usda"
     dynamic_stage, stem_path = build_stage(
         str(dynamic_path),
         branches=branches,
-        terminal_bodies=detachable_terminal_bodies,
+        terminal_bodies=terminal_bodies,
         skip_limit_check=True,
     )
     dynamic_stage.GetRootLayer().Save()
@@ -186,7 +183,7 @@ def test_usd_uses_official_pedicel_and_static_root_overrides(tmp_path):
         if prim.GetTypeName() == "PhysicsFixedJoint"
         and prim.GetName() == "TerminalBodyFixedJoint"
     ]
-    assert len(terminal_joints) == len(detachable_terminal_bodies)
+    assert len(terminal_joints) == len(terminal_bodies)
     for prim in terminal_joints:
         assert prim.GetAttribute("physics:breakForce").Get() == pytest.approx(
             TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N
@@ -242,3 +239,40 @@ def test_usd_uses_official_pedicel_and_static_root_overrides(tmp_path):
     root_limit = UsdPhysics.LimitAPI.Get(truss_d6[0], "rotX")
     assert root_limit.GetLowAttr().Get() == -18.0
     assert root_limit.GetHighAttr().Get() == 18.0
+
+
+def test_detachment_master_switch_keeps_tomatoes_in_articulation(tmp_path, monkeypatch):
+    monkeypatch.setattr(TrussPhysicsConfig, "TOMATO_DETACHMENT_ENABLED", False)
+    branches, terminal_bodies = make_truss()
+    terminal_bodies = [
+        {
+            **body,
+            "detachment_enabled": True,
+            "exclude_from_articulation": True,
+            "parent_path": "/World/TerminalBodies",
+            "break_force": 1.0,
+        }
+        for body in terminal_bodies
+    ]
+
+    stage, stem_path = build_stage(
+        str(tmp_path / "detachment_disabled.usda"),
+        branches=branches,
+        terminal_bodies=terminal_bodies,
+        skip_limit_check=True,
+    )
+    terminal_joints = [
+        prim
+        for prim in stage.Traverse()
+        if prim.GetTypeName() == "PhysicsFixedJoint"
+        and prim.GetName() == "TerminalBodyFixedJoint"
+    ]
+
+    assert len(terminal_joints) == len(terminal_bodies)
+    for joint in terminal_joints:
+        assert not joint.GetAttribute("physics:breakForce").HasAuthoredValue()
+        assert not joint.GetAttribute(
+            "physics:excludeFromArticulation"
+        ).HasAuthoredValue()
+        body_path = str(joint.GetRelationship("physics:body1").GetTargets()[0])
+        assert body_path.startswith(f"{stem_path}/")

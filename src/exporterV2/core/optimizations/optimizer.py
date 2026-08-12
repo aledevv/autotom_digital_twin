@@ -11,7 +11,6 @@ Example:
     >>> print(report)
 """
 
-import os
 import yaml
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
@@ -315,40 +314,50 @@ class BudgetOptimizer:
             )
         
         tech_id = technique_config["id"]
-        
-        if tech_id == "petiole_lock":
-            return PetioleLockTechnique()
-        elif tech_id == "thin_link_lock":
-            return ThinLinkLockTechnique()
-        elif tech_id == "lateral_reduce":
-            min_segments = technique_config.get("params", {}).get("min_segments", 1)
-            return LateralBranchReductionTechnique(min_segments=min_segments)
-        elif tech_id == "stem_collapse":
-            target_segments = technique_config.get("params", {}).get("target_segments", 3)
-            return StemCollapseTechnique(target_segments=target_segments)
-        elif tech_id == "truss_static":
-            return TrussStaticTechnique(params=technique_config.get("params", {}))
-        elif tech_id == "leaf_branch_reduce":
-            return LeafBranchReductionTechnique()
-        else:
-            # Skip undefined techniques while preserving config compatibility.
-            # Return dummy technique that does nothing
-            class DummyTechnique(OptimizationTechnique):
-                def __init__(self): self._name = tech_id; self._priority = 99
-                @property
-                def name(self): return self._name
-                @property
-                def priority(self): return self._priority
-                def can_apply(self, branches): return False
-                def estimate_reduction(self, branches): return 0
-                def apply(self, branches): return branches, None
-                def validate(self, orig, mod): 
-                    try:
-                        from .techniques.base import ValidationResult
-                    except ImportError:
-                        from techniques.base import ValidationResult
-                    return ValidationResult(True, [], [])
-            return DummyTechnique()
+        params = technique_config.get("params", {})
+        factories = {
+            "petiole_lock": PetioleLockTechnique,
+            "thin_link_lock": ThinLinkLockTechnique,
+            "lateral_reduce": lambda: LateralBranchReductionTechnique(
+                min_segments=params.get("min_segments", 1)
+            ),
+            "stem_collapse": lambda: StemCollapseTechnique(
+                target_segments=params.get("target_segments", 3)
+            ),
+            "truss_static": lambda: TrussStaticTechnique(params=params),
+            "leaf_branch_reduce": LeafBranchReductionTechnique,
+        }
+
+        if tech_id in factories:
+            return factories[tech_id]()
+
+        # Skip undefined techniques while preserving config compatibility.
+        class DummyTechnique(OptimizationTechnique):
+            def __init__(self):
+                self._name = tech_id
+                self._priority = 99
+
+            @property
+            def name(self):
+                return self._name
+
+            @property
+            def priority(self):
+                return self._priority
+
+            def can_apply(self, branches):
+                return False
+
+            def estimate_reduction(self, branches):
+                return 0
+
+            def apply(self, branches):
+                return branches, None
+
+            def validate(self, orig, mod):
+                return ValidationResult(True, [], [])
+
+        return DummyTechnique()
 
     def optimize(
         self,

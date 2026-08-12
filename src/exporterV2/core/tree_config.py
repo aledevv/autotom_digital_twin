@@ -134,8 +134,11 @@ class TrussPhysicsConfig:
     # Real pedicels are much shorter than the visual-lab sample, so they need a
     # softer attachment drive for tomato weight to produce visible droop.
     PEDICEL_DRIVE_STIFFNESS_SCALE = 0.10
-    # Detachable tomato attachment. This is comfortably above the static weight
-    # of the generated tomatoes, so gravity alone should not break the joint.
+    # Master switch for the experimental native-joint detachment mechanism.
+    # When disabled, tomatoes remain regular, unbreakable articulation links.
+    TOMATO_DETACHMENT_ENABLED = False
+    # This is comfortably above the static weight of the generated tomatoes,
+    # so gravity alone should not break the joint when detachment is enabled.
     TOMATO_DETACHMENT_BREAK_FORCE_N = 50.0
     TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION = True
     # When the fixed joint is excluded, keep tomatoes outside the articulation

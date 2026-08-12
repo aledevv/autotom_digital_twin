@@ -76,6 +76,43 @@ def _branch_damping_ratio(branch_def: dict, use_truss_physics: bool = False):
     return None
 
 
+def _resolve_terminal_body_attachment(body: dict, stem_path: str):
+    """Resolve native detachment settings for one terminal body."""
+    detachment_enabled = (
+        TrussPhysicsConfig.TOMATO_DETACHMENT_ENABLED
+        and body.get("detachment_enabled", True)
+    )
+    if not detachment_enabled:
+        return detachment_enabled, None, False, stem_path
+
+    break_force = body.get(
+        "break_force",
+        TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N,
+    )
+    exclude_from_articulation = body.get(
+        "exclude_from_articulation",
+        TrussPhysicsConfig.TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION,
+    )
+    body_parent_path = body.get("parent_path")
+    if body_parent_path is None:
+        body_parent_path = (
+            getattr(
+                TrussPhysicsConfig,
+                "TOMATO_DETACHMENT_BODY_PARENT_PATH",
+                "/World/TerminalBodies",
+            )
+            if exclude_from_articulation
+            else stem_path
+        )
+
+    return (
+        detachment_enabled,
+        break_force,
+        exclude_from_articulation,
+        body_parent_path,
+    )
+
+
 def get_output_usd_path() -> str:
     """Get the default output path for generated USD file."""
     # Navigate from usd → exporterV2 → src → project_root
@@ -583,25 +620,12 @@ def build_stage(
         parent_link_path = parent_paths[-1]
         parent_base = parent_bases[-1]
         body_pos = parent_base + parent_axis * (parent_height + radius)
-        break_force = body.get(
-            "break_force",
-            TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N,
-        )
-        exclude_from_articulation = body.get(
-            "exclude_from_articulation",
-            TrussPhysicsConfig.TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION,
-        )
-        body_parent_path = body.get("parent_path")
-        if body_parent_path is None:
-            body_parent_path = (
-                getattr(
-                    TrussPhysicsConfig,
-                    "TOMATO_DETACHMENT_BODY_PARENT_PATH",
-                    "/World/TerminalBodies",
-                )
-                if exclude_from_articulation
-                else stem_path
-            )
+        (
+            detachment_enabled,
+            break_force,
+            exclude_from_articulation,
+            body_parent_path,
+        ) = _resolve_terminal_body_attachment(body, stem_path)
         if body_parent_path != stem_path:
             UsdGeom.Xform.Define(stage, body_parent_path)
 
@@ -637,6 +661,7 @@ def build_stage(
         print(
             f"[INFO] terminal body '{body['id']}': sphere r={radius:.3f}m, "
             f"parent='{parent_branch_id}', body_parent='{body_parent_path}', "
+            f"detachment={'enabled' if detachment_enabled else 'disabled'}, "
             f"break_force={break_force_label}"
         )
 

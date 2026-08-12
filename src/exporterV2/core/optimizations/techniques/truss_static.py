@@ -58,6 +58,10 @@ class TrussStaticTechnique(OptimizationTechnique):
     def _truss_id_from_pedicel(branch: dict) -> str:
         return branch["id"].split("_pedicel_", 1)[0]
 
+    @staticmethod
+    def _clamp_unit(value: float) -> float:
+        return min(max(value, 0.0), 1.0)
+
     def _dynamic_pedicel_groups(self, branches: List[dict]) -> Dict[str, List[dict]]:
         groups: Dict[str, List[dict]] = {}
         for branch in branches:
@@ -148,6 +152,34 @@ class TrussStaticTechnique(OptimizationTechnique):
             },
         )
 
+    def _remap_child_to_static_curve(
+        self,
+        child: dict,
+        old_rachis_id: str,
+        old_link_count: int,
+        curve_ids: List[str],
+    ) -> None:
+        """Move a child branch from the dynamic rachis onto the static curve."""
+        if child.get("parent") != old_rachis_id:
+            return
+
+        old_attach_link = int(child.get("attach_link", 1))
+        old_attach_frac = float(child.get("attach_frac", 1.0))
+        axial_fraction = (old_attach_link - 1 + old_attach_frac) / old_link_count
+        scaled_position = self._clamp_unit(axial_fraction) * self.curve_segments
+        curve_index = min(
+            max(math.ceil(scaled_position) - 1, 0),
+            self.curve_segments - 1,
+        )
+        local_fraction = scaled_position - curve_index
+
+        child["parent"] = curve_ids[curve_index]
+        child["attach_link"] = 1
+        child["attach_frac"] = self._clamp_unit(local_fraction)
+        if self._is_pedicel(child):
+            child["joint_type"] = "fixed"
+            child["tilt"] = float(child.get("tilt", 0.0)) + self.pedicel_droop_deg
+
     def _make_static_curve(self, branches: List[dict], rachis: dict) -> List[dict]:
         rachis_id = rachis["id"]
         old_link_count = int(rachis.get("n_links", 1))
@@ -190,24 +222,12 @@ class TrussStaticTechnique(OptimizationTechnique):
                 continue
 
             child = deepcopy(branch)
-            if child.get("parent") == rachis_id:
-                old_attach_link = int(child.get("attach_link", 1))
-                old_attach_frac = float(child.get("attach_frac", 1.0))
-                axial_fraction = (
-                    old_attach_link - 1 + old_attach_frac
-                ) / old_link_count
-                scaled_position = min(max(axial_fraction, 0.0), 1.0) * self.curve_segments
-                curve_index = min(
-                    max(math.ceil(scaled_position) - 1, 0),
-                    self.curve_segments - 1,
-                )
-                local_fraction = scaled_position - curve_index
-                child["parent"] = curve_ids[curve_index]
-                child["attach_link"] = 1
-                child["attach_frac"] = min(max(local_fraction, 0.0), 1.0)
-                if self._is_pedicel(child):
-                    child["joint_type"] = "fixed"
-                    child["tilt"] = float(child.get("tilt", 0.0)) + self.pedicel_droop_deg
+            self._remap_child_to_static_curve(
+                child,
+                rachis_id,
+                old_link_count,
+                curve_ids,
+            )
             modified.append(child)
 
         return modified

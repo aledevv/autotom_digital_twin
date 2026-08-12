@@ -308,11 +308,11 @@ def create_fixed_joint_to_tip(
     """
     Create FixedJoint attaching a rigid body (leaf node) to the tip of a parent link.
     
-    Used for tomatoes attached to pedicel tips, or other terminal bodies that should
-    not be part of the articulation chain but rigidly attached.
-    
-    Set exclude_from_articulation=True for detachable terminal bodies. This is
-    different from create_internal_joint_locked which is still part of the chain.
+    Used for tomatoes attached to pedicel tips, or other terminal bodies that are
+    rigidly attached to a branch tip. By default the joint remains part of the
+    articulation. When the experimental native detachment path is enabled,
+    ``break_force`` and ``exclude_from_articulation`` author the USD attributes
+    needed for PhysX breakable fixed joints.
     
     Args:
         stage: USD stage
@@ -325,8 +325,8 @@ def create_fixed_joint_to_tip(
         joint_name: USD prim name for the terminal body's fixed attachment.
         break_force: Optional USD joint break force threshold [N].
         break_torque: Optional USD joint break torque threshold [N*m].
-        exclude_from_articulation: Whether PhysX should keep this joint out of
-            the articulation chain.
+        exclude_from_articulation: Whether PhysX should keep this terminal fixed
+            joint out of the articulation chain when native detachment is enabled.
     
     Example:
         # Attach tomato sphere (radius=0.03m) to pedicel (height=0.01m)
