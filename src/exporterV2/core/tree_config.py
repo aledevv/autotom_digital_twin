@@ -40,7 +40,7 @@ Run standalone to verify physics:
 
 import math
 
-MAX_N_JOINTS = 200  # D6-joint budget for stable Isaac Sim runs
+MAX_N_JOINTS = 240  # D6-joint budget for stable Isaac Sim runs
 
 
 class PhysicsRuntimeConfig:
@@ -147,8 +147,55 @@ class TrussPhysicsConfig:
 
 
 # ==============================================================================
-# BRANCH LIST
+# PLANT COLORS
 # ==============================================================================
+
+class PlantColors:
+    """
+    Display colors for plant organs in Isaac Sim.
+    
+    All colors are (R, G, B) tuples in linear float [0.0, 1.0].
+    
+    Tomato color is computed at runtime via the ripening interpolation:
+        color = lerp(TOMATO_UNRIPE, TOMATO_RIPE, maturation)
+    where maturation ∈ [0.0, 1.0] from CSV fruit_age_dd / fruit_ripening_dd.
+    """
+
+    # Stems and lateral branches — light green
+    STEM = (0.30, 0.55, 0.18)
+
+    # Petiole and rachis — slightly darker green
+    PETIOLE = (0.25, 0.48, 0.15)
+
+    # Petiolules — same as petiole
+    PETIOLULE = (0.25, 0.48, 0.15)
+
+    # Leaf blades — deep dark green
+    LEAF_BLADE = (0.13, 0.38, 0.08)
+
+    # Truss rachis — olive green
+    TRUSS_RACHIS = (0.30, 0.42, 0.16)
+
+    # Pedicels — medium green
+    PEDICEL = (0.20, 0.55, 0.16)
+
+    # Tomato unripe color (maturation=0.0)
+    TOMATO_UNRIPE = (0.25, 0.65, 0.08)
+
+    # Tomato ripe color (maturation=1.0)
+    TOMATO_RIPE = (0.90, 0.17, 0.08)
+
+    @classmethod
+    def tomato_color(cls, maturation: float) -> tuple:
+        """Interpolate between TOMATO_UNRIPE and TOMATO_RIPE based on maturation [0..1]."""
+        t = max(0.0, min(1.0, maturation))
+        r = cls.TOMATO_UNRIPE[0] + t * (cls.TOMATO_RIPE[0] - cls.TOMATO_UNRIPE[0])
+        g = cls.TOMATO_UNRIPE[1] + t * (cls.TOMATO_RIPE[1] - cls.TOMATO_UNRIPE[1])
+        b = cls.TOMATO_UNRIPE[2] + t * (cls.TOMATO_RIPE[2] - cls.TOMATO_UNRIPE[2])
+        return (r, g, b)
+
+
+
 
 BRANCHES = [
     {

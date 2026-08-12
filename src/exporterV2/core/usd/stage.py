@@ -19,14 +19,14 @@ if __name__ == "__main__" or "exporterV2" not in sys.modules:
         GLOBAL_SCALE, BRANCHES, GAP,
         compute_mass, calculate_physics_params, calculate_truss_physics_params, scaled,
         validate_branches, compute_flexural_rigidity, compute_hinge_stiffness_rad,
-        BioConfig, TrussPhysicsConfig, PhysicsRuntimeConfig
+        BioConfig, TrussPhysicsConfig, PhysicsRuntimeConfig, PlantColors
     )
 else:
     from ..tree_config import (
         GLOBAL_SCALE, BRANCHES, GAP,
         compute_mass, calculate_physics_params, calculate_truss_physics_params, scaled,
         validate_branches, compute_flexural_rigidity, compute_hinge_stiffness_rad,
-        BioConfig, TrussPhysicsConfig, PhysicsRuntimeConfig
+        BioConfig, TrussPhysicsConfig, PhysicsRuntimeConfig, PlantColors
     )
 
 from .geometry import create_rigid_segment, create_sphere_rigid_body
@@ -378,11 +378,28 @@ def build_chain(
 
     for i in range(n_links):
         link_name = f"{bid}_Link_{i + 1:02d}"
+        
+        # Determine link color from branch kind/id
+        branch_kind = branch_def.get("kind", "")
+        bid_lower = bid.lower()
+        if branch_kind == "pedicel" or "pedicel" in bid_lower:
+            link_color = PlantColors.PEDICEL
+        elif branch_kind in ("truss_rachis", "rachis") or "rachis" in bid_lower:
+            link_color = PlantColors.TRUSS_RACHIS
+        elif branch_kind == "petiolule" or "petiolule" in bid_lower:
+            link_color = PlantColors.PETIOLULE
+        elif branch_kind == "petiole" or "petiole" in bid_lower:
+            link_color = PlantColors.PETIOLE
+        else:
+            # Trunk, lateral branches, etc.
+            link_color = PlantColors.STEM
+        
         link_path = create_rigid_segment(
             stage, stem_path, link_name,
             r_world, h_world, cur_pos, mass,
             orientation=chain_orientation,
             collision_enabled=branch_def.get("collision_enabled", True),
+            color=link_color,
         )
 
         if prev_link is None:
@@ -596,7 +613,7 @@ def build_stage(
 
     for body in terminal_bodies:
         shape = body.get("shape", "sphere")
-        if shape != "sphere":
+        if shape not in ("sphere", "mesh"):
             print(f"[WARNING] Skipping terminal body '{body.get('id')}' with unsupported shape '{shape}'")
             continue
 
@@ -608,18 +625,28 @@ def build_stage(
             )
             continue
 
-        radius = scaled(body["radius"])
-        mass = body["mass"]
-        if radius <= 0.0 or mass <= 0.0:
-            print(f"[WARNING] Skipping terminal body '{body.get('id')}' with invalid radius or mass")
-            continue
+        mass = body.get("mass", 0.0)
+        
+        if shape == "sphere":
+            radius = scaled(body.get("radius", 0.0))
+            if radius <= 0.0 or mass <= 0.0:
+                print(f"[WARNING] Skipping terminal body '{body.get('id')}' with invalid radius or mass")
+                continue
+            child_offset = radius
+        else:
+            # For mesh
+            if mass <= 0.0:
+                print(f"[WARNING] Skipping terminal body '{body.get('id')}' with invalid mass")
+                continue
+            # For meshes, we attach at the parent link's tip without extra offset
+            child_offset = 0.0
 
         parent_paths, parent_bases, parent_axis, parent_orientation = branch_registry[parent_branch_id]
         parent_def = branch_defs[parent_branch_id]
         parent_height = scaled(parent_def["height"])
         parent_link_path = parent_paths[-1]
         parent_base = parent_bases[-1]
-        body_pos = parent_base + parent_axis * (parent_height + radius)
+        body_pos = parent_base + parent_axis * (parent_height + child_offset)
         (
             detachment_enabled,
             break_force,
@@ -629,41 +656,81 @@ def build_stage(
         if body_parent_path != stem_path:
             UsdGeom.Xform.Define(stage, body_parent_path)
 
-        body_path = create_sphere_rigid_body(
-            stage,
-            body_parent_path,
-            body["id"],
-            radius,
-            body_pos,
-            mass,
-            orientation=parent_orientation,
-        )
-        create_fixed_joint_to_tip(
+        if shape == "sphere":
+            # Compute tomato color from maturation
+            maturation = body.get("maturation", 0.0)
+            tomato_color = PlantColors.tomato_color(maturation)
+            body_path = create_sphere_rigid_body(
+                stage,
+                body_parent_path,
+                body["id"],
+                radius,
+                body_pos,
+                mass,
+                orientation=parent_orientation,
+                color=tomato_color,
+            )
+        else:
+            # shape == "mesh"
+            points = body.get("points", [])
+            indices = body.get("indices", [])
+            face_vertex_counts = body.get("face_vertex_counts", [])
+            
+            from exporterV2.core.usd.geometry import create_static_mesh
+            import math as _math
+            
+            roll_deg = body.get("roll", 0.0)
+            if roll_deg != 0.0:
+                half = _math.radians(roll_deg) / 2.0
+                local_rot = Gf.Quatf(_math.cos(half), Gf.Vec3f(0.0, 0.0, _math.sin(half)))
+            else:
+                local_rot = None
+            
+            body_path = create_static_mesh(
+                stage,
+                parent_link_path,
+                body["id"],
+                points=points,
+                indices=indices,
+                face_vertex_counts=face_vertex_counts,
+                local_pos=Gf.Vec3d(0, 0, parent_height),
+                local_rot=local_rot,
+                color=PlantColors.LEAF_BLADE,
+            )
+            
+        if shape == "sphere":
+            create_fixed_joint_to_tip(
             stage,
             parent_link_path,
             body_path,
             parent_height=parent_height,
-            child_offset=radius,
+            child_offset=child_offset,
             joint_name="TerminalBodyFixedJoint",
             break_force=break_force,
             exclude_from_articulation=exclude_from_articulation,
         )
 
-        terminal_body_records.append({
-            "id": body["id"],
-            "path": body_path,
-            "parent_branch_id": parent_branch_id,
-            "pos": (body_pos[0], body_pos[1], body_pos[2]),
-            "radius": radius,
-        })
+        if shape == "sphere":
+            terminal_body_records.append({
+                "id": body["id"],
+                "path": body_path,
+                "parent_branch_id": parent_branch_id,
+                "pos": (body_pos[0], body_pos[1], body_pos[2]),
+                "radius": radius,
+            })
 
-        break_force_label = "disabled" if break_force is None else f"{break_force:.2f}N"
-        print(
-            f"[INFO] terminal body '{body['id']}': sphere r={radius:.3f}m, "
-            f"parent='{parent_branch_id}', body_parent='{body_parent_path}', "
-            f"detachment={'enabled' if detachment_enabled else 'disabled'}, "
-            f"break_force={break_force_label}"
-        )
+            break_force_label = "disabled" if break_force is None else f"{break_force:.2f}N"
+            print(
+                f"[INFO] terminal body '{body['id']}': sphere r={radius:.3f}m, "
+                f"parent='{parent_branch_id}', body_parent='{body_parent_path}', "
+                f"detachment={'enabled' if detachment_enabled else 'disabled'}, "
+                f"break_force={break_force_label}"
+            )
+        else:
+            print(
+                f"[INFO] terminal body '{body['id']}': mesh, "
+                f"parent='{parent_branch_id}', body_parent='{body_parent_path}'"
+            )
 
     validate_terminal_body_clearance(
         terminal_body_records,

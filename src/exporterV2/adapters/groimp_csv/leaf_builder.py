@@ -181,7 +181,42 @@ def leaf_to_petiole_rachis_branches(
     return branches
 
 
-def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: float) -> List[Dict]:
+def _generate_leaf_mesh_data(hw: float, L: float) -> dict:
+    import math
+    points = [[0.0, 0.0, 0.0]]  # 0: base (attachment)
+    
+    n_side = 8
+    # Right side (CCW: base to tip)
+    for i in range(1, n_side):
+        t = i / n_side
+        z = L * t
+        x = hw * math.sin(math.pi * t) * (1.2 - 0.4 * t)
+        points.append([x, 0.0, z])
+        
+    points.append([0.0, 0.0, L])  # Tip
+    
+    # Left side (CCW: tip back to base)
+    for i in range(n_side - 1, 0, -1):
+        t = i / n_side
+        z = L * t
+        x = hw * math.sin(math.pi * t) * (1.2 - 0.4 * t)
+        points.append([-x, 0.0, z])
+
+    num_triangles = len(points) - 2
+    face_vertex_counts = [3] * num_triangles
+    
+    indices = []
+    for i in range(1, len(points) - 1):
+        indices.extend([0, i, i + 1])
+        
+    return {
+        "points": points,
+        "face_vertex_counts": face_vertex_counts,
+        "indices": indices
+    }
+
+
+def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: float) -> tuple[List[Dict], List[Dict]]:
     """
     Create lateral petiolule branches (pairs) along the rachis.
     
@@ -194,7 +229,9 @@ def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: f
         petiole_radius: Radius of petiole (pre-scale) for scaling petiolule radius
     
     Returns:
-        List of petiolule branch dicts (2 per lateral pair)
+        Tuple (branches, terminal_bodies):
+            branches: List of petiolule branch dicts (2 per lateral pair)
+            terminal_bodies: List of leaf blade mesh dicts (2 per lateral pair)
     """
     # Import tree_config for clamping
     import importlib.util
@@ -211,7 +248,7 @@ def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: f
     lateral_pairs = blades_nr - 1  # Last blade is terminal
     
     if lateral_pairs <= 0:
-        return []  # No lateral blades
+        return [], []  # No lateral blades
     
     # Calculate petiolule radius (40% of petiole)
     petiolule_r_prescale = petiole_radius * 0.4
@@ -223,13 +260,30 @@ def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: f
     # Get inclination angles (default 90° if not in CSV)
     inclination_array = leaf_dict["inclination_segments"]
     
+    # Get area arrays
+    area_array = leaf_dict.get("area_m2blades", [])
+    area_blades_total = leaf_dict.get("area_blades_total", 0.0)
+    
     # Petiolule fixed length: 1cm
     petiolule_length = 0.01
     
     branches = []
+    terminal_bodies = []
+    
+    import math
     
     # Create pairs
     for j in range(lateral_pairs):
+        # Calculate area/length for this pair
+        pair_area = area_array[j] if j < len(area_array) else (area_blades_total / blades_nr)
+        lat_area = pair_area / 2.0
+        lat_length = math.sqrt(lat_area / 0.6) if lat_area > 0 else 0.0
+        lat_width = lat_length * 0.6
+        
+        hw = lat_width / 2.0
+        L = lat_length
+        mesh_data = _generate_leaf_mesh_data(hw, L) if L > 0 else None
+        
         # Determine which link of the rachis to attach to (1-based)
         # Distribute evenly: if rachis has N links, pair j attaches to link (j+1)
         attach_link_idx = j + 1  # 1-based: first pair on link 1, second on link 2, etc.
@@ -240,9 +294,12 @@ def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: f
         else:
             inclination = 90.0  # Default perpendicular
         
+        left_id = f"{rachis_id}_petiolule_lat_{j}_left"
+        right_id = f"{rachis_id}_petiolule_lat_{j}_right"
+        
         # Create left petiolule
         branches.append({
-            "id": f"{rachis_id}_petiolule_lat_{j}_left",
+            "id": left_id,
             "parent": rachis_id,
             "attach_link": attach_link_idx,
             "n_links": 1,
@@ -252,9 +309,20 @@ def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: f
             "rot": 90.0,  # Left = +90° from rachis direction
         })
         
+        if mesh_data:
+            terminal_bodies.append({
+                "id": f"{left_id}_blade",
+                "kind": "leaf_blade",
+                "shape": "mesh",
+                "parent_branch_id": left_id,
+                "mass": 0.005,  # 5g
+                "roll": 90.0,  # Rotate 90° around local Z to align with branch plane
+                **mesh_data
+            })
+        
         # Create right petiolule
         branches.append({
-            "id": f"{rachis_id}_petiolule_lat_{j}_right",
+            "id": right_id,
             "parent": rachis_id,
             "attach_link": attach_link_idx,
             "n_links": 1,
@@ -263,11 +331,22 @@ def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: f
             "tilt": inclination,
             "rot": 270.0,  # Right = -90° (or 270°) from rachis direction
         })
+        
+        if mesh_data:
+            terminal_bodies.append({
+                "id": f"{right_id}_blade",
+                "kind": "leaf_blade",
+                "shape": "mesh",
+                "parent_branch_id": right_id,
+                "mass": 0.005,  # 5g
+                "roll": 90.0,  # Rotate 90° around local Z to align with branch plane
+                **mesh_data
+            })
     
-    return branches
+    return branches, terminal_bodies
 
 
-def create_terminal_petiolule(rachis_id: str, rachis_n_links: int, petiole_radius: float, rank: int, organ_index: int) -> Dict:
+def create_terminal_petiolule(rachis_id: str, rachis_n_links: int, petiole_radius: float, leaf_dict: Dict) -> tuple[Dict, Dict]:
     """
     Create terminal petiolule branch at the end of rachis.
     
@@ -277,11 +356,12 @@ def create_terminal_petiolule(rachis_id: str, rachis_n_links: int, petiole_radiu
         rachis_id: ID of parent rachis branch
         rachis_n_links: Number of links in the rachis
         petiole_radius: Radius of petiole (pre-scale) for scaling petiolule radius
-        rank: Leaf rank (for warning messages)
-        organ_index: Leaf organ_index (for warning messages)
+        leaf_dict: Leaf dictionary containing area parameters and metadata
     
     Returns:
-        Terminal petiolule branch dict
+        Tuple (branch, terminal_body):
+            branch: Terminal petiolule branch dict
+            terminal_body: Leaf blade mesh dict
     """
     # Import tree_config for clamping
     import importlib.util
@@ -292,6 +372,9 @@ def create_terminal_petiolule(rachis_id: str, rachis_n_links: int, petiole_radiu
     
     clamp_radius = tree_config.clamp_radius
     
+    rank = leaf_dict.get("rank", 0)
+    organ_index = leaf_dict.get("organ_index", 0)
+    
     # Calculate petiolule radius (40% of petiole)
     petiolule_r_prescale = petiole_radius * 0.4
     petiolule_r, clamped = clamp_radius(petiolule_r_prescale)
@@ -299,11 +382,28 @@ def create_terminal_petiolule(rachis_id: str, rachis_n_links: int, petiole_radiu
     if clamped:
         print(f"[WARNING] Leaf rank={rank} organ_index={organ_index} terminal petiolule radius clamped")
     
+    # Calculate dimensions
+    blades_nr = leaf_dict.get("blades_nr", 1)
+    area_array = leaf_dict.get("area_m2blades", [])
+    area_blades_total = leaf_dict.get("area_blades_total", 0.0)
+    
+    terminal_area = area_array[-1] if len(area_array) >= blades_nr else (area_blades_total / blades_nr if blades_nr > 0 else 4e-4)
+    
+    import math
+    terminal_length = math.sqrt(terminal_area / 0.6) if terminal_area > 0 else 0.0
+    terminal_width = terminal_length * 0.6
+    
+    hw = terminal_width / 2.0
+    L = terminal_length
+    mesh_data = _generate_leaf_mesh_data(hw, L) if L > 0 else None
+    
     # Petiolule fixed length: 1cm
     petiolule_length = 0.01
     
-    return {
-        "id": f"{rachis_id}_petiolule_term",
+    term_id = f"{rachis_id}_petiolule_term"
+    
+    branch = {
+        "id": term_id,
         "parent": rachis_id,
         "attach_link": rachis_n_links,  # Last link of rachis
         "n_links": 1,
@@ -312,3 +412,15 @@ def create_terminal_petiolule(rachis_id: str, rachis_n_links: int, petiole_radiu
         "tilt": 0.0,  # Aligned with rachis
         "rot": 0.0,
     }
+    
+    terminal_body = {
+        "id": f"{term_id}_blade",
+        "kind": "leaf_blade",
+        "shape": "mesh",
+        "parent_branch_id": term_id,
+        "mass": 0.005,  # 5g
+    }
+    if mesh_data:
+        terminal_body.update(mesh_data)
+        
+    return branch, terminal_body

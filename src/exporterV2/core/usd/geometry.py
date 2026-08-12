@@ -17,6 +17,7 @@ def create_rigid_segment(
     mass: float,
     orientation: Gf.Quatf = None,
     collision_enabled: bool = True,
+    color: tuple = None,
 ) -> str:
     """
     Create one rigid cylinder link directly under stem_path.
@@ -30,6 +31,7 @@ def create_rigid_segment(
         world_pos: World-space position
         mass: Link mass [kg]
         orientation: Optional world-space orientation (None = identity)
+        color: Optional (R, G, B) display color tuple
 
     Returns:
         USD path of the created link
@@ -52,6 +54,8 @@ def create_rigid_segment(
     cyl.GetHeightAttr().Set(height)
     cyl.GetAxisAttr().Set("Z")
     cyl.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, height / 2.0))
+    if color is not None:
+        UsdGeom.Gprim(cyl.GetPrim()).CreateDisplayColorAttr().Set([color])
 
     if collision_enabled:
         UsdPhysics.CollisionAPI.Apply(cyl.GetPrim())
@@ -67,6 +71,7 @@ def create_sphere_rigid_body(
     world_pos: Gf.Vec3d,
     mass: float,
     orientation: Gf.Quatf = None,
+    color: tuple = None,
 ) -> str:
     """
     Create one rigid sphere body directly under parent_path.
@@ -82,6 +87,7 @@ def create_sphere_rigid_body(
         world_pos: World-space position (center of sphere)
         mass: Sphere mass [kg]
         orientation: Optional world-space orientation (None = identity)
+        color: Optional (R, G, B) display color tuple
 
     Returns:
         USD path of the created sphere
@@ -101,8 +107,59 @@ def create_sphere_rigid_body(
 
     sphere = UsdGeom.Sphere.Define(stage, f"{sphere_path}/Sphere")
     sphere.GetRadiusAttr().Set(radius)
-    # Sphere doesn't need translation offset (already centered at xform position)
-
+    if color is not None:
+        UsdGeom.Gprim(sphere.GetPrim()).CreateDisplayColorAttr().Set([color])
     UsdPhysics.CollisionAPI.Apply(sphere.GetPrim())
 
     return sphere_path
+
+
+def create_static_mesh(
+    stage,
+    parent_path: str,
+    mesh_name: str,
+    points: list,
+    indices: list,
+    face_vertex_counts: list,
+    local_pos: Gf.Vec3d = Gf.Vec3d(0.0, 0.0, 0.0),
+    local_rot: Gf.Quatf = None,
+    color: tuple = None,
+) -> str:
+    """
+    Creates a static mesh child attached to an existing prim (e.g. a rigid body link).
+    
+    Args:
+        stage: USD stage
+        parent_path: Path to the parent Xform (must exist)
+        mesh_name: Name of the mesh prim
+        points: List of [x, y, z] points
+        indices: List of vertex indices
+        face_vertex_counts: List of vertex counts per face
+        local_pos: Local translation
+        local_rot: Local rotation
+        color: Optional (R, G, B) display color tuple
+        
+    Returns:
+        USD path of the created mesh
+    """
+    mesh_path = f"{parent_path}/{mesh_name}"
+    
+    mesh = UsdGeom.Mesh.Define(stage, mesh_path)
+    mesh.GetPointsAttr().Set([Gf.Vec3f(*p) for p in points])
+    mesh.GetFaceVertexIndicesAttr().Set(indices)
+    mesh.GetFaceVertexCountsAttr().Set(face_vertex_counts)
+    mesh.GetSubdivisionSchemeAttr().Set("none")
+    
+    # Add transform ops
+    mesh.AddTranslateOp().Set(local_pos)
+    if local_rot is not None:
+        mesh.AddOrientOp().Set(local_rot)
+    
+    if color is not None:
+        UsdGeom.Gprim(mesh.GetPrim()).CreateDisplayColorAttr().Set([color])
+        
+    # Apply collision so it contributes to the parent's rigid body
+    UsdPhysics.CollisionAPI.Apply(mesh.GetPrim())
+    UsdPhysics.MeshCollisionAPI.Apply(mesh.GetPrim()).GetApproximationAttr().Set("convexHull")
+    
+    return mesh_path

@@ -457,21 +457,30 @@ def load_leaves(csv_path: str, day: int, plant_id: int = 1, order: int = 0) -> L
     
     # Group by rank to find opposite pairs
     leaves_by_rank = defaultdict(list)
-    
+    import math
+    def _safe_float(val, default=0.0):
+        try:
+            f = float(val)
+            return default if math.isnan(f) else f
+        except (ValueError, TypeError):
+            return default
+
     for _, row in leaf_df.iterrows():
         leaf_data = {
             "rank": int(row["rank"]),
             "organ_index": int(row["organ_index"]),
             "parent_rank": int(row["parent_rank"]),
             "order": int(row["order"]),
-            "length_petiole": float(row["leaf_length_petiole"]),
-            "diameter_petiole": float(row["leaf_diameter_petiole"]),
-            "angle_petiole": float(row["leaf_angle_petiole"]),
-            "ccw_orientation": float(row["leaf_ccw_orientation"]),
-            "rachis_length": float(row["leaf_rachis_length"]),
+            "length_petiole": _safe_float(row["leaf_length_petiole"]),
+            "diameter_petiole": _safe_float(row["leaf_diameter_petiole"]),
+            "angle_petiole": _safe_float(row["leaf_angle_petiole"], 90.0),
+            "ccw_orientation": _safe_float(row["leaf_ccw_orientation"]),
+            "rachis_length": _safe_float(row["leaf_rachis_length"]),
             "blades_nr": int(row["leaf_blades_nr"]),
             "segments_length": _parse_float_array(row["leaf_segments_length"]),
             "inclination_segments": _parse_float_array(row["leaf_inclination_segments"]),
+            "area_m2blades": _parse_float_array(row["leaf_area_m2blades"]),
+            "area_blades_total": _safe_float(row.get("leaf_area_blades_total", 0.0)),
         }
         leaves_by_rank[leaf_data["rank"]].append(leaf_data)
     
@@ -958,18 +967,19 @@ def parse_csv_to_branches(
                 
                 # Lateral petiolules
                 if generation_settings["petiolules"]:
-                    laterals = create_lateral_petiolules(leaf, rachis_branch["id"], petiole_r)
+                    laterals, lat_bodies = create_lateral_petiolules(leaf, rachis_branch["id"], petiole_r)
                     all_branches.extend(laterals)
+                    terminal_bodies.extend(lat_bodies)
 
                     # Terminal petiolule
-                    terminal = create_terminal_petiolule(
+                    terminal, term_body = create_terminal_petiolule(
                         rachis_branch["id"],
                         rachis_branch["n_links"],
                         petiole_r,
-                        leaf["rank"],
-                        leaf["organ_index"]
+                        leaf
                     )
                     all_branches.append(terminal)
+                    terminal_bodies.append(term_body)
     
     # Load lateral branch leaves (order=1)
     if lateral_branch_map and generation_settings["lateral_leaves"]:
@@ -1006,18 +1016,19 @@ def parse_csv_to_branches(
                     
                     # Lateral petiolules
                     if generation_settings["petiolules"]:
-                        laterals = create_lateral_petiolules(leaf, rachis_branch["id"], petiole_r)
+                        laterals, lat_bodies = create_lateral_petiolules(leaf, rachis_branch["id"], petiole_r)
                         all_branches.extend(laterals)
+                        terminal_bodies.extend(lat_bodies)
 
                         # Terminal petiolule
-                        terminal = create_terminal_petiolule(
+                        terminal, term_body = create_terminal_petiolule(
                             rachis_branch["id"],
                             rachis_branch["n_links"],
                             petiole_r,
-                            leaf["rank"],
-                            leaf["organ_index"]
+                            leaf
                         )
                         all_branches.append(terminal)
+                        terminal_bodies.append(term_body)
     elif lateral_branch_map:
         print("[CONFIG] Skipping lateral leaf systems")
 

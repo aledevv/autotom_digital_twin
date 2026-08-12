@@ -1,6 +1,8 @@
 #usda 1.0
 (
     defaultPrim = "World"
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
     upAxis = "Z"
 )
 
@@ -12,8 +14,8 @@ def Xform "World"
     {
         bool physxArticulation:enabledSelfCollisions = 0
         float physxArticulation:sleepThreshold = 0
-        int physxArticulation:solverPositionIterationCount = 64
-        int physxArticulation:solverVelocityIterationCount = 8
+        int physxArticulation:solverPositionIterationCount = 32
+        int physxArticulation:solverVelocityIterationCount = 4
 
         def Xform "trunk_Link_01" (
             prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
@@ -62,30 +64,8 @@ def Xform "World"
                 uniform token[] xformOpOrder = ["xformOp:translate"]
             }
 
-            def PhysicsJoint "Joint_01_02" (
-                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
-            )
+            def PhysicsFixedJoint "Joint_01_02"
             {
-                float drive:rotX:physics:damping = 0.000003864115
-                float drive:rotX:physics:stiffness = 0.055394482
-                float drive:rotX:physics:targetPosition = 0
-                uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 0.000003864115
-                float drive:rotY:physics:stiffness = 0.055394482
-                float drive:rotY:physics:targetPosition = 0
-                uniform token drive:rotY:physics:type = "force"
-                float limit:rotX:physics:high = 30
-                float limit:rotX:physics:low = -30
-                float limit:rotY:physics:high = 30
-                float limit:rotY:physics:low = -30
-                float limit:rotZ:physics:high = -1
-                float limit:rotZ:physics:low = 1
-                float limit:transX:physics:high = -1
-                float limit:transX:physics:low = 1
-                float limit:transY:physics:high = -1
-                float limit:transY:physics:low = 1
-                float limit:transZ:physics:high = -1
-                float limit:transZ:physics:low = 1
                 rel physics:body0 = </World/Stem/trunk_Link_01>
                 rel physics:body1 = </World/Stem/trunk_Link_02>
                 point3f physics:localPos0 = (0, 0, 0.016030751)
@@ -116,30 +96,8 @@ def Xform "World"
                 uniform token[] xformOpOrder = ["xformOp:translate"]
             }
 
-            def PhysicsJoint "Joint_02_03" (
-                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
-            )
+            def PhysicsFixedJoint "Joint_02_03"
             {
-                float drive:rotX:physics:damping = 0.000003864115
-                float drive:rotX:physics:stiffness = 0.055394482
-                float drive:rotX:physics:targetPosition = 0
-                uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 0.000003864115
-                float drive:rotY:physics:stiffness = 0.055394482
-                float drive:rotY:physics:targetPosition = 0
-                uniform token drive:rotY:physics:type = "force"
-                float limit:rotX:physics:high = 30
-                float limit:rotX:physics:low = -30
-                float limit:rotY:physics:high = 30
-                float limit:rotY:physics:low = -30
-                float limit:rotZ:physics:high = -1
-                float limit:rotZ:physics:low = 1
-                float limit:transX:physics:high = -1
-                float limit:transX:physics:low = 1
-                float limit:transY:physics:high = -1
-                float limit:transY:physics:low = 1
-                float limit:transZ:physics:high = -1
-                float limit:transZ:physics:low = 1
                 rel physics:body0 = </World/Stem/trunk_Link_02>
                 rel physics:body1 = </World/Stem/trunk_Link_03>
                 point3f physics:localPos0 = (0, 0, 0.016030751)
@@ -179,12 +137,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 0.0000013844526
-                float drive:rotX:physics:stiffness = 0.0068694702
+                float drive:rotX:physics:damping = 0.0000020468938
+                float drive:rotX:physics:stiffness = 0.0037538016
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 0.0000013844526
-                float drive:rotY:physics:stiffness = 0.0068694702
+                float drive:rotY:physics:damping = 0.0000020468938
+                float drive:rotY:physics:stiffness = 0.0037538016
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -238,12 +196,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 0.0000013844526
-                float drive:rotX:physics:stiffness = 0.0068694702
+                float drive:rotX:physics:damping = 0.0000020468938
+                float drive:rotX:physics:stiffness = 0.0037538016
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 0.0000013844526
-                float drive:rotY:physics:stiffness = 0.0068694702
+                float drive:rotY:physics:damping = 0.0000020468938
+                float drive:rotY:physics:stiffness = 0.0037538016
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -297,12 +255,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 0.000005222794
-                float drive:rotX:physics:stiffness = 0.016269006
+                float drive:rotX:physics:damping = 0.000007597062
+                float drive:rotX:physics:stiffness = 0.008605186
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 0.000005222794
-                float drive:rotY:physics:stiffness = 0.016269006
+                float drive:rotY:physics:damping = 0.000007597062
+                float drive:rotY:physics:stiffness = 0.008605186
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -352,12 +310,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 0.000001495492
-                float drive:rotX:physics:stiffness = 0.001586683
+                float drive:rotX:physics:damping = 0.0000021365522
+                float drive:rotX:physics:stiffness = 0.00080958527
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 0.000001495492
-                float drive:rotY:physics:stiffness = 0.001586683
+                float drive:rotY:physics:damping = 0.0000021365522
+                float drive:rotY:physics:stiffness = 0.00080958527
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -411,12 +369,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 3.8129156e-7
-                float drive:rotX:physics:stiffness = 0.0027415568
+                float drive:rotX:physics:damping = 3.4552846e-7
+                float drive:rotX:physics:stiffness = 0.000562813
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 3.8129156e-7
-                float drive:rotY:physics:stiffness = 0.0027415568
+                float drive:rotY:physics:damping = 3.4552846e-7
+                float drive:rotY:physics:stiffness = 0.000562813
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -470,12 +428,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 3.8129156e-7
-                float drive:rotX:physics:stiffness = 0.0027415568
+                float drive:rotX:physics:damping = 3.4552846e-7
+                float drive:rotX:physics:stiffness = 0.000562813
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 3.8129156e-7
-                float drive:rotY:physics:stiffness = 0.0027415568
+                float drive:rotY:physics:damping = 3.4552846e-7
+                float drive:rotY:physics:stiffness = 0.000562813
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -529,12 +487,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 3.8129156e-7
-                float drive:rotX:physics:stiffness = 0.0027415568
+                float drive:rotX:physics:damping = 3.4552846e-7
+                float drive:rotX:physics:stiffness = 0.000562813
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 3.8129156e-7
-                float drive:rotY:physics:stiffness = 0.0027415568
+                float drive:rotY:physics:damping = 3.4552846e-7
+                float drive:rotY:physics:stiffness = 0.000562813
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -588,12 +546,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 0.000005222794
-                float drive:rotX:physics:stiffness = 0.016269006
+                float drive:rotX:physics:damping = 0.000007597062
+                float drive:rotX:physics:stiffness = 0.008605186
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 0.000005222794
-                float drive:rotY:physics:stiffness = 0.016269006
+                float drive:rotY:physics:damping = 0.000007597062
+                float drive:rotY:physics:stiffness = 0.008605186
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -643,12 +601,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 0.000001495492
-                float drive:rotX:physics:stiffness = 0.001586683
+                float drive:rotX:physics:damping = 0.0000021365522
+                float drive:rotX:physics:stiffness = 0.00080958527
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 0.000001495492
-                float drive:rotY:physics:stiffness = 0.001586683
+                float drive:rotY:physics:damping = 0.0000021365522
+                float drive:rotY:physics:stiffness = 0.00080958527
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -702,12 +660,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 3.8129156e-7
-                float drive:rotX:physics:stiffness = 0.0027415568
+                float drive:rotX:physics:damping = 3.4552846e-7
+                float drive:rotX:physics:stiffness = 0.000562813
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 3.8129156e-7
-                float drive:rotY:physics:stiffness = 0.0027415568
+                float drive:rotY:physics:damping = 3.4552846e-7
+                float drive:rotY:physics:stiffness = 0.000562813
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -761,12 +719,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 3.8129156e-7
-                float drive:rotX:physics:stiffness = 0.0027415568
+                float drive:rotX:physics:damping = 3.4552846e-7
+                float drive:rotX:physics:stiffness = 0.000562813
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 3.8129156e-7
-                float drive:rotY:physics:stiffness = 0.0027415568
+                float drive:rotY:physics:damping = 3.4552846e-7
+                float drive:rotY:physics:stiffness = 0.000562813
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -820,12 +778,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 3.8129156e-7
-                float drive:rotX:physics:stiffness = 0.0027415568
+                float drive:rotX:physics:damping = 3.4552846e-7
+                float drive:rotX:physics:stiffness = 0.000562813
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 3.8129156e-7
-                float drive:rotY:physics:stiffness = 0.0027415568
+                float drive:rotY:physics:damping = 3.4552846e-7
+                float drive:rotY:physics:stiffness = 0.000562813
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -875,12 +833,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 0.0000012328121
-                float drive:rotX:physics:stiffness = 0.006370985
+                float drive:rotX:physics:damping = 0.0000018242981
+                float drive:rotX:physics:stiffness = 0.0034875306
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 0.0000012328121
-                float drive:rotY:physics:stiffness = 0.006370985
+                float drive:rotY:physics:damping = 0.0000018242981
+                float drive:rotY:physics:stiffness = 0.0034875306
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -930,12 +888,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 5.730823e-7
-                float drive:rotX:physics:stiffness = 0.0018202526
+                float drive:rotX:physics:damping = 7.5645437e-7
+                float drive:rotX:physics:stiffness = 0.0007928239
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 5.730823e-7
-                float drive:rotY:physics:stiffness = 0.0018202526
+                float drive:rotY:physics:damping = 7.5645437e-7
+                float drive:rotY:physics:stiffness = 0.0007928239
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -985,12 +943,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 2.56298e-7
-                float drive:rotX:physics:stiffness = 0.00036405053
+                float drive:rotX:physics:damping = 6.065117e-7
+                float drive:rotX:physics:stiffness = 0.0005096707
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 2.56298e-7
-                float drive:rotY:physics:stiffness = 0.00036405053
+                float drive:rotY:physics:damping = 6.065117e-7
+                float drive:rotY:physics:stiffness = 0.0005096707
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -1044,12 +1002,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 3.8129156e-7
-                float drive:rotX:physics:stiffness = 0.0027415568
+                float drive:rotX:physics:damping = 3.604887e-7
+                float drive:rotX:physics:stiffness = 0.00061260397
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 3.8129156e-7
-                float drive:rotY:physics:stiffness = 0.0027415568
+                float drive:rotY:physics:damping = 3.604887e-7
+                float drive:rotY:physics:stiffness = 0.00061260397
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -1103,12 +1061,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 3.8129156e-7
-                float drive:rotX:physics:stiffness = 0.0027415568
+                float drive:rotX:physics:damping = 3.604887e-7
+                float drive:rotX:physics:stiffness = 0.00061260397
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 3.8129156e-7
-                float drive:rotY:physics:stiffness = 0.0027415568
+                float drive:rotY:physics:damping = 3.604887e-7
+                float drive:rotY:physics:stiffness = 0.00061260397
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -1162,12 +1120,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 3.8129156e-7
-                float drive:rotX:physics:stiffness = 0.0027415568
+                float drive:rotX:physics:damping = 3.604887e-7
+                float drive:rotX:physics:stiffness = 0.00061260397
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 3.8129156e-7
-                float drive:rotY:physics:stiffness = 0.0027415568
+                float drive:rotY:physics:damping = 3.604887e-7
+                float drive:rotY:physics:stiffness = 0.00061260397
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -1221,12 +1179,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 3.8129156e-7
-                float drive:rotX:physics:stiffness = 0.0027415568
+                float drive:rotX:physics:damping = 3.604887e-7
+                float drive:rotX:physics:stiffness = 0.00061260397
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 3.8129156e-7
-                float drive:rotY:physics:stiffness = 0.0027415568
+                float drive:rotY:physics:damping = 3.604887e-7
+                float drive:rotY:physics:stiffness = 0.00061260397
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -1280,12 +1238,12 @@ def Xform "World"
                 prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
             )
             {
-                float drive:rotX:physics:damping = 3.8129156e-7
-                float drive:rotX:physics:stiffness = 0.0027415568
+                float drive:rotX:physics:damping = 3.604887e-7
+                float drive:rotX:physics:stiffness = 0.00061260397
                 float drive:rotX:physics:targetPosition = 0
                 uniform token drive:rotX:physics:type = "force"
-                float drive:rotY:physics:damping = 3.8129156e-7
-                float drive:rotY:physics:stiffness = 0.0027415568
+                float drive:rotY:physics:damping = 3.604887e-7
+                float drive:rotY:physics:stiffness = 0.00061260397
                 float drive:rotY:physics:targetPosition = 0
                 uniform token drive:rotY:physics:type = "force"
                 float limit:rotX:physics:high = 30
@@ -1304,6 +1262,369 @@ def Xform "World"
                 rel physics:body1 = </World/Stem/Leaf_r2_o0_rachis_petiolule_term_Link_01>
                 point3f physics:localPos0 = (0, 0, 0.030122817)
                 point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Leaf_r1_o0_rachis_petiolule_lat_0_left_blade" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = </World/Stem/Leaf_r1_o0_rachis_petiolule_lat_0_left_Link_01>
+            float physics:mass = 0.005
+            quatf xformOp:orient = (-0.5, -0.5, -0.5, 0.5)
+            double3 xformOp:translate = (-0.09992033556913896, -0.02112474299000002, 0.032061503999999956)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Mesh "Mesh" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0019774013, 0.0018721734, 0), (0.0034949018, 0.0037443468, 0), (0.00435875, 0.00561652, 0), (0.004493216, 0.0074886936, 0), (0.003943631, 0.009360867, 0), (0.002859465, 0.01123304, 0), (0.0014615575, 0.013105214, 0), (0, 0.014977387, 0), (-0.0014615575, 0.013105214, 0), (-0.002859465, 0.01123304, 0), (-0.003943631, 0.009360867, 0), (-0.004493216, 0.0074886936, 0), (-0.00435875, 0.00561652, 0), (-0.0034949018, 0.0037443468, 0), (-0.0019774013, 0.0018721734, 0)]
+                uniform token subdivisionScheme = "none"
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Leaf_r1_o0_rachis_petiolule_lat_0_left_Link_01>
+                rel physics:body1 = </World/Stem/Leaf_r1_o0_rachis_petiolule_lat_0_left_blade>
+                point3f physics:localPos0 = (0, 0, 0.02)
+                point3f physics:localPos1 = (0, 0, -0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Leaf_r1_o0_rachis_petiolule_lat_0_right_blade" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = </World/Stem/Leaf_r1_o0_rachis_petiolule_lat_0_right_Link_01>
+            float physics:mass = 0.005
+            quatf xformOp:orient = (-0.5, 0.5, 0.5, 0.5)
+            double3 xformOp:translate = (-0.09992033556913897, 0.02112474298999998, 0.03206150399999995)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Mesh "Mesh" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0019774013, 0.0018721734, 0), (0.0034949018, 0.0037443468, 0), (0.00435875, 0.00561652, 0), (0.004493216, 0.0074886936, 0), (0.003943631, 0.009360867, 0), (0.002859465, 0.01123304, 0), (0.0014615575, 0.013105214, 0), (0, 0.014977387, 0), (-0.0014615575, 0.013105214, 0), (-0.002859465, 0.01123304, 0), (-0.003943631, 0.009360867, 0), (-0.004493216, 0.0074886936, 0), (-0.00435875, 0.00561652, 0), (-0.0034949018, 0.0037443468, 0), (-0.0019774013, 0.0018721734, 0)]
+                uniform token subdivisionScheme = "none"
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Leaf_r1_o0_rachis_petiolule_lat_0_right_Link_01>
+                rel physics:body1 = </World/Stem/Leaf_r1_o0_rachis_petiolule_lat_0_right_blade>
+                point3f physics:localPos0 = (0, 0, 0.02)
+                point3f physics:localPos1 = (0, 0, -0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Leaf_r1_o0_rachis_petiolule_term_blade" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = </World/Stem/Leaf_r1_o0_rachis_petiolule_term_Link_01>
+            float physics:mass = 0.005
+            quatf xformOp:orient = (0.5, -0.5, -0.5, 0.5)
+            double3 xformOp:translate = (-0.11992033556913896, -2.5295489354451262e-17, 0.03206150399999995)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Mesh "Mesh" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0020071382, 0.0019003279, 0), (0.0035474596, 0.0038006557, 0), (0.0044242986, 0.0057009836, 0), (0.0045607868, 0.0076013114, 0), (0.0040029367, 0.00950164, 0), (0.002902467, 0.011401967, 0), (0.0014835369, 0.0133022955, 0), (0, 0.015202623, 0), (-0.0014835369, 0.0133022955, 0), (-0.002902467, 0.011401967, 0), (-0.0040029367, 0.00950164, 0), (-0.0045607868, 0.0076013114, 0), (-0.0044242986, 0.0057009836, 0), (-0.0035474596, 0.0038006557, 0), (-0.0020071382, 0.0019003279, 0)]
+                uniform token subdivisionScheme = "none"
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Leaf_r1_o0_rachis_petiolule_term_Link_01>
+                rel physics:body1 = </World/Stem/Leaf_r1_o0_rachis_petiolule_term_blade>
+                point3f physics:localPos0 = (0, 0, 0.02)
+                point3f physics:localPos1 = (0, 0, -0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Leaf_r1_o1_rachis_petiolule_lat_0_left_blade" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = </World/Stem/Leaf_r1_o1_rachis_petiolule_lat_0_left_Link_01>
+            float physics:mass = 0.005
+            quatf xformOp:orient = (-0.5, 0.5, -0.5, -0.5)
+            double3 xformOp:translate = (0.09992033556913896, 0.02112474299000002, 0.032061504000000005)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Mesh "Mesh" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0019774013, 0.0018721734, 0), (0.0034949018, 0.0037443468, 0), (0.00435875, 0.00561652, 0), (0.004493216, 0.0074886936, 0), (0.003943631, 0.009360867, 0), (0.002859465, 0.01123304, 0), (0.0014615575, 0.013105214, 0), (0, 0.014977387, 0), (-0.0014615575, 0.013105214, 0), (-0.002859465, 0.01123304, 0), (-0.003943631, 0.009360867, 0), (-0.004493216, 0.0074886936, 0), (-0.00435875, 0.00561652, 0), (-0.0034949018, 0.0037443468, 0), (-0.0019774013, 0.0018721734, 0)]
+                uniform token subdivisionScheme = "none"
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Leaf_r1_o1_rachis_petiolule_lat_0_left_Link_01>
+                rel physics:body1 = </World/Stem/Leaf_r1_o1_rachis_petiolule_lat_0_left_blade>
+                point3f physics:localPos0 = (0, 0, 0.02)
+                point3f physics:localPos1 = (0, 0, -0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Leaf_r1_o1_rachis_petiolule_lat_0_right_blade" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = </World/Stem/Leaf_r1_o1_rachis_petiolule_lat_0_right_Link_01>
+            float physics:mass = 0.005
+            quatf xformOp:orient = (-0.5, -0.5, 0.5, -0.5)
+            double3 xformOp:translate = (0.09992033556913896, -0.02112474298999998, 0.032061504)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Mesh "Mesh" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0019774013, 0.0018721734, 0), (0.0034949018, 0.0037443468, 0), (0.00435875, 0.00561652, 0), (0.004493216, 0.0074886936, 0), (0.003943631, 0.009360867, 0), (0.002859465, 0.01123304, 0), (0.0014615575, 0.013105214, 0), (0, 0.014977387, 0), (-0.0014615575, 0.013105214, 0), (-0.002859465, 0.01123304, 0), (-0.003943631, 0.009360867, 0), (-0.004493216, 0.0074886936, 0), (-0.00435875, 0.00561652, 0), (-0.0034949018, 0.0037443468, 0), (-0.0019774013, 0.0018721734, 0)]
+                uniform token subdivisionScheme = "none"
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Leaf_r1_o1_rachis_petiolule_lat_0_right_Link_01>
+                rel physics:body1 = </World/Stem/Leaf_r1_o1_rachis_petiolule_lat_0_right_blade>
+                point3f physics:localPos0 = (0, 0, 0.02)
+                point3f physics:localPos1 = (0, 0, -0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Leaf_r1_o1_rachis_petiolule_term_blade" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = </World/Stem/Leaf_r1_o1_rachis_petiolule_term_Link_01>
+            float physics:mass = 0.005
+            quatf xformOp:orient = (-0.5, 0.5, -0.5, 0.5)
+            double3 xformOp:translate = (0.11992033556913896, 2.5295489354451262e-17, 0.032061504000000005)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Mesh "Mesh" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.0020071382, 0.0019003279, 0), (0.0035474596, 0.0038006557, 0), (0.0044242986, 0.0057009836, 0), (0.0045607868, 0.0076013114, 0), (0.0040029367, 0.00950164, 0), (0.002902467, 0.011401967, 0), (0.0014835369, 0.0133022955, 0), (0, 0.015202623, 0), (-0.0014835369, 0.0133022955, 0), (-0.002902467, 0.011401967, 0), (-0.0040029367, 0.00950164, 0), (-0.0045607868, 0.0076013114, 0), (-0.0044242986, 0.0057009836, 0), (-0.0035474596, 0.0038006557, 0), (-0.0020071382, 0.0019003279, 0)]
+                uniform token subdivisionScheme = "none"
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Leaf_r1_o1_rachis_petiolule_term_Link_01>
+                rel physics:body1 = </World/Stem/Leaf_r1_o1_rachis_petiolule_term_blade>
+                point3f physics:localPos0 = (0, 0, 0.02)
+                point3f physics:localPos1 = (0, 0, -0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Leaf_r2_o0_rachis_petiolule_lat_0_left_blade" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = </World/Stem/Leaf_r2_o0_rachis_petiolule_lat_0_left_Link_01>
+            float physics:mass = 0.005
+            quatf xformOp:orient = (-0.6963642, 0.1227878, -0.6963642, 0.1227878)
+            double3 xformOp:translate = (0.02099999999999999, -0.05691128035021364, 0.06771443343142178)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Mesh "Mesh" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.00050421926, 0.00047738713, 0), (0.0008911681, 0.00095477427, 0), (0.0011114414, 0.0014321613, 0), (0.0011457291, 0.0019095485, 0), (0.0010055898, 0.0023869355, 0), (0.0007291375, 0.0028643226, 0), (0.0003726838, 0.00334171, 0), (0, 0.003819097, 0), (-0.0003726838, 0.00334171, 0), (-0.0007291375, 0.0028643226, 0), (-0.0010055898, 0.0023869355, 0), (-0.0011457291, 0.0019095485, 0), (-0.0011114414, 0.0014321613, 0), (-0.0008911681, 0.00095477427, 0), (-0.00050421926, 0.00047738713, 0)]
+                uniform token subdivisionScheme = "none"
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Leaf_r2_o0_rachis_petiolule_lat_0_left_Link_01>
+                rel physics:body1 = </World/Stem/Leaf_r2_o0_rachis_petiolule_lat_0_left_blade>
+                point3f physics:localPos0 = (0, 0, 0.02)
+                point3f physics:localPos1 = (0, 0, -0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Leaf_r2_o0_rachis_petiolule_lat_0_right_blade" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = </World/Stem/Leaf_r2_o0_rachis_petiolule_lat_0_right_Link_01>
+            float physics:mass = 0.005
+            quatf xformOp:orient = (-0.6963642, 0.1227878, 0.6963642, -0.1227878)
+            double3 xformOp:translate = (-0.021000000000000008, -0.05691128035021364, 0.06771443343142178)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Mesh "Mesh" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.00050421926, 0.00047738713, 0), (0.0008911681, 0.00095477427, 0), (0.0011114414, 0.0014321613, 0), (0.0011457291, 0.0019095485, 0), (0.0010055898, 0.0023869355, 0), (0.0007291375, 0.0028643226, 0), (0.0003726838, 0.00334171, 0), (0, 0.003819097, 0), (-0.0003726838, 0.00334171, 0), (-0.0007291375, 0.0028643226, 0), (-0.0010055898, 0.0023869355, 0), (-0.0011457291, 0.0019095485, 0), (-0.0011114414, 0.0014321613, 0), (-0.0008911681, 0.00095477427, 0), (-0.00050421926, 0.00047738713, 0)]
+                uniform token subdivisionScheme = "none"
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Leaf_r2_o0_rachis_petiolule_lat_0_right_Link_01>
+                rel physics:body1 = </World/Stem/Leaf_r2_o0_rachis_petiolule_lat_0_right_blade>
+                point3f physics:localPos0 = (0, 0, 0.02)
+                point3f physics:localPos1 = (0, 0, -0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Leaf_r2_o0_rachis_petiolule_lat_1_left_blade" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = </World/Stem/Leaf_r2_o0_rachis_petiolule_lat_1_left_Link_01>
+            float physics:mass = 0.005
+            quatf xformOp:orient = (-0.6963642, 0.1227878, -0.6963642, 0.1227878)
+            double3 xformOp:translate = (0.020999999999999987, -0.08521746928640155, 0.0780170433883367)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Mesh "Mesh" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.00050421926, 0.00047738713, 0), (0.0008911681, 0.00095477427, 0), (0.0011114414, 0.0014321613, 0), (0.0011457291, 0.0019095485, 0), (0.0010055898, 0.0023869355, 0), (0.0007291375, 0.0028643226, 0), (0.0003726838, 0.00334171, 0), (0, 0.003819097, 0), (-0.0003726838, 0.00334171, 0), (-0.0007291375, 0.0028643226, 0), (-0.0010055898, 0.0023869355, 0), (-0.0011457291, 0.0019095485, 0), (-0.0011114414, 0.0014321613, 0), (-0.0008911681, 0.00095477427, 0), (-0.00050421926, 0.00047738713, 0)]
+                uniform token subdivisionScheme = "none"
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Leaf_r2_o0_rachis_petiolule_lat_1_left_Link_01>
+                rel physics:body1 = </World/Stem/Leaf_r2_o0_rachis_petiolule_lat_1_left_blade>
+                point3f physics:localPos0 = (0, 0, 0.02)
+                point3f physics:localPos1 = (0, 0, -0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Leaf_r2_o0_rachis_petiolule_lat_1_right_blade" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = </World/Stem/Leaf_r2_o0_rachis_petiolule_lat_1_right_Link_01>
+            float physics:mass = 0.005
+            quatf xformOp:orient = (-0.6963642, 0.1227878, 0.6963642, -0.1227878)
+            double3 xformOp:translate = (-0.02100000000000001, -0.08521746928640155, 0.0780170433883367)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Mesh "Mesh" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.00050421926, 0.00047738713, 0), (0.0008911681, 0.00095477427, 0), (0.0011114414, 0.0014321613, 0), (0.0011457291, 0.0019095485, 0), (0.0010055898, 0.0023869355, 0), (0.0007291375, 0.0028643226, 0), (0.0003726838, 0.00334171, 0), (0, 0.003819097, 0), (-0.0003726838, 0.00334171, 0), (-0.0007291375, 0.0028643226, 0), (-0.0010055898, 0.0023869355, 0), (-0.0011457291, 0.0019095485, 0), (-0.0011114414, 0.0014321613, 0), (-0.0008911681, 0.00095477427, 0), (-0.00050421926, 0.00047738713, 0)]
+                uniform token subdivisionScheme = "none"
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Leaf_r2_o0_rachis_petiolule_lat_1_right_Link_01>
+                rel physics:body1 = </World/Stem/Leaf_r2_o0_rachis_petiolule_lat_1_right_blade>
+                point3f physics:localPos0 = (0, 0, 0.02)
+                point3f physics:localPos1 = (0, 0, -0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Leaf_r2_o0_rachis_petiolule_term_blade" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = </World/Stem/Leaf_r2_o0_rachis_petiolule_term_Link_01>
+            float physics:mass = 0.005
+            quatf xformOp:orient = (6.123234e-17, -3.5121427e-17, -0.57357645, 0.81915206)
+            double3 xformOp:translate = (-1.410324195868862e-17, -0.10401132175789378, 0.08485744610161211)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Mesh "Mesh" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                uniform token physics:approximation = "convexHull"
+                point3f[] points = [(0, 0, 0), (0.00050421926, 0.00047738713, 0), (0.0008911681, 0.00095477427, 0), (0.0011114414, 0.0014321613, 0), (0.0011457291, 0.0019095485, 0), (0.0010055898, 0.0023869355, 0), (0.0007291375, 0.0028643226, 0), (0.0003726838, 0.00334171, 0), (0, 0.003819097, 0), (-0.0003726838, 0.00334171, 0), (-0.0007291375, 0.0028643226, 0), (-0.0010055898, 0.0023869355, 0), (-0.0011457291, 0.0019095485, 0), (-0.0011114414, 0.0014321613, 0), (-0.0008911681, 0.00095477427, 0), (-0.00050421926, 0.00047738713, 0)]
+                uniform token subdivisionScheme = "none"
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Leaf_r2_o0_rachis_petiolule_term_Link_01>
+                rel physics:body1 = </World/Stem/Leaf_r2_o0_rachis_petiolule_term_blade>
+                point3f physics:localPos0 = (0, 0, 0.02)
+                point3f physics:localPos1 = (0, 0, -0)
                 quatf physics:localRot0 = (1, 0, 0, 0)
                 quatf physics:localRot1 = (1, 0, 0, 0)
             }
