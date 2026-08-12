@@ -103,7 +103,7 @@ def test_static_prebent_truss_has_one_soft_root_d6(tmp_path):
 
     assert len(d6_joints) == 1
     root_joint = d6_joints[0]
-    assert "_rachis_curve_01_Link_01/AttachJoint" in str(root_joint.GetPath())
+    assert "_rachis_curve_01_Link_01/AttachJoint_" in str(root_joint.GetPath())
     assert root_joint.GetCustomDataByKey("trussLab:bendLimitDeg") == STATIC_ROOT_BEND_LIMIT_DEG
     assert (
         root_joint.GetCustomDataByKey("trussLab:driveStiffnessScale")

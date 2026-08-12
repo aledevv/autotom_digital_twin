@@ -161,15 +161,11 @@ def test_one_link_rachis_is_curved_without_changing_joint_count():
 
 def test_usd_uses_official_pedicel_and_static_root_overrides(tmp_path):
     branches, terminal_bodies = make_truss()
-    detachable_terminal_bodies = [
-        {**body, "exclude_from_articulation": True}
-        for body in terminal_bodies
-    ]
     dynamic_path = tmp_path / "dynamic.usda"
     dynamic_stage, stem_path = build_stage(
         str(dynamic_path),
         branches=branches,
-        terminal_bodies=detachable_terminal_bodies,
+        terminal_bodies=terminal_bodies,
         skip_limit_check=True,
     )
     dynamic_stage.GetRootLayer().Save()
@@ -184,17 +180,29 @@ def test_usd_uses_official_pedicel_and_static_root_overrides(tmp_path):
         prim
         for prim in dynamic_stage.Traverse()
         if prim.GetTypeName() == "PhysicsFixedJoint"
-        and prim.GetName() == "TerminalBodyFixedJoint"
+        and prim.GetName().startswith("TerminalBodyFixedJoint_")
     ]
-    assert len(terminal_joints) == len(detachable_terminal_bodies)
-    for prim in terminal_joints:
-        assert prim.GetAttribute("physics:breakForce").Get() == pytest.approx(
-            TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N
-        )
-        assert prim.GetAttribute("physics:excludeFromArticulation").Get() is True
-        body1_path = str(prim.GetRelationship("physics:body1").GetTargets()[0])
-        assert body1_path.startswith(TrussPhysicsConfig.TOMATO_DETACHMENT_BODY_PARENT_PATH)
-        assert not body1_path.startswith(f"{stem_path}/")
+    assert terminal_joints == []
+    attached_tomatoes = [
+        prim
+        for prim in dynamic_stage.Traverse()
+        if prim.GetAttribute("tomatoPlant:detachable").Get() is True
+    ]
+    assert len(attached_tomatoes) == len(terminal_bodies)
+    assert all(not prim.HasAPI(UsdPhysics.RigidBodyAPI) for prim in attached_tomatoes)
+
+    detached_bodies = [
+        prim
+        for prim in dynamic_stage.Traverse()
+        if str(prim.GetPath()).startswith(TrussPhysicsConfig.TOMATO_DETACHED_BODY_PARENT_PATH)
+        and prim.HasAPI(UsdPhysics.RigidBodyAPI)
+    ]
+    assert len(detached_bodies) == len(terminal_bodies)
+    assert all(
+        UsdPhysics.RigidBodyAPI(prim).GetRigidBodyEnabledAttr().Get() is True
+        and UsdPhysics.RigidBodyAPI(prim).GetKinematicEnabledAttr().Get() is True
+        for prim in detached_bodies
+    )
     for prim in pedicel_joints:
         limit = UsdPhysics.LimitAPI.Get(prim, "rotX")
         assert limit.GetLowAttr().Get() == -TrussPhysicsConfig.PEDICEL_BEND_LIMIT_DEG

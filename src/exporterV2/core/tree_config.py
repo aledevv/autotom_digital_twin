@@ -49,6 +49,7 @@ class PhysicsRuntimeConfig:
     # RigidTrunk feature flag: keep the main stem stable for fruit-heavy tests.
     RIGID_TRUNK = True
     PHYSICS_HZ = 480
+    RENDERING_HZ = 60
     SOLVER_POSITION_ITERATIONS = 32
     SOLVER_VELOCITY_ITERATIONS = 4
     ENABLE_GPU_DYNAMICS = True
@@ -134,13 +135,19 @@ class TrussPhysicsConfig:
     # Real pedicels are much shorter than the visual-lab sample, so they need a
     # softer attachment drive for tomato weight to produce visible droop.
     PEDICEL_DRIVE_STIFFNESS_SCALE = 0.10
-    # Detachable tomato attachment. This is comfortably above the static weight
-    # of the generated tomatoes, so gravity alone should not break the joint.
-    TOMATO_DETACHMENT_BREAK_FORCE_N = 50.0
-    TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION = True
-    # When the fixed joint is excluded, keep tomatoes outside the articulation
-    # root and attach them as regular rigid bodies through the breakable joint.
-    TOMATO_DETACHMENT_BODY_PARENT_PATH = "/World/TerminalBodies"
+    # Runtime tomato detachment. The attached tomato remains an articulation
+    # link; a disabled rigid-body copy is activated when the runtime criterion
+    # remains above threshold for the configured persistence interval.
+    TOMATO_DETACHMENT_ENABLED = True
+    TOMATO_DETACHMENT_MODEL = "force_torque"  # "force" or "force_torque"
+    TOMATO_DETACHMENT_SENSOR_HZ = 60
+    TOMATO_DETACHMENT_BREAK_FORCE_N = 0.60
+    TOMATO_DETACHMENT_BREAK_TORQUE_NM = 0.05
+    TOMATO_DETACHMENT_FORCE_EXPONENT = 2.0
+    TOMATO_DETACHMENT_TORQUE_EXPONENT = 2.0
+    TOMATO_DETACHMENT_MIN_BREAK_DURATION_S = 0.020
+    TOMATO_DETACHMENT_DEBUG = False
+    TOMATO_DETACHED_BODY_PARENT_PATH = "/World/DetachedTomatoes"
 
 
 # ==============================================================================

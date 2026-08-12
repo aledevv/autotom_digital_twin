@@ -495,9 +495,9 @@ def audit_usd_file(
     expected_base_stiffness = benchmark.expected_base_stiffness_usd(n_links) if has_driven_attachment else None
     base_stiffness = all_stiffness[0] if has_driven_attachment and all_stiffness else None
     support_joint_ok = (
-        'def PhysicsFixedJoint "AttachJoint"' in text
+        'def PhysicsFixedJoint "AttachJoint_' in text
         if support == "fixed" or joint_model == "fixed_chain"
-        else 'def PhysicsFixedJoint "AttachJoint"' not in text and base_stiffness is not None
+        else 'def PhysicsFixedJoint "AttachJoint_' not in text and base_stiffness is not None
     )
 
     return {

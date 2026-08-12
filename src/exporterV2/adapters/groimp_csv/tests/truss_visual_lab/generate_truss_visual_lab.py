@@ -275,7 +275,7 @@ def patch_static_truss_root_physics(stage: Usd.Stage) -> int:
         path = str(prim.GetPath())
         if (
             prim.GetTypeName() == "PhysicsJoint"
-            and "_rachis_curve_01_Link_01/AttachJoint" in path
+            and "_rachis_curve_01_Link_01/AttachJoint_" in path
         ):
             _patch_d6_joint(
                 prim,

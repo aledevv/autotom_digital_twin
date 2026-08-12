@@ -8,6 +8,12 @@ from pxr import Usd, UsdPhysics, Gf, Sdf
 from .collision import add_collision_filter, add_attachment_collision_filters
 
 
+def _unique_joint_name(base_name: str, child_path: str) -> str:
+    """Make PhysX articulation joint/DOF names unique across all branches."""
+    child_name = child_path.rstrip("/").rsplit("/", 1)[-1]
+    return f"{base_name}_{child_name}"
+
+
 def _set_optional_joint_attr(joint, create_method_name: str, attr_name: str, sdf_type, value) -> None:
     create_method = getattr(joint, create_method_name, None)
     if create_method is not None:
@@ -137,6 +143,7 @@ def create_internal_joint(
     LocalPos1 = base of child link = (0, 0, 0)
     Both LocalRot are identity (chain direction encoded in world position)
     """
+    joint_name = _unique_joint_name(joint_name, child_path)
     joint = UsdPhysics.Joint.Define(stage, f"{child_path}/{joint_name}")
     joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_path)])
     joint.CreateBody1Rel().SetTargets([Sdf.Path(child_path)])
@@ -167,6 +174,7 @@ def create_internal_revolute_joint(
     damp: float,
 ) -> None:
     """Planar counterpart of ``create_internal_joint`` for solver diagnosis."""
+    joint_name = _unique_joint_name(joint_name, child_path)
     joint = UsdPhysics.RevoluteJoint.Define(stage, f"{child_path}/{joint_name}")
     joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_path)])
     joint.CreateBody1Rel().SetTargets([Sdf.Path(child_path)])
@@ -198,7 +206,8 @@ def create_attachment_joint(
         LocalPos1: Always (0,0,0) - base of child link
         LocalRot1: Always identity
     """
-    joint = UsdPhysics.Joint.Define(stage, f"{child_link_path}/AttachJoint")
+    joint_name = _unique_joint_name("AttachJoint", child_link_path)
+    joint = UsdPhysics.Joint.Define(stage, f"{child_link_path}/{joint_name}")
     joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_link_path)])
     joint.CreateBody1Rel().SetTargets([Sdf.Path(child_link_path)])
     joint.CreateLocalPos0Attr().Set(local_pos0)
@@ -227,7 +236,8 @@ def create_attachment_revolute_joint(
     damp: float,
 ) -> None:
     """Attach a branch through one planar rotational spring."""
-    joint = UsdPhysics.RevoluteJoint.Define(stage, f"{child_link_path}/AttachJoint")
+    joint_name = _unique_joint_name("AttachJoint", child_link_path)
+    joint = UsdPhysics.RevoluteJoint.Define(stage, f"{child_link_path}/{joint_name}")
     joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_link_path)])
     joint.CreateBody1Rel().SetTargets([Sdf.Path(child_link_path)])
     joint.CreateLocalPos0Attr().Set(local_pos0)
@@ -256,6 +266,7 @@ def create_internal_joint_locked(
     Used for Isaac Sim integration tests to verify geometry doesn't change
     when joints are completely rigid (no flexibility).
     """
+    joint_name = _unique_joint_name(joint_name, child_path)
     joint = UsdPhysics.FixedJoint.Define(stage, f"{child_path}/{joint_name}")
     joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_path)])
     joint.CreateBody1Rel().SetTargets([Sdf.Path(child_path)])
@@ -279,7 +290,8 @@ def create_attachment_joint_locked(
     
     Creates completely rigid attachment with no flexibility.
     """
-    joint = UsdPhysics.FixedJoint.Define(stage, f"{child_link_path}/AttachJoint")
+    joint_name = _unique_joint_name("AttachJoint", child_link_path)
+    joint = UsdPhysics.FixedJoint.Define(stage, f"{child_link_path}/{joint_name}")
     joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_link_path)])
     joint.CreateBody1Rel().SetTargets([Sdf.Path(child_link_path)])
     joint.CreateLocalPos0Attr().Set(local_pos0)
@@ -304,7 +316,7 @@ def create_fixed_joint_to_tip(
     break_force: float = None,
     break_torque: float = None,
     exclude_from_articulation: bool = False,
-) -> None:
+) -> str:
     """
     Create FixedJoint attaching a rigid body (leaf node) to the tip of a parent link.
     
@@ -360,6 +372,7 @@ def create_fixed_joint_to_tip(
     
     # Filter collision between child and parent
     add_collision_filter(stage, child_body_path, parent_link_path)
+    return str(joint.GetPath())
 
 
 def create_fixed_joint_attachment(

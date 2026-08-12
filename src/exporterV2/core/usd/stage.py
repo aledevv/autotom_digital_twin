@@ -29,7 +29,11 @@ else:
         BioConfig, TrussPhysicsConfig, PhysicsRuntimeConfig
     )
 
-from .geometry import create_rigid_segment, create_sphere_rigid_body
+from .geometry import (
+    create_attached_sphere_collider,
+    create_rigid_segment,
+    create_sphere_rigid_body,
+)
 from .joints import (
     anchor_link_to_world,
     create_internal_joint,
@@ -76,6 +80,37 @@ def _branch_damping_ratio(branch_def: dict, use_truss_physics: bool = False):
     return None
 
 
+def _add_sphere_mass_to_body(stage, body_path: str, mass: float, radius: float, local_center) -> None:
+    """Aggregate a sphere into a compound body's authored mass properties."""
+    body_prim = stage.GetPrimAtPath(body_path)
+    mass_api = UsdPhysics.MassAPI(body_prim)
+    old_mass = float(mass_api.GetMassAttr().Get())
+    old_com = Gf.Vec3d(mass_api.GetCenterOfMassAttr().Get())
+    old_inertia = Gf.Vec3d(mass_api.GetDiagonalInertiaAttr().Get())
+    center = Gf.Vec3d(local_center)
+    total_mass = old_mass + mass
+    total_com = (old_com * old_mass + center * mass) / total_mass
+
+    def parallel_axis_diagonal(point, point_mass):
+        return Gf.Vec3d(
+            point_mass * (point[1] ** 2 + point[2] ** 2),
+            point_mass * (point[0] ** 2 + point[2] ** 2),
+            point_mass * (point[0] ** 2 + point[1] ** 2),
+        )
+
+    sphere_inertia = Gf.Vec3d(0.4 * mass * radius * radius)
+    inertia_about_origin = (
+        old_inertia
+        + parallel_axis_diagonal(old_com, old_mass)
+        + sphere_inertia
+        + parallel_axis_diagonal(center, mass)
+    )
+    total_inertia = inertia_about_origin - parallel_axis_diagonal(total_com, total_mass)
+    mass_api.GetMassAttr().Set(total_mass)
+    mass_api.GetCenterOfMassAttr().Set(Gf.Vec3f(total_com))
+    mass_api.GetDiagonalInertiaAttr().Set(Gf.Vec3f(total_inertia))
+
+
 def get_output_usd_path() -> str:
     """Get the default output path for generated USD file."""
     # Navigate from usd → exporterV2 → src → project_root
@@ -111,6 +146,19 @@ def setup_base_stage(path: str, legacy_physics: bool = False):
     stem_path = "/World/Stem"
     stem_prim = UsdGeom.Xform.Define(stage, stem_path)
     UsdPhysics.ArticulationRootAPI.Apply(stem_prim.GetPrim())
+
+    stem_prim.GetPrim().CreateAttribute(
+        "tomatoPlant:schemaVersion", Sdf.ValueTypeNames.String
+    ).Set("1.0")
+    stem_prim.GetPrim().CreateAttribute(
+        "tomatoPlant:enabled", Sdf.ValueTypeNames.Bool
+    ).Set(bool(TrussPhysicsConfig.TOMATO_DETACHMENT_ENABLED))
+    stem_prim.GetPrim().CreateAttribute(
+        "tomatoPlant:runtimeType", Sdf.ValueTypeNames.String
+    ).Set("detachablePlant")
+    stem_prim.GetPrim().CreateAttribute(
+        "tomatoPlant:debug", Sdf.ValueTypeNames.Bool
+    ).Set(bool(TrussPhysicsConfig.TOMATO_DETACHMENT_DEBUG))
 
     return stage, stem_path
 
@@ -583,47 +631,71 @@ def build_stage(
         parent_link_path = parent_paths[-1]
         parent_base = parent_bases[-1]
         body_pos = parent_base + parent_axis * (parent_height + radius)
-        break_force = body.get(
-            "break_force",
-            TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N,
+        detachment_enabled = bool(
+            body.get("detachment_enabled", TrussPhysicsConfig.TOMATO_DETACHMENT_ENABLED)
         )
-        exclude_from_articulation = body.get(
-            "exclude_from_articulation",
-            TrussPhysicsConfig.TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION,
-        )
-        body_parent_path = body.get("parent_path")
-        if body_parent_path is None:
-            body_parent_path = (
-                getattr(
-                    TrussPhysicsConfig,
-                    "TOMATO_DETACHMENT_BODY_PARENT_PATH",
-                    "/World/TerminalBodies",
-                )
-                if exclude_from_articulation
-                else stem_path
-            )
-        if body_parent_path != stem_path:
-            UsdGeom.Xform.Define(stage, body_parent_path)
-
-        body_path = create_sphere_rigid_body(
-            stage,
-            body_parent_path,
-            body["id"],
-            radius,
-            body_pos,
-            mass,
-            orientation=parent_orientation,
-        )
-        create_fixed_joint_to_tip(
+        local_center = Gf.Vec3f(0.0, 0.0, parent_height + radius)
+        body_path = create_attached_sphere_collider(
             stage,
             parent_link_path,
-            body_path,
-            parent_height=parent_height,
-            child_offset=radius,
-            joint_name="TerminalBodyFixedJoint",
-            break_force=break_force,
-            exclude_from_articulation=exclude_from_articulation,
+            body["id"],
+            radius,
+            local_center,
         )
+        _add_sphere_mass_to_body(stage, parent_link_path, mass, radius, local_center)
+
+        detached_body_path = None
+        if detachment_enabled:
+            detached_parent = TrussPhysicsConfig.TOMATO_DETACHED_BODY_PARENT_PATH
+            UsdGeom.Xform.Define(stage, detached_parent)
+            detached_body_path = create_sphere_rigid_body(
+                stage,
+                detached_parent,
+                f"{body['id']}_Detached",
+                radius,
+                body_pos,
+                mass,
+                orientation=parent_orientation,
+                rigid_body_enabled=True,
+                collision_enabled=False,
+                visible=False,
+                kinematic_enabled=True,
+            )
+            add_collision_filter(stage, detached_body_path, parent_link_path)
+            attached_prim = stage.GetPrimAtPath(body_path)
+            attached_prim.CreateAttribute(
+                "tomatoPlant:detachable", Sdf.ValueTypeNames.Bool
+            ).Set(True)
+            attached_prim.CreateAttribute(
+                "tomatoPlant:id", Sdf.ValueTypeNames.String
+            ).Set(str(body["id"]))
+            attached_prim.CreateAttribute(
+                "tomatoPlant:detachmentModel", Sdf.ValueTypeNames.String
+            ).Set(str(body.get("detachment_model", TrussPhysicsConfig.TOMATO_DETACHMENT_MODEL)))
+            metadata_values = (
+                ("forceThreshold", Sdf.ValueTypeNames.Float, body.get("break_force", TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N)),
+                ("torqueThreshold", Sdf.ValueTypeNames.Float, body.get("break_torque", TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_TORQUE_NM)),
+                ("forceExponent", Sdf.ValueTypeNames.Float, body.get("force_exponent", TrussPhysicsConfig.TOMATO_DETACHMENT_FORCE_EXPONENT)),
+                ("torqueExponent", Sdf.ValueTypeNames.Float, body.get("torque_exponent", TrussPhysicsConfig.TOMATO_DETACHMENT_TORQUE_EXPONENT)),
+                ("minimumBreakDuration", Sdf.ValueTypeNames.Float, body.get("minimum_break_duration", TrussPhysicsConfig.TOMATO_DETACHMENT_MIN_BREAK_DURATION_S)),
+            )
+            for name, value_type, value in metadata_values:
+                attached_prim.CreateAttribute(f"tomatoPlant:{name}", value_type).Set(float(value))
+            attached_prim.CreateAttribute(
+                "tomatoPlant:mass", Sdf.ValueTypeNames.Float
+            ).Set(float(mass))
+            attached_prim.CreateAttribute(
+                "tomatoPlant:radius", Sdf.ValueTypeNames.Float
+            ).Set(float(radius))
+            attached_prim.CreateAttribute(
+                "tomatoPlant:localCenter", Sdf.ValueTypeNames.Float3
+            ).Set(local_center)
+            attached_prim.CreateRelationship("tomatoPlant:attachmentBody").SetTargets(
+                [Sdf.Path(parent_link_path)]
+            )
+            attached_prim.CreateRelationship("tomatoPlant:detachedBody").SetTargets(
+                [Sdf.Path(detached_body_path)]
+            )
 
         terminal_body_records.append({
             "id": body["id"],
@@ -631,13 +703,13 @@ def build_stage(
             "parent_branch_id": parent_branch_id,
             "pos": (body_pos[0], body_pos[1], body_pos[2]),
             "radius": radius,
+            "detached_path": detached_body_path,
         })
 
-        break_force_label = "disabled" if break_force is None else f"{break_force:.2f}N"
         print(
             f"[INFO] terminal body '{body['id']}': sphere r={radius:.3f}m, "
-            f"parent='{parent_branch_id}', body_parent='{body_parent_path}', "
-            f"break_force={break_force_label}"
+            f"parent='{parent_branch_id}', compound_body='{parent_link_path}', "
+            f"detachable={detachment_enabled}"
         )
 
     validate_terminal_body_clearance(

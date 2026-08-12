@@ -22,17 +22,30 @@ parser = argparse.ArgumentParser(description="exporterV2 Tree Loader")
 parser.add_argument("--day", type=int, help="Load plant from CSV for specified day")
 parser.add_argument("--plant-id", type=int, default=1, help="Plant ID (default: 1)")
 parser.add_argument("--optimize", action="store_true", help="Apply joint-budget optimization")
+parser.add_argument("--headless", action="store_true", help="Run Isaac Sim without a viewport")
+parser.add_argument(
+    "--detachment-debug",
+    action="store_true",
+    help="Print rate-limited tomato force/torque diagnostics",
+)
+parser.add_argument(
+    "--max-steps",
+    type=int,
+    default=None,
+    help="Stop after N physics steps (useful for smoke tests)",
+)
 args = parser.parse_args()
 
 # Bootstrap Isaac Sim
 from isaacsim import SimulationApp
-simulation_app = SimulationApp({"headless": False})
+simulation_app = SimulationApp({"headless": args.headless})
 
 # Now import USD and Isaac modules
 from pxr import UsdPhysics, PhysxSchema, Gf
 import omni.usd
 import omni.kit.actions.core
 from isaacsim.core.api import World
+from isaacsim.core.prims import Articulation
 
 # Import our modules (need to add parent to path)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -40,8 +53,15 @@ sys.path.insert(0, os.path.dirname(SCRIPT_DIR))
 
 from exporterV2.core.usd import build_stage, get_output_usd_path
 from exporterV2.core.physics import apply_physx_scene_settings, apply_physx_articulation_settings
-from exporterV2.core.tree_config import BRANCHES, BranchResolutionConfig, limit_branch_resolution
+from exporterV2.core.tree_config import (
+    BRANCHES,
+    BranchResolutionConfig,
+    PhysicsRuntimeConfig,
+    TrussPhysicsConfig,
+    limit_branch_resolution,
+)
 from exporterV2.core.optimizations.techniques.base import count_d6_joints
+from exporterV2.core.detachment import TomatoPlantRuntime
 
 # ANSI color codes for terminal output
 RED = '\033[91m'
@@ -160,16 +180,42 @@ def main():
         print(f"  ⚠ Lighting action not available: {e}")
     
     # Initialize simulation
-    my_world = World(stage_units_in_meters=1.0)
+    my_world = World(
+        stage_units_in_meters=1.0,
+        physics_dt=1.0 / PhysicsRuntimeConfig.PHYSICS_HZ,
+        rendering_dt=1.0 / PhysicsRuntimeConfig.RENDERING_HZ,
+    )
+    stem_articulation = Articulation(stem_path, name="tomato_plant_articulation")
+    my_world.scene.add(stem_articulation)
     my_world.reset()
+    stem_articulation.initialize()
+    detachment_runtime = TomatoPlantRuntime(
+        stem_path,
+        stage=omni.usd.get_context().get_stage(),
+        articulation=stem_articulation,
+        world=my_world,
+        debug=args.detachment_debug,
+        sensor_hz=TrussPhysicsConfig.TOMATO_DETACHMENT_SENSOR_HZ,
+    ).initialize()
     
     print("\n" + "=" * 80)
     print("  ✓ Simulation running — close the window to exit")
     print("=" * 80 + "\n")
     
     # Run simulation loop
-    while simulation_app.is_running():
-        my_world.step(render=True)
+    step_count = 0
+    render_interval = max(
+        1,
+        round(PhysicsRuntimeConfig.PHYSICS_HZ / PhysicsRuntimeConfig.RENDERING_HZ),
+    )
+    while simulation_app.is_running() and (
+        args.max_steps is None or step_count < args.max_steps
+    ):
+        my_world.step(render=(step_count % render_interval == 0))
+        # Future Isaac Lab tasks can consume the returned events directly for
+        # observations/rewards without coupling RL logic to this runtime.
+        detachment_runtime.step(my_world.get_physics_dt())
+        step_count += 1
     
     print("\n[INFO] Simulation finished.")
     simulation_app.close()
