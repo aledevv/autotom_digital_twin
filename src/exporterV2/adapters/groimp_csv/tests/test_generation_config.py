@@ -278,7 +278,7 @@ def test_json_metadata_records_effective_configuration(tmp_path):
 
     data = json.loads(Path(output_path).read_text())
     metadata = data["metadata"]
-    assert metadata["physics_runtime"]["physics_hz"] == 240
+    assert metadata["physics_runtime"]["physics_hz"] == 480
     assert metadata["physics_runtime"]["rigid_trunk"] is True
     assert metadata["physics_runtime"]["solver_position_iterations"] == 32
     assert metadata["physics_runtime"]["solver_velocity_iterations"] == 4
