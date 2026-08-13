@@ -29,6 +29,8 @@ else:
         BioConfig, TrussPhysicsConfig, PhysicsRuntimeConfig, PlantColors, OutputConfig
     )
 
+from ..physics import apply_physx_rigid_body_solver_settings
+
 from .geometry import create_rigid_segment, create_sphere_rigid_body
 from .joints import (
     anchor_link_to_world,
@@ -201,15 +203,22 @@ def validate_terminal_body_clearance(
                 maybe_filter(body_a.get("path"), body_b.get("path"))
 
     for body in terminal_body_records:
-        for branch_id, (link_paths, link_bases, axis, _) in branch_registry.items():
-            if branch_id == body["parent_branch_id"]:
-                continue
+        parent_branch_id = body["parent_branch_id"]
+        immediate_parent_path = branch_registry[parent_branch_id][0][-1]
 
+        for branch_id, (link_paths, link_bases, axis, _) in branch_registry.items():
             branch_def = branch_defs[branch_id]
             branch_radius = scaled(branch_def["radius"])
             branch_height = scaled(branch_def["height"])
 
             for link_idx, link_base in enumerate(link_bases):
+                link_path = link_paths[link_idx]
+
+                # The terminal body is expected to intersect its immediate parent link,
+                # and the collision filter for it is already created by the attachment joint.
+                if link_path == immediate_parent_path:
+                    continue
+
                 intersects, _, overlap = check_sphere_cylinder_intersection(
                     body["pos"],
                     body["radius"],
@@ -695,6 +704,8 @@ def build_stage(
                 orientation=parent_orientation,
                 color=tomato_color,
             )
+            if detachment_enabled and exclude_from_articulation:
+                apply_physx_rigid_body_solver_settings(stage, body_path)
         else:
             # shape == "mesh"
             points = body.get("points", [])
@@ -767,6 +778,30 @@ def build_stage(
         stage=stage,
         apply_filters=True,
     )
+
+    # ── Unconditional collision filtering for detached tomato bodies ──
+    # When a tomato is excluded from the articulation (breakable FixedJoint),
+    # PhysX treats it as an independent RigidBody. Without explicit filtering,
+    # any micro-contact between the tomato sphere and its pedicel / rachis links
+    # triggers depenetration forces that cause the characteristic "pop" on first touch.
+    # We filter unconditionally here, regardless of geometry overlap at rest.
+    if TrussPhysicsConfig.TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION:
+        branch_defs_by_id = {b["id"]: b for b in branches}
+        for record in terminal_body_records:
+            tomato_path = record["path"]
+            parent_branch_id = record["parent_branch_id"]
+
+            # Filter against the parent (pedicel) chain
+            if parent_branch_id in branch_registry:
+                for link_path in branch_registry[parent_branch_id][0]:
+                    add_collision_filter(stage, tomato_path, link_path)
+
+            # Filter against the grandparent (rachis) chain
+            parent_def = branch_defs_by_id.get(parent_branch_id, {})
+            grandparent_id = parent_def.get("parent")
+            if grandparent_id and grandparent_id in branch_registry:
+                for link_path in branch_registry[grandparent_id][0]:
+                    add_collision_filter(stage, tomato_path, link_path)
 
     # Add sibling collision filtering
     add_sibling_collision_filtering(stage, branches, branch_registry)

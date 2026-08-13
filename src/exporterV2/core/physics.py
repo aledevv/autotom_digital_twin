@@ -66,3 +66,38 @@ def apply_physx_articulation_settings(
     art.CreateSolverVelocityIterationCountAttr().Set(solver_velocity_iterations)
     art.CreateEnabledSelfCollisionsAttr().Set(False)
     art.CreateSleepThresholdAttr().Set(0.0)
+
+
+def apply_physx_rigid_body_solver_settings(
+    stage,
+    body_path: str,
+    solver_position_iterations: int | None = None,
+    solver_velocity_iterations: int | None = None,
+) -> None:
+    """Configure solver precision for a rigid body outside the articulation."""
+    if solver_position_iterations is None:
+        solver_position_iterations = (
+            PhysicsRuntimeConfig.TERMINAL_BODY_SOLVER_POSITION_ITERATIONS
+        )
+    if solver_velocity_iterations is None:
+        solver_velocity_iterations = (
+            PhysicsRuntimeConfig.TERMINAL_BODY_SOLVER_VELOCITY_ITERATIONS
+        )
+    if not 1 <= solver_position_iterations <= 256:
+        raise ValueError("solver_position_iterations must be in [1, 256]")
+    if not 1 <= solver_velocity_iterations <= 255:
+        raise ValueError("solver_velocity_iterations must be in [1, 255]")
+
+    prim = stage.GetPrimAtPath(body_path)
+    if not prim or not prim.IsValid():
+        raise ValueError(f"Rigid body prim does not exist: {body_path}")
+
+    rigid_body = PhysxSchema.PhysxRigidBodyAPI(prim)
+    if not rigid_body:
+        rigid_body = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
+    rigid_body.CreateSolverPositionIterationCountAttr().Set(
+        solver_position_iterations
+    )
+    rigid_body.CreateSolverVelocityIterationCountAttr().Set(
+        solver_velocity_iterations
+    )

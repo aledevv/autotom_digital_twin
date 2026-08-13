@@ -51,6 +51,8 @@ class PhysicsRuntimeConfig:
     PHYSICS_HZ = 480
     SOLVER_POSITION_ITERATIONS = 32
     SOLVER_VELOCITY_ITERATIONS = 4
+    TERMINAL_BODY_SOLVER_POSITION_ITERATIONS = 32
+    TERMINAL_BODY_SOLVER_VELOCITY_ITERATIONS = 1
     ENABLE_GPU_DYNAMICS = True
 
 
@@ -141,20 +143,26 @@ class TrussPhysicsConfig:
     - Higher damping to reduce oscillations
     - Custom minimum K to handle thin pedicels
     """
-    YOUNG_MODULUS = 80.0e7  # [Pa] stiffer than stem
-    DAMPING_RATIO = 2.5      # Higher damping to reduce oscillations
-    PLANT_DENSITY = 873.0   # [kg/m^3] same as stem
+    YOUNG_MODULUS = 80.0e8  # [Pa] Stable detachable-truss test setting
+    DAMPING_RATIO = 5.0      # High damping to reduce oscillations
+    # Inflated density to achieve ~5:1 mass ratio with attached tomato.
+    # PhysX TGS solver becomes unstable when joint mass ratio exceeds ~10:1.
+    # A 2mm pedicel at normal plant density weighs ~0.3g vs a 50g tomato (ratio ~160:1).
+    # Raising density to 20000 kg/m^3 brings the pedicel to ~10g (ratio ~5:1), which
+    # is optimal for solver convergence without any visual change to the geometry.
+    PLANT_DENSITY = 20000.0  # [kg/m^3]
     MIN_K = 0.001             # [N·m/rad] Minimum stiffness for thin pedicels
     PEDICEL_BEND_LIMIT_DEG = 25.0
     # Real pedicels are much shorter than the visual-lab sample, so they need a
     # softer attachment drive for tomato weight to produce visible droop.
-    PEDICEL_DRIVE_STIFFNESS_SCALE = 0.10
-    # Master switch for the experimental native-joint detachment mechanism.
+    PEDICEL_DRIVE_STIFFNESS_SCALE = 50.0
+    # Break force for detachable tomato joints. Keep this low while validating
+    # the detachment path; tune it only after the truss is stable.
     # When disabled, tomatoes remain regular, unbreakable articulation links.
-    TOMATO_DETACHMENT_ENABLED = False
+    TOMATO_DETACHMENT_ENABLED = True
     # This is comfortably above the static weight of the generated tomatoes,
     # so gravity alone should not break the joint when detachment is enabled.
-    TOMATO_DETACHMENT_BREAK_FORCE_N = 50.0
+    TOMATO_DETACHMENT_BREAK_FORCE_N = 6.0
     TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION = True
     # When the fixed joint is excluded, keep tomatoes outside the articulation
     # root and attach them as regular rigid bodies through the breakable joint.

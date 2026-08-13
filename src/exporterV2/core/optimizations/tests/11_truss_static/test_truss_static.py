@@ -6,7 +6,7 @@ import sys
 
 import pytest
 import yaml
-from pxr import Usd, UsdPhysics
+from pxr import PhysxSchema, Usd, UsdPhysics
 
 
 SRC_DIR = Path(__file__).resolve().parents[5]
@@ -192,6 +192,22 @@ def test_usd_uses_official_pedicel_and_static_root_overrides(tmp_path, monkeypat
         body1_path = str(prim.GetRelationship("physics:body1").GetTargets()[0])
         assert body1_path.startswith(TrussPhysicsConfig.TOMATO_DETACHMENT_BODY_PARENT_PATH)
         assert not body1_path.startswith(f"{stem_path}/")
+
+        rigid_body_api = PhysxSchema.PhysxRigidBodyAPI.Get(dynamic_stage, body1_path)
+        assert rigid_body_api.GetSolverPositionIterationCountAttr().Get() == 32
+        assert rigid_body_api.GetSolverVelocityIterationCountAttr().Get() == 1
+
+        filtered_targets = {
+            str(path)
+            for path in dynamic_stage.GetPrimAtPath(body1_path)
+            .GetRelationship("physics:filteredPairs")
+            .GetTargets()
+        }
+        parent_link_path = str(
+            prim.GetRelationship("physics:body0").GetTargets()[0]
+        )
+        assert parent_link_path in filtered_targets
+        assert any("_rachis_Link_" in path for path in filtered_targets)
     for prim in pedicel_joints:
         limit = UsdPhysics.LimitAPI.Get(prim, "rotX")
         assert limit.GetLowAttr().Get() == -TrussPhysicsConfig.PEDICEL_BEND_LIMIT_DEG

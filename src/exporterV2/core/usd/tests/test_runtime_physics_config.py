@@ -26,6 +26,7 @@ if str(SRC_DIR) not in sys.path:
 
 from exporterV2.core.physics import (
     apply_physx_articulation_settings,
+    apply_physx_rigid_body_solver_settings,
     apply_physx_scene_settings,
 )
 from exporterV2.core.tree_config import PhysicsRuntimeConfig
@@ -71,10 +72,30 @@ def test_explicit_runtime_arguments_override_tree_config():
     assert articulation_api.GetSolverVelocityIterationCountAttr().Get() == 2
 
 
+def test_terminal_body_solver_defaults_are_authored_from_tree_config():
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(stage, "/World")
+    tomato = UsdGeom.Sphere.Define(stage, "/World/tomato")
+    UsdPhysics.RigidBodyAPI.Apply(tomato.GetPrim())
+
+    apply_physx_rigid_body_solver_settings(stage, "/World/tomato")
+
+    rigid_body_api = PhysxSchema.PhysxRigidBodyAPI.Get(stage, "/World/tomato")
+    assert (
+        rigid_body_api.GetSolverPositionIterationCountAttr().Get()
+        == PhysicsRuntimeConfig.TERMINAL_BODY_SOLVER_POSITION_ITERATIONS
+    )
+    assert (
+        rigid_body_api.GetSolverVelocityIterationCountAttr().Get()
+        == PhysicsRuntimeConfig.TERMINAL_BODY_SOLVER_VELOCITY_ITERATIONS
+    )
+
+
 if __name__ == "__main__":
     try:
         test_runtime_defaults_are_authored_from_tree_config()
         test_explicit_runtime_arguments_override_tree_config()
+        test_terminal_body_solver_defaults_are_authored_from_tree_config()
         print("RUNTIME PHYSICS CONFIG TESTS PASSED")
     finally:
         simulation_app.close()

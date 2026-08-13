@@ -833,6 +833,8 @@ def save_branches_json(
                 "physics_hz": tree_config.PhysicsRuntimeConfig.PHYSICS_HZ,
                 "solver_position_iterations": tree_config.PhysicsRuntimeConfig.SOLVER_POSITION_ITERATIONS,
                 "solver_velocity_iterations": tree_config.PhysicsRuntimeConfig.SOLVER_VELOCITY_ITERATIONS,
+                "terminal_body_solver_position_iterations": tree_config.PhysicsRuntimeConfig.TERMINAL_BODY_SOLVER_POSITION_ITERATIONS,
+                "terminal_body_solver_velocity_iterations": tree_config.PhysicsRuntimeConfig.TERMINAL_BODY_SOLVER_VELOCITY_ITERATIONS,
                 "enable_gpu_dynamics": tree_config.PhysicsRuntimeConfig.ENABLE_GPU_DYNAMICS,
             },
             "branch_resolution": {

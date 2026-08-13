@@ -282,6 +282,8 @@ def test_json_metadata_records_effective_configuration(tmp_path):
     assert metadata["physics_runtime"]["rigid_trunk"] is True
     assert metadata["physics_runtime"]["solver_position_iterations"] == 32
     assert metadata["physics_runtime"]["solver_velocity_iterations"] == 4
+    assert metadata["physics_runtime"]["terminal_body_solver_position_iterations"] == 32
+    assert metadata["physics_runtime"]["terminal_body_solver_velocity_iterations"] == 1
     assert metadata["branch_resolution"]["max_links_per_branch"] == 10
     assert metadata["branch_resolution"]["capped_branch_count"] == 1
     assert metadata["organ_generation"] == {"trusses": False}
