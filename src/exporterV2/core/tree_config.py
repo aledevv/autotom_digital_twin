@@ -48,7 +48,7 @@ class PhysicsRuntimeConfig:
 
     # RigidTrunk feature flag: keep the main stem stable for fruit-heavy tests.
     RIGID_TRUNK = True
-    PHYSICS_HZ = 480
+    PHYSICS_HZ = 240
     SOLVER_POSITION_ITERATIONS = 32
     SOLVER_VELOCITY_ITERATIONS = 4
     TERMINAL_BODY_SOLVER_POSITION_ITERATIONS = 32
