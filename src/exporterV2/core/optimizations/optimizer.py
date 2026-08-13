@@ -181,9 +181,11 @@ class FullOptimizationReport:
                 f"  Minimum achievable:     {self.minimum_achievable}"
             )
 
+        reduction_prefix = "-" if self.total_reduction > 0 else ""
+
         lines.extend([
             f"  Structural lower bound: {self.lower_bound}",
-            f"  Total reduction:        -{self.total_reduction} "
+            f"  Total reduction:        {reduction_prefix}{self.total_reduction} "
             f"({self.reduction_percentage:.1f}%)",
         ])
 
@@ -195,7 +197,7 @@ class FullOptimizationReport:
                 "",
                 "Rigid-body summary:",
                 f"  Original rigid bodies:  {self.original_rigid_bodies}",
-                f"  Budget:                 {self.rigid_body_budget}",
+                # f"  Budget:                 {self.rigid_body_budget}",
                 f"  Final rigid bodies:     {self.final_rigid_bodies}",
             ])
 
@@ -467,7 +469,7 @@ class BudgetOptimizer:
         rigid_body_budget_met = self._rigid_body_budget_met(original_rigid_bodies)
         
         # Check if already within budget
-        if original_joints <= budget and rigid_body_budget_met:
+        if original_joints <= budget: # originally: if original_joints <= budget and rigid_body_budget_met
             report = FullOptimizationReport(
                 original_joints=original_joints,
                 final_joints=original_joints,
@@ -564,7 +566,7 @@ class BudgetOptimizer:
                     # Stop if all configured budgets are met
                     if (
                         current_joints <= budget
-                        and self._rigid_body_budget_met(current_rigid_bodies)
+                        # and self._rigid_body_budget_met(current_rigid_bodies)
                     ):
                         break  # Exit inner loop (budgets met)
                 else:
@@ -576,7 +578,7 @@ class BudgetOptimizer:
             # Stop outer loop if budget met
             if (
                 current_joints <= budget
-                and self._rigid_body_budget_met(current_rigid_bodies)
+                # and self._rigid_body_budget_met(current_rigid_bodies)
             ):
                 break  # Exit outer loop (budgets met)
         
@@ -587,7 +589,7 @@ class BudgetOptimizer:
         )
         success = (
             final_joints <= budget
-            and self._rigid_body_budget_met(final_rigid_bodies)
+            # and self._rigid_body_budget_met(final_rigid_bodies)
         )
         
         # Calculate minimum achievable (if all techniques were fully applied)
@@ -620,14 +622,7 @@ class BudgetOptimizer:
         # Determine error message if budget not met
         error_message = None
         if not success:
-            if final_joints <= budget and rigid_body_budget is not None:
-                error_message = (
-                    f"Optimization met the D6 budget ({final_joints}/{budget}) "
-                    f"but stopped at {final_rigid_bodies} rigid bodies "
-                    f"(budget: {rigid_body_budget}). "
-                    f"Consider increasing max_rigid_bodies or disabling dense organs."
-                )
-            elif reached_minimum:
+            if reached_minimum:
                 error_message = (
                     f"Optimization reached minimum possible ({final_joints} joints) "
                     f"but could not meet budget ({budget} joints). "
