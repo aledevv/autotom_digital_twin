@@ -30,18 +30,10 @@ optimization. V1 remains useful as a simpler static reference.
 | V2, `src/exporterV2` | Active pipeline | CSV-derived articulated plant, compound leaves, physical trusses, detachable tomatoes, runtime PhysX settings, optimizer |
 
 ### Exporter V2 Demo
-
-<video src="assets/demo_v2.mp4" width="100%" controls muted loop>
-</video>
-
-[Open `assets/demo_v2.mp4`](assets/demo_v2.mp4)
+https://github.com/user-attachments/assets/357638f1-c9d2-485e-94ee-cd6e2d5e7535
 
 ### Exporter V1 / V1.5 Baseline
-
-<video src="assets/demo_v1_5.mov" width="100%" controls muted loop>
-</video>
-
-[Open `assets/demo_v1_5.mov`](assets/demo_v1_5.mov)
+https://github.com/user-attachments/assets/ab07fde7-d866-470d-9056-e0a2215c22d8
 
 ## Pipeline
 
