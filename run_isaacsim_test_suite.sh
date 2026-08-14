@@ -1,1 +1,0 @@
-uv run src/experiments/recursive_tree/tests/test_manual_cli.py

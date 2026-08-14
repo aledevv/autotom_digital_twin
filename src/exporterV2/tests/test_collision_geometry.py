@@ -17,6 +17,8 @@ import sys
 import math
 from pathlib import Path
 
+import pytest
+
 
 def angle_distance(angle1, angle2):
     """Calculate shortest angular distance between two angles (degrees)."""
@@ -324,3 +326,26 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+@pytest.fixture
+def branches():
+    """Build current day-100 branches for pytest collection."""
+    from exporterV2.adapters.groimp_csv import parse_csv_to_branches
+
+    parsed_branches, _ = parse_csv_to_branches(day=100)
+    return parsed_branches
+
+
+def test_collision_geometry_pytest(branches):
+    """Pytest entry point; the functions above also serve the CLI script."""
+    assert test_lateral_branches_collision(branches, verbose=False)
+    assert test_rotation_variance(branches, verbose=False)
+    assert test_angle_separation(branches, verbose=False)
+    assert test_bounding_boxes(branches, verbose=False)
+
+
+test_lateral_branches_collision.__test__ = False
+test_rotation_variance.__test__ = False
+test_angle_separation.__test__ = False
+test_bounding_boxes.__test__ = False

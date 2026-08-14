@@ -89,7 +89,6 @@ def test_sphere_sphere_no_intersection():
     assert overlap < 0, "Overlap should be negative (separated)"
     
     print("\n✓ No intersection test PASSED")
-    return True
 
 
 def test_sphere_sphere_touching():
@@ -117,7 +116,6 @@ def test_sphere_sphere_touching():
     assert not intersects or abs(overlap) < 1e-6, "Should be just touching (no intersection)"
     
     print("\n✓ Touching test PASSED")
-    return True
 
 
 def test_sphere_sphere_overlapping():
@@ -148,7 +146,6 @@ def test_sphere_sphere_overlapping():
     assert abs(overlap - 0.2) < 1e-6, f"Overlap should be 0.2m, got {overlap}"
     
     print("\n✓ Overlapping test PASSED")
-    return True
 
 
 def test_sphere_sphere_with_margin():
@@ -184,7 +181,6 @@ def test_sphere_sphere_with_margin():
     assert intersects_with_margin, "Should intersect with margin"
     
     print("\n✓ Margin test PASSED")
-    return True
 
 
 def test_sphere_cylinder_no_intersection():
@@ -214,7 +210,6 @@ def test_sphere_cylinder_no_intersection():
     assert not intersects, "Should not intersect"
     
     print("\n✓ No intersection test PASSED")
-    return True
 
 
 def test_sphere_cylinder_intersecting():
@@ -246,7 +241,6 @@ def test_sphere_cylinder_intersecting():
     assert overlap > 0, "Overlap should be positive"
     
     print("\n✓ Intersecting test PASSED")
-    return True
 
 
 if __name__ == "__main__":

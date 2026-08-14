@@ -101,9 +101,6 @@ def test_sphere_creation():
     print("TEST PASSED: All sphere geometry checks successful")
     print("="*80)
     
-    return True
-
-
 def test_sphere_with_orientation():
     """Test sphere creation with custom orientation."""
     print("\n" + "="*80)
@@ -148,9 +145,12 @@ def test_sphere_with_orientation():
     assert orient_op.GetOpType() == UsdGeom.XformOp.TypeOrient, "Second op should be orient"
     
     actual_quat = orient_op.Get()
-    # Compare quaternion components (allow small numerical error)
-    for i in range(4):
-        assert abs(actual_quat[i] - quat[i]) < 1e-5, f"Quaternion component {i} mismatch"
+    actual_components = (actual_quat.GetReal(), *actual_quat.GetImaginary())
+    expected_components = (quat.GetReal(), *quat.GetImaginary())
+    for actual, expected in zip(actual_components, expected_components):
+        assert abs(actual - expected) < 1e-5, (
+            f"Quaternion component mismatch: {actual} vs {expected}"
+        )
     
     print(f"✓ Orientation correct: {actual_quat}")
     
@@ -161,9 +161,6 @@ def test_sphere_with_orientation():
     print("TEST PASSED: Sphere with orientation successful")
     print("="*80)
     
-    return True
-
-
 if __name__ == "__main__":
     try:
         test_sphere_creation()

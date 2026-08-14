@@ -92,8 +92,7 @@ exporterV2/core/optimizations/
     ├── OPTIMIZATION_README.md  # Main documentation index
     ├── OPTIMIZATION_QUICK_START.md # Quick reference guide
     ├── RESEARCH_VALIDATION.md  # Academic & research background
-    ├── notion_pages/           # Thesis & Notion-ready pages (1-7)
-    └── llm_context/            # Historical design & task summaries
+    └── notion_pages/           # Thesis & Notion-ready pages (1-7)
 ```
 
 ---
@@ -158,7 +157,7 @@ pytest core/optimizations/tests/test_stem_collapse.py -v
 
 ```bash
 # Generate test USD files and load in Isaac Sim
-python core/optimizations/tests/visual_validation/run_visual_test.py
+python core/optimizations/demos/optimization_visual_validation/run_visual_validation.py
 ```
 
 ---

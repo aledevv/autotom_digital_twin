@@ -77,7 +77,7 @@ To validate branch strength and deformation under external interaction (e.g. rob
 Run the complete pipeline (Generation $\rightarrow$ Simulation $\rightarrow$ CSV Logging $\rightarrow$ PNG Plot):
 
 ```bash
-./run_test.sh
+./src/experiments/tomato_branch_physics/run_tomato_branch_physics.sh
 ```
 
 ---

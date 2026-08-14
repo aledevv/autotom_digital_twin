@@ -15,13 +15,13 @@
 
 ---
 
-### 2. [llm_context/ (Archive)](./llm_context/)
-**Contents**: Archive folder containing technical design documents (Design, Implementation Plan, Task Summaries).
+### 2. [RESEARCH_VALIDATION.md](./RESEARCH_VALIDATION.md)
+**Contents**: Research background and validation context for the joint-budget approach.
 
 **When to use it**:
-- Providing context for LLMs in future conversations
-- Historical debugging of design decisions
-- Technical backup of individual implementation phases (Tasks 1-12)
+- Grounding the optimizer in related LOD and model-reduction literature
+- Explaining why a joint budget is needed for Isaac Sim/PhysX
+- Supporting thesis/report discussion
 
 ---
 
@@ -47,7 +47,8 @@
 |-----------|----------|
 | Get started using the system | [Quick Start](./OPTIMIZATION_QUICK_START.md) |
 | Read Technical Paper / Thesis Report | [Comprehensive Report](./notion_pages/7_Comprehensive_Optimization_Report.md) |
-| LLM Context / Design History | [llm_context/](./llm_context/) |
+| Research background | [Research Validation](./RESEARCH_VALIDATION.md) |
+| V2 implementation notes | [Exporter V2 Implementation Notes](../../../docs/07_implementation_notes.md) |
 | Troubleshooting | [Quick Start](./OPTIMIZATION_QUICK_START.md#common-issues--solutions) |
 | Configure budget | [Quick Start](./OPTIMIZATION_QUICK_START.md#configuration-quick-ref) |
 | Testing Reference | [Quick Start](./OPTIMIZATION_QUICK_START.md#testing-reference) |
@@ -87,7 +88,7 @@ An incremental optimization system that applies 5 LOD-based techniques ordered b
 ### For Developers & Researchers
 
 1. **Read** [Comprehensive Report](./notion_pages/7_Comprehensive_Optimization_Report.md) for technical details and algorithms.
-2. **Consult** `llm_context/` directory for historical design notes and task summaries.
+2. **Consult** [Research Validation](./RESEARCH_VALIDATION.md) and [Exporter V2 Implementation Notes](../../../docs/07_implementation_notes.md) for background and current engineering decisions.
 3. **Use** [Quick Start](./OPTIMIZATION_QUICK_START.md) for quick references on running tests and configuring the environment.
 
 ### For Users

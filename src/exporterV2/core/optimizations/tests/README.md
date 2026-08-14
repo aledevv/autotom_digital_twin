@@ -5,9 +5,7 @@ Test suite for the joint-budget optimization pipeline.
 > **TL;DR — run everything at once:**
 > ```bash
 > cd ~/isaacsim/autotom_digital_twin
-> uv run pytest src/exporterV2/core/optimizations/tests/ \
->     --ignore=src/exporterV2/core/optimizations/tests/visual_validation \
->     -v
+> uv run pytest src/exporterV2/core/optimizations/tests/ -v
 > ```
 > ✅ Expected: **92 passed, 0 failed** (≈2 s)
 
@@ -36,11 +34,13 @@ tests/
 ├── 8_leaf_branch_reduce/     pytest unit tests + USD generator + Isaac Sim compare
 ├── 9_integration/            pytest integration tests (multi-technique pipeline)
 ├── 10_thin_link_lock/        pytest unit tests + USD generator + Isaac Sim compare
-├── visual_validation/        Full-pipeline USD generator + Isaac Sim loader
 ├── test_integration.py       pytest — real CSV plant end-to-end
 ├── test_cli_integration.py   pytest — CLI flag wiring
 └── demo_integration.py       standalone demo script
 ```
+
+Full-pipeline visual validation lives outside pytest collection at
+`src/exporterV2/demos/optimization_visual_validation/`.
 
 ---
 
@@ -205,24 +205,24 @@ Generates one USD per optimization stage so you can step through each technique 
 
 ```bash
 # Step 1 — generate all 6 USD stages (pure Python, no Isaac Sim needed)
-uv run python src/exporterV2/core/optimizations/tests/visual_validation/run_visual_test.py
+uv run python src/exporterV2/demos/optimization_visual_validation/run_visual_validation.py
 # → writes usd_output/  0_baseline.usda … 5_fully_optimized.usda
 # → prints a joint-count summary table
 
 # Step 2a — load a single stage in Isaac Sim
 ~/isaacsim/python.sh -m isaacsim \
-    src/exporterV2/core/optimizations/tests/visual_validation/usd_output/0_baseline.usda
+    src/exporterV2/demos/optimization_visual_validation/usd_output/0_baseline.usda
 
 # (replace 0_baseline with 1_petiole_lock, 2_lateral_reduce, etc.)
 
 # Step 2b — load all stages in a single Isaac Sim scene
 ~/isaacsim/python.sh \
-    src/exporterV2/core/optimizations/tests/visual_validation/load_final_test.py
+    src/exporterV2/demos/optimization_visual_validation/load_final_comparison.py
 
 # Optional: combination matrix test
-uv run python src/exporterV2/core/optimizations/tests/visual_validation/generate_combinations_usd.py
+uv run python src/exporterV2/demos/optimization_visual_validation/generate_combinations_usd.py
 ~/isaacsim/python.sh \
-    src/exporterV2/core/optimizations/tests/visual_validation/load_combination_isaacsim.py
+    src/exporterV2/demos/optimization_visual_validation/load_combination_isaacsim.py
 ```
 
 **Stages generated:**

@@ -10,7 +10,16 @@ Main components:
 - collision: Collision filtering logic
 """
 
-from .stage import build_stage, build_stage_locked, get_output_usd_path
+try:
+    from .stage import build_stage, build_stage_locked, get_output_usd_path
+except ImportError as exc:
+    if "PhysxSchema" not in str(exc):
+        raise
+
+    def _missing_physx_schema(*args, **kwargs):
+        raise ImportError("USD stage building requires Isaac Sim PhysxSchema")
+
+    build_stage = build_stage_locked = get_output_usd_path = _missing_physx_schema
 
 __all__ = [
     'build_stage',

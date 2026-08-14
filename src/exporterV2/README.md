@@ -1,6 +1,8 @@
 # ExporterV2 - Modular Tree Model Generator
 
-Production-ready tree model generator with **clean separation** between generic tree building and cultivar-specific logic.
+Production-ready tomato plant model generator with **clean separation** between
+generic tree building, GroIMP CSV adaptation, cultivar-specific logic, and USD
+physics authoring.
 
 ## Architecture
 
@@ -118,6 +120,7 @@ Parses groIMP CSV export files and converts to generic BRANCHES format.
 - `load_trunk_internodes()` - Load trunk data
 - `load_lateral_branches()` - Load lateral branches with filtering
 - `load_leaves()` - Load leaves with filtering
+- `load_trusses()` - Load CSV-derived trusses, pedicels, and tomato metadata
 
 **Profile-driven:**
 - Filtering logic controlled by cultivar profile
@@ -168,6 +171,8 @@ branches, _ = parse_csv_to_branches(day=100, profile=MY_PROFILE)
 - Articulated physics (PhysX)
 - Flexible joints with automatic spring/damping
 - Collision filtering (no self-collision)
+- Detachable tomato terminal bodies under `/World/TerminalBodies`
+- Breakable FixedJoints for tomato detachment
 - Compatible with Isaac Sim
 
 ---
@@ -206,34 +211,35 @@ cat output/day_100/branches_v2_day_100.json
 # Run all tests from project root
 cd /home/alessandro/isaacsim/autotom_digital_twin
 
-# 1. Refactoring verification
-./src/exporterV2/tests/test_refactoring.sh
+# Ordinary pytest suite
+uv run pytest src/exporterV2/adapters/groimp_csv/tests \
+              src/exporterV2/core/optimizations/tests \
+              src/exporterV2/tests -v
 
-# 2. Generate day 100
-./run_mainV2.sh --day 100
-
-# 3. Collision geometry checks
-python3 src/exporterV2/tests/test_collision_geometry.py output/day_100/branches_v2_day_100.json
+# Isaac/PhysX tests
+~/isaacsim/python.sh -m pytest src/exporterV2/core/usd/tests -v
 ```
 
 See **[tests/README.md](tests/README.md)** for details.
 
 ---
 
-## Refactoring History
+## Historical Notes
 
-**Phase 1-2 (August 2026):**
-- ✅ Restructured directories (core/adapters/profiles)
-- ✅ Extracted cultivar configuration to profiles
-- ✅ Preserved all existing functionality
+The old refactoring reports have been consolidated into `docs/`. The current
+reference points are:
 
-See `REFACTORING_SUMMARY.md` for details.
+- `docs/01_architecture.md` for the active pipeline and module boundaries.
+- `docs/07_implementation_notes.md` for implementation decisions, conservative
+  refactors, CSV single-read behavior, config caching, and detachment notes.
+- `docs/06_testing.md` for the split between ordinary tests, Isaac/PhysX tests,
+  and manual demos.
 
 ---
 
 ## Related
 
-- **exporterV1:** Original CSV parser (deprecated)
+- **exporterV1:** Original static baseline exporter
 - **recursive_tree:** Generic tree experiments (uses core/ directly)
 - **example_custom_tree.py:** Manual BRANCHES configuration example
 

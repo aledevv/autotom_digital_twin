@@ -3,7 +3,13 @@
 from pathlib import Path
 import sys
 
+import pytest
 from pxr import Usd
+
+try:
+    from pxr import PhysxSchema  # noqa: F401
+except ImportError:
+    pytest.skip("PhysX schema requires Isaac Sim", allow_module_level=True)
 
 
 SRC_DIR = Path(__file__).resolve().parents[4]
