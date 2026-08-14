@@ -194,7 +194,6 @@ python3 src/experiments/recursive_tree/tests/test_manual_cli.py
 - **USD Test 1**: `lateral_branches_antenna.usda` (74 KB)
 - **USD Test 2**: `multi_branch_horizontal.usda` (175 KB)
 - **Documentazione**:
-  - `SUMMARY_LATERAL_TESTS.md`
   - `MULTI_BRANCH_HORIZONTAL_README.md`
   - `LATERAL_BRANCHES_README.md`
   - Questo file: `FINAL_LATERAL_CONFIG.md` ⭐

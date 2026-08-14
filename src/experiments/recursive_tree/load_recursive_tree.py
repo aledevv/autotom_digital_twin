@@ -5,7 +5,7 @@ Single entry point: generates the recursive tree USD stage, applies PhysX
 configuration, and starts the interactive Isaac Sim simulation.
 
 Run with:
-    ./run_recursive_tree.sh
+    ./src/experiments/recursive_tree/run_recursive_tree.sh
 or directly:
     ~/isaacsim/python.sh src/experiments/recursive_tree/load_recursive_tree.py
 """
