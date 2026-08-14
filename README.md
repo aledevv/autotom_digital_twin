@@ -34,10 +34,14 @@ optimization. V1 remains useful as a simpler static reference.
 <video src="assets/demo_v2.mp4" width="100%" controls muted loop>
 </video>
 
+[Open `assets/demo_v2.mp4`](assets/demo_v2.mp4)
+
 ### Exporter V1 / V1.5 Baseline
 
 <video src="assets/demo_v1_5.mov" width="100%" controls muted loop>
 </video>
+
+[Open `assets/demo_v1_5.mov`](assets/demo_v1_5.mov)
 
 ## Pipeline
 
