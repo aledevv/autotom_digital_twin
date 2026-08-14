@@ -4,7 +4,12 @@ import math
 from pathlib import Path
 import sys
 
-from pxr import Usd, UsdPhysics
+import pytest
+
+try:
+    from pxr import PhysxSchema, Usd, UsdPhysics
+except ImportError:
+    pytest.skip("PhysX schema requires Isaac Sim", allow_module_level=True)
 
 
 SRC_DIR = Path(__file__).resolve().parents[5]

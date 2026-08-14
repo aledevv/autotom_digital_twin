@@ -18,9 +18,19 @@ from dataclasses import dataclass, field
 
 # Support both package and standalone imports
 try:
-    from .techniques.base import OptimizationTechnique, OptimizationReport, ValidationResult
+    from .techniques.base import (
+        OptimizationTechnique,
+        OptimizationReport,
+        ValidationResult,
+        count_d6_joints,
+    )
 except ImportError:
-    from techniques.base import OptimizationTechnique, OptimizationReport, ValidationResult
+    from techniques.base import (
+        OptimizationTechnique,
+        OptimizationReport,
+        ValidationResult,
+        count_d6_joints,
+    )
 
 
 @dataclass
@@ -263,13 +273,7 @@ class BudgetOptimizer:
             In PhysX articulations, each link represents a rigid body,
             and joints are between consecutive links.
         """
-        total = 0
-        for branch in branches:
-            # Skip Fixed joints (locked petiolules)
-            if branch.get("joint_type", "d6").lower() == "fixed":
-                continue
-            total += branch.get("n_links", 1)
-        return total
+        return count_d6_joints(branches)
 
     def calculate_total_rigid_bodies(
         self,

@@ -32,7 +32,8 @@ def test_day80_trunk_trusses():
     truss_rachises = [branch for branch in truss_branches if branch["id"].endswith("_rachis")]
 
     assert len(truss_rachises) == 5, f"Expected 5 trunk trusses, got {len(truss_rachises)}"
-    assert len(terminal_bodies) == 40, f"Expected 40 tomatoes, got {len(terminal_bodies)}"
+    tomatoes = [body for body in terminal_bodies if body.get("kind") == "tomato"]
+    assert len(tomatoes) == 40, f"Expected 40 tomatoes, got {len(tomatoes)}"
 
     for branch in truss_branches:
         assert branch["physics_profile"] == "truss", f"{branch['id']} should use truss physics"
@@ -42,7 +43,7 @@ def test_day80_trunk_trusses():
         assert TrussGeometryConfig.MIN_TILT_DEG <= rachis["tilt"] <= TrussGeometryConfig.MAX_TILT_DEG
         assert abs(rachis["height"] - TrussGeometryConfig.RACHIS_SEGMENT_LENGTH) < 1e-9
 
-    for body in terminal_bodies:
+    for body in tomatoes:
         assert body["parent_branch_id"] in branch_ids, f"{body['id']} has missing parent"
         assert body["radius"] > 0.0, f"{body['id']} should have positive radius"
 
@@ -64,6 +65,8 @@ def test_day50_zero_dimensions_are_filtered():
         assert branch["n_links"] > 0, f"{branch['id']} has zero links"
 
     for body in terminal_bodies:
+        if body.get("shape") != "sphere":
+            continue
         assert body["radius"] > 0.0, f"{body['id']} has zero radius"
         assert body["parent_branch_id"] in branch_ids, f"{body['id']} has missing parent"
 
@@ -82,7 +85,7 @@ def test_day80_optimizer_meets_d6_budget():
         f"Expected unoptimized day 80 to exceed {MAX_N_JOINTS}, got {original_joints}"
     )
 
-    optimized, report = BudgetOptimizer().optimize(branches)
+    optimized, report = BudgetOptimizer(max_joints=MAX_N_JOINTS).optimize(branches)
     final_joints = count_d6_joints(optimized)
     optimized_ids = {branch["id"] for branch in optimized}
 

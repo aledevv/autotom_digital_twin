@@ -26,7 +26,7 @@ def test_optimize_csv_day_100():
     print(f"\nOriginal joints: {original_joints}")
     
     # Optimize
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     optimized_branches, report = optimizer.optimize(branches)
     
     final_joints = count_d6_joints(optimized_branches)
@@ -73,7 +73,7 @@ def test_optimize_within_budget():
     original_joints = count_d6_joints(branches)
     
     # Optimize with default budget (250)
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     optimized_branches, report = optimizer.optimize(branches)
     
     final_joints = count_d6_joints(optimized_branches)
@@ -91,7 +91,7 @@ def test_impossible_budget_error():
     ]
     
     # Modify config to have impossible budget (below lower bound)
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     
     # Lower bound is 0 (trunk with 1 link), so set budget to -1 (impossible)
     optimizer.config.max_joints = -1
@@ -113,7 +113,7 @@ def test_no_optimization_needed():
     
     original_joints = count_d6_joints(branches)
     
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     optimized_branches, report = optimizer.optimize(branches)
     
     final_joints = count_d6_joints(optimized_branches)

@@ -66,7 +66,6 @@ def test_rachis_generation():
     assert 0 <= rachis["rot"] < 360, "Rotation should be in [0, 360)"
     
     print("\n✓ Rachis generation test PASSED")
-    return True
 
 
 def test_lateral_pedicels():
@@ -117,7 +116,6 @@ def test_lateral_pedicels():
         assert right["n_links"] == 1, "Pedicel should have 1 link"
     
     print("\n✓ Lateral pedicels test PASSED")
-    return True
 
 
 def test_terminal_pedicel():
@@ -156,7 +154,6 @@ def test_terminal_pedicel():
     assert terminal["n_links"] == 1, "Pedicel should have 1 link"
     
     print("\n✓ Terminal pedicel test PASSED")
-    return True
 
 
 def test_complete_truss():
@@ -210,7 +207,6 @@ def test_complete_truss():
         assert branch["parent"] == rachis_id, f"Pedicel {branch['id']} should attach to rachis"
     
     print("\n✓ Complete truss test PASSED")
-    return True
 
 
 def test_radius_clamping():
@@ -255,7 +251,6 @@ def test_radius_clamping():
         assert pedicel['radius'] >= 0.001, f"Pedicel radius should be clamped to at least 0.001m, got {pedicel['radius']}"
     
     print("\n✓ Radius clamping test PASSED")
-    return True
 
 
 def test_tomato_definitions():
@@ -298,7 +293,6 @@ def test_tomato_definitions():
         assert "_tomato" in tomato["id"], "ID should contain _tomato suffix"
     
     print("\n✓ Tomato definitions test PASSED")
-    return True
 
 
 def test_complete_config():
@@ -341,7 +335,6 @@ def test_complete_config():
         assert tomato["pedicel_id"] in pedicel_ids, f"Tomato {tomato['id']} has invalid pedicel reference"
     
     print("\n✓ Complete configuration test PASSED")
-    return True
 
 
 def test_even_fruit_count():
@@ -378,7 +371,6 @@ def test_even_fruit_count():
         assert tomato["pedicel_id"] in [p["id"] for p in pedicels], "Tomato should reference a valid pedicel"
 
     print("\n✓ Even fruit count test PASSED")
-    return True
 
 
 if __name__ == "__main__":

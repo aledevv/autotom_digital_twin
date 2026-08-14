@@ -130,7 +130,7 @@ class TrussGeometryConfig:
 class BioConfig:
     """Biological parameters for plant tissue."""
     YOUNG_MODULUS = 70.0e6   # [Pa] 20-50 MPa - mature tomato stem
-    DAMPING_RATIO = 0.3     # Critically damped (zeta=1.0) to prevent 30s oscillations
+    DAMPING_RATIO = 0.8     # Critically damped (zeta=1.0) to prevent 30s oscillations
     PLANT_DENSITY = 1000.0   # [kg/m^3] plant tissue density
 
 

@@ -226,7 +226,7 @@ def test_truss_master_switch_removes_branches_and_terminal_bodies(monkeypatch):
     )
 
     assert not any(branch["id"].startswith("Truss_") for branch in branches)
-    assert terminal_bodies == []
+    assert not any(body.get("kind") == "tomato" for body in terminal_bodies)
 
 
 def test_day80_truss_children_follow_debug_switches(monkeypatch):
@@ -241,7 +241,7 @@ def test_day80_truss_children_follow_debug_switches(monkeypatch):
 
     assert truss_ids
     assert all(branch_id.endswith("_rachis") for branch_id in truss_ids)
-    assert terminal_bodies == []
+    assert not any(body.get("kind") == "tomato" for body in terminal_bodies)
 
 
 def test_day80_tomatoes_can_be_hidden_without_removing_pedicels(monkeypatch):
@@ -254,7 +254,46 @@ def test_day80_tomatoes_can_be_hidden_without_removing_pedicels(monkeypatch):
     )
 
     assert any("_pedicel_" in branch["id"] for branch in branches)
-    assert terminal_bodies == []
+    assert not any(body.get("kind") == "tomato" for body in terminal_bodies)
+
+
+def test_parse_pipeline_reads_csv_once(monkeypatch):
+    real_read_csv = parser.pd.read_csv
+    calls = []
+
+    def recording_read_csv(*args, **kwargs):
+        calls.append(args[0])
+        return real_read_csv(*args, **kwargs)
+
+    monkeypatch.setattr(parser.pd, "read_csv", recording_read_csv)
+    parser.parse_csv_to_branches(
+        day=30,
+        plant_id=1,
+        include_terminal_bodies=True,
+        save_json=False,
+    )
+
+    assert len(calls) == 1
+
+
+def test_standalone_loaders_read_their_own_dataframe(monkeypatch):
+    project_root = Path(__file__).resolve().parents[5]
+    csv_path = (
+        project_root
+        / "data/simulation_output/dynamic_output/graphs/graph_day_30.csv"
+    )
+    real_read_csv = parser.pd.read_csv
+    calls = []
+
+    def recording_read_csv(*args, **kwargs):
+        calls.append(args[0])
+        return real_read_csv(*args, **kwargs)
+
+    monkeypatch.setattr(parser.pd, "read_csv", recording_read_csv)
+    parser.load_trunk_internodes(str(csv_path), 30)
+    parser.load_trusses(str(csv_path), 30)
+
+    assert len(calls) == 2
 
 
 def test_json_metadata_records_effective_configuration(tmp_path):

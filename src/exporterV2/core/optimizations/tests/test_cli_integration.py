@@ -41,7 +41,7 @@ def test_cli_workflow_with_optimize():
     original_joints = count_d6_joints(branches)
     
     # Optimization step (as in main.py)
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     try:
         final_branches, report = optimizer.optimize(branches)
         final_joints = count_d6_joints(final_branches)
@@ -68,7 +68,7 @@ def test_error_message_format():
         {"id": "trunk", "n_links": 10, "height": 1.0, "radius": 0.04},
     ]
     
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     
     # Manually trigger the error by calling with crafted lower_bound > budget
     # (simulating what would happen if techniques couldn't meet budget)

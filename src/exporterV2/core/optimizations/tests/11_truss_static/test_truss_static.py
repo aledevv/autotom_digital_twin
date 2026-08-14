@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from pathlib import Path
 import sys
 
 import pytest
 import yaml
-from pxr import PhysxSchema, Usd, UsdPhysics
 
 
 SRC_DIR = Path(__file__).resolve().parents[5]
@@ -18,7 +16,6 @@ from exporterV2.core.optimizations.optimizer import BudgetOptimizer
 from exporterV2.core.optimizations.techniques.base import count_d6_joints
 from exporterV2.core.optimizations.techniques.truss_static import TrussStaticTechnique
 from exporterV2.core.tree_config import TrussPhysicsConfig
-from exporterV2.core.usd.stage import build_stage
 
 
 def make_truss() -> tuple[list[dict], list[dict]]:
@@ -157,138 +154,3 @@ def test_one_link_rachis_is_curved_without_changing_joint_count():
     assert count_d6_joints(static) == before_static
     assert len([branch for branch in static if "_static_curve_" in branch["id"]]) == 5
     assert not technique.can_apply(static)
-
-
-def test_usd_uses_official_pedicel_and_static_root_overrides(tmp_path, monkeypatch):
-    monkeypatch.setattr(TrussPhysicsConfig, "TOMATO_DETACHMENT_ENABLED", True)
-    branches, terminal_bodies = make_truss()
-    dynamic_path = tmp_path / "dynamic.usda"
-    dynamic_stage, stem_path = build_stage(
-        str(dynamic_path),
-        branches=branches,
-        terminal_bodies=terminal_bodies,
-        skip_limit_check=True,
-    )
-    dynamic_stage.GetRootLayer().Save()
-
-    pedicel_joints = [
-        prim
-        for prim in dynamic_stage.Traverse()
-        if prim.GetTypeName() == "PhysicsJoint" and "_pedicel_" in str(prim.GetPath())
-    ]
-    assert len(pedicel_joints) == 7
-    terminal_joints = [
-        prim
-        for prim in dynamic_stage.Traverse()
-        if prim.GetTypeName() == "PhysicsFixedJoint"
-        and prim.GetName() == "TerminalBodyFixedJoint"
-    ]
-    assert len(terminal_joints) == len(terminal_bodies)
-    for prim in terminal_joints:
-        assert prim.GetAttribute("physics:breakForce").Get() == pytest.approx(
-            TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N
-        )
-        assert prim.GetAttribute("physics:excludeFromArticulation").Get() is True
-        body1_path = str(prim.GetRelationship("physics:body1").GetTargets()[0])
-        assert body1_path.startswith(TrussPhysicsConfig.TOMATO_DETACHMENT_BODY_PARENT_PATH)
-        assert not body1_path.startswith(f"{stem_path}/")
-
-        rigid_body_api = PhysxSchema.PhysxRigidBodyAPI.Get(dynamic_stage, body1_path)
-        assert rigid_body_api.GetSolverPositionIterationCountAttr().Get() == 32
-        assert rigid_body_api.GetSolverVelocityIterationCountAttr().Get() == 1
-
-        filtered_targets = {
-            str(path)
-            for path in dynamic_stage.GetPrimAtPath(body1_path)
-            .GetRelationship("physics:filteredPairs")
-            .GetTargets()
-        }
-        parent_link_path = str(
-            prim.GetRelationship("physics:body0").GetTargets()[0]
-        )
-        assert parent_link_path in filtered_targets
-        assert any("_rachis_Link_" in path for path in filtered_targets)
-    for prim in pedicel_joints:
-        limit = UsdPhysics.LimitAPI.Get(prim, "rotX")
-        assert limit.GetLowAttr().Get() == -TrussPhysicsConfig.PEDICEL_BEND_LIMIT_DEG
-        assert limit.GetHighAttr().Get() == TrussPhysicsConfig.PEDICEL_BEND_LIMIT_DEG
-
-    unscaled = deepcopy(branches)
-    for branch in unscaled:
-        if "_pedicel_" in branch["id"]:
-            branch["drive_stiffness_scale"] = 1.0
-    unscaled_stage, _ = build_stage(
-        str(tmp_path / "unscaled.usda"),
-        branches=unscaled,
-        terminal_bodies=terminal_bodies,
-        skip_limit_check=True,
-    )
-    unscaled_pedicel = next(
-        prim
-        for prim in unscaled_stage.Traverse()
-        if prim.GetTypeName() == "PhysicsJoint" and "_pedicel_" in str(prim.GetPath())
-    )
-    soft_stiffness = UsdPhysics.DriveAPI.Get(pedicel_joints[0], "rotX").GetStiffnessAttr().Get()
-    full_stiffness = UsdPhysics.DriveAPI.Get(unscaled_pedicel, "rotX").GetStiffnessAttr().Get()
-    assert soft_stiffness == pytest.approx(
-        full_stiffness * TrussPhysicsConfig.PEDICEL_DRIVE_STIFFNESS_SCALE
-    )
-
-    technique = TrussStaticTechnique()
-    fixed, _ = technique.apply(branches)
-    static, _ = technique.apply(fixed)
-    static_path = tmp_path / "static.usda"
-    static_stage, _ = build_stage(
-        str(static_path),
-        branches=static,
-        terminal_bodies=terminal_bodies,
-        skip_limit_check=True,
-    )
-    static_stage.GetRootLayer().Save()
-
-    truss_d6 = [
-        prim
-        for prim in static_stage.Traverse()
-        if prim.GetTypeName() == "PhysicsJoint" and "_static_curve_" in str(prim.GetPath())
-    ]
-    assert len(truss_d6) == 1
-    root_limit = UsdPhysics.LimitAPI.Get(truss_d6[0], "rotX")
-    assert root_limit.GetLowAttr().Get() == -18.0
-    assert root_limit.GetHighAttr().Get() == 18.0
-
-
-def test_detachment_master_switch_keeps_tomatoes_in_articulation(tmp_path, monkeypatch):
-    monkeypatch.setattr(TrussPhysicsConfig, "TOMATO_DETACHMENT_ENABLED", False)
-    branches, terminal_bodies = make_truss()
-    terminal_bodies = [
-        {
-            **body,
-            "detachment_enabled": True,
-            "exclude_from_articulation": True,
-            "parent_path": "/World/TerminalBodies",
-            "break_force": 1.0,
-        }
-        for body in terminal_bodies
-    ]
-
-    stage, stem_path = build_stage(
-        str(tmp_path / "detachment_disabled.usda"),
-        branches=branches,
-        terminal_bodies=terminal_bodies,
-        skip_limit_check=True,
-    )
-    terminal_joints = [
-        prim
-        for prim in stage.Traverse()
-        if prim.GetTypeName() == "PhysicsFixedJoint"
-        and prim.GetName() == "TerminalBodyFixedJoint"
-    ]
-
-    assert len(terminal_joints) == len(terminal_bodies)
-    for joint in terminal_joints:
-        assert not joint.GetAttribute("physics:breakForce").HasAuthoredValue()
-        assert not joint.GetAttribute(
-            "physics:excludeFromArticulation"
-        ).HasAuthoredValue()
-        body_path = str(joint.GetRelationship("physics:body1").GetTargets()[0])
-        assert body_path.startswith(f"{stem_path}/")

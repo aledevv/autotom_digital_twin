@@ -195,7 +195,7 @@ def test_scenario2_within_budget():
          "n_links": 2, "height": 0.10, "radius": 0.015, "tilt": 30.0, "rot": 90.0},
     ]
     
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     initial_joints = optimizer.calculate_total_joints(branches)
     
     print(f"\n[Scenario 2] Initial joints: {initial_joints}")
@@ -270,7 +270,7 @@ def test_scenario4_progressive_reduction():
     Expected: Each technique reduces joints, order matches priority
     """
     branches = create_synthetic_overbudget_plant()
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     
     initial_joints = optimizer.calculate_total_joints(branches)
     print(f"\n[Scenario 4] Initial joints: {initial_joints}")
@@ -351,7 +351,7 @@ def test_scenario5_real_csv_plant():
     if not branches:
         pytest.skip("CSV parsing returned empty branches")
     
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     initial_joints = optimizer.calculate_total_joints(branches)
     lower_bound = optimizer.calculate_lower_bound(branches)
     
@@ -395,7 +395,7 @@ def test_report_formatting():
     Test that optimization report is well-formatted and readable.
     """
     branches = create_synthetic_overbudget_plant()
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     
     optimized, report = optimizer.optimize(branches)
     

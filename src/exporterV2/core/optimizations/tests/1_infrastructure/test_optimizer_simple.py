@@ -58,7 +58,7 @@ def test_joint_calculation():
     """Test total joint calculation."""
     print("\n[TEST] Joint Calculation...")
     
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     
     # Test 1: Empty branches
     branches = []
@@ -87,7 +87,7 @@ def test_lower_bound_calculation():
     """Test lower bound calculation."""
     print("\n[TEST] Lower Bound Calculation...")
     
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     
     # Test 1: Trunk only
     branches = [{"id": "trunk", "parent": None, "n_links": 10}]
@@ -121,7 +121,7 @@ def test_optimize_within_budget():
     """Test optimization when already within budget."""
     print("\n[TEST] Optimize - Already Within Budget...")
     
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     branches = [{"id": "trunk", "parent": None, "n_links": 10}]
     
     optimized, report = optimizer.optimize(branches)
@@ -138,7 +138,7 @@ def test_optimize_impossible_budget():
     """Test optimization fails when budget impossible."""
     print("\n[TEST] Optimize - Impossible Budget...")
     
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     
     # Create 300 lateral branches (lower bound = 1 trunk + 300 laterals = 301 > 250)
     branches = [{"id": "trunk", "parent": None, "n_links": 1}]
@@ -162,7 +162,7 @@ def test_report_formatting():
     """Test report string formatting."""
     print("\n[TEST] Report Formatting...")
     
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     branches = [{"id": "trunk", "parent": None, "n_links": 10}]
     
     optimized, report = optimizer.optimize(branches)
@@ -171,7 +171,7 @@ def test_report_formatting():
     assert "Joint-Budget Optimization Report" in report_str, "Missing header"
     assert "Original joints:" in report_str, "Missing original joints"
     assert "Budget:" in report_str, "Missing budget"
-    assert "Lower bound:" in report_str, "Missing lower bound"
+    assert "Structural lower bound:" in report_str, "Missing lower bound"
     print(f"  ✓ Report formatting correct")
     print("\n" + "="*60)
     print("Sample Report:")

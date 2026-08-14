@@ -20,4 +20,4 @@ def test_fixed_trunk_is_excluded_from_stem_optimization():
     unchanged, report = technique.apply(branches)
     assert unchanged == branches
     assert report.joints_saved == 0
-    assert BudgetOptimizer().calculate_lower_bound(branches) == 0
+    assert BudgetOptimizer(max_joints=250).calculate_lower_bound(branches) == 0

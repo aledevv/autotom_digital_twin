@@ -6,6 +6,7 @@ Handles loading and filtering of groIMP CSV export data.
 
 import os
 import json
+import math
 import pandas as pd
 from datetime import datetime
 from typing import List, Dict, Tuple
@@ -15,6 +16,21 @@ from collections import defaultdict
 from exporterV2.core import tree_config
 
 TRUSS_GEOMETRY = tree_config.TrussGeometryConfig
+
+
+def _read_csv_frame(csv_path: str) -> pd.DataFrame:
+    """Read and normalize one GroIMP CSV export."""
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"CSV file not found: {csv_path}")
+
+    dataframe = pd.read_csv(csv_path, skipinitialspace=True)
+    dataframe.columns = dataframe.columns.str.strip()
+    return dataframe
+
+
+def _csv_frame(csv_path: str, dataframe: pd.DataFrame = None) -> pd.DataFrame:
+    """Use a pipeline-owned frame or load one for a standalone loader call."""
+    return dataframe if dataframe is not None else _read_csv_frame(csv_path)
 
 
 def _effective_generation_settings(profile: dict) -> Dict[str, bool]:
@@ -176,7 +192,13 @@ def _truss_tilt_from_groimp_angle(truss_angle: float, n_fruits: int) -> float:
     )
 
 
-def load_trunk_internodes(csv_path: str, day: int, plant_id: int = 1) -> List[Dict]:
+def load_trunk_internodes(
+    csv_path: str,
+    day: int,
+    plant_id: int = 1,
+    *,
+    _dataframe: pd.DataFrame = None,
+) -> List[Dict]:
     """
     Load trunk internodes (order=0) from groIMP CSV export.
     
@@ -193,14 +215,7 @@ def load_trunk_internodes(csv_path: str, day: int, plant_id: int = 1) -> List[Di
         ValueError: If no trunk internodes found
         FileNotFoundError: If CSV file doesn't exist
     """
-    if not os.path.exists(csv_path):
-        raise FileNotFoundError(f"CSV file not found: {csv_path}")
-    
-    # Read CSV with space handling
-    df = pd.read_csv(csv_path, skipinitialspace=True)
-    
-    # Clean column names
-    df.columns = df.columns.str.strip()
+    df = _csv_frame(csv_path, _dataframe)
     
     # Filter for trunk internodes: order=0 (main stem)
     mask = (
@@ -232,7 +247,14 @@ def load_trunk_internodes(csv_path: str, day: int, plant_id: int = 1) -> List[Di
     return internodes
 
 
-def load_lateral_branches(csv_path: str, day: int, plant_id: int = 1, profile: dict = None) -> List[Dict]:
+def load_lateral_branches(
+    csv_path: str,
+    day: int,
+    plant_id: int = 1,
+    profile: dict = None,
+    *,
+    _dataframe: pd.DataFrame = None,
+) -> List[Dict]:
     """
     Load lateral branches (order=1) from groIMP CSV export with cultivar-specific filtering.
     
@@ -255,14 +277,7 @@ def load_lateral_branches(csv_path: str, day: int, plant_id: int = 1, profile: d
     """
     if profile is None:
         profile = {}  # No filtering by default
-    if not os.path.exists(csv_path):
-        raise FileNotFoundError(f"CSV file not found: {csv_path}")
-    
-    # Read CSV with space handling
-    df = pd.read_csv(csv_path, skipinitialspace=True)
-    
-    # Clean column names
-    df.columns = df.columns.str.strip()
+    df = _csv_frame(csv_path, _dataframe)
     
     # Filter for lateral branches: order=1 (attached to trunk internodes)
     mask = (
@@ -281,7 +296,6 @@ def load_lateral_branches(csv_path: str, day: int, plant_id: int = 1, profile: d
     branch_df = branch_df.sort_values(["parent_rank", "rank", "organ_index"])
     
     # Group by (rank, parent_rank) to find opposite pairs
-    from collections import defaultdict
     branches_by_key = defaultdict(list)
     
     for _, row in branch_df.iterrows():
@@ -329,7 +343,14 @@ def load_lateral_branches(csv_path: str, day: int, plant_id: int = 1, profile: d
     return filtered_branches
 
 
-def load_trusses(csv_path: str, day: int, plant_id: int = 1, order: int = 0) -> List[Dict]:
+def load_trusses(
+    csv_path: str,
+    day: int,
+    plant_id: int = 1,
+    order: int = 0,
+    *,
+    _dataframe: pd.DataFrame = None,
+) -> List[Dict]:
     """
     Load trusses (fruit clusters) from groIMP CSV export.
     
@@ -347,14 +368,7 @@ def load_trusses(csv_path: str, day: int, plant_id: int = 1, order: int = 0) -> 
     Raises:
         FileNotFoundError: If CSV file doesn't exist
     """
-    if not os.path.exists(csv_path):
-        raise FileNotFoundError(f"CSV file not found: {csv_path}")
-    
-    # Read CSV with space handling
-    df = pd.read_csv(csv_path, skipinitialspace=True)
-    
-    # Clean column names
-    df.columns = df.columns.str.strip()
+    df = _csv_frame(csv_path, _dataframe)
     
     # Filter for trusses (Fruits organ_class) with specified order
     mask = (
@@ -395,7 +409,14 @@ def load_trusses(csv_path: str, day: int, plant_id: int = 1, order: int = 0) -> 
     return trusses
 
 
-def load_leaves(csv_path: str, day: int, plant_id: int = 1, order: int = 0) -> List[Dict]:
+def load_leaves(
+    csv_path: str,
+    day: int,
+    plant_id: int = 1,
+    order: int = 0,
+    *,
+    _dataframe: pd.DataFrame = None,
+) -> List[Dict]:
     """
     Load leaves from groIMP CSV export with opposite pair filtering.
     
@@ -423,14 +444,7 @@ def load_leaves(csv_path: str, day: int, plant_id: int = 1, order: int = 0) -> L
     Raises:
         FileNotFoundError: If CSV file doesn't exist
     """
-    if not os.path.exists(csv_path):
-        raise FileNotFoundError(f"CSV file not found: {csv_path}")
-    
-    # Read CSV with space handling
-    df = pd.read_csv(csv_path, skipinitialspace=True)
-    
-    # Clean column names
-    df.columns = df.columns.str.strip()
+    df = _csv_frame(csv_path, _dataframe)
     
     # Filter for leaves with specified order
     # For order=1 (lateral branch leaves): CULTIVAR-SPECIFIC filter for organ_index 0+1 only
@@ -463,7 +477,6 @@ def load_leaves(csv_path: str, day: int, plant_id: int = 1, order: int = 0) -> L
     
     # Group by rank to find opposite pairs
     leaves_by_rank = defaultdict(list)
-    import math
     def _safe_float(val, default=0.0):
         try:
             f = float(val)
@@ -622,20 +635,12 @@ def lateral_branches_to_branch_config(lateral_branches: List[Dict], trunk_id: st
     min_angle_sep = lateral_config.get("min_angle_separation_deg", 60.0)
     
     import random
-    # Import tree_config directly to avoid pxr import in __init__
-    import importlib.util
-    # From adapters/groimp_csv/parser.py → core/tree_config.py
-    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
-    spec = importlib.util.spec_from_file_location("tree_config", config_path)
-    tree_config = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(tree_config)
     
     clamp_radius = tree_config.clamp_radius
     GLOBAL_SCALE = tree_config.GLOBAL_SCALE
     MIN_LINK_RADIUS_WORLD = tree_config.MIN_LINK_RADIUS_WORLD
     
     # Group by (rank, organ_index) to calculate averages
-    from collections import defaultdict
     grouped = defaultdict(list)
     
     for branch in lateral_branches:
@@ -802,13 +807,6 @@ def save_branches_json(
     Returns:
         Absolute path to saved JSON file
     """
-    # Import tree_config for metadata
-    import importlib.util
-    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
-    spec = importlib.util.spec_from_file_location("tree_config", config_path)
-    tree_config = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(tree_config)
-    
     # Create output directory
     day_dir = Path(output_dir) / f"day_{day}"
     day_dir.mkdir(parents=True, exist_ok=True)
@@ -854,6 +852,47 @@ def save_branches_json(
         json.dump(data, f, indent=2)
     
     return str(output_path.absolute())
+
+
+def _append_leaf_system(
+    leaf: Dict,
+    parent_branch_id: str,
+    generation_settings: Dict[str, bool],
+    all_branches: List[Dict],
+    terminal_bodies: List[Dict],
+    leaf_to_petiole_rachis_branches,
+    create_lateral_petiolules,
+    create_terminal_petiolule,
+) -> None:
+    """Append one complete leaf system while preserving authoring order."""
+    petiole_rachis = leaf_to_petiole_rachis_branches(
+        leaf,
+        parent_branch_id,
+        include_rachis=generation_settings["leaf_rachis"],
+    )
+    all_branches.extend(petiole_rachis)
+
+    if len(petiole_rachis) <= 1 or not generation_settings["petiolules"]:
+        return
+
+    rachis_branch = petiole_rachis[1]
+    petiole_radius = petiole_rachis[0]["radius"]
+    lateral_branches, lateral_bodies = create_lateral_petiolules(
+        leaf,
+        rachis_branch["id"],
+        petiole_radius,
+    )
+    all_branches.extend(lateral_branches)
+    terminal_bodies.extend(lateral_bodies)
+
+    terminal_branch, terminal_body = create_terminal_petiolule(
+        rachis_branch["id"],
+        rachis_branch["n_links"],
+        petiole_radius,
+        leaf,
+    )
+    all_branches.append(terminal_branch)
+    terminal_bodies.append(terminal_body)
 
 
 def parse_csv_to_branches(
@@ -917,10 +956,13 @@ def parse_csv_to_branches(
     csv_path = (project_root / "data" / "simulation_output" / "dynamic_output" / 
                 "graphs" / f"graph_day_{day}.csv")
     output_dir = project_root / "output"
+    dataframe = _read_csv_frame(str(csv_path))
     
     # Load trunk internodes
     print(f"[INFO] Loading trunk internodes...")
-    internodes = load_trunk_internodes(str(csv_path), day, plant_id)
+    internodes = load_trunk_internodes(
+        str(csv_path), day, plant_id, _dataframe=dataframe
+    )
     
     # Convert trunk to BRANCHES format
     trunk_branch = internodes_to_branch_config(internodes)
@@ -931,7 +973,13 @@ def parse_csv_to_branches(
     lateral_branches = []
     if generation_settings["lateral_branches"]:
         print(f"[INFO] Loading lateral branches...")
-        lateral_branches = load_lateral_branches(str(csv_path), day, plant_id, profile=profile)
+        lateral_branches = load_lateral_branches(
+            str(csv_path),
+            day,
+            plant_id,
+            profile=profile,
+            _dataframe=dataframe,
+        )
     else:
         print("[CONFIG] Skipping lateral branches and their descendants")
     
@@ -953,46 +1001,32 @@ def parse_csv_to_branches(
     trunk_leaves = []
     if generation_settings["trunk_leaves"]:
         print(f"[INFO] Loading trunk leaves...")
-        trunk_leaves = load_leaves(str(csv_path), day, plant_id, order=0)
+        trunk_leaves = load_leaves(
+            str(csv_path), day, plant_id, order=0, _dataframe=dataframe
+        )
     else:
         print("[CONFIG] Skipping trunk leaf systems")
     
     if trunk_leaves:
         print(f"[INFO] Processing {len(trunk_leaves)} trunk leaves...")
         for leaf in trunk_leaves:
-            # Petiole + Rachis
-            petiole_rachis = leaf_to_petiole_rachis_branches(
+            _append_leaf_system(
                 leaf,
                 trunk_branch["id"],
-                include_rachis=generation_settings["leaf_rachis"],
+                generation_settings,
+                all_branches,
+                terminal_bodies,
+                leaf_to_petiole_rachis_branches,
+                create_lateral_petiolules,
+                create_terminal_petiolule,
             )
-            all_branches.extend(petiole_rachis)
-            
-            # Check if rachis was created
-            if len(petiole_rachis) > 1:
-                rachis_branch = petiole_rachis[1]
-                petiole_r = petiole_rachis[0]["radius"]
-                
-                # Lateral petiolules
-                if generation_settings["petiolules"]:
-                    laterals, lat_bodies = create_lateral_petiolules(leaf, rachis_branch["id"], petiole_r)
-                    all_branches.extend(laterals)
-                    terminal_bodies.extend(lat_bodies)
-
-                    # Terminal petiolule
-                    terminal, term_body = create_terminal_petiolule(
-                        rachis_branch["id"],
-                        rachis_branch["n_links"],
-                        petiole_r,
-                        leaf
-                    )
-                    all_branches.append(terminal)
-                    terminal_bodies.append(term_body)
     
     # Load lateral branch leaves (order=1)
     if lateral_branch_map and generation_settings["lateral_leaves"]:
         print(f"[INFO] Loading lateral branch leaves...")
-        lateral_leaves = load_leaves(str(csv_path), day, plant_id, order=1)
+        lateral_leaves = load_leaves(
+            str(csv_path), day, plant_id, order=1, _dataframe=dataframe
+        )
         
         if lateral_leaves:
             print(f"[INFO] Processing {len(lateral_leaves)} lateral branch leaves...")
@@ -1009,34 +1043,16 @@ def parse_csv_to_branches(
                           f"organ_index={leaf['organ_index']}, parent_rank={leaf['parent_rank']}")
                     continue
                 
-                # Petiole + Rachis (attach to lateral branch)
-                petiole_rachis = leaf_to_petiole_rachis_branches(
+                _append_leaf_system(
                     leaf,
                     parent_branch_id,
-                    include_rachis=generation_settings["leaf_rachis"],
+                    generation_settings,
+                    all_branches,
+                    terminal_bodies,
+                    leaf_to_petiole_rachis_branches,
+                    create_lateral_petiolules,
+                    create_terminal_petiolule,
                 )
-                all_branches.extend(petiole_rachis)
-                
-                # Check if rachis was created
-                if len(petiole_rachis) > 1:
-                    rachis_branch = petiole_rachis[1]
-                    petiole_r = petiole_rachis[0]["radius"]
-                    
-                    # Lateral petiolules
-                    if generation_settings["petiolules"]:
-                        laterals, lat_bodies = create_lateral_petiolules(leaf, rachis_branch["id"], petiole_r)
-                        all_branches.extend(laterals)
-                        terminal_bodies.extend(lat_bodies)
-
-                        # Terminal petiolule
-                        terminal, term_body = create_terminal_petiolule(
-                            rachis_branch["id"],
-                            rachis_branch["n_links"],
-                            petiole_r,
-                            leaf
-                        )
-                        all_branches.append(terminal)
-                        terminal_bodies.append(term_body)
     elif lateral_branch_map:
         print("[CONFIG] Skipping lateral leaf systems")
 
@@ -1044,7 +1060,9 @@ def parse_csv_to_branches(
     trunk_trusses = []
     if generation_settings["trusses"]:
         print(f"[INFO] Loading trunk trusses...")
-        trunk_trusses = load_trusses(str(csv_path), day, plant_id, order=0)
+        trunk_trusses = load_trusses(
+            str(csv_path), day, plant_id, order=0, _dataframe=dataframe
+        )
     else:
         print("[CONFIG] Skipping trusses and their descendants")
 

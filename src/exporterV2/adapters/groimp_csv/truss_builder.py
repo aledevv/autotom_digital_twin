@@ -7,6 +7,7 @@ Similar to leaf structure but terminates with tomatoes (spheres) instead of leaf
 
 from typing import List, Dict
 from pathlib import Path
+from functools import lru_cache
 
 TOMATO_DENSITY = 1000.0  # kg/m^3, close to water
 
@@ -20,15 +21,20 @@ def _fruit_layout(n_fruits: int) -> tuple[int, bool]:
     return n_fruits // 2, (n_fruits % 2) == 1
 
 
+@lru_cache(maxsize=1)
 def _load_tree_config():
     """Load tree_config without importing pxr-dependent USD modules."""
-    import importlib.util
+    try:
+        from exporterV2.core import tree_config
+        return tree_config
+    except ImportError:
+        import importlib.util
 
-    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
-    spec = importlib.util.spec_from_file_location("tree_config", config_path)
-    tree_config = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(tree_config)
-    return tree_config
+        config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
+        spec = importlib.util.spec_from_file_location("tree_config", config_path)
+        tree_config = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tree_config)
+        return tree_config
 
 
 def _pedicel_geometry(truss_dict: Dict, rachis_id: str, *, terminal: bool = False):

@@ -6,6 +6,23 @@ Builds petiole, rachis, and petiolule branches from leaf CSV data.
 
 from typing import List, Dict
 from pathlib import Path
+from functools import lru_cache
+
+
+@lru_cache(maxsize=1)
+def _load_tree_config():
+    """Load tree_config in package and standalone execution modes."""
+    try:
+        from exporterV2.core import tree_config
+        return tree_config
+    except ImportError:
+        import importlib.util
+
+        config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
+        spec = importlib.util.spec_from_file_location("tree_config", config_path)
+        tree_config = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tree_config)
+        return tree_config
 
 
 def calculate_leaf_orientation(leaf_dict: Dict) -> tuple:
@@ -22,13 +39,7 @@ def calculate_leaf_orientation(leaf_dict: Dict) -> tuple:
             azimuth_deg: Rotation around trunk Z-axis [deg]
             tilt_deg: Tilt from vertical [deg]
     """
-    # Import tree_config for phyllotaxis
-    import importlib.util
-    # From adapters/groimp_csv/leaf_builder.py → core/tree_config.py
-    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
-    spec = importlib.util.spec_from_file_location("tree_config", config_path)
-    tree_config = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(tree_config)
+    tree_config = _load_tree_config()
     
     ccw_orientation = leaf_dict.get("ccw_orientation", 0.0)
     angle_petiole = leaf_dict.get("angle_petiole", 90.0)
@@ -69,12 +80,7 @@ def leaf_to_petiole_rachis_branches(
     Returns:
         List of branch dicts: [petiole_branch, rachis_branch] or [petiole_branch] if no rachis
     """
-    # Import tree_config for clamping
-    import importlib.util
-    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
-    spec = importlib.util.spec_from_file_location("tree_config", config_path)
-    tree_config = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(tree_config)
+    tree_config = _load_tree_config()
     
     clamp_radius = tree_config.clamp_radius
     GLOBAL_SCALE = tree_config.GLOBAL_SCALE
@@ -233,12 +239,7 @@ def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: f
             branches: List of petiolule branch dicts (2 per lateral pair)
             terminal_bodies: List of leaf blade mesh dicts (2 per lateral pair)
     """
-    # Import tree_config for clamping
-    import importlib.util
-    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
-    spec = importlib.util.spec_from_file_location("tree_config", config_path)
-    tree_config = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(tree_config)
+    tree_config = _load_tree_config()
     
     clamp_radius = tree_config.clamp_radius
     
@@ -363,12 +364,7 @@ def create_terminal_petiolule(rachis_id: str, rachis_n_links: int, petiole_radiu
             branch: Terminal petiolule branch dict
             terminal_body: Leaf blade mesh dict
     """
-    # Import tree_config for clamping
-    import importlib.util
-    config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
-    spec = importlib.util.spec_from_file_location("tree_config", config_path)
-    tree_config = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(tree_config)
+    tree_config = _load_tree_config()
     
     clamp_radius = tree_config.clamp_radius
     

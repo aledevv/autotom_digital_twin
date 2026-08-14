@@ -175,7 +175,7 @@ def test_optimizer_init_with_config_path(temp_config_file):
 def test_optimizer_init_auto_detect_config():
     """Test optimizer initialization with auto-detected config."""
     # This should find budget_config.yaml in the optimizations directory
-    optimizer = BudgetOptimizer()
+    optimizer = BudgetOptimizer(max_joints=250)
     
     assert optimizer.config.max_joints > 0
     assert optimizer.config.structural_limits is not None
@@ -281,8 +281,8 @@ def test_optimize_already_within_budget(temp_config_file):
     assert optimized == branches  # No changes
 
 
-def test_optimize_continues_for_rigid_body_budget(valid_config_dict, tmp_path):
-    """Keep optimizing when D6 joints are fine but the USD body count is high."""
+def test_rigid_body_budget_is_diagnostic_only(valid_config_dict, tmp_path):
+    """Record rigid-body pressure without changing the D6 stopping condition."""
     config = valid_config_dict.copy()
     config["budget"] = {
         "max_joints": 10,
@@ -334,11 +334,10 @@ def test_optimize_continues_for_rigid_body_budget(valid_config_dict, tmp_path):
     assert report.success is True
     assert report.original_joints <= report.budget
     assert report.original_rigid_bodies == 9
-    assert report.final_rigid_bodies <= report.rigid_body_budget
-    assert [item.technique_name for item in report.technique_reports] == [
-        "leaf_branch_reduce"
-    ]
-    assert any(branch["id"] == "Leaf_r1_o0_merged" for branch in optimized)
+    assert report.final_rigid_bodies == report.original_rigid_bodies
+    assert report.final_rigid_bodies > report.rigid_body_budget
+    assert report.technique_reports == []
+    assert optimized == branches
 
 
 def test_optimize_budget_impossible(temp_config_file):
@@ -387,7 +386,7 @@ def test_optimize_report_string_representation(temp_config_file, simple_branches
     assert "Joint-Budget Optimization Report" in report_str
     assert "Original joints:" in report_str
     assert "Budget:" in report_str
-    assert "Lower bound:" in report_str
+    assert "Structural lower bound:" in report_str
 
 
 # ==============================================================================
