@@ -1,1 +1,1 @@
-uv run python src/plant_model/main.py
+uv run python src/exporterV1/main.py
