@@ -1,7 +1,8 @@
 # Cantilever Bending Validation
 
 This directory contains the reproducible validation protocol for articulated
-branch physics. It keeps three questions separate:
+branch physics. This experiments considers data from the [paper](https://www.mdpi.com/2077-0472/14/4/531) by Gao et al. "Discrete Element Model Building and Optimization of Tomato Stalks at Harvest" (2024) as groundtruth.
+It keeps three questions separate:
 
 1. Does PhysX reproduce the mechanics of the generated rigid-link chain?
 2. Does that chain converge toward continuum beam theory as `N` increases?
