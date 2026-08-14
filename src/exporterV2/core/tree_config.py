@@ -40,7 +40,7 @@ Run standalone to verify physics:
 
 import math
 
-MAX_N_JOINTS = 300  # D6-joint budget for stable Isaac Sim runs
+MAX_N_JOINTS = 250  # D6-joint budget for stable Isaac Sim runs
 
 
 class PhysicsRuntimeConfig:
