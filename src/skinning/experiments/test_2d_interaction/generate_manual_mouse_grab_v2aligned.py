@@ -1,0 +1,944 @@
+"""
+generate_junction_visual.py — Test 2C-C
+
+Isolated suspended branch junction.
+
+Physics is intentionally kept independent from the visual blend:
+    - same compound capsules
+    - same D6 topology
+    - beam-based stiffness/damping
+    - no ground collision
+
+Visual-only additions:
+    1. local node swelling on MainStem around the attachment
+    2. smooth root flare on LateralBranch
+"""
+
+import math
+import os
+from pathlib import Path
+
+from pxr import Gf, PhysxSchema, Usd, UsdGeom, UsdPhysics
+
+import branch_core_fixed as core
+import junction_visual as jvis
+
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = SCRIPT_DIR / "output"
+
+BLEND_ENABLED = True
+
+OUTPUT_USD = str(
+    OUTPUT_DIR / "test_2db4_v2_aligned.usda"
+)
+
+
+# ============================================================================
+# PHYSICS SETTINGS
+# ============================================================================
+
+ROOT_HEIGHT = 0.68
+
+YOUNG_MODULUS_PA = 1.5e6
+DAMPING_RATIO = 4.0
+BEND_LIMIT_DEG = 40.0
+
+
+def beam_drive_params(
+    radius,
+    link_length,
+    linear_density,
+):
+    mass = (
+        linear_density
+        * link_length
+    )
+
+    second_moment = (
+        math.pi
+        * radius**4
+        / 4.0
+    )
+
+    k_rad = (
+        YOUNG_MODULUS_PA
+        * second_moment
+        / link_length
+    )
+
+    j_center = (
+        mass
+        * (
+            3.0 * radius**2
+            + link_length**2
+        )
+        / 12.0
+    )
+
+    j_pivot = (
+        j_center
+        + mass
+        * (
+            link_length / 2.0
+        )**2
+    )
+
+    d_rad = (
+        2.0
+        * DAMPING_RATIO
+        * math.sqrt(
+            k_rad * j_pivot
+        )
+    )
+
+    rad_to_deg = (
+        math.pi / 180.0
+    )
+
+    return (
+        k_rad * rad_to_deg,
+        d_rad * rad_to_deg,
+    )
+
+
+# ============================================================================
+# MAIN STEM
+# ============================================================================
+
+MAIN_TOTAL_APPROX = 0.38
+MAIN_LINKS = 5
+
+MAIN_K, MAIN_D = beam_drive_params(
+    radius=0.014,
+    link_length=(
+        MAIN_TOTAL_APPROX
+        / MAIN_LINKS
+    ),
+    linear_density=0.27,
+)
+
+MAIN_SPEC = core.BranchSpec(
+    control_points=(
+        (0.000, 0.000, ROOT_HEIGHT),
+        (0.004, 0.080, ROOT_HEIGHT + 0.060),
+        (0.010, 0.160, ROOT_HEIGHT + 0.125),
+        (0.018, 0.245, ROOT_HEIGHT + 0.180),
+        (0.030, 0.330, ROOT_HEIGHT + 0.220),
+    ),
+    physics_links=MAIN_LINKS,
+    samples_per_control_segment=22,
+    radial_segments=18,
+    radius=core.RadiusProfile(
+        base_radius=0.015,
+        tip_radius=0.0105,
+        taper_start=0.04,
+        taper_end=0.96,
+        swell_fractions=(),
+        swell_amplitude=0.0,
+        micro_variation_amplitude=0.010,
+        micro_variation_cycles=1.6,
+    ),
+    linear_density_kg_per_m=0.27,
+    collider_radius_scale=0.90,
+    colliders_per_link=2,
+    collider_length_scale=0.92,
+    joint_stiffness=MAIN_K,
+    joint_damping=MAIN_D,
+    bend_limit_deg=BEND_LIMIT_DEG,
+    skin_blend_fraction=0.32,
+    show_physics_colliders=False,
+)
+
+MAIN = core.make_branch_data(
+    "MainStem",
+    MAIN_SPEC,
+)
+
+
+# ============================================================================
+# JUNCTION
+# ============================================================================
+
+JUNCTION_FRACTION = 0.56
+
+JUNCTION_ARC = (
+    MAIN.centerline[
+        "total_length"
+    ]
+    * JUNCTION_FRACTION
+)
+
+JUNCTION_WORLD = core.point_at_arc(
+    MAIN.centerline,
+    JUNCTION_ARC,
+)
+
+JUNCTION_PARENT_LINK = (
+    core.physics_link_for_arc(
+        MAIN.physics,
+        JUNCTION_ARC,
+    )
+)
+
+PARENT_RADIUS = core.radius_for_arc(
+    MAIN.spec,
+    MAIN.centerline,
+    JUNCTION_ARC,
+)
+
+
+# ============================================================================
+# LATERAL
+# ============================================================================
+
+j = JUNCTION_WORLD
+
+# Fairly clear side branch so the shoulder is easy to inspect.
+direction = Gf.Vec3d(
+    0.78,
+    0.20,
+    0.59,
+).GetNormalized()
+
+side = Gf.Vec3d(
+    -0.20,
+    0.78,
+    0.0,
+).GetNormalized()
+
+LATERAL_LENGTH = 0.245
+LATERAL_LINKS = 3
+
+p0 = Gf.Vec3d(j)
+p1 = (
+    p0
+    + direction * 0.078
+    + side * 0.006
+)
+p2 = (
+    p0
+    + direction * 0.160
+    - side * 0.004
+    + Gf.Vec3d(
+        0.0,
+        0.0,
+        -0.008,
+    )
+)
+p3 = (
+    p0
+    + direction * LATERAL_LENGTH
+    + Gf.Vec3d(
+        0.0,
+        0.0,
+        -0.018,
+    )
+)
+
+LATERAL_BASE_RADIUS = (
+    PARENT_RADIUS
+    * 0.72
+)
+
+LATERAL_TIP_RADIUS = (
+    PARENT_RADIUS
+    * 0.42
+)
+
+LATERAL_K, LATERAL_D = (
+    beam_drive_params(
+        radius=(
+            0.65
+            * LATERAL_BASE_RADIUS
+            + 0.35
+            * LATERAL_TIP_RADIUS
+        ),
+        link_length=(
+            LATERAL_LENGTH
+            / LATERAL_LINKS
+        ),
+        linear_density=0.19,
+    )
+)
+
+LATERAL_SPEC = core.BranchSpec(
+    control_points=(
+        tuple(p0),
+        tuple(p1),
+        tuple(p2),
+        tuple(p3),
+    ),
+    physics_links=LATERAL_LINKS,
+    samples_per_control_segment=24,
+    radial_segments=18,
+    radius=core.RadiusProfile(
+        base_radius=LATERAL_BASE_RADIUS,
+        tip_radius=LATERAL_TIP_RADIUS,
+        taper_start=0.03,
+        taper_end=0.95,
+        swell_fractions=(),
+        swell_amplitude=0.0,
+        micro_variation_amplitude=0.008,
+        micro_variation_cycles=1.4,
+    ),
+    linear_density_kg_per_m=0.19,
+    collider_radius_scale=0.90,
+    colliders_per_link=2,
+    collider_length_scale=0.92,
+    joint_stiffness=LATERAL_K,
+    joint_damping=LATERAL_D,
+    bend_limit_deg=BEND_LIMIT_DEG,
+    skin_blend_fraction=0.32,
+    show_physics_colliders=False,
+)
+
+LATERAL = core.make_branch_data(
+    "LateralBranch",
+    LATERAL_SPEC,
+)
+
+BRANCHES = [
+    MAIN,
+    LATERAL,
+]
+
+
+# ============================================================================
+# VISUAL BLEND SETTINGS
+# ============================================================================
+
+PARENT_BULGES = ()
+
+CHILD_FLARE = None
+
+if BLEND_ENABLED:
+    # Local parent node swelling centered on the attachment.
+    PARENT_BULGES = (
+        jvis.VisualBulge(
+            center_fraction=JUNCTION_FRACTION,
+            amplitude=0.20,
+            sigma_fraction=0.045,
+        ),
+    )
+
+    # Only affects the first ~5 cm of the LateralBranch visual mesh.
+    CHILD_FLARE = jvis.RootFlare(
+        parent_radius=PARENT_RADIUS,
+        flare_length=max(
+            0.050,
+            PARENT_RADIUS * 3.2,
+        ),
+        root_parent_fraction=0.95,
+        shoulder_amplitude=0.20,
+        shoulder_center_fraction=0.38,
+        shoulder_sigma_fraction=0.20,
+    )
+
+
+# ============================================================================
+# V2-ALIGNED PHYSICS HELPERS
+# ============================================================================
+
+PLANT_DENSITY_KG_M3 = 1000.0
+
+
+def apply_v2_mass_and_com(
+    stage,
+    branch,
+):
+    """
+    Match exporterV2's rigid-link mass model as closely as possible for the
+    variable-radius branch representation:
+
+        mass = rho * pi * r_mid^2 * link_length
+
+    and explicitly author COM at local z = link_length / 2.
+
+    exporterV2 uses one constant radius per chain; here r_mid is evaluated
+    at the midpoint of each physical link.
+    """
+    node_arc = branch.physics[
+        "node_arc"
+    ]
+
+    for index, link_path in enumerate(
+        branch.link_paths
+    ):
+        length = float(
+            branch.physics[
+                "lengths"
+            ][index]
+        )
+
+        s_mid = 0.5 * (
+            float(node_arc[index])
+            + float(node_arc[index + 1])
+        )
+
+        radius = float(
+            core.radius_for_arc(
+                branch.spec,
+                branch.centerline,
+                s_mid,
+            )
+        )
+
+        mass = (
+            PLANT_DENSITY_KG_M3
+            * math.pi
+            * radius**2
+            * length
+        )
+
+        mass_api = UsdPhysics.MassAPI.Apply(
+            stage.GetPrimAtPath(
+                link_path
+            )
+        )
+
+        mass_api.CreateMassAttr().Set(
+            mass
+        )
+
+        mass_api.CreateCenterOfMassAttr().Set(
+            Gf.Vec3f(
+                0.0,
+                0.0,
+                0.5 * length,
+            )
+        )
+
+
+def lock_main_stem_like_v2(
+    stage,
+    branch,
+):
+    """
+    V2 currently uses RIGID_TRUNK=True.
+
+    For this isolated test we keep the existing D6 prims but lock all three
+    rotational axes, which is mechanically equivalent for the purpose of
+    testing a rigid support. The root link is already world-anchored.
+    """
+    for child_index in range(
+        1,
+        branch.spec.physics_links,
+    ):
+        parent_index = child_index - 1
+
+        joint_path = (
+            f"{branch.link_paths[child_index]}/"
+            f"Joint_"
+            f"{parent_index + 1:02d}_"
+            f"{child_index + 1:02d}"
+        )
+
+        joint_prim = stage.GetPrimAtPath(
+            joint_path
+        )
+
+        if not joint_prim.IsValid():
+            raise RuntimeError(
+                f"Missing main-stem joint: {joint_path}"
+            )
+
+        for axis in (
+            "rotX",
+            "rotY",
+            "rotZ",
+        ):
+            limit = UsdPhysics.LimitAPI.Apply(
+                joint_prim,
+                axis,
+            )
+
+            # Same lock convention used throughout exporterV2.
+            limit.CreateLowAttr().Set(
+                1.0
+            )
+            limit.CreateHighAttr().Set(
+                -1.0
+            )
+
+
+def v2_attachment_drive():
+    """
+    Compute the attachment stiffness using the same series-compliance idea as
+    exporterV2:
+
+        1/K = 0.5*L_parent/EI_parent + 0.5*L_child/EI_child
+
+    We preserve the effective Young modulus selected for this interaction test
+    so the lateral branch remains as soft as the user-approved 2D-B2 behavior.
+    """
+    parent_length = float(
+        MAIN.physics[
+            "lengths"
+        ][JUNCTION_PARENT_LINK]
+    )
+
+    child_length = float(
+        LATERAL.physics[
+            "lengths"
+        ][0]
+    )
+
+    parent_radius = float(
+        core.radius_for_arc(
+            MAIN.spec,
+            MAIN.centerline,
+            JUNCTION_ARC,
+        )
+    )
+
+    child_radius = float(
+        core.radius_for_arc(
+            LATERAL.spec,
+            LATERAL.centerline,
+            0.5 * child_length,
+        )
+    )
+
+    parent_i = (
+        math.pi
+        * parent_radius**4
+        / 4.0
+    )
+
+    child_i = (
+        math.pi
+        * child_radius**4
+        / 4.0
+    )
+
+    parent_ei = (
+        YOUNG_MODULUS_PA
+        * parent_i
+    )
+
+    child_ei = (
+        YOUNG_MODULUS_PA
+        * child_i
+    )
+
+    compliance = (
+        0.5 * parent_length / parent_ei
+        + 0.5 * child_length / child_ei
+    )
+
+    k_rad = (
+        1.0
+        / compliance
+    )
+
+    # Use the child-link inertia and the same selected damping ratio.
+    child_mass = (
+        PLANT_DENSITY_KG_M3
+        * math.pi
+        * child_radius**2
+        * child_length
+    )
+
+    j_center = (
+        child_mass
+        * (
+            3.0 * child_radius**2
+            + child_length**2
+        )
+        / 12.0
+    )
+
+    j_pivot = (
+        j_center
+        + child_mass
+        * (
+            child_length / 2.0
+        )**2
+    )
+
+    d_rad = (
+        2.0
+        * DAMPING_RATIO
+        * math.sqrt(
+            k_rad * j_pivot
+        )
+    )
+
+    rad_to_deg = (
+        math.pi / 180.0
+    )
+
+    return (
+        k_rad * rad_to_deg,
+        d_rad * rad_to_deg,
+    )
+
+
+# ============================================================================
+# VISUAL-ONLY GROUND
+# ============================================================================
+
+def build_visual_ground(
+    stage,
+):
+    ground = UsdGeom.Mesh.Define(
+        stage,
+        "/World/VisualGround",
+    )
+
+    size = 0.75
+
+    ground.CreatePointsAttr().Set([
+        Gf.Vec3f(-size, -size, 0.0),
+        Gf.Vec3f(size, -size, 0.0),
+        Gf.Vec3f(size, size, 0.0),
+        Gf.Vec3f(-size, size, 0.0),
+    ])
+
+    ground.CreateFaceVertexCountsAttr().Set(
+        [4]
+    )
+
+    ground.CreateFaceVertexIndicesAttr().Set(
+        [0, 1, 2, 3]
+    )
+
+    ground.CreateSubdivisionSchemeAttr().Set(
+        UsdGeom.Tokens.none
+    )
+
+    ground.CreateDisplayColorAttr().Set([
+        Gf.Vec3f(
+            0.18,
+            0.16,
+            0.14,
+        )
+    ])
+
+    # INTENTIONALLY no CollisionAPI.
+
+
+# ============================================================================
+# BUILD
+# ============================================================================
+
+def build_stage(
+    output_path=OUTPUT_USD,
+):
+    os.makedirs(
+        os.path.dirname(
+            output_path
+        ),
+        exist_ok=True,
+    )
+
+    stage = Usd.Stage.CreateNew(
+        output_path
+    )
+
+    UsdGeom.SetStageUpAxis(
+        stage,
+        UsdGeom.Tokens.z,
+    )
+
+    UsdGeom.SetStageMetersPerUnit(
+        stage,
+        1.0,
+    )
+
+    UsdPhysics.SetStageKilogramsPerUnit(
+        stage,
+        1.0,
+    )
+
+    world = UsdGeom.Xform.Define(
+        stage,
+        "/World",
+    )
+
+    stage.SetDefaultPrim(
+        world.GetPrim()
+    )
+
+    core.apply_physx_scene(
+        stage
+    )
+
+    # Interaction test override:
+    # smoother contact/joint response than the 120 Hz experimental default.
+    physx_scene_api = PhysxSchema.PhysxSceneAPI(
+        stage.GetPrimAtPath(
+            "/World/PhysicsScene"
+        )
+    )
+    physx_scene_api.GetTimeStepsPerSecondAttr().Set(
+        480
+    )
+
+    plant_physics = (
+        UsdGeom.Xform.Define(
+            stage,
+            "/World/PlantPhysics",
+        )
+    )
+
+    UsdPhysics.ArticulationRootAPI.Apply(
+        plant_physics.GetPrim()
+    )
+
+    UsdGeom.Xform.Define(
+        stage,
+        "/World/PlantVisual",
+    )
+
+    core.build_branch_physics(
+        stage,
+        MAIN,
+    )
+
+    core.build_branch_physics(
+        stage,
+        LATERAL,
+    )
+
+    # V2-like mass model and explicit center of mass.
+    apply_v2_mass_and_com(
+        stage,
+        MAIN,
+    )
+    apply_v2_mass_and_com(
+        stage,
+        LATERAL,
+    )
+
+    core.create_world_anchor(
+        stage,
+        MAIN.link_paths[0],
+    )
+
+    # V2 default: RIGID_TRUNK=True.
+    lock_main_stem_like_v2(
+        stage,
+        MAIN,
+    )
+
+    attach_k, attach_d = (
+        v2_attachment_drive()
+    )
+
+    junction_info = (
+        core.create_junction_joint(
+            stage,
+            parent_branch=MAIN,
+            parent_link_index=JUNCTION_PARENT_LINK,
+            child_branch=LATERAL,
+            attachment_world=JUNCTION_WORLD,
+            stiffness=attach_k,
+            damping=attach_d,
+            bend_limit_deg=BEND_LIMIT_DEG,
+        )
+    )
+
+    articulation = (
+        PhysxSchema
+        .PhysxArticulationAPI
+        .Apply(
+            plant_physics.GetPrim()
+        )
+    )
+
+    articulation.CreateSolverPositionIterationCountAttr().Set(
+        32
+    )
+
+    articulation.CreateSolverVelocityIterationCountAttr().Set(
+        4
+    )
+
+    articulation.CreateEnabledSelfCollisionsAttr().Set(
+        False
+    )
+
+    articulation.CreateSleepThresholdAttr().Set(
+        0.0
+    )
+
+    color = (
+        0.30,
+        0.58,
+        0.20,
+    )
+
+    jvis.build_branch_visual(
+        stage,
+        MAIN,
+        color=color,
+        bulges=PARENT_BULGES,
+        root_flare=None,
+    )
+
+    jvis.build_branch_visual(
+        stage,
+        LATERAL,
+        color=color,
+        bulges=(),
+        root_flare=CHILD_FLARE,
+    )
+
+    build_visual_ground(
+        stage
+    )
+
+    stage.Save()
+
+    raw_child_root_radius = (
+        core.radius_for_arc(
+            LATERAL.spec,
+            LATERAL.centerline,
+            0.0,
+        )
+    )
+
+    visual_child_root_radius = (
+        jvis.visual_radius_for_arc(
+            LATERAL,
+            0.0,
+            root_flare=CHILD_FLARE,
+        )
+    )
+
+    raw_parent_radius = (
+        core.radius_for_arc(
+            MAIN.spec,
+            MAIN.centerline,
+            JUNCTION_ARC,
+        )
+    )
+
+    visual_parent_radius = (
+        jvis.visual_radius_for_arc(
+            MAIN,
+            JUNCTION_ARC,
+            bulges=PARENT_BULGES,
+        )
+    )
+
+    print("=" * 84)
+    print(
+        "TEST 2D-B4 — V2-ALIGNED MANUAL GRAB"
+    )
+    print("=" * 84)
+    print(f"[OK] {output_path}")
+    print()
+    print(
+        f"  blend enabled       : "
+        f"{BLEND_ENABLED}"
+    )
+    print(
+        f"  ground collision    : OFF"
+    )
+    print(
+        f"  physics colliders   : hidden"
+    )
+    print()
+    print("VISUAL-ONLY CHANGE:")
+    print(
+        f"  parent physical r   : "
+        f"{raw_parent_radius * 1000.0:.2f} mm"
+    )
+    print(
+        f"  parent visual r     : "
+        f"{visual_parent_radius * 1000.0:.2f} mm"
+    )
+    print(
+        f"  child physical r0   : "
+        f"{raw_child_root_radius * 1000.0:.2f} mm"
+    )
+    print(
+        f"  child visual r0     : "
+        f"{visual_child_root_radius * 1000.0:.2f} mm"
+    )
+
+    if CHILD_FLARE is not None:
+        print(
+            f"  child flare length  : "
+            f"{CHILD_FLARE.flare_length * 1000.0:.1f} mm"
+        )
+
+    print()
+    print("PHYSICS:")
+    print(
+        f"  Main K/D            : "
+        f"{MAIN_K:.6f} / "
+        f"{MAIN_D:.6f}"
+    )
+    print(
+        f"  Lateral K/D         : "
+        f"{LATERAL_K:.6f} / "
+        f"{LATERAL_D:.6f}"
+    )
+    print(
+        f"  bend limit          : "
+        f"+/- {BEND_LIMIT_DEG:.1f} deg"
+    )
+    print()
+    print("INTERACTION TUNING:")
+    print(
+        f"  effective E        : "
+        f"{YOUNG_MODULUS_PA / 1e6:.2f} MPa"
+    )
+    print(
+        f"  damping ratio      : "
+        f"{DAMPING_RATIO:.2f}"
+    )
+    print(
+        f"  bend limit         : "
+        f"+/- {BEND_LIMIT_DEG:.1f} deg"
+    )
+    print(
+        "  physics Hz         : 480"
+    )
+    print(
+        "  colliders          : ON, invisible"
+    )
+    print(
+        "  ground collision   : OFF"
+    )
+    print()
+    print("V2 ALIGNMENT:")
+    print(
+        "  gravity            : normal 9.81 from frame 0"
+    )
+    print(
+        "  rigid main stem    : ON (V2 RIGID_TRUNK behavior)"
+    )
+    print(
+        "  physics Hz         : 480"
+    )
+    print(
+        "  solver             : 32 / 4"
+    )
+    print(
+        "  density mass       : 1000 kg/m^3, per-link radius"
+    )
+    print(
+        "  explicit COM       : local link midpoint"
+    )
+    print(
+        f"  attachment K / D   : "
+        f"{attach_k:.6f} / {attach_d:.6f}"
+    )
+    print(
+        "  gravity ramp       : OFF"
+    )
+    print(
+        "  lateral E          : kept soft at 1.5 MPa"
+    )
+    print("=" * 84)
+
+    return output_path
+
+
+if __name__ == "__main__":
+    build_stage()
