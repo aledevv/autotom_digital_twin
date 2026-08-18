@@ -29,9 +29,7 @@ OUTPUT_DIR = SCRIPT_DIR / "output"
 
 BLEND_ENABLED = True
 
-OUTPUT_USD = str(
-    OUTPUT_DIR / "test_2db4_v2_aligned.usda"
-)
+OUTPUT_USD = str(OUTPUT_DIR / "test_2db_v2_physics_flexible_main.usda")
 
 
 # ============================================================================
@@ -40,18 +38,34 @@ OUTPUT_USD = str(
 
 ROOT_HEIGHT = 0.68
 
-YOUNG_MODULUS_PA = 1.5e6
-DAMPING_RATIO = 4.0
-BEND_LIMIT_DEG = 40.0
+YOUNG_MODULUS_PA = 70.0e6
+DAMPING_RATIO = 0.8
+BEND_LIMIT_DEG = 30.0
+
+
+PLANT_DENSITY_KG_M3 = 1000.0
 
 
 def beam_drive_params(
     radius,
     link_length,
-    linear_density,
+    linear_density=None,
 ):
+    """
+    Physics model copied from exporterV2/core/tree_config.py:
+        M = rho * pi*r^2 * L
+        I = pi*r^4 / 4
+        K = E*I/L
+        D = 2*zeta*sqrt(K*J)
+    with Isaac angular-drive conversion rad -> degree.
+    """
+    radius = float(radius)
+    link_length = float(link_length)
+
     mass = (
-        linear_density
+        PLANT_DENSITY_KG_M3
+        * math.pi
+        * radius**2
         * link_length
     )
 
@@ -92,9 +106,7 @@ def beam_drive_params(
         )
     )
 
-    rad_to_deg = (
-        math.pi / 180.0
-    )
+    rad_to_deg = math.pi / 180.0
 
     return (
         k_rad * rad_to_deg,
@@ -337,40 +349,19 @@ if BLEND_ENABLED:
 
 
 # ============================================================================
-# V2-ALIGNED PHYSICS HELPERS
+# V2 MASS / COM / ATTACHMENT PHYSICS
 # ============================================================================
 
-PLANT_DENSITY_KG_M3 = 1000.0
-
-
-def apply_v2_mass_and_com(
-    stage,
-    branch,
-):
+def apply_v2_mass_and_com(stage, branch):
     """
-    Match exporterV2's rigid-link mass model as closely as possible for the
-    variable-radius branch representation:
-
-        mass = rho * pi * r_mid^2 * link_length
-
-    and explicitly author COM at local z = link_length / 2.
-
-    exporterV2 uses one constant radius per chain; here r_mid is evaluated
-    at the midpoint of each physical link.
+    V2 mass = density * cylindrical volume.
+    Because this experimental branch tapers, radius is sampled at each
+    rigid-link midpoint instead of being constant per chain.
     """
-    node_arc = branch.physics[
-        "node_arc"
-    ]
+    node_arc = branch.physics["node_arc"]
 
-    for index, link_path in enumerate(
-        branch.link_paths
-    ):
-        length = float(
-            branch.physics[
-                "lengths"
-            ][index]
-        )
-
+    for index, link_path in enumerate(branch.link_paths):
+        length = float(branch.physics["lengths"][index])
         s_mid = 0.5 * (
             float(node_arc[index])
             + float(node_arc[index + 1])
@@ -392,15 +383,9 @@ def apply_v2_mass_and_com(
         )
 
         mass_api = UsdPhysics.MassAPI.Apply(
-            stage.GetPrimAtPath(
-                link_path
-            )
+            stage.GetPrimAtPath(link_path)
         )
-
-        mass_api.CreateMassAttr().Set(
-            mass
-        )
-
+        mass_api.CreateMassAttr().Set(mass)
         mass_api.CreateCenterOfMassAttr().Set(
             Gf.Vec3f(
                 0.0,
@@ -410,78 +395,17 @@ def apply_v2_mass_and_com(
         )
 
 
-def lock_main_stem_like_v2(
-    stage,
-    branch,
-):
-    """
-    V2 currently uses RIGID_TRUNK=True.
-
-    For this isolated test we keep the existing D6 prims but lock all three
-    rotational axes, which is mechanically equivalent for the purpose of
-    testing a rigid support. The root link is already world-anchored.
-    """
-    for child_index in range(
-        1,
-        branch.spec.physics_links,
-    ):
-        parent_index = child_index - 1
-
-        joint_path = (
-            f"{branch.link_paths[child_index]}/"
-            f"Joint_"
-            f"{parent_index + 1:02d}_"
-            f"{child_index + 1:02d}"
-        )
-
-        joint_prim = stage.GetPrimAtPath(
-            joint_path
-        )
-
-        if not joint_prim.IsValid():
-            raise RuntimeError(
-                f"Missing main-stem joint: {joint_path}"
-            )
-
-        for axis in (
-            "rotX",
-            "rotY",
-            "rotZ",
-        ):
-            limit = UsdPhysics.LimitAPI.Apply(
-                joint_prim,
-                axis,
-            )
-
-            # Same lock convention used throughout exporterV2.
-            limit.CreateLowAttr().Set(
-                1.0
-            )
-            limit.CreateHighAttr().Set(
-                -1.0
-            )
-
-
 def v2_attachment_drive():
     """
-    Compute the attachment stiffness using the same series-compliance idea as
-    exporterV2:
-
-        1/K = 0.5*L_parent/EI_parent + 0.5*L_child/EI_child
-
-    We preserve the effective Young modulus selected for this interaction test
-    so the lateral branch remains as soft as the user-approved 2D-B2 behavior.
+    V2 attachment hinge stiffness:
+        compliance = 0.5*Lp/EIp + 0.5*Lc/EIc
+        K = 1/compliance
     """
     parent_length = float(
-        MAIN.physics[
-            "lengths"
-        ][JUNCTION_PARENT_LINK]
+        MAIN.physics["lengths"][JUNCTION_PARENT_LINK]
     )
-
     child_length = float(
-        LATERAL.physics[
-            "lengths"
-        ][0]
+        LATERAL.physics["lengths"][0]
     )
 
     parent_radius = float(
@@ -491,7 +415,6 @@ def v2_attachment_drive():
             JUNCTION_ARC,
         )
     )
-
     child_radius = float(
         core.radius_for_arc(
             LATERAL.spec,
@@ -500,46 +423,24 @@ def v2_attachment_drive():
         )
     )
 
-    parent_i = (
-        math.pi
-        * parent_radius**4
-        / 4.0
-    )
+    parent_i = math.pi * parent_radius**4 / 4.0
+    child_i = math.pi * child_radius**4 / 4.0
 
-    child_i = (
-        math.pi
-        * child_radius**4
-        / 4.0
-    )
-
-    parent_ei = (
-        YOUNG_MODULUS_PA
-        * parent_i
-    )
-
-    child_ei = (
-        YOUNG_MODULUS_PA
-        * child_i
-    )
+    parent_ei = YOUNG_MODULUS_PA * parent_i
+    child_ei = YOUNG_MODULUS_PA * child_i
 
     compliance = (
         0.5 * parent_length / parent_ei
         + 0.5 * child_length / child_ei
     )
+    k_rad = 1.0 / compliance
 
-    k_rad = (
-        1.0
-        / compliance
-    )
-
-    # Use the child-link inertia and the same selected damping ratio.
     child_mass = (
         PLANT_DENSITY_KG_M3
         * math.pi
         * child_radius**2
         * child_length
     )
-
     j_center = (
         child_mass
         * (
@@ -548,27 +449,18 @@ def v2_attachment_drive():
         )
         / 12.0
     )
-
     j_pivot = (
         j_center
         + child_mass
-        * (
-            child_length / 2.0
-        )**2
+        * (child_length / 2.0)**2
     )
-
     d_rad = (
         2.0
         * DAMPING_RATIO
-        * math.sqrt(
-            k_rad * j_pivot
-        )
+        * math.sqrt(k_rad * j_pivot)
     )
 
-    rad_to_deg = (
-        math.pi / 180.0
-    )
-
+    rad_to_deg = math.pi / 180.0
     return (
         k_rad * rad_to_deg,
         d_rad * rad_to_deg,
@@ -665,16 +557,10 @@ def build_stage(
         stage
     )
 
-    # Interaction test override:
-    # smoother contact/joint response than the 120 Hz experimental default.
     physx_scene_api = PhysxSchema.PhysxSceneAPI(
-        stage.GetPrimAtPath(
-            "/World/PhysicsScene"
-        )
+        stage.GetPrimAtPath("/World/PhysicsScene")
     )
-    physx_scene_api.GetTimeStepsPerSecondAttr().Set(
-        480
-    )
+    physx_scene_api.GetTimeStepsPerSecondAttr().Set(480)
 
     plant_physics = (
         UsdGeom.Xform.Define(
@@ -702,30 +588,17 @@ def build_stage(
         LATERAL,
     )
 
-    # V2-like mass model and explicit center of mass.
-    apply_v2_mass_and_com(
-        stage,
-        MAIN,
-    )
-    apply_v2_mass_and_com(
-        stage,
-        LATERAL,
-    )
+    apply_v2_mass_and_com(stage, MAIN)
+    apply_v2_mass_and_com(stage, LATERAL)
 
+    # Only the first main link is anchored.
+    # Internal main-stem joints remain flexible D6 joints.
     core.create_world_anchor(
         stage,
         MAIN.link_paths[0],
     )
 
-    # V2 default: RIGID_TRUNK=True.
-    lock_main_stem_like_v2(
-        stage,
-        MAIN,
-    )
-
-    attach_k, attach_d = (
-        v2_attachment_drive()
-    )
+    attach_k, attach_d = v2_attachment_drive()
 
     junction_info = (
         core.create_junction_joint(
@@ -826,7 +699,7 @@ def build_stage(
 
     print("=" * 84)
     print(
-        "TEST 2D-B4 — V2-ALIGNED MANUAL GRAB"
+        "TEST 2D-B V2 PHYSICS — FLEXIBLE MAIN"
     )
     print("=" * 84)
     print(f"[OK] {output_path}")
@@ -883,58 +756,34 @@ def build_stage(
         f"+/- {BEND_LIMIT_DEG:.1f} deg"
     )
     print()
-    print("INTERACTION TUNING:")
+    print("V2 PHYSICS:")
+    print("  main stem          : FLEXIBLE D6")
+    print("  gravity            : 9.81 m/s^2 from frame 0")
+    print("  physics Hz         : 480")
+    print("  solver             : TGS 32 / 4")
     print(
-        f"  effective E        : "
-        f"{YOUNG_MODULUS_PA / 1e6:.2f} MPa"
+        f"  Young modulus      : "
+        f"{YOUNG_MODULUS_PA / 1e6:.1f} MPa"
     )
     print(
         f"  damping ratio      : "
         f"{DAMPING_RATIO:.2f}"
     )
     print(
+        f"  density            : "
+        f"{PLANT_DENSITY_KG_M3:.1f} kg/m^3"
+    )
+    print(
         f"  bend limit         : "
         f"+/- {BEND_LIMIT_DEG:.1f} deg"
     )
-    print(
-        "  physics Hz         : 480"
-    )
-    print(
-        "  colliders          : ON, invisible"
-    )
-    print(
-        "  ground collision   : OFF"
-    )
-    print()
-    print("V2 ALIGNMENT:")
-    print(
-        "  gravity            : normal 9.81 from frame 0"
-    )
-    print(
-        "  rigid main stem    : ON (V2 RIGID_TRUNK behavior)"
-    )
-    print(
-        "  physics Hz         : 480"
-    )
-    print(
-        "  solver             : 32 / 4"
-    )
-    print(
-        "  density mass       : 1000 kg/m^3, per-link radius"
-    )
-    print(
-        "  explicit COM       : local link midpoint"
-    )
+    print("  mass               : rho * pi*r^2 * L")
+    print("  COM                : link midpoint")
     print(
         f"  attachment K / D   : "
         f"{attach_k:.6f} / {attach_d:.6f}"
     )
-    print(
-        "  gravity ramp       : OFF"
-    )
-    print(
-        "  lateral E          : kept soft at 1.5 MPa"
-    )
+    print("  gravity ramp       : OFF")
     print("=" * 84)
 
     return output_path

@@ -49,7 +49,7 @@ if SCRIPT_DIR not in sys.path:
 
 
 import branch_core_fixed as core
-import generate_manual_mouse_grab_v2aligned as asset
+import generate_manual_mouse_grab_v2physics as asset
 
 
 def configure_physx_mouse_interaction():
@@ -309,7 +309,7 @@ def main():
     print()
     print("=" * 84)
     print(
-        "TEST 2D-B4 — V2-aligned settling + manual grab"
+        "TEST 2D-B — V2 physics / flexible main / manual grab"
     )
     print("=" * 84)
 
@@ -409,10 +409,10 @@ def main():
     )
     print()
     print(
-        "No gravity ramp is used."
+        "Physics constants now match exporterV2 defaults."
     )
     print(
-        "The main stem is rigid, matching V2's default RIGID_TRUNK behavior."
+        "The main stem remains flexible by explicit test choice."
     )
     print("=" * 84)
 
