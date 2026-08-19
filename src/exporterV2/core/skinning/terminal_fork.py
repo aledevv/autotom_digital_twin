@@ -1,14 +1,14 @@
 """Visual-only terminal fork dressing for the realtime segmented backend.
 
-The real organ (leaf petiole or truss rachis) is never modified.  When one of
-those organs is attached at the terminal link of a structural stem/branch, this
-module adds a short static young shoot that visually continues the parent axis
-and bends to the complementary side.  The result reads as a biological fork
-without adding physics, rigid bodies, collisions, joints, UsdSkel, or runtime
-synchronization.
+The real organ (leaf petiole or truss rachis) is never replaced.  At eligible
+terminal structural nodes this module adds only a very small static young twig,
+so the node reads as a biological bifurcation without adding physics, joints,
+collisions, UsdSkel, or runtime synchronization.
 
-The generated shoot is authored below the parent's terminal PhysX link, so it
-moves rigidly with that link exactly like the segmented organic mesh.
+For lateral branches the real terminal leaf branch is treated as the visual
+continuation of the parent.  The fake twig is only the small secondary arm.
+For truss nodes the truss remains exactly in the legacy subsystem and the fake
+shoot simply emerges as a tiny visual side growth.
 """
 
 import math
@@ -16,45 +16,43 @@ from typing import Dict, Iterable, Optional
 
 from pxr import Gf, UsdGeom, Vt
 
-from ..tree_config import PlantColors
+from ..tree_config import PlantColors, scaled
 from .adapter import branch_system
 from .mesh import _axis_color, _smoothstep, _visual_radius
 from .model import BranchData, VisualAxisData
 
 
 RADIAL_SEGMENTS_MIN = 10
-CURVE_SAMPLES = 14
+CURVE_SAMPLES = 11
 
-# Production fork tuning.
-#
-# The isolated Test 4A needed a broad continuation to make the topology easy to
-# inspect.  On the real plant that same scale made the decorative shoot look
-# like a second mature branch and exposed part of its hidden root.  Here the
-# fake shoot is intentionally a *young twig*: its root is narrow enough to stay
-# inside the terminal parent mesh and the whole shoot is shorter/thinner.
-ROOT_OVERLAP_MAX_M = 0.009
-ROOT_OVERLAP_LINK_FRACTION = 0.18
-CONTROL_FORWARD_MAX_M = 0.016
-CONTROL_FORWARD_LENGTH_FRACTION = 0.34
+# Tiny rigid decorative twig.  Keeping it short/thin makes its rigid behaviour
+# visually plausible while still breaking the artificial flat terminal cut.
+ROOT_OVERLAP_MAX_M = 0.005
+ROOT_OVERLAP_LINK_FRACTION = 0.10
+CONTROL_FORWARD_MAX_M = 0.008
+CONTROL_FORWARD_LENGTH_FRACTION = 0.25
 
-SHOOT_LENGTH_MIN_M = 0.026
-SHOOT_LENGTH_MAX_M = 0.045
-SHOOT_LENGTH_RADIUS_SCALE = 5.0
+SHOOT_LENGTH_MIN_M = 0.014
+SHOOT_LENGTH_MAX_M = 0.026
+SHOOT_LENGTH_RADIUS_SCALE = 3.0
 
-# Keep the entire hidden root well inside the parent silhouette.  This removes
-# the little backward/protruding attachment segment visible in the first plant
-# integration while preserving the impression that the twig grows out of the
-# terminal node.
-ROOT_RADIUS_SCALE = 0.52
-SHOULDER_RADIUS_SCALE = 0.38
-TIP_RADIUS_SCALE = 0.18
-ROOT_ZONE_FRACTION = 0.24
+ROOT_RADIUS_SCALE = 0.32
+SHOULDER_RADIUS_SCALE = 0.23
+TIP_RADIUS_SCALE = 0.11
+ROOT_ZONE_FRACTION = 0.20
 
-# Small young terminal leaf; deliberately less dominant than a real mature leaf.
-LEAF_LENGTH_FRACTION = 0.44
-LEAF_LENGTH_MIN_M = 0.014
-LEAF_LENGTH_MAX_M = 0.022
+LEAF_LENGTH_FRACTION = 0.42
+LEAF_LENGTH_MIN_M = 0.008
+LEAF_LENGTH_MAX_M = 0.014
 LEAF_HALF_WIDTH_FRACTION = 0.27
+
+# The lateral-branch tip should close onto the real petiole diameter rather than
+# collapsing to an arbitrary fraction.  Clamp only protects malformed/extreme
+# inputs.  Truss hosts use a mild taper because the truss stays in its separate
+# legacy authoring path.
+PETIOLE_TIP_SCALE_MIN = 0.55
+PETIOLE_TIP_SCALE_MAX = 0.92
+TRUSS_HOST_TIP_SCALE = 0.72
 
 
 # -----------------------------------------------------------------------------
@@ -90,8 +88,7 @@ def _transport_frames(tangents):
     if abs(_dot(first, reference)) > 0.92:
         reference = Gf.Vec3d(1.0, 0.0, 0.0)
 
-    normal = Gf.Cross(reference, first)
-    normal = _normalized(normal)
+    normal = _normalized(Gf.Cross(reference, first))
     binormal = _normalized(Gf.Cross(first, normal))
 
     normals = [normal]
@@ -140,8 +137,7 @@ def _link_rest_world(axis: VisualAxisData) -> Gf.Matrix4d:
 
 
 # -----------------------------------------------------------------------------
-# Candidate selection: only structural stem/lateral branches, and only when the
-# existing real organ is attached at their terminal link.
+# Candidate selection
 # -----------------------------------------------------------------------------
 
 
@@ -159,10 +155,8 @@ def _is_structural_host(branch: BranchData) -> bool:
 def _is_supported_existing_organ(branch_def: dict) -> bool:
     branch_id = str(branch_def.get("id", "")).lower()
     system = branch_system(branch_def)
-
     if system == "truss":
         return "rachis" in branch_id
-
     return "petiole" in branch_id
 
 
@@ -192,9 +186,7 @@ def _find_terminal_existing_child(
         except (TypeError, ValueError):
             continue
 
-        if attach_link != parent.n_links:
-            continue
-        if attach_frac < 0.95:
+        if attach_link != parent.n_links or attach_frac < 0.95:
             continue
         candidates.append(child)
 
@@ -224,7 +216,7 @@ def _complementary_shoot_direction(
     parent_axis: Gf.Vec3d,
     existing_axis: Gf.Vec3d,
 ) -> Gf.Vec3d:
-    """Continue the parent, but bend away from the existing organ and upward."""
+    """Build a small side twig opposite the already-existing real organ."""
     parent_axis = _normalized(parent_axis)
     existing_axis = _normalized(existing_axis)
     world_up = Gf.Vec3d(0.0, 0.0, 1.0)
@@ -242,8 +234,27 @@ def _complementary_shoot_direction(
     else:
         upward = Gf.Vec3d(0.0, 0.0, 0.0)
 
-    direction = parent_axis * 0.76 - lateral * 0.48 + upward * 0.28
+    # Unlike the first implementation, the fake twig is no longer the main
+    # continuation.  The real leaf branch is the continuation on lateral hosts;
+    # this decorative child therefore opens laterally like a tiny petiolule.
+    direction = parent_axis * 0.36 - lateral * 0.82 + upward * 0.24
     return _normalized(direction)
+
+
+def _terminal_tip_scale(existing_child: dict, parent_radius: float) -> float:
+    system = branch_system(existing_child)
+    if system == "truss":
+        return TRUSS_HOST_TIP_SCALE
+
+    try:
+        child_radius = scaled(float(existing_child["radius"]))
+    except (KeyError, TypeError, ValueError):
+        return 0.70
+
+    if parent_radius <= 1e-8:
+        return 0.70
+    ratio = child_radius / parent_radius
+    return max(PETIOLE_TIP_SCALE_MIN, min(PETIOLE_TIP_SCALE_MAX, ratio))
 
 
 # -----------------------------------------------------------------------------
@@ -342,8 +353,6 @@ def _build_shoot_mesh(
                 row0 + next_radial,
             ))
 
-    # Only the distal tip is capped. The root stays open because it is hidden
-    # inside the parent's terminal organic segment.
     tip_center = len(points)
     points.append(Gf.Vec3f(*world_to_link.Transform(centers[-1])))
     last_row = (len(centers) - 1) * radial_segments
@@ -381,7 +390,7 @@ def _author_small_leaf(
     )
     half_width = length * LEAF_HALF_WIDTH_FRACTION
 
-    forward = _normalized(shoot_tangent + Gf.Vec3d(0.10, 0.04, 0.12))
+    forward = _normalized(shoot_tangent + Gf.Vec3d(0.08, 0.03, 0.10))
     side = Gf.Cross(Gf.Vec3d(0.0, 0.0, 1.0), forward)
     if side.GetLength() <= 1e-8:
         side = Gf.Cross(Gf.Vec3d(0.0, 1.0, 0.0), forward)
@@ -391,15 +400,12 @@ def _author_small_leaf(
     world_points = [
         root_world,
         root_world + forward * (length * 0.28) + side * (half_width * 0.92),
-        root_world + forward * (length * 0.62) + side * (half_width * 0.72) + bend * 0.0015,
+        root_world + forward * (length * 0.62) + side * (half_width * 0.72) + bend * 0.0010,
         root_world + forward * length,
-        root_world + forward * (length * 0.62) - side * (half_width * 0.72) + bend * 0.0015,
+        root_world + forward * (length * 0.62) - side * (half_width * 0.72) + bend * 0.0010,
         root_world + forward * (length * 0.28) - side * (half_width * 0.92),
     ]
-    points = [
-        Gf.Vec3f(*world_to_link.Transform(point))
-        for point in world_points
-    ]
+    points = [Gf.Vec3f(*world_to_link.Transform(point)) for point in world_points]
     _author_plain_mesh(
         stage,
         path,
@@ -420,7 +426,7 @@ def author_terminal_visual_fork(
     axis: VisualAxisData,
     existing_child: dict,
 ) -> dict:
-    """Author one fake continuation shoot on the parent's terminal rigid link."""
+    """Author one tiny secondary twig on the parent's terminal rigid link."""
     parent = axis.members[-1]
     child_axis = _child_axis_from_definition(parent, existing_child)
     shoot_direction = _complementary_shoot_direction(axis.axis, child_axis)
@@ -464,6 +470,7 @@ def author_terminal_visual_fork(
         "parent": parent.branch_id,
         "existing_child": existing_child["id"],
         "existing_system": branch_system(existing_child),
+        "terminal_tip_scale": _terminal_tip_scale(existing_child, parent_radius),
     }
 
 
@@ -484,8 +491,6 @@ def author_terminal_visual_forks(
         if existing_child is None:
             continue
 
-        authored.append(
-            author_terminal_visual_fork(stage, axis, existing_child)
-        )
+        authored.append(author_terminal_visual_fork(stage, axis, existing_child))
 
     return authored
