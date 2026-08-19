@@ -12,7 +12,7 @@ moves rigidly with that link exactly like the segmented organic mesh.
 """
 
 import math
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Dict, Iterable, Optional
 
 from pxr import Gf, UsdGeom, Vt
 
@@ -25,37 +25,41 @@ from .model import BranchData, VisualAxisData
 RADIAL_SEGMENTS_MIN = 10
 CURVE_SAMPLES = 14
 
-# These values come from the approved isolated Test 4A v2, but all lengths are
-# clamped against the actual terminal link so short branches remain safe.
-ROOT_OVERLAP_MAX_M = 0.018
-ROOT_OVERLAP_LINK_FRACTION = 0.34
-CONTROL_FORWARD_MAX_M = 0.025
-CONTROL_FORWARD_LENGTH_FRACTION = 0.38
+# Production fork tuning.
+#
+# The isolated Test 4A needed a broad continuation to make the topology easy to
+# inspect.  On the real plant that same scale made the decorative shoot look
+# like a second mature branch and exposed part of its hidden root.  Here the
+# fake shoot is intentionally a *young twig*: its root is narrow enough to stay
+# inside the terminal parent mesh and the whole shoot is shorter/thinner.
+ROOT_OVERLAP_MAX_M = 0.009
+ROOT_OVERLAP_LINK_FRACTION = 0.18
+CONTROL_FORWARD_MAX_M = 0.016
+CONTROL_FORWARD_LENGTH_FRACTION = 0.34
 
-SHOOT_LENGTH_MIN_M = 0.032
-SHOOT_LENGTH_MAX_M = 0.060
-SHOOT_LENGTH_RADIUS_SCALE = 7.0
+SHOOT_LENGTH_MIN_M = 0.026
+SHOOT_LENGTH_MAX_M = 0.045
+SHOOT_LENGTH_RADIUS_SCALE = 5.0
 
-# Slightly cover the old terminal ring, then taper strongly once the shoot has
-# cleared the hidden overlap zone.
-ROOT_RADIUS_SCALE = 1.025
-SHOULDER_RADIUS_SCALE = 0.88
-TIP_RADIUS_SCALE = 0.27
-ROOT_ZONE_FRACTION = 0.30
+# Keep the entire hidden root well inside the parent silhouette.  This removes
+# the little backward/protruding attachment segment visible in the first plant
+# integration while preserving the impression that the twig grows out of the
+# terminal node.
+ROOT_RADIUS_SCALE = 0.52
+SHOULDER_RADIUS_SCALE = 0.38
+TIP_RADIUS_SCALE = 0.18
+ROOT_ZONE_FRACTION = 0.24
 
-LEAF_LENGTH_FRACTION = 0.48
-LEAF_LENGTH_MIN_M = 0.018
-LEAF_LENGTH_MAX_M = 0.030
-LEAF_HALF_WIDTH_FRACTION = 0.30
+# Small young terminal leaf; deliberately less dominant than a real mature leaf.
+LEAF_LENGTH_FRACTION = 0.44
+LEAF_LENGTH_MIN_M = 0.014
+LEAF_LENGTH_MAX_M = 0.022
+LEAF_HALF_WIDTH_FRACTION = 0.27
 
 
 # -----------------------------------------------------------------------------
 # Small vector / sweep helpers
 # -----------------------------------------------------------------------------
-
-
-def _length(vector: Gf.Vec3d) -> float:
-    return float(vector.GetLength())
 
 
 def _normalized(vector: Gf.Vec3d) -> Gf.Vec3d:
@@ -157,8 +161,6 @@ def _is_supported_existing_organ(branch_def: dict) -> bool:
     system = branch_system(branch_def)
 
     if system == "truss":
-        # Only the root rachis is a direct terminal organ. Pedicels have a truss
-        # parent and therefore never match the structural host anyway.
         return "rachis" in branch_id
 
     return "petiole" in branch_id
@@ -240,9 +242,6 @@ def _complementary_shoot_direction(
     else:
         upward = Gf.Vec3d(0.0, 0.0, 0.0)
 
-    # Parent continuation stays dominant.  The opposite lateral term gives the
-    # fork its Y reading; upward bias makes lateral-branch tips look like young
-    # growth rather than a symmetric mechanical split.
     direction = parent_axis * 0.76 - lateral * 0.48 + upward * 0.28
     return _normalized(direction)
 
