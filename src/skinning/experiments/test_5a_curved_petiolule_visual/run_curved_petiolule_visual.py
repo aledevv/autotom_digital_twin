@@ -1,17 +1,16 @@
-"""Visual-only comparison for short tomato petiolules and curved leaf blades.
+"""Visual-only test for short tomato petiolules and longitudinally folded blades.
 
-This experiment is intentionally isolated from exporterV2. It compares the
-current straight-petiolule/flat-blade look with a revised static organic model
-based on the visual proportions observed in real tomato leaves:
+The test stays isolated from exporterV2.  The proposed shape now follows the
+latest visual target:
 
-- the petiolule is short and thin relative to the leaf blade;
-- it has only a small upward tilt and very mild curvature;
-- most of the visible curvature belongs to the leaf blade itself;
-- the blade first keeps a small basal lift, then bends downward toward the tip;
+- petiolules are short, thin, and only mildly tilted upward;
+- leaf blades remain simple 2D triangle sheets;
+- the dominant fold runs longitudinally from the petiolule to the leaf tip;
+- a center vertex row acts like a visual midrib, with the two blade halves
+  slightly lowered around it;
+- only a small whole-blade distal sag remains, so the leaf does not look bent by
+  a transverse/latitudinal crease;
 - no physics, joints, UsdSkel, or runtime deformation are used.
-
-If accepted, the normalized blade deformation can be transferred to the real
-GroIMP-derived leaf dimensions while keeping petiolules rigid and inexpensive.
 """
 
 import math
@@ -41,35 +40,32 @@ OUTPUT_USD = os.path.join(OUTPUT_DIR, "curved_petiolule_visual.usda")
 
 RADIAL_SEGMENTS = 14
 CURVE_SAMPLES = 14
-LEAF_STATIONS = 16
+LEAF_STATIONS = 18
 
 RACHIS_LENGTH_M = 0.36
 RACHIS_RADIUS_M = 0.0060
 
-# The important proportion in this revision: the petiolule is only ~19% of the
-# blade length instead of the previous ~60%. This is much closer to the tomato
-# references and also makes a rigid petiolule visually plausible.
 LEAF_LENGTH_M = 0.075
 LEAF_HALF_WIDTH_M = 0.025
 PETIOLULE_LENGTH_M = 0.014
 PETIOLULE_ROOT_RADIUS_M = 0.0024
 PETIOLULE_TIP_RADIUS_M = 0.00135
-
-# Only a few millimetres of vertical change belong to the petiolule. Most of the
-# silhouette variation now comes from the leaf blade.
 PETIOLULE_LIFT_M = 0.0032
 
-# Blade rest-shape. The blade initially gains a little height, then gravity-like
-# sag dominates progressively toward the distal tip.
-LEAF_BASAL_LIFT_M = 0.0055
-LEAF_SAG_M = 0.018
-LEAF_SAG_EXPONENT = 1.72
-LEAF_CAMBER_M = 0.0025
+# Main change of this revision: a longitudinal V-like fold around the visual
+# midrib.  The fold is zero at the narrow base/tip and strongest over the broad
+# central portion of the blade.
+LEAF_LONGITUDINAL_FOLD_M = 0.0048
+LEAF_FOLD_EXPONENT = 0.78
 
-# Three proposed pairs use only small deterministic variation.
+# Keep only a subtle whole-blade gravity sag.  It should not read as a transverse
+# bend; the longitudinal midrib fold above must dominate the shape.
+LEAF_TIP_SAG_M = 0.0045
+LEAF_TIP_SAG_EXPONENT = 1.9
+
 PAIR_Y = (-0.105, 0.0, 0.105)
 PAIR_LIFT_SCALE = (0.88, 1.00, 0.93)
-PAIR_SAG_SCALE = (0.90, 1.00, 0.94)
+PAIR_FOLD_SCALE = (0.90, 1.00, 0.94)
 
 STEM_COLOR = Gf.Vec3f(0.58, 0.78, 0.38)
 PETIOLULE_COLOR = Gf.Vec3f(0.55, 0.76, 0.34)
@@ -258,51 +254,79 @@ def _author_leaf_blade(
     *,
     length,
     half_width,
-    sag,
-    basal_lift,
-    camber,
+    fold_depth,
+    tip_sag,
     color,
 ):
-    """Create a blade whose rest shape carries most of the visible curvature."""
+    """Create a 2D sheet folded along a petiolule-to-tip visual midrib.
+
+    Each longitudinal station has three vertices: left edge, center/midrib, and
+    right edge.  The center stays on the blade centerline while both edges are
+    lowered along the sheet normal.  Connecting those rows produces two simple
+    triangle strips meeting at one longitudinal ridge.
+    """
     forward = _normalized(forward)
     world_up = Gf.Vec3d(0.0, 0.0, 1.0)
     side = Gf.Cross(world_up, forward)
     if _length(side) <= 1e-8:
         side = Gf.Cross(Gf.Vec3d(0.0, 1.0, 0.0), forward)
     side = _normalized(side)
+    sheet_normal = _normalized(Gf.Cross(forward, side))
 
     points = []
     for index in range(LEAF_STATIONS):
         t = index / float(LEAF_STATIONS - 1)
 
-        # Tomato-like blade width: broad after the narrow base, then taper to tip.
         width_profile = math.sin(math.pi * t) ** 0.78
         width_profile *= 1.13 - 0.27 * t
         width = half_width * width_profile
 
-        # The first term creates a gentle basal rise that peaks early. The last
-        # term is the gravity-like sag and dominates only toward the distal tip.
-        # A tiny sinusoidal camber prevents an unnaturally flat center section.
-        basal_shape = math.sin(math.pi * min(t / 0.62, 1.0)) if t < 0.62 else 0.0
-        vertical_offset = (
-            basal_lift * basal_shape
-            + camber * math.sin(math.pi * t)
-            - sag * (t ** LEAF_SAG_EXPONENT)
+        # Very small whole-blade sag. It moves the centerline smoothly and does
+        # not create a transverse crease.
+        center = (
+            root
+            + forward * (length * t)
+            - world_up * (tip_sag * (t ** LEAF_TIP_SAG_EXPONENT))
         )
-        center = root + forward * (length * t) + world_up * vertical_offset
 
-        points.append(Gf.Vec3f(*(center + side * width)))
-        points.append(Gf.Vec3f(*(center - side * width)))
+        # Longitudinal fold: maximum near the broad middle of the blade, zero at
+        # base/tip. The midrib is the raised center row and can be read as a
+        # continuation of the petiolule toward the distal tip.
+        fold_profile = math.sin(math.pi * t) ** LEAF_FOLD_EXPONENT
+        edge_drop = fold_depth * fold_profile
+
+        left = center + side * width - sheet_normal * edge_drop
+        midrib = center
+        right = center - side * width - sheet_normal * edge_drop
+        points.extend((Gf.Vec3f(*left), Gf.Vec3f(*midrib), Gf.Vec3f(*right)))
 
     face_counts = []
     face_indices = []
     for station in range(LEAF_STATIONS - 1):
-        a = station * 2
-        b = a + 1
-        c = a + 2
-        d = a + 3
+        row0 = station * 3
+        row1 = (station + 1) * 3
+
+        # Left half of the blade.
         face_counts.extend((3, 3))
-        face_indices.extend((a, b, d, a, d, c))
+        face_indices.extend((
+            row0 + 0,
+            row0 + 1,
+            row1 + 1,
+            row0 + 0,
+            row1 + 1,
+            row1 + 0,
+        ))
+
+        # Right half of the blade.
+        face_counts.extend((3, 3))
+        face_indices.extend((
+            row0 + 1,
+            row0 + 2,
+            row1 + 2,
+            row0 + 1,
+            row1 + 2,
+            row1 + 1,
+        ))
 
     mesh = UsdGeom.Mesh.Define(stage, path)
     mesh.CreatePointsAttr().Set(Vt.Vec3fArray(points))
@@ -328,7 +352,7 @@ def _author_rachis(stage, path, x, color):
 
 
 def _author_straight_pair(stage, root_path, x, y):
-    """Current look: straight rigid petiolules and flat blades."""
+    """Baseline: short straight petiolule and completely flat 2D blade."""
     for side_name, sign in (("Left", -1.0), ("Right", 1.0)):
         root = Gf.Vec3d(x, y, 0.055)
         outward = Gf.Vec3d(sign, 0.0, 0.0)
@@ -352,15 +376,14 @@ def _author_straight_pair(stage, root_path, x, y):
             outward,
             length=LEAF_LENGTH_M,
             half_width=LEAF_HALF_WIDTH_M,
-            sag=0.0,
-            basal_lift=0.0,
-            camber=0.0,
+            fold_depth=0.0,
+            tip_sag=0.0,
             color=LEAF_COLOR,
         )
 
 
-def _author_curved_pair(stage, root_path, x, y, lift_scale, sag_scale):
-    """Proposed look: short petiolule, subtle tilt, curvature mainly in blade."""
+def _author_proposed_pair(stage, root_path, x, y, lift_scale, fold_scale):
+    """Proposed: subtle petiolule lift + longitudinally folded blade."""
     world_up = Gf.Vec3d(0.0, 0.0, 1.0)
 
     for side_name, sign in (("Left", -1.0), ("Right", 1.0)):
@@ -369,9 +392,6 @@ def _author_curved_pair(stage, root_path, x, y, lift_scale, sag_scale):
         length = PETIOLULE_LENGTH_M
         lift = PETIOLULE_LIFT_M * lift_scale
 
-        # Mild cubic arc: almost straight, with only a small upward change.
-        # The distal tangent remains close to the radial direction so the leaf
-        # starts naturally instead of inheriting an exaggerated hook.
         p0 = root
         p1 = root + outward * (length * 0.33) + world_up * (lift * 0.30)
         p2 = root + outward * (length * 0.68) + world_up * (lift * 0.78)
@@ -390,9 +410,6 @@ def _author_curved_pair(stage, root_path, x, y, lift_scale, sag_scale):
             PETIOLULE_COLOR,
         )
 
-        # Preserve the short petiolule tangent, but make the blade direction
-        # mostly radial. The deformation of the blade mesh then supplies the
-        # visible gravity response.
         distal_forward = _normalized(outward * 0.86 + tangents[-1] * 0.14)
         _author_leaf_blade(
             stage,
@@ -401,9 +418,8 @@ def _author_curved_pair(stage, root_path, x, y, lift_scale, sag_scale):
             distal_forward,
             length=LEAF_LENGTH_M,
             half_width=LEAF_HALF_WIDTH_M,
-            sag=LEAF_SAG_M * sag_scale,
-            basal_lift=LEAF_BASAL_LIFT_M * lift_scale,
-            camber=LEAF_CAMBER_M,
+            fold_depth=LEAF_LONGITUDINAL_FOLD_M * fold_scale,
+            tip_sag=LEAF_TIP_SAG_M,
             color=LEAF_COLOR,
         )
 
@@ -412,27 +428,24 @@ def _author_scene(stage):
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
     UsdGeom.Xform.Define(stage, "/World")
 
-    # LEFT = baseline with the new shorter proportion but no organic deformation.
-    # This makes the comparison focus on shape rather than simply on length.
     current_x = -0.28
     UsdGeom.Xform.Define(stage, "/World/Current")
     _author_rachis(stage, "/World/Current/Rachis", current_x, CURRENT_COLOR)
     _author_straight_pair(stage, "/World/Current/Pair", current_x, 0.0)
 
-    # RIGHT = proposed visual language with three slightly different pairs.
     proposed_x = 0.24
     UsdGeom.Xform.Define(stage, "/World/Proposed")
     _author_rachis(stage, "/World/Proposed/Rachis", proposed_x, STEM_COLOR)
-    for index, (y, lift_scale, sag_scale) in enumerate(
-        zip(PAIR_Y, PAIR_LIFT_SCALE, PAIR_SAG_SCALE)
+    for index, (y, lift_scale, fold_scale) in enumerate(
+        zip(PAIR_Y, PAIR_LIFT_SCALE, PAIR_FOLD_SCALE)
     ):
-        _author_curved_pair(
+        _author_proposed_pair(
             stage,
             f"/World/Proposed/Pair_{index + 1:02d}",
             proposed_x,
             y,
             lift_scale,
-            sag_scale,
+            fold_scale,
         )
 
     dome = UsdLux.DomeLight.Define(stage, "/World/DomeLight")
@@ -460,16 +473,12 @@ def main():
     stage.GetRootLayer().Save()
 
     print("=" * 76)
-    print("TEST 5A v2 - SHORT PETIOLULE + CURVED LEAF REST SHAPE")
+    print("TEST 5A v3 - LONGITUDINAL LEAF MIDRIB FOLD")
     print("=" * 76)
     print(f"USD: {OUTPUT_USD}")
-    print("LEFT  : short straight petiolule + flat blade")
-    print("RIGHT : short mildly raised petiolule + curved/sagged blade")
-    print(
-        f"Ratio: petiolule={PETIOLULE_LENGTH_M:.3f} m / "
-        f"blade={LEAF_LENGTH_M:.3f} m = "
-        f"{PETIOLULE_LENGTH_M / LEAF_LENGTH_M:.2f}"
-    )
+    print("LEFT  : short straight petiolule + flat 2D blade")
+    print("RIGHT : short raised petiolule + 2D blade folded along its midrib")
+    print("Blade topology: left edge / midrib / right edge per station")
     print("No physics / no joints / no UsdSkel / no runtime deformation")
     print("=" * 76)
 
