@@ -19,6 +19,8 @@ from .schema import (
 
 
 _ARC_PRECISION = 12
+_PETIOLULE_ROOT_PARENT_FRACTION = 0.72
+_PETIOLULE_ROOT_SHOULDER_AMPLITUDE = 0.06
 
 
 def _pose_matrix(position: Gf.Vec3d, orientation: Gf.Quatf) -> Gf.Matrix4d:
@@ -52,6 +54,14 @@ def _axis_color(axis: VisualAxisData):
     if kind == "petiolule" or "petiolule" in branch_id:
         return PlantColors.PETIOLULE
     return PlantColors.STEM
+
+
+def _is_petiolule_axis(axis: VisualAxisData) -> bool:
+    """Return True for standalone petiolule axes that need a subtle root flare."""
+    branch = axis.definition
+    kind = branch.get("kind", "").lower()
+    branch_id = branch.get("id", "").lower()
+    return kind == "petiolule" or "petiolule" in branch_id
 
 
 def _smoothstep(value: float) -> float:
@@ -309,15 +319,25 @@ def _visual_radius(axis: VisualAxisData, arc: float) -> float:
         )
 
     if axis.parent_radius is not None:
+        # Small petiolules should not inherit the full branch-style root flare.
+        # Keep their base only slightly thicker than the nominal shaft while
+        # preserving the stronger swelling used for structural branches.
+        if _is_petiolule_axis(axis):
+            root_parent_fraction = _PETIOLULE_ROOT_PARENT_FRACTION
+            shoulder_amplitude = _PETIOLULE_ROOT_SHOULDER_AMPLITUDE
+        else:
+            root_parent_fraction = profile.root_parent_fraction
+            shoulder_amplitude = profile.root_shoulder_amplitude
+
         flare_length = min(axis.total_length, max(0.042, axis.parent_radius * 3.2))
         if arc <= flare_length:
             q = arc / max(flare_length, 1e-8)
             fade = 1.0 - _smoothstep(q)
-            root_target = max(radius, axis.parent_radius * profile.root_parent_fraction)
+            root_target = max(radius, axis.parent_radius * root_parent_fraction)
             radius += (root_target - radius) * fade
             radius *= (
                 1.0
-                + profile.root_shoulder_amplitude
+                + shoulder_amplitude
                 * _gaussian(q, 0.42, 0.22)
                 * fade
             )
