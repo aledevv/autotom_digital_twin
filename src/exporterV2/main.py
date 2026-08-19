@@ -30,11 +30,12 @@ parser.add_argument(
 )
 parser.add_argument(
     "--skinning-visual-mode",
-    choices=("skinned", "static", "rigid-single", "global"),
+    choices=("skinned", "static", "rigid-single", "global", "segmented"),
     default="skinned",
     help=(
         "Visual mode for the skinned backend: per-axis UsdSkel, static smooth "
-        "mesh benchmark, rigid single-bone optimization, or one global shared Skeleton"
+        "mesh benchmark, rigid single-bone optimization, one global shared Skeleton, "
+        "or rigid segmented organic meshes"
     ),
 )
 args = parser.parse_args()
@@ -182,7 +183,8 @@ def main():
 
     opened_stage = omni.usd.get_context().get_stage()
     skinning_runtime = None
-    if args.branch_backend == "skinned" and args.skinning_visual_mode != "static":
+    non_runtime_modes = ("static", "segmented")
+    if args.branch_backend == "skinned" and args.skinning_visual_mode not in non_runtime_modes:
         candidate = SkinningRuntime.discover(opened_stage)
         if candidate.branch_count > 0:
             skinning_runtime = candidate
@@ -192,8 +194,10 @@ def main():
             )
         else:
             print("  ✓ No runtime-skinned axes remain")
-    elif args.branch_backend == "skinned":
+    elif args.branch_backend == "skinned" and args.skinning_visual_mode == "static":
         print("  ✓ Static visual benchmark: no UsdSkel runtime")
+    elif args.branch_backend == "skinned" and args.skinning_visual_mode == "segmented":
+        print("  ✓ Segmented organic visuals: no UsdSkel runtime")
 
     my_world = World(stage_units_in_meters=1.0)
     my_world.reset()
