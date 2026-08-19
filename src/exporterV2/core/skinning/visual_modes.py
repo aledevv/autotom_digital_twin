@@ -27,20 +27,23 @@ _SEGMENT_TONGUE_FRACTION = 0.18
 _SEGMENT_TONGUE_START_SCALE = 0.90
 _SEGMENT_TONGUE_END_SCALE = 0.75
 
-# Optional terminal taper used only by ``segmented-fork`` structural hosts.
-# The normal segmented mode remains unchanged when terminal_tip_scale is 1.0.
+# Optional terminal taper used only by diagnostic/fork structural hosts.
 _TERMINAL_TAPER_MAX_M = 0.022
 _TERMINAL_TAPER_LINK_FRACTION = 0.42
 
 # A centered terminal petiole is the real continuation of a lateral branch in
-# segmented-fork mode.  Its first visual segment therefore extends a few mm
-# backwards into the parent terminal mesh.  This hides the open angled corner at
-# the fork without moving the rigid body or joint.  The deepest ring is slightly
-# narrower so the overlap reads as a rounded organic insertion, not a hard tube
-# crossing through the parent.
+# segmented-fork mode. Its first visual segment extends backwards into the host
+# so the insertion reads as one continuous body.
 _CENTERED_FORK_ROOT_OVERLAP_MAX_M = 0.006
 _CENTERED_FORK_ROOT_OVERLAP_LINK_FRACTION = 0.16
 _CENTERED_FORK_ROOT_START_SCALE = 0.72
+
+# Close the terminal host around the centered petiole.  The last ring remains at
+# the physical tip, while a small forward dome point produces a rounded cap. The
+# real petiole intersects that cap at the center, visually behaving like a shoot
+# emerging from solid plant tissue instead of from an open tube.
+_CENTERED_FORK_HOST_DOME_MAX_M = 0.0035
+_CENTERED_FORK_HOST_DOME_RADIUS_SCALE = 0.45
 
 
 def _author_plain_mesh(
@@ -112,7 +115,6 @@ def author_rigid_visual_axis(stage, axis: VisualAxisData) -> None:
 
 
 def _segment_overlap(axis: VisualAxisData, link_index: int) -> float:
-    """Return the forward visual tongue length at one internal physical joint."""
     if link_index >= len(axis.link_paths) - 1:
         return 0.0
     current_length = axis.bone_lengths[link_index]
@@ -125,7 +127,6 @@ def _segment_overlap(axis: VisualAxisData, link_index: int) -> float:
 
 
 def _centered_fork_root_overlap(axis: VisualAxisData, link_index: int) -> float:
-    """Return visual-only root penetration for a centered terminal leaf branch."""
     if link_index != 0:
         return 0.0
     if not bool(axis.definition.get("_terminal_fork_centered", False)):
@@ -135,6 +136,13 @@ def _centered_fork_root_overlap(axis: VisualAxisData, link_index: int) -> float:
     return min(
         _CENTERED_FORK_ROOT_OVERLAP_MAX_M,
         link_length * _CENTERED_FORK_ROOT_OVERLAP_LINK_FRACTION,
+    )
+
+
+def _is_centered_fork_host(axis: VisualAxisData, link_index: int) -> bool:
+    return (
+        link_index == len(axis.link_paths) - 1
+        and bool(axis.members[-1].definition.get("_terminal_fork_centered_host", False))
     )
 
 
@@ -167,7 +175,6 @@ def _segment_sample_arcs(
     *,
     terminal_taper_start=None,
 ):
-    """Reuse global smooth-mesh samples and add local overlap/tip samples."""
     eps = 1e-10
     arcs = {
         arc
@@ -206,7 +213,6 @@ def _root_overlap_radius_scale(
     visual_start: float,
     core_start: float,
 ) -> float:
-    """Round the buried petiole root while it blends back to normal at arc=0."""
     if visual_start >= core_start - 1e-10 or arc >= core_start:
         return 1.0
     q = _smoothstep(
@@ -218,12 +224,10 @@ def _root_overlap_radius_scale(
 
 
 def _tongue_radius_scale(arc: float, core_end: float, tongue_end: float) -> float:
-    """Taper the hidden overlap so it nests inside the following rigid segment."""
     if tongue_end <= core_end + 1e-10 or arc <= core_end + 1e-10:
         return 1.0
 
-    q = (arc - core_end) / max(tongue_end - core_end, 1e-8)
-    q = _smoothstep(q)
+    q = _smoothstep((arc - core_end) / max(tongue_end - core_end, 1e-8))
     return (
         _SEGMENT_TONGUE_START_SCALE
         + (_SEGMENT_TONGUE_END_SCALE - _SEGMENT_TONGUE_START_SCALE) * q
@@ -242,6 +246,45 @@ def _terminal_radius_scale(
         (arc - taper_start) / max(core_end - taper_start, 1e-8)
     )
     return 1.0 + (terminal_tip_scale - 1.0) * q
+
+
+def _append_centered_host_dome(
+    axis: VisualAxisData,
+    link_index: int,
+    core_end: float,
+    radial_segments: int,
+    world_to_link: Gf.Matrix4d,
+    points,
+    face_counts,
+    face_indices,
+):
+    """Close a centered lateral-branch fork with a shallow rounded visual cap."""
+    if not _is_centered_fork_host(axis, link_index):
+        return
+
+    tip_radius = _visual_radius(axis, core_end)
+    dome_depth = min(
+        _CENTERED_FORK_HOST_DOME_MAX_M,
+        max(tip_radius * _CENTERED_FORK_HOST_DOME_RADIUS_SCALE, 0.0010),
+    )
+
+    # The last ring already exists at core_end. Put the fan apex slightly beyond
+    # it along the parent axis. The centered petiole penetrates this shallow dome
+    # and hides the central crossing, while the surrounding annulus is closed.
+    apex_world = axis.start + axis.axis * (core_end + dome_depth)
+    apex_local = world_to_link.Transform(apex_world)
+    apex_index = len(points)
+    points.append(Gf.Vec3f(*apex_local))
+
+    last_row = len(points) - 1 - radial_segments
+    for radial in range(radial_segments):
+        next_radial = (radial + 1) % radial_segments
+        face_counts.append(3)
+        face_indices.extend((
+            last_row + radial,
+            apex_index,
+            last_row + next_radial,
+        ))
 
 
 def _build_segmented_link_mesh(
@@ -331,6 +374,17 @@ def _build_segmented_link_mesh(
                 row0 + next_radial,
             ))
 
+    _append_centered_host_dome(
+        axis,
+        link_index,
+        core_end,
+        radial_segments,
+        world_to_link,
+        points,
+        face_counts,
+        face_indices,
+    )
+
     return points, face_counts, face_indices, overlap
 
 
@@ -340,13 +394,7 @@ def author_segmented_visual_axis(
     *,
     terminal_tip_scale: float = 1.0,
 ) -> dict:
-    """Author one organic rigid mesh per PhysX link, with no UsdSkel.
-
-    ``terminal_tip_scale`` is normally 1.0.  The segmented-fork mode may pass a
-    smaller value for an eligible structural host.  Centered terminal petioles
-    also receive a small visual-only backwards root overlap so their angled
-    insertion into a lateral branch has no exposed corner/gap.
-    """
+    """Author one organic rigid mesh per PhysX link, with no UsdSkel."""
     segment_count = 0
     tongue_count = 0
 
