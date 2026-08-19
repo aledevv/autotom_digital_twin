@@ -1,17 +1,17 @@
-"""Visual-only comparison for static curved petiolules and gently drooping leaves.
+"""Visual-only comparison for short tomato petiolules and curved leaf blades.
 
 This experiment is intentionally isolated from exporterV2. It compares the
-current straight-petiolule look with a proposed static organic representation:
+current straight-petiolule/flat-blade look with a revised static organic model
+based on the visual proportions observed in real tomato leaves:
 
-- the petiolule rises from the rachis;
-- its centerline follows a small cubic arc;
-- the petiolule tapers toward the blade;
-- the blade receives a mild static downward sag that approximates gravity;
+- the petiolule is short and thin relative to the leaf blade;
+- it has only a small upward tilt and very mild curvature;
+- most of the visible curvature belongs to the leaf blade itself;
+- the blade first keeps a small basal lift, then bends downward toward the tip;
 - no physics, joints, UsdSkel, or runtime deformation are used.
 
-The test is intentionally larger than the production dimensions so the shape is
-easy to inspect. If the visual language is accepted, the same normalized curve
-can be scaled to the real petiolule/leaf dimensions in exporterV2.
+If accepted, the normalized blade deformation can be transferred to the real
+GroIMP-derived leaf dimensions while keeping petiolules rigid and inexpensive.
 """
 
 import math
@@ -40,28 +40,36 @@ OUTPUT_USD = os.path.join(OUTPUT_DIR, "curved_petiolule_visual.usda")
 # =============================================================================
 
 RADIAL_SEGMENTS = 14
-CURVE_SAMPLES = 18
-LEAF_STATIONS = 12
+CURVE_SAMPLES = 14
+LEAF_STATIONS = 16
 
 RACHIS_LENGTH_M = 0.36
 RACHIS_RADIUS_M = 0.0060
 
-# Enlarged for the isolated visual test. The production implementation should
-# scale this curve according to the actual blade size / GroIMP-derived leaf data.
-PETIOLULE_LENGTH_M = 0.045
-PETIOLULE_ROOT_RADIUS_M = 0.0032
-PETIOLULE_TIP_RADIUS_M = 0.0017
-
+# The important proportion in this revision: the petiolule is only ~19% of the
+# blade length instead of the previous ~60%. This is much closer to the tomato
+# references and also makes a rigid petiolule visually plausible.
 LEAF_LENGTH_M = 0.075
 LEAF_HALF_WIDTH_M = 0.025
-LEAF_SAG_M = 0.014
-LEAF_CAMBER_M = 0.003
+PETIOLULE_LENGTH_M = 0.014
+PETIOLULE_ROOT_RADIUS_M = 0.0024
+PETIOLULE_TIP_RADIUS_M = 0.00135
 
-# Three pairs on the proposed specimen. Slight variation is deliberate so the
-# shape does not look mechanically cloned.
+# Only a few millimetres of vertical change belong to the petiolule. Most of the
+# silhouette variation now comes from the leaf blade.
+PETIOLULE_LIFT_M = 0.0032
+
+# Blade rest-shape. The blade initially gains a little height, then gravity-like
+# sag dominates progressively toward the distal tip.
+LEAF_BASAL_LIFT_M = 0.0055
+LEAF_SAG_M = 0.018
+LEAF_SAG_EXPONENT = 1.72
+LEAF_CAMBER_M = 0.0025
+
+# Three proposed pairs use only small deterministic variation.
 PAIR_Y = (-0.105, 0.0, 0.105)
-PAIR_LIFT = (0.026, 0.032, 0.024)
-PAIR_END_DROP = (0.006, 0.008, 0.005)
+PAIR_LIFT_SCALE = (0.88, 1.00, 0.93)
+PAIR_SAG_SCALE = (0.90, 1.00, 0.94)
 
 STEM_COLOR = Gf.Vec3f(0.58, 0.78, 0.38)
 PETIOLULE_COLOR = Gf.Vec3f(0.55, 0.76, 0.34)
@@ -251,10 +259,11 @@ def _author_leaf_blade(
     length,
     half_width,
     sag,
+    basal_lift,
     camber,
     color,
 ):
-    """Create a static curved blade with a mild gravity-like distal sag."""
+    """Create a blade whose rest shape carries most of the visible curvature."""
     forward = _normalized(forward)
     world_up = Gf.Vec3d(0.0, 0.0, 1.0)
     side = Gf.Cross(world_up, forward)
@@ -265,18 +274,22 @@ def _author_leaf_blade(
     points = []
     for index in range(LEAF_STATIONS):
         t = index / float(LEAF_STATIONS - 1)
-        width_profile = math.sin(math.pi * t) ** 0.82
-        width_profile *= 1.10 - 0.24 * t
+
+        # Tomato-like blade width: broad after the narrow base, then taper to tip.
+        width_profile = math.sin(math.pi * t) ** 0.78
+        width_profile *= 1.13 - 0.27 * t
         width = half_width * width_profile
 
-        center = (
-            root
-            + forward * (length * t)
-            + world_up * (
-                camber * math.sin(math.pi * t)
-                - sag * (t ** 1.65)
-            )
+        # The first term creates a gentle basal rise that peaks early. The last
+        # term is the gravity-like sag and dominates only toward the distal tip.
+        # A tiny sinusoidal camber prevents an unnaturally flat center section.
+        basal_shape = math.sin(math.pi * min(t / 0.62, 1.0)) if t < 0.62 else 0.0
+        vertical_offset = (
+            basal_lift * basal_shape
+            + camber * math.sin(math.pi * t)
+            - sag * (t ** LEAF_SAG_EXPONENT)
         )
+        center = root + forward * (length * t) + world_up * vertical_offset
 
         points.append(Gf.Vec3f(*(center + side * width)))
         points.append(Gf.Vec3f(*(center - side * width)))
@@ -340,28 +353,29 @@ def _author_straight_pair(stage, root_path, x, y):
             length=LEAF_LENGTH_M,
             half_width=LEAF_HALF_WIDTH_M,
             sag=0.0,
+            basal_lift=0.0,
             camber=0.0,
             color=LEAF_COLOR,
         )
 
 
-def _author_curved_pair(stage, root_path, x, y, lift, end_drop):
-    """Proposed look: upward curved static petiolules + slightly drooping blades."""
+def _author_curved_pair(stage, root_path, x, y, lift_scale, sag_scale):
+    """Proposed look: short petiolule, subtle tilt, curvature mainly in blade."""
     world_up = Gf.Vec3d(0.0, 0.0, 1.0)
 
     for side_name, sign in (("Left", -1.0), ("Right", 1.0)):
         root = Gf.Vec3d(x, y, 0.055)
         outward = Gf.Vec3d(sign, 0.0, 0.0)
         length = PETIOLULE_LENGTH_M
+        lift = PETIOLULE_LIFT_M * lift_scale
 
-        # Cubic normalized arc. The root tangent initially rises strongly, the
-        # middle reaches the maximum lift, and the distal tangent relaxes
-        # slightly downward before the blade starts. This mimics the upward arch
-        # visible in tomato petiolules without needing another articulated joint.
+        # Mild cubic arc: almost straight, with only a small upward change.
+        # The distal tangent remains close to the radial direction so the leaf
+        # starts naturally instead of inheriting an exaggerated hook.
         p0 = root
-        p1 = root + outward * (length * 0.24) + world_up * (lift * 0.70)
-        p2 = root + outward * (length * 0.70) + world_up * lift
-        p3 = root + outward * length + world_up * (lift - end_drop)
+        p1 = root + outward * (length * 0.33) + world_up * (lift * 0.30)
+        p2 = root + outward * (length * 0.68) + world_up * (lift * 0.78)
+        p3 = root + outward * length + world_up * lift
 
         centers, tangents = _sample_cubic(p0, p1, p2, p3)
         radii = _taper_radii(
@@ -376,9 +390,10 @@ def _author_curved_pair(stage, root_path, x, y, lift, end_drop):
             PETIOLULE_COLOR,
         )
 
-        # Use the actual distal tangent, but blend it slightly with the radial
-        # direction so the blade does not point vertically after a strong arch.
-        distal_forward = _normalized(tangents[-1] + outward * 0.70)
+        # Preserve the short petiolule tangent, but make the blade direction
+        # mostly radial. The deformation of the blade mesh then supplies the
+        # visible gravity response.
+        distal_forward = _normalized(outward * 0.86 + tangents[-1] * 0.14)
         _author_leaf_blade(
             stage,
             f"{root_path}/{side_name}Leaf",
@@ -386,7 +401,8 @@ def _author_curved_pair(stage, root_path, x, y, lift, end_drop):
             distal_forward,
             length=LEAF_LENGTH_M,
             half_width=LEAF_HALF_WIDTH_M,
-            sag=LEAF_SAG_M,
+            sag=LEAF_SAG_M * sag_scale,
+            basal_lift=LEAF_BASAL_LIFT_M * lift_scale,
             camber=LEAF_CAMBER_M,
             color=LEAF_COLOR,
         )
@@ -396,24 +412,27 @@ def _author_scene(stage):
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
     UsdGeom.Xform.Define(stage, "/World")
 
-    # LEFT specimen = current straight representation.
+    # LEFT = baseline with the new shorter proportion but no organic deformation.
+    # This makes the comparison focus on shape rather than simply on length.
     current_x = -0.28
     UsdGeom.Xform.Define(stage, "/World/Current")
     _author_rachis(stage, "/World/Current/Rachis", current_x, CURRENT_COLOR)
     _author_straight_pair(stage, "/World/Current/Pair", current_x, 0.0)
 
-    # RIGHT specimen = proposed static organic representation.
+    # RIGHT = proposed visual language with three slightly different pairs.
     proposed_x = 0.24
     UsdGeom.Xform.Define(stage, "/World/Proposed")
     _author_rachis(stage, "/World/Proposed/Rachis", proposed_x, STEM_COLOR)
-    for index, (y, lift, drop) in enumerate(zip(PAIR_Y, PAIR_LIFT, PAIR_END_DROP)):
+    for index, (y, lift_scale, sag_scale) in enumerate(
+        zip(PAIR_Y, PAIR_LIFT_SCALE, PAIR_SAG_SCALE)
+    ):
         _author_curved_pair(
             stage,
             f"/World/Proposed/Pair_{index + 1:02d}",
             proposed_x,
             y,
-            lift,
-            drop,
+            lift_scale,
+            sag_scale,
         )
 
     dome = UsdLux.DomeLight.Define(stage, "/World/DomeLight")
@@ -428,8 +447,8 @@ def _author_scene(stage):
     camera = UsdGeom.Camera.Define(stage, "/World/Camera")
     camera.CreateFocalLengthAttr().Set(52.0)
     camera.CreateClippingRangeAttr().Set(Gf.Vec2f(0.01, 100.0))
-    eye = Gf.Vec3d(0.78, -1.15, 0.58)
-    target = Gf.Vec3d(0.0, 0.0, 0.085)
+    eye = Gf.Vec3d(0.78, -1.15, 0.48)
+    target = Gf.Vec3d(0.0, 0.0, 0.06)
     view = Gf.Matrix4d(1.0)
     view.SetLookAt(eye, target, Gf.Vec3d(0.0, 0.0, 1.0))
     UsdGeom.Xformable(camera.GetPrim()).AddTransformOp().Set(view.GetInverse())
@@ -441,11 +460,16 @@ def main():
     stage.GetRootLayer().Save()
 
     print("=" * 76)
-    print("TEST 5A - STATIC CURVED PETIOLULE VISUAL")
+    print("TEST 5A v2 - SHORT PETIOLULE + CURVED LEAF REST SHAPE")
     print("=" * 76)
     print(f"USD: {OUTPUT_USD}")
-    print("LEFT  : current straight petiolule + flat blade")
-    print("RIGHT : proposed upward cubic arc + tapered petiolule + blade sag")
+    print("LEFT  : short straight petiolule + flat blade")
+    print("RIGHT : short mildly raised petiolule + curved/sagged blade")
+    print(
+        f"Ratio: petiolule={PETIOLULE_LENGTH_M:.3f} m / "
+        f"blade={LEAF_LENGTH_M:.3f} m = "
+        f"{PETIOLULE_LENGTH_M / LEAF_LENGTH_M:.2f}"
+    )
     print("No physics / no joints / no UsdSkel / no runtime deformation")
     print("=" * 76)
 
