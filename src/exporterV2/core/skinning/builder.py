@@ -44,8 +44,7 @@ def _mark_centered_terminal_leaf_branches(all_branch_defs: Dict[str, dict]) -> N
 
     The existing leaf branch becomes the physical/visual continuation of the
     lateral branch centerline.  No extra sleeve or bridge mesh is needed.
-    Trusses remain untouched because they are authored later by the separate
-    legacy truss subsystem.
+    Trusses remain untouched: the fork dressing is now intentionally leaf-only.
     """
     for parent in all_branch_defs.values():
         if branch_system(parent) != "vegetative":
@@ -78,6 +77,10 @@ def _mark_centered_terminal_leaf_branches(all_branch_defs: Dict[str, dict]) -> N
         if candidates:
             chosen = sorted(candidates, key=lambda item: str(item.get("id", "")))[0]
             chosen["_terminal_fork_centered"] = True
+            # The parent marker is visual-only.  visual_modes uses it to close
+            # the terminal segmented mesh around the centered petiole instead
+            # of leaving the open tube end visible around the child.
+            parent["_terminal_fork_centered_host"] = True
 
 
 def build_skinned_vegetative_structure(
@@ -164,26 +167,12 @@ def build_skinned_vegetative_structure(
         }
 
     fork_records = []
-    fork_tip_scales = {}
     if visual_mode == "segmented-fork":
         fork_records = author_terminal_visual_forks(
             stage,
             visual_axes,
             all_branch_defs,
         )
-        # For lateral branches with a real terminal petiole, keep the parent's
-        # original diameter all the way to the centered leaf branch.  The
-        # previous taper created the visible neck shown in the plant test.
-        # Truss hosts keep their mild taper because the truss is still authored
-        # by its separate legacy subsystem.
-        fork_tip_scales = {
-            record["parent"]: (
-                1.0
-                if record.get("existing_system") != "truss"
-                else float(record["terminal_tip_scale"])
-            )
-            for record in fork_records
-        }
 
     counts = {
         "skinned_axes": 0,
@@ -208,16 +197,13 @@ def build_skinned_vegetative_structure(
             continue
 
         if segmented_mode:
-            terminal_member_id = axis.members[-1].branch_id
-            terminal_tip_scale = (
-                fork_tip_scales.get(terminal_member_id, 1.0)
-                if visual_mode == "segmented-fork"
-                else 1.0
-            )
+            # No artificial terminal narrowing for lateral leaf forks.  The
+            # centered real petiole is the continuation; visual_modes closes the
+            # host end around it with a small rounded cap/overlap.
             stats = author_segmented_visual_axis(
                 stage,
                 axis,
-                terminal_tip_scale=terminal_tip_scale,
+                terminal_tip_scale=1.0,
             )
             counts["segmented_axes"] += 1
             counts["segmented_meshes"] += stats["segments"]
