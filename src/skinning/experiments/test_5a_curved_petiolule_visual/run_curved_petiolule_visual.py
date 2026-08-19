@@ -1,15 +1,16 @@
-"""Visual-only test for short tomato petiolules and longitudinally folded blades.
+"""Visual-only test for short tomato petiolules and folded, gravity-shaped blades.
 
-The test stays isolated from exporterV2.  The proposed shape now follows the
-latest visual target:
+The test stays isolated from exporterV2. The proposed shape combines two simple
+static effects:
 
 - petiolules are short, thin, and only mildly tilted upward;
-- leaf blades remain simple 2D triangle sheets;
-- the dominant fold runs longitudinally from the petiolule to the leaf tip;
-- a center vertex row acts like a visual midrib, with the two blade halves
-  slightly lowered around it;
-- only a small whole-blade distal sag remains, so the leaf does not look bent by
-  a transverse/latitudinal crease;
+- leaf blades remain lightweight 2D triangle sheets;
+- a center vertex row forms a longitudinal visual midrib from petiolule to tip;
+- the blade is folded slightly along that midrib;
+- the entire blade centerline follows one smooth gravity arch: it initially
+  continues the petiolule direction, rises gently, then bends down toward the
+  distal tip;
+- there is no sinusoidal/serpentine longitudinal shape;
 - no physics, joints, UsdSkel, or runtime deformation are used.
 """
 
@@ -52,20 +53,27 @@ PETIOLULE_ROOT_RADIUS_M = 0.0024
 PETIOLULE_TIP_RADIUS_M = 0.00135
 PETIOLULE_LIFT_M = 0.0032
 
-# Main change of this revision: a longitudinal V-like fold around the visual
-# midrib.  The fold is zero at the narrow base/tip and strongest over the broad
-# central portion of the blade.
+# Longitudinal V-like fold around the visual midrib. It is zero at the narrow
+# base/tip and strongest over the broad central part of the blade.
 LEAF_LONGITUDINAL_FOLD_M = 0.0048
 LEAF_FOLD_EXPONENT = 0.78
 
-# Keep only a subtle whole-blade gravity sag.  It should not read as a transverse
-# bend; the longitudinal midrib fold above must dominate the shape.
-LEAF_TIP_SAG_M = 0.0045
-LEAF_TIP_SAG_EXPONENT = 1.9
+# Single smooth gravity arch of the blade centerline.
+#
+#   petiolule ---- /\____
+#                      `--- tip
+#
+# The positive arch term creates one gentle rise. The monotonic gravity term
+# then wins toward the tip. There is no second oscillation, so the centerline
+# cannot become a serpentine.
+LEAF_ARCH_LIFT_M = 0.0060
+LEAF_TIP_SAG_M = 0.0100
+LEAF_TIP_SAG_EXPONENT = 1.85
 
 PAIR_Y = (-0.105, 0.0, 0.105)
 PAIR_LIFT_SCALE = (0.88, 1.00, 0.93)
 PAIR_FOLD_SCALE = (0.90, 1.00, 0.94)
+PAIR_ARCH_SCALE = (0.92, 1.00, 0.95)
 
 STEM_COLOR = Gf.Vec3f(0.58, 0.78, 0.38)
 PETIOLULE_COLOR = Gf.Vec3f(0.55, 0.76, 0.34)
@@ -255,15 +263,17 @@ def _author_leaf_blade(
     length,
     half_width,
     fold_depth,
+    arch_lift,
     tip_sag,
     color,
 ):
-    """Create a 2D sheet folded along a petiolule-to-tip visual midrib.
+    """Create a 2D blade with longitudinal fold plus one smooth gravity arch.
 
-    Each longitudinal station has three vertices: left edge, center/midrib, and
-    right edge.  The center stays on the blade centerline while both edges are
-    lowered along the sheet normal.  Connecting those rows produces two simple
-    triangle strips meeting at one longitudinal ridge.
+    Each station contains left edge, center/midrib and right edge. The center row
+    behaves like a visual continuation of the petiolule. Its height follows a
+    single-hump curve: first slightly upward, then progressively downward. The
+    edge rows are lowered around that centerline to preserve the longitudinal
+    midrib fold validated in the previous test.
     """
     forward = _normalized(forward)
     world_up = Gf.Vec3d(0.0, 0.0, 1.0)
@@ -281,17 +291,18 @@ def _author_leaf_blade(
         width_profile *= 1.13 - 0.27 * t
         width = half_width * width_profile
 
-        # Very small whole-blade sag. It moves the centerline smoothly and does
-        # not create a transverse crease.
+        # One smooth arch, no oscillation:
+        # - 4*t*(1-t) is a single positive hump, zero at base and tip;
+        # - the gravity term is monotonic and increasingly pulls the distal part
+        #   downward. Combined, the blade rises once and then falls once.
+        arch_offset = arch_lift * (4.0 * t * (1.0 - t))
+        gravity_offset = tip_sag * (t ** LEAF_TIP_SAG_EXPONENT)
         center = (
             root
             + forward * (length * t)
-            - world_up * (tip_sag * (t ** LEAF_TIP_SAG_EXPONENT))
+            + world_up * (arch_offset - gravity_offset)
         )
 
-        # Longitudinal fold: maximum near the broad middle of the blade, zero at
-        # base/tip. The midrib is the raised center row and can be read as a
-        # continuation of the petiolule toward the distal tip.
         fold_profile = math.sin(math.pi * t) ** LEAF_FOLD_EXPONENT
         edge_drop = fold_depth * fold_profile
 
@@ -306,7 +317,6 @@ def _author_leaf_blade(
         row0 = station * 3
         row1 = (station + 1) * 3
 
-        # Left half of the blade.
         face_counts.extend((3, 3))
         face_indices.extend((
             row0 + 0,
@@ -317,7 +327,6 @@ def _author_leaf_blade(
             row1 + 0,
         ))
 
-        # Right half of the blade.
         face_counts.extend((3, 3))
         face_indices.extend((
             row0 + 1,
@@ -377,13 +386,22 @@ def _author_straight_pair(stage, root_path, x, y):
             length=LEAF_LENGTH_M,
             half_width=LEAF_HALF_WIDTH_M,
             fold_depth=0.0,
+            arch_lift=0.0,
             tip_sag=0.0,
             color=LEAF_COLOR,
         )
 
 
-def _author_proposed_pair(stage, root_path, x, y, lift_scale, fold_scale):
-    """Proposed: subtle petiolule lift + longitudinally folded blade."""
+def _author_proposed_pair(
+    stage,
+    root_path,
+    x,
+    y,
+    lift_scale,
+    fold_scale,
+    arch_scale,
+):
+    """Proposed: short petiolule + midrib fold + single gravity arch."""
     world_up = Gf.Vec3d(0.0, 0.0, 1.0)
 
     for side_name, sign in (("Left", -1.0), ("Right", 1.0)):
@@ -410,7 +428,10 @@ def _author_proposed_pair(stage, root_path, x, y, lift_scale, fold_scale):
             PETIOLULE_COLOR,
         )
 
-        distal_forward = _normalized(outward * 0.86 + tangents[-1] * 0.14)
+        # The blade begins nearly along the distal petiolule axis. The petiolule
+        # already supplies the basal upward direction; the blade centerline then
+        # adds only the smooth rise-and-fall gravity shape.
+        distal_forward = _normalized(outward * 0.30 + tangents[-1] * 0.70)
         _author_leaf_blade(
             stage,
             f"{root_path}/{side_name}Leaf",
@@ -419,6 +440,7 @@ def _author_proposed_pair(stage, root_path, x, y, lift_scale, fold_scale):
             length=LEAF_LENGTH_M,
             half_width=LEAF_HALF_WIDTH_M,
             fold_depth=LEAF_LONGITUDINAL_FOLD_M * fold_scale,
+            arch_lift=LEAF_ARCH_LIFT_M * arch_scale,
             tip_sag=LEAF_TIP_SAG_M,
             color=LEAF_COLOR,
         )
@@ -436,8 +458,8 @@ def _author_scene(stage):
     proposed_x = 0.24
     UsdGeom.Xform.Define(stage, "/World/Proposed")
     _author_rachis(stage, "/World/Proposed/Rachis", proposed_x, STEM_COLOR)
-    for index, (y, lift_scale, fold_scale) in enumerate(
-        zip(PAIR_Y, PAIR_LIFT_SCALE, PAIR_FOLD_SCALE)
+    for index, (y, lift_scale, fold_scale, arch_scale) in enumerate(
+        zip(PAIR_Y, PAIR_LIFT_SCALE, PAIR_FOLD_SCALE, PAIR_ARCH_SCALE)
     ):
         _author_proposed_pair(
             stage,
@@ -446,6 +468,7 @@ def _author_scene(stage):
             y,
             lift_scale,
             fold_scale,
+            arch_scale,
         )
 
     dome = UsdLux.DomeLight.Define(stage, "/World/DomeLight")
@@ -473,12 +496,12 @@ def main():
     stage.GetRootLayer().Save()
 
     print("=" * 76)
-    print("TEST 5A v3 - LONGITUDINAL LEAF MIDRIB FOLD")
+    print("TEST 5A v4 - MIDRIB FOLD + SINGLE GRAVITY ARCH")
     print("=" * 76)
     print(f"USD: {OUTPUT_USD}")
     print("LEFT  : short straight petiolule + flat 2D blade")
-    print("RIGHT : short raised petiolule + 2D blade folded along its midrib")
-    print("Blade topology: left edge / midrib / right edge per station")
+    print("RIGHT : short raised petiolule + longitudinal fold + smooth rise/fall")
+    print("Blade centerline: one upward arch, then monotonic gravity sag")
     print("No physics / no joints / no UsdSkel / no runtime deformation")
     print("=" * 76)
 
