@@ -12,14 +12,14 @@ BRANCH_BACKEND="legacy"
 SKINNING_VISUAL_MODE="skinned"
 
 usage() {
-  echo "Usage: $0 [--day N] [--plant-id N] [--optimize] [--branch-backend legacy|skinned] [--skinning-visual-mode skinned|static|rigid-single|global]"
+  echo "Usage: $0 [--day N] [--plant-id N] [--optimize] [--branch-backend legacy|skinned] [--skinning-visual-mode skinned|static|rigid-single|global|segmented]"
   echo ""
   echo "Options:"
   echo "  --day N                       Load plant from CSV for day N"
   echo "  --plant-id N                  Plant ID (default in main.py: 1)"
   echo "  --optimize                    Apply joint-budget optimization"
   echo "  --branch-backend MODE         Vegetative backend: legacy|skinned (default: legacy)"
-  echo "  --skinning-visual-mode MODE   skinned | static | rigid-single | global"
+  echo "  --skinning-visual-mode MODE   skinned | static | rigid-single | global | segmented"
   echo "  -h, --help                    Show this help message"
 }
 
@@ -52,7 +52,7 @@ while [[ $# -gt 0 ]]; do
     --skinning-visual-mode)
       [[ $# -ge 2 ]] || { echo "Missing value for --skinning-visual-mode"; usage; exit 1; }
       SKINNING_VISUAL_MODE="$2"
-      if [[ "$SKINNING_VISUAL_MODE" != "skinned" && "$SKINNING_VISUAL_MODE" != "static" && "$SKINNING_VISUAL_MODE" != "rigid-single" && "$SKINNING_VISUAL_MODE" != "global" ]]; then
+      if [[ "$SKINNING_VISUAL_MODE" != "skinned" && "$SKINNING_VISUAL_MODE" != "static" && "$SKINNING_VISUAL_MODE" != "rigid-single" && "$SKINNING_VISUAL_MODE" != "global" && "$SKINNING_VISUAL_MODE" != "segmented" ]]; then
         echo "Invalid skinning visual mode: $SKINNING_VISUAL_MODE"
         usage
         exit 1
