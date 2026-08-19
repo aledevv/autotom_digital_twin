@@ -10,10 +10,14 @@ from .axis import build_visual_axes
 from .branch_physics import author_branch_joints, author_rigid_links
 from .global_visual import author_global_visual_axes
 from .mesh import author_visual_axis
-from .visual_modes import author_rigid_visual_axis, author_static_visual_axis
+from .visual_modes import (
+    author_rigid_visual_axis,
+    author_segmented_visual_axis,
+    author_static_visual_axis,
+)
 
 
-VALID_VISUAL_MODES = ("skinned", "static", "rigid-single", "global")
+VALID_VISUAL_MODES = ("skinned", "static", "rigid-single", "global", "segmented")
 VISUAL_MODE_ENV = "AUTOTOM_SKINNING_VISUAL_MODE"
 
 
@@ -34,8 +38,8 @@ def build_skinned_vegetative_structure(
       - ``static``: exact same smooth tube meshes, but no UsdSkel anywhere.
       - ``rigid-single``: one-link axes are rigid meshes; multi-link axes keep
         normal per-axis UsdSkel skinning.
-      - ``global``: exact same smooth meshes, but every vegetative link is
-        represented by one shared plant-wide Skeleton and SkelAnimation.
+      - ``global``: all vegetative axes share one Skeleton/SkelAnimation.
+      - ``segmented``: one organic rigid mesh per PhysX link, no UsdSkel.
     """
     if visual_mode is None:
         visual_mode = os.environ.get(VISUAL_MODE_ENV, "skinned")
@@ -110,6 +114,9 @@ def build_skinned_vegetative_structure(
         "skinned_axes": 0,
         "static_axes": 0,
         "rigid_single_axes": 0,
+        "segmented_axes": 0,
+        "segmented_meshes": 0,
+        "segmented_tongues": 0,
     }
 
     for axis in visual_axes:
@@ -123,15 +130,31 @@ def build_skinned_vegetative_structure(
             counts["rigid_single_axes"] += 1
             continue
 
+        if visual_mode == "segmented":
+            stats = author_segmented_visual_axis(stage, axis)
+            counts["segmented_axes"] += 1
+            counts["segmented_meshes"] += stats["segments"]
+            counts["segmented_tongues"] += stats["tongues"]
+            continue
+
         author_visual_axis(stage, axis)
         counts["skinned_axes"] += 1
 
-    print(
-        "[SKIN-VISUAL] "
-        f"mode={visual_mode} | "
-        f"skinned_axes={counts['skinned_axes']} | "
-        f"rigid_single_axes={counts['rigid_single_axes']} | "
-        f"static_axes={counts['static_axes']}"
-    )
+    if visual_mode == "segmented":
+        print(
+            "[SKIN-VISUAL] "
+            "mode=segmented | UsdSkel=0 | "
+            f"axes={counts['segmented_axes']} | "
+            f"rigid_meshes={counts['segmented_meshes']} | "
+            f"joint_tongues={counts['segmented_tongues']}"
+        )
+    else:
+        print(
+            "[SKIN-VISUAL] "
+            f"mode={visual_mode} | "
+            f"skinned_axes={counts['skinned_axes']} | "
+            f"rigid_single_axes={counts['rigid_single_axes']} | "
+            f"static_axes={counts['static_axes']}"
+        )
 
     return {branch.branch_id: branch.as_registry_entry() for branch in resolved}
