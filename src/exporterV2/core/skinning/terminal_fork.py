@@ -1,14 +1,11 @@
 """Visual-only terminal fork dressing for the realtime segmented backend.
 
-The real organ (leaf petiole or truss rachis) is never replaced.  At eligible
-terminal structural nodes this module adds only a very small static young twig,
-so the node reads as a biological bifurcation without adding physics, joints,
-collisions, UsdSkel, or runtime synchronization.
+This module now handles only centered terminal leaf branches.  Truss/tomato
+terminal geometry is deliberately left untouched because the visual fork mockup
+was not convincing there.
 
-For lateral branches the real terminal leaf branch is treated as the visual
-continuation of the parent.  The fake twig is only the small secondary arm.
-For truss nodes the truss remains exactly in the legacy subsystem and the fake
-shoot simply emerges as a tiny visual side growth.
+At an eligible lateral-branch tip, the real petiole is the main continuation and
+this module adds only a tiny rigid decorative young twig as the secondary arm.
 """
 
 import math
@@ -16,7 +13,7 @@ from typing import Dict, Iterable, Optional
 
 from pxr import Gf, UsdGeom, Vt
 
-from ..tree_config import PlantColors, scaled
+from ..tree_config import PlantColors
 from .adapter import branch_system
 from .mesh import _axis_color, _smoothstep, _visual_radius
 from .model import BranchData, VisualAxisData
@@ -25,8 +22,6 @@ from .model import BranchData, VisualAxisData
 RADIAL_SEGMENTS_MIN = 10
 CURVE_SAMPLES = 11
 
-# Tiny rigid decorative twig.  Keeping it short/thin makes its rigid behaviour
-# visually plausible while still breaking the artificial flat terminal cut.
 ROOT_OVERLAP_MAX_M = 0.005
 ROOT_OVERLAP_LINK_FRACTION = 0.10
 CONTROL_FORWARD_MAX_M = 0.008
@@ -45,19 +40,6 @@ LEAF_LENGTH_FRACTION = 0.42
 LEAF_LENGTH_MIN_M = 0.008
 LEAF_LENGTH_MAX_M = 0.014
 LEAF_HALF_WIDTH_FRACTION = 0.27
-
-# The lateral-branch tip should close onto the real petiole diameter rather than
-# collapsing to an arbitrary fraction.  Clamp only protects malformed/extreme
-# inputs.  Truss hosts use a mild taper because the truss stays in its separate
-# legacy authoring path.
-PETIOLE_TIP_SCALE_MIN = 0.55
-PETIOLE_TIP_SCALE_MAX = 0.92
-TRUSS_HOST_TIP_SCALE = 0.72
-
-
-# -----------------------------------------------------------------------------
-# Small vector / sweep helpers
-# -----------------------------------------------------------------------------
 
 
 def _normalized(vector: Gf.Vec3d) -> Gf.Vec3d:
@@ -136,11 +118,6 @@ def _link_rest_world(axis: VisualAxisData) -> Gf.Matrix4d:
     return matrix
 
 
-# -----------------------------------------------------------------------------
-# Candidate selection
-# -----------------------------------------------------------------------------
-
-
 def _is_structural_host(branch: BranchData) -> bool:
     branch_id = branch.branch_id.lower()
     kind = str(branch.definition.get("kind", "")).lower()
@@ -153,20 +130,11 @@ def _is_structural_host(branch: BranchData) -> bool:
 
 
 def _is_supported_existing_organ(branch_def: dict) -> bool:
+    """Fork dressing is intentionally leaf-only; never modify truss/tomato tips."""
+    if branch_system(branch_def) != "vegetative":
+        return False
     branch_id = str(branch_def.get("id", "")).lower()
-    system = branch_system(branch_def)
-    if system == "truss":
-        return "rachis" in branch_id
     return "petiole" in branch_id
-
-
-def _terminal_child_priority(branch_def: dict):
-    branch_id = str(branch_def.get("id", "")).lower()
-    if branch_system(branch_def) == "truss" and "rachis" in branch_id:
-        return (0, branch_id)
-    if "petiole" in branch_id:
-        return (1, branch_id)
-    return (9, branch_id)
 
 
 def _find_terminal_existing_child(
@@ -192,11 +160,10 @@ def _find_terminal_existing_child(
 
     if not candidates:
         return None
-    return sorted(candidates, key=_terminal_child_priority)[0]
+    return sorted(candidates, key=lambda item: str(item.get("id", "")))[0]
 
 
 def _child_axis_from_definition(parent: BranchData, child_def: dict) -> Gf.Vec3d:
-    """Mirror adapter.py's validated V2 rest-pose orientation rule."""
     tilt = float(child_def.get("tilt", 0.0))
     rot = float(child_def.get("rot", 0.0))
     roll = float(child_def.get("roll", 0.0))
@@ -216,7 +183,6 @@ def _complementary_shoot_direction(
     parent_axis: Gf.Vec3d,
     existing_axis: Gf.Vec3d,
 ) -> Gf.Vec3d:
-    """Build a small side twig opposite the already-existing real organ."""
     parent_axis = _normalized(parent_axis)
     existing_axis = _normalized(existing_axis)
     world_up = Gf.Vec3d(0.0, 0.0, 1.0)
@@ -234,32 +200,7 @@ def _complementary_shoot_direction(
     else:
         upward = Gf.Vec3d(0.0, 0.0, 0.0)
 
-    # Unlike the first implementation, the fake twig is no longer the main
-    # continuation.  The real leaf branch is the continuation on lateral hosts;
-    # this decorative child therefore opens laterally like a tiny petiolule.
-    direction = parent_axis * 0.36 - lateral * 0.82 + upward * 0.24
-    return _normalized(direction)
-
-
-def _terminal_tip_scale(existing_child: dict, parent_radius: float) -> float:
-    system = branch_system(existing_child)
-    if system == "truss":
-        return TRUSS_HOST_TIP_SCALE
-
-    try:
-        child_radius = scaled(float(existing_child["radius"]))
-    except (KeyError, TypeError, ValueError):
-        return 0.70
-
-    if parent_radius <= 1e-8:
-        return 0.70
-    ratio = child_radius / parent_radius
-    return max(PETIOLE_TIP_SCALE_MIN, min(PETIOLE_TIP_SCALE_MAX, ratio))
-
-
-# -----------------------------------------------------------------------------
-# Geometry
-# -----------------------------------------------------------------------------
+    return _normalized(parent_axis * 0.36 - lateral * 0.82 + upward * 0.24)
 
 
 def _shoot_radii(parent_radius: float, count: int):
@@ -333,8 +274,7 @@ def _build_shoot_mesh(
             world_point = center + radius * (
                 normal * math.cos(theta) + binormal * math.sin(theta)
             )
-            local_point = world_to_link.Transform(world_point)
-            points.append(Gf.Vec3f(*local_point))
+            points.append(Gf.Vec3f(*world_to_link.Transform(world_point)))
 
     face_counts = []
     face_indices = []
@@ -411,12 +351,7 @@ def _author_small_leaf(
         path,
         points,
         [3, 3, 3, 3],
-        [
-            0, 1, 2,
-            0, 2, 3,
-            0, 3, 4,
-            0, 4, 5,
-        ],
+        [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5],
         PlantColors.LEAF_BLADE,
     )
 
@@ -426,7 +361,6 @@ def author_terminal_visual_fork(
     axis: VisualAxisData,
     existing_child: dict,
 ) -> dict:
-    """Author one tiny secondary twig on the parent's terminal rigid link."""
     parent = axis.members[-1]
     child_axis = _child_axis_from_definition(parent, existing_child)
     shoot_direction = _complementary_shoot_direction(axis.axis, child_axis)
@@ -441,12 +375,7 @@ def author_terminal_visual_fork(
         shoot_tangent,
         world_to_link,
         shoot_length,
-    ) = _build_shoot_mesh(
-        axis,
-        junction,
-        shoot_direction,
-        parent_radius,
-    )
+    ) = _build_shoot_mesh(axis, junction, shoot_direction, parent_radius)
 
     root_path = axis.link_paths[-1]
     _author_plain_mesh(
@@ -470,7 +399,6 @@ def author_terminal_visual_fork(
         "parent": parent.branch_id,
         "existing_child": existing_child["id"],
         "existing_system": branch_system(existing_child),
-        "terminal_tip_scale": _terminal_tip_scale(existing_child, parent_radius),
     }
 
 
@@ -479,7 +407,6 @@ def author_terminal_visual_forks(
     visual_axes: Iterable[VisualAxisData],
     all_branch_defs: Dict[str, dict],
 ) -> list:
-    """Find terminal leaf/truss attachments and dress eligible structural axes."""
     authored = []
 
     for axis in visual_axes:
