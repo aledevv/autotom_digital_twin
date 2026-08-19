@@ -9,7 +9,7 @@ from .adapter import branch_system, resolve_vegetative_graph
 from .axis import build_visual_axes
 from .branch_physics import author_branch_joints, author_rigid_links
 from .global_visual import author_global_visual_axes
-from .mesh import author_visual_axis
+from .mesh import _visual_radius, author_visual_axis
 from .terminal_fork import author_terminal_visual_forks
 from .visual_modes import (
     author_rigid_visual_axis,
@@ -40,14 +40,7 @@ def _is_structural_terminal_host(branch: dict) -> bool:
 
 
 def _mark_centered_terminal_leaf_branches(all_branch_defs: Dict[str, dict]) -> None:
-    """Center real terminal petioles for the segmented-fork visual mode.
-
-    The existing leaf branch becomes the physical/visual continuation of the
-    lateral branch centerline.  The host keeps its normal diameter almost to the
-    end, then closes over only a very short terminal zone until its final ring
-    matches the real petiole radius.  This avoids both the old long neck and the
-    newer oversized shoulder around the child.
-    """
+    """Center real terminal petioles for the segmented-fork visual mode."""
     for parent in all_branch_defs.values():
         if branch_system(parent) != "vegetative":
             continue
@@ -81,21 +74,42 @@ def _mark_centered_terminal_leaf_branches(all_branch_defs: Dict[str, dict]) -> N
             chosen["_terminal_fork_centered"] = True
             parent["_terminal_fork_centered_host"] = True
 
-            # Scaling cancels in the ratio, so use source radii directly.  The
-            # clamp is only defensive for malformed/extreme input; normally this
-            # is exactly child_radius / parent_radius.
-            try:
-                parent_radius = float(parent["radius"])
-                child_radius = float(chosen["radius"])
-                if parent_radius > 0.0 and child_radius > 0.0:
-                    parent["_terminal_fork_tip_scale"] = max(
-                        0.35,
-                        min(1.0, child_radius / parent_radius),
-                    )
-                else:
-                    parent["_terminal_fork_tip_scale"] = 1.0
-            except (KeyError, TypeError, ValueError):
-                parent["_terminal_fork_tip_scale"] = 1.0
+
+def _compute_centered_fork_tip_scales(visual_axes, axis_by_member) -> Dict[str, float]:
+    """Match host tip radius to the *actual visual* radius of the centered petiole.
+
+    Using the raw CSV radii was wrong here because the leaf axis has its own
+    visual root flare/profile.  The user-visible diameter at the junction is the
+    result of ``_visual_radius(child_axis, 0)``, so the lateral-branch tip must be
+    matched against that value rather than against ``child['radius']``.
+    """
+    result = {}
+
+    for child_id, child_axis in axis_by_member.items():
+        child = child_axis.members[0]
+        if child.branch_id != child_id:
+            continue
+        if not bool(child.definition.get("_terminal_fork_centered", False)):
+            continue
+        if child.parent_id is None:
+            continue
+
+        parent_axis = axis_by_member.get(child.parent_id)
+        if parent_axis is None or parent_axis is child_axis:
+            continue
+
+        parent_radius = _visual_radius(parent_axis, parent_axis.total_length)
+        child_contact_radius = _visual_radius(child_axis, 0.0)
+        if parent_radius <= 1e-8 or child_contact_radius <= 1e-8:
+            continue
+
+        # The structural branch is already larger upstream, so expansion beyond
+        # its current radius is unnecessary.  The lower clamp is only defensive;
+        # normal values are driven directly by the visual-radius ratio.
+        scale = max(0.45, min(1.0, child_contact_radius / parent_radius))
+        result[child.parent_id] = scale
+
+    return result
 
 
 def build_skinned_vegetative_structure(
@@ -145,6 +159,12 @@ def build_skinned_vegetative_structure(
         for axis in visual_axes
         for member in axis.members
     }
+
+    centered_fork_tip_scales = (
+        _compute_centered_fork_tip_scales(visual_axes, axis_by_member)
+        if visual_mode == "segmented-fork"
+        else {}
+    )
 
     for child in resolved:
         if child.parent_id is None:
@@ -212,14 +232,12 @@ def build_skinned_vegetative_structure(
             continue
 
         if segmented_mode:
-            terminal_tip_scale = 1.0
-            if visual_mode == "segmented-fork":
-                terminal_tip_scale = float(
-                    axis.members[-1].definition.get(
-                        "_terminal_fork_tip_scale",
-                        1.0,
-                    )
-                )
+            terminal_member_id = axis.members[-1].branch_id
+            terminal_tip_scale = (
+                centered_fork_tip_scales.get(terminal_member_id, 1.0)
+                if visual_mode == "segmented-fork"
+                else 1.0
+            )
             stats = author_segmented_visual_axis(
                 stage,
                 axis,
@@ -250,6 +268,14 @@ def build_skinned_vegetative_structure(
             if len(fork_records) > 8:
                 preview += f", ... (+{len(fork_records) - 8})"
             print(f"[TERMINAL-FORK] {preview}")
+        if centered_fork_tip_scales:
+            radius_preview = ", ".join(
+                f"{branch_id}={scale:.2f}"
+                for branch_id, scale in list(centered_fork_tip_scales.items())[:8]
+            )
+            if len(centered_fork_tip_scales) > 8:
+                radius_preview += f", ... (+{len(centered_fork_tip_scales) - 8})"
+            print(f"[TERMINAL-FORK-RADIUS] {radius_preview}")
     else:
         print(
             "[SKIN-VISUAL] "
