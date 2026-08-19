@@ -13,6 +13,9 @@ from .schema import (
 )
 
 
+GLOBAL_PARENT_INDICES_ATTR = "autotom:skinning:parentIndices"
+
+
 @dataclass
 class _RuntimeBranch:
     name: str
@@ -20,6 +23,7 @@ class _RuntimeBranch:
     skel_root_prim: object
     translations_attr: object
     rotations_attr: object
+    parent_indices: list | None = None
 
 
 def _quatf_from_matrix(matrix: Gf.Matrix4d) -> Gf.Quatf:
@@ -82,12 +86,22 @@ class SkinningRuntime:
             if len(skeletons) != 1:
                 raise ValueError(f"SkelRoot '{name}' must contain exactly one Skeleton")
 
+            parent_indices = None
+            parent_attr = prim.GetAttribute(GLOBAL_PARENT_INDICES_ATTR)
+            if parent_attr and parent_attr.HasAuthoredValue():
+                parent_indices = list(parent_attr.Get() or [])
+                if len(parent_indices) != len(link_prims):
+                    raise ValueError(
+                        f"SkelRoot '{name}' global parent count does not match its links"
+                    )
+
             branches.append(_RuntimeBranch(
                 name=name,
                 link_prims=link_prims,
                 skel_root_prim=prim,
                 translations_attr=translations_attr,
                 rotations_attr=rotations_attr,
+                parent_indices=parent_indices,
             ))
         return cls(stage, branches)
 
@@ -111,11 +125,23 @@ class SkinningRuntime:
                 self._cache.GetLocalToWorldTransform(runtime.skel_root_prim)
             )
             root_inverse = root_world.GetInverse()
-            local = [world[0] * root_inverse]
-            local.extend(
-                world[index] * world[index - 1].GetInverse()
-                for index in range(1, len(world))
-            )
+
+            if runtime.parent_indices is None:
+                local = [world[0] * root_inverse]
+                local.extend(
+                    world[index] * world[index - 1].GetInverse()
+                    for index in range(1, len(world))
+                )
+            else:
+                local = []
+                for index, parent_index in enumerate(runtime.parent_indices):
+                    if parent_index < 0:
+                        local.append(world[index] * root_inverse)
+                    else:
+                        local.append(
+                            world[index] * world[parent_index].GetInverse()
+                        )
+
             translations = []
             rotations = []
             for matrix in local:
