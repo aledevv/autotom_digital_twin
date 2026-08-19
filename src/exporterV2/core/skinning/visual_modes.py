@@ -28,10 +28,19 @@ _SEGMENT_TONGUE_START_SCALE = 0.90
 _SEGMENT_TONGUE_END_SCALE = 0.75
 
 # Optional terminal taper used only by ``segmented-fork`` structural hosts.
-# The normal segmented mode remains byte-for-byte equivalent in shape because
-# its default terminal_tip_scale is 1.0.
+# The normal segmented mode remains unchanged when terminal_tip_scale is 1.0.
 _TERMINAL_TAPER_MAX_M = 0.022
 _TERMINAL_TAPER_LINK_FRACTION = 0.42
+
+# A centered terminal petiole is the real continuation of a lateral branch in
+# segmented-fork mode.  Its first visual segment therefore extends a few mm
+# backwards into the parent terminal mesh.  This hides the open angled corner at
+# the fork without moving the rigid body or joint.  The deepest ring is slightly
+# narrower so the overlap reads as a rounded organic insertion, not a hard tube
+# crossing through the parent.
+_CENTERED_FORK_ROOT_OVERLAP_MAX_M = 0.006
+_CENTERED_FORK_ROOT_OVERLAP_LINK_FRACTION = 0.16
+_CENTERED_FORK_ROOT_START_SCALE = 0.72
 
 
 def _author_plain_mesh(
@@ -115,6 +124,20 @@ def _segment_overlap(axis: VisualAxisData, link_index: int) -> float:
     )
 
 
+def _centered_fork_root_overlap(axis: VisualAxisData, link_index: int) -> float:
+    """Return visual-only root penetration for a centered terminal leaf branch."""
+    if link_index != 0:
+        return 0.0
+    if not bool(axis.definition.get("_terminal_fork_centered", False)):
+        return 0.0
+
+    link_length = axis.bone_lengths[0]
+    return min(
+        _CENTERED_FORK_ROOT_OVERLAP_MAX_M,
+        link_length * _CENTERED_FORK_ROOT_OVERLAP_LINK_FRACTION,
+    )
+
+
 def _terminal_taper_start(
     axis: VisualAxisData,
     link_index: int,
@@ -137,22 +160,30 @@ def _terminal_taper_start(
 
 def _segment_sample_arcs(
     axis: VisualAxisData,
+    visual_start: float,
     core_start: float,
     core_end: float,
     tongue_end: float,
     *,
     terminal_taper_start=None,
 ):
-    """Reuse global smooth-mesh samples and add local tongue/tip samples."""
+    """Reuse global smooth-mesh samples and add local overlap/tip samples."""
     eps = 1e-10
     arcs = {
         arc
         for arc in build_axis_sample_arcs(axis)
-        if core_start - eps <= arc <= tongue_end + eps
+        if visual_start - eps <= arc <= tongue_end + eps
     }
+    arcs.add(visual_start)
     arcs.add(core_start)
     arcs.add(core_end)
     arcs.add(tongue_end)
+
+    if visual_start < core_start - eps:
+        root_overlap = core_start - visual_start
+        arcs.add(visual_start + root_overlap * 0.25)
+        arcs.add(visual_start + root_overlap * 0.50)
+        arcs.add(visual_start + root_overlap * 0.75)
 
     if tongue_end > core_end + eps:
         overlap = tongue_end - core_end
@@ -168,6 +199,22 @@ def _segment_sample_arcs(
         arcs.add(core_end)
 
     return sorted(arcs)
+
+
+def _root_overlap_radius_scale(
+    arc: float,
+    visual_start: float,
+    core_start: float,
+) -> float:
+    """Round the buried petiole root while it blends back to normal at arc=0."""
+    if visual_start >= core_start - 1e-10 or arc >= core_start:
+        return 1.0
+    q = _smoothstep(
+        (arc - visual_start) / max(core_start - visual_start, 1e-8)
+    )
+    return _CENTERED_FORK_ROOT_START_SCALE + (
+        1.0 - _CENTERED_FORK_ROOT_START_SCALE
+    ) * q
 
 
 def _tongue_radius_scale(arc: float, core_end: float, tongue_end: float) -> float:
@@ -219,6 +266,10 @@ def _build_segmented_link_mesh(
         axis.total_length,
         core_start + axis.bone_lengths[link_index],
     )
+
+    root_overlap = _centered_fork_root_overlap(axis, link_index)
+    visual_start = core_start - root_overlap
+
     overlap = _segment_overlap(axis, link_index)
     tongue_end = min(axis.total_length, core_end + overlap)
     taper_start = _terminal_taper_start(
@@ -228,6 +279,7 @@ def _build_segmented_link_mesh(
     )
     arcs = _segment_sample_arcs(
         axis,
+        visual_start,
         core_start,
         core_end,
         tongue_end,
@@ -241,6 +293,11 @@ def _build_segmented_link_mesh(
     for arc, normal, binormal in zip(arcs, normals, binormals):
         center = axis.start + axis.axis * arc
         radius = _visual_radius(axis, arc)
+        radius *= _root_overlap_radius_scale(
+            arc,
+            visual_start,
+            core_start,
+        )
         radius *= _tongue_radius_scale(arc, core_end, tongue_end)
         radius *= _terminal_radius_scale(
             arc,
@@ -286,9 +343,9 @@ def author_segmented_visual_axis(
     """Author one organic rigid mesh per PhysX link, with no UsdSkel.
 
     ``terminal_tip_scale`` is normally 1.0.  The segmented-fork mode may pass a
-    smaller value for an eligible structural host so its last few centimetres
-    narrow naturally into the visual bifurcation instead of ending as a thick
-    flat tube.
+    smaller value for an eligible structural host.  Centered terminal petioles
+    also receive a small visual-only backwards root overlap so their angled
+    insertion into a lateral branch has no exposed corner/gap.
     """
     segment_count = 0
     tongue_count = 0
