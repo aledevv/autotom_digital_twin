@@ -1,13 +1,15 @@
 """Visual-only terminal fork dressing for the realtime segmented backend.
 
-This module now handles only centered terminal leaf branches.  Truss/tomato
-terminal geometry is deliberately left untouched because the visual fork mockup
-was not convincing there.
+This module handles only centered terminal leaf branches. Truss/tomato terminal
+geometry is deliberately left untouched.
 
 At an eligible lateral-branch tip, the real petiole is the main continuation and
 this module adds only a tiny rigid decorative young twig as the secondary arm.
+The twig azimuth is deterministically varied around the lateral-branch axis so
+all terminal forks do not repeat the same visual orientation.
 """
 
+import hashlib
 import math
 from typing import Dict, Iterable, Optional
 
@@ -40,6 +42,12 @@ LEAF_LENGTH_FRACTION = 0.42
 LEAF_LENGTH_MIN_M = 0.008
 LEAF_LENGTH_MAX_M = 0.014
 LEAF_HALF_WIDTH_FRACTION = 0.27
+
+# Stable pseudo-random azimuth around the parent axis.  We keep the twig broadly
+# on the side opposite the real petiole, but allow enough rotation to make each
+# fork look different.  The value is deterministic per parent/child pair, so the
+# same exported plant does not reshuffle every time it is regenerated.
+AZIMUTH_JITTER_DEG = 75.0
 
 
 def _normalized(vector: Gf.Vec3d) -> Gf.Vec3d:
@@ -179,10 +187,26 @@ def _child_axis_from_definition(parent: BranchData, child_def: dict) -> Gf.Vec3d
     )
 
 
+def _stable_azimuth_jitter(parent_id: str, child_id: str) -> float:
+    """Return a deterministic angle in [-AZIMUTH_JITTER_DEG, +...]."""
+    key = f"{parent_id}|{child_id}|terminal-fork-azimuth".encode("utf-8")
+    digest = hashlib.blake2b(key, digest_size=8).digest()
+    integer = int.from_bytes(digest, byteorder="big", signed=False)
+    unit = integer / float((1 << 64) - 1)
+    return (unit * 2.0 - 1.0) * AZIMUTH_JITTER_DEG
+
+
 def _complementary_shoot_direction(
     parent_axis: Gf.Vec3d,
     existing_axis: Gf.Vec3d,
+    azimuth_jitter_deg: float,
 ) -> Gf.Vec3d:
+    """Place the tiny twig at a varied azimuth around the structural axis.
+
+    The real petiole still defines the reference side.  We start from the
+    opposite radial direction, rotate that vector around the lateral-branch axis
+    by a stable pseudo-random angle, then retain a small forward/upward bias.
+    """
     parent_axis = _normalized(parent_axis)
     existing_axis = _normalized(existing_axis)
     world_up = Gf.Vec3d(0.0, 0.0, 1.0)
@@ -194,13 +218,21 @@ def _complementary_shoot_direction(
             lateral = Gf.Cross(parent_axis, Gf.Vec3d(1.0, 0.0, 0.0))
     lateral = _normalized(lateral)
 
+    opposite = -lateral
+    rotation = Gf.Rotation(parent_axis, azimuth_jitter_deg)
+    varied_radial = _normalized(rotation.TransformDir(opposite))
+
     upward = world_up - parent_axis * _dot(world_up, parent_axis)
     if upward.GetLength() > 1e-8:
         upward = _normalized(upward)
     else:
         upward = Gf.Vec3d(0.0, 0.0, 0.0)
 
-    return _normalized(parent_axis * 0.36 - lateral * 0.82 + upward * 0.24)
+    return _normalized(
+        parent_axis * 0.36
+        + varied_radial * 0.82
+        + upward * 0.18
+    )
 
 
 def _shoot_radii(parent_radius: float, count: int):
@@ -363,7 +395,15 @@ def author_terminal_visual_fork(
 ) -> dict:
     parent = axis.members[-1]
     child_axis = _child_axis_from_definition(parent, existing_child)
-    shoot_direction = _complementary_shoot_direction(axis.axis, child_axis)
+    azimuth_jitter_deg = _stable_azimuth_jitter(
+        parent.branch_id,
+        str(existing_child.get("id", "")),
+    )
+    shoot_direction = _complementary_shoot_direction(
+        axis.axis,
+        child_axis,
+        azimuth_jitter_deg,
+    )
     junction = axis.start + axis.axis * axis.total_length
     parent_radius = _visual_radius(axis, axis.total_length)
 
@@ -399,6 +439,7 @@ def author_terminal_visual_fork(
         "parent": parent.branch_id,
         "existing_child": existing_child["id"],
         "existing_system": branch_system(existing_child),
+        "azimuth_jitter_deg": azimuth_jitter_deg,
     }
 
 
