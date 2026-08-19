@@ -1,5 +1,6 @@
 """Hybrid orchestration for ExporterV2 skinned vegetative branches."""
 
+import os
 from typing import Dict, Iterable
 
 from pxr import UsdGeom
@@ -12,6 +13,7 @@ from .visual_modes import author_rigid_visual_axis, author_static_visual_axis
 
 
 VALID_VISUAL_MODES = ("skinned", "static", "rigid-single")
+VISUAL_MODE_ENV = "AUTOTOM_SKINNING_VISUAL_MODE"
 
 
 def build_skinned_vegetative_structure(
@@ -22,7 +24,7 @@ def build_skinned_vegetative_structure(
     all_branch_defs: Dict[str, dict],
     locked_joints: bool = False,
     legacy_physics: bool = False,
-    visual_mode: str = "skinned",
+    visual_mode: str = None,
 ):
     """Build vegetative physics and one of the supported smooth visual modes.
 
@@ -31,7 +33,12 @@ def build_skinned_vegetative_structure(
       - ``static``: exact same smooth tube meshes, but no UsdSkel anywhere.
       - ``rigid-single``: one-link axes are plain meshes parented directly to
         their PhysX rigid body; multi-link axes keep normal UsdSkel skinning.
+
+    If ``visual_mode`` is omitted, the diagnostic environment variable
+    ``AUTOTOM_SKINNING_VISUAL_MODE`` is used, falling back to ``skinned``.
     """
+    if visual_mode is None:
+        visual_mode = os.environ.get(VISUAL_MODE_ENV, "skinned")
     if visual_mode not in VALID_VISUAL_MODES:
         raise ValueError(
             f"Unsupported visual_mode={visual_mode!r}; expected one of {VALID_VISUAL_MODES}"
