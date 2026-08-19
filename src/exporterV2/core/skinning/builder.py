@@ -8,6 +8,10 @@ from .adapter import resolve_vegetative_graph
 from .axis import build_visual_axes
 from .branch_physics import author_branch_joints, author_rigid_links
 from .mesh import author_visual_axis
+from .visual_modes import author_rigid_visual_axis, author_static_visual_axis
+
+
+VALID_VISUAL_MODES = ("skinned", "static", "rigid-single")
 
 
 def build_skinned_vegetative_structure(
@@ -18,8 +22,21 @@ def build_skinned_vegetative_structure(
     all_branch_defs: Dict[str, dict],
     locked_joints: bool = False,
     legacy_physics: bool = False,
+    visual_mode: str = "skinned",
 ):
-    """Build all vegetative physics/visuals and return V2 registry entries."""
+    """Build vegetative physics and one of the supported smooth visual modes.
+
+    visual_mode:
+      - ``skinned``: current full UsdSkel implementation.
+      - ``static``: exact same smooth tube meshes, but no UsdSkel anywhere.
+      - ``rigid-single``: one-link axes are plain meshes parented directly to
+        their PhysX rigid body; multi-link axes keep normal UsdSkel skinning.
+    """
+    if visual_mode not in VALID_VISUAL_MODES:
+        raise ValueError(
+            f"Unsupported visual_mode={visual_mode!r}; expected one of {VALID_VISUAL_MODES}"
+        )
+
     physics_parent = f"{stem_path}/Vegetative"
     visual_parent = "/World/PlantVisual"
     UsdGeom.Xform.Define(stage, physics_parent)
@@ -64,8 +81,34 @@ def build_skinned_vegetative_structure(
         global_arc = parent_axis.member_offsets[parent.branch_id] + local_arc
         parent_axis.attachment_arcs.append(round(global_arc, 12))
 
+    counts = {
+        "skinned_axes": 0,
+        "static_axes": 0,
+        "rigid_single_axes": 0,
+    }
+
     for axis in visual_axes:
         axis.attachment_arcs = sorted(set(axis.attachment_arcs))
+
+        if visual_mode == "static":
+            author_static_visual_axis(stage, axis)
+            counts["static_axes"] += 1
+            continue
+
+        if visual_mode == "rigid-single" and len(axis.link_paths) == 1:
+            author_rigid_visual_axis(stage, axis)
+            counts["rigid_single_axes"] += 1
+            continue
+
         author_visual_axis(stage, axis)
+        counts["skinned_axes"] += 1
+
+    print(
+        "[SKIN-VISUAL] "
+        f"mode={visual_mode} | "
+        f"skinned_axes={counts['skinned_axes']} | "
+        f"rigid_single_axes={counts['rigid_single_axes']} | "
+        f"static_axes={counts['static_axes']}"
+    )
 
     return {branch.branch_id: branch.as_registry_entry() for branch in resolved}
