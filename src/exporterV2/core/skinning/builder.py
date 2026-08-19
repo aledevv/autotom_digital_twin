@@ -8,6 +8,7 @@ from pxr import UsdGeom
 from .adapter import resolve_vegetative_graph
 from .axis import build_visual_axes
 from .branch_physics import author_branch_joints, author_rigid_links
+from .fork_bridge import author_centered_existing_arm_bridge
 from .global_visual import author_global_visual_axes
 from .mesh import author_visual_axis
 from .terminal_fork import author_terminal_visual_forks
@@ -109,9 +110,6 @@ def build_skinned_vegetative_structure(
             for branch in resolved
         }
 
-    # In fork mode, discover/author the dressing first.  This gives us the exact
-    # structural hosts that need a narrowed terminal tip while leaving normal
-    # segmented geometry unchanged everywhere else.
     fork_records = []
     fork_parent_ids = set()
     if visual_mode == "segmented-fork":
@@ -121,6 +119,20 @@ def build_skinned_vegetative_structure(
             all_branch_defs,
         )
         fork_parent_ids = {record["parent"] for record in fork_records}
+
+        # Fill the other half of the Y from the exact center of the terminal
+        # structural branch toward the existing real petiole/truss.  The real
+        # organ is not moved or re-authored; this is only a short visual sleeve.
+        for record in fork_records:
+            parent_axis = axis_by_member.get(record["parent"])
+            child_def = all_branch_defs.get(record["existing_child"])
+            if parent_axis is None or child_def is None:
+                continue
+            author_centered_existing_arm_bridge(
+                stage,
+                parent_axis,
+                child_def,
+            )
 
     counts = {
         "skinned_axes": 0,
