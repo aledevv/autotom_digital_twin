@@ -171,8 +171,17 @@ def build_skinned_vegetative_structure(
             visual_axes,
             all_branch_defs,
         )
+        # For lateral branches with a real terminal petiole, keep the parent's
+        # original diameter all the way to the centered leaf branch.  The
+        # previous taper created the visible neck shown in the plant test.
+        # Truss hosts keep their mild taper because the truss is still authored
+        # by its separate legacy subsystem.
         fork_tip_scales = {
-            record["parent"]: float(record["terminal_tip_scale"])
+            record["parent"]: (
+                1.0
+                if record.get("existing_system") != "truss"
+                else float(record["terminal_tip_scale"])
+            )
             for record in fork_records
         }
 
