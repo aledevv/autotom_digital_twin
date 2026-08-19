@@ -10,10 +10,13 @@ static effects:
 - the entire blade centerline follows one smooth gravity arch: it initially
   continues the petiolule direction, rises gently, then bends down toward the
   distal tip;
+- leaf length, width, petiolule length/lift, fold, arch, sag and small azimuth
+  offsets vary deterministically per leaf so the result is organic but stable;
 - there is no sinusoidal/serpentine longitudinal shape;
 - no physics, joints, UsdSkel, or runtime deformation are used.
 """
 
+import hashlib
 import math
 import os
 
@@ -53,27 +56,25 @@ PETIOLULE_ROOT_RADIUS_M = 0.0024
 PETIOLULE_TIP_RADIUS_M = 0.00135
 PETIOLULE_LIFT_M = 0.0032
 
-# Longitudinal V-like fold around the visual midrib. It is zero at the narrow
-# base/tip and strongest over the broad central part of the blade.
 LEAF_LONGITUDINAL_FOLD_M = 0.0048
 LEAF_FOLD_EXPONENT = 0.78
 
-# Single smooth gravity arch of the blade centerline.
-#
-#   petiolule ---- /\____
-#                      `--- tip
-#
-# The positive arch term creates one gentle rise. The monotonic gravity term
-# then wins toward the tip. There is no second oscillation, so the centerline
-# cannot become a serpentine.
 LEAF_ARCH_LIFT_M = 0.0060
 LEAF_TIP_SAG_M = 0.0100
 LEAF_TIP_SAG_EXPONENT = 1.85
 
+# Deterministic organic variation. These are deliberately moderate: the goal is
+# to remove cloning, not to create biologically implausible leaf shapes.
+PETIOLULE_LENGTH_VARIATION = 0.16
+PETIOLULE_LIFT_VARIATION = 0.28
+LEAF_LENGTH_VARIATION = 0.13
+LEAF_WIDTH_VARIATION = 0.14
+LEAF_FOLD_VARIATION = 0.25
+LEAF_ARCH_VARIATION = 0.28
+LEAF_SAG_VARIATION = 0.25
+LEAF_AZIMUTH_VARIATION_DEG = 9.0
+
 PAIR_Y = (-0.105, 0.0, 0.105)
-PAIR_LIFT_SCALE = (0.88, 1.00, 0.93)
-PAIR_FOLD_SCALE = (0.90, 1.00, 0.94)
-PAIR_ARCH_SCALE = (0.92, 1.00, 0.95)
 
 STEM_COLOR = Gf.Vec3f(0.58, 0.78, 0.38)
 PETIOLULE_COLOR = Gf.Vec3f(0.55, 0.76, 0.34)
@@ -101,6 +102,24 @@ def _normalized(vector):
 def _smoothstep(value):
     value = max(0.0, min(1.0, float(value)))
     return value * value * (3.0 - 2.0 * value)
+
+
+def _stable_signed(key, salt):
+    """Stable pseudo-random scalar in [-1, 1] for one organ/property."""
+    payload = f"{key}|{salt}|test-5a-v5".encode("utf-8")
+    digest = hashlib.blake2b(payload, digest_size=8).digest()
+    integer = int.from_bytes(digest, byteorder="big", signed=False)
+    unit = integer / float((1 << 64) - 1)
+    return unit * 2.0 - 1.0
+
+
+def _stable_scale(key, salt, variation):
+    return 1.0 + variation * _stable_signed(key, salt)
+
+
+def _rotate_about_up(direction, angle_deg):
+    rotation = Gf.Rotation(Gf.Vec3d(0.0, 0.0, 1.0), angle_deg)
+    return _normalized(rotation.TransformDir(direction))
 
 
 def _cubic_point(p0, p1, p2, p3, t):
@@ -267,14 +286,7 @@ def _author_leaf_blade(
     tip_sag,
     color,
 ):
-    """Create a 2D blade with longitudinal fold plus one smooth gravity arch.
-
-    Each station contains left edge, center/midrib and right edge. The center row
-    behaves like a visual continuation of the petiolule. Its height follows a
-    single-hump curve: first slightly upward, then progressively downward. The
-    edge rows are lowered around that centerline to preserve the longitudinal
-    midrib fold validated in the previous test.
-    """
+    """Create a 2D blade with longitudinal fold plus one smooth gravity arch."""
     forward = _normalized(forward)
     world_up = Gf.Vec3d(0.0, 0.0, 1.0)
     side = Gf.Cross(world_up, forward)
@@ -291,10 +303,6 @@ def _author_leaf_blade(
         width_profile *= 1.13 - 0.27 * t
         width = half_width * width_profile
 
-        # One smooth arch, no oscillation:
-        # - 4*t*(1-t) is a single positive hump, zero at base and tip;
-        # - the gravity term is monotonic and increasingly pulls the distal part
-        #   downward. Combined, the blade rises once and then falls once.
         arch_offset = arch_lift * (4.0 * t * (1.0 - t))
         gravity_offset = tip_sag * (t ** LEAF_TIP_SAG_EXPONENT)
         center = (
@@ -392,28 +400,58 @@ def _author_straight_pair(stage, root_path, x, y):
         )
 
 
-def _author_proposed_pair(
-    stage,
-    root_path,
-    x,
-    y,
-    lift_scale,
-    fold_scale,
-    arch_scale,
-):
-    """Proposed: short petiolule + midrib fold + single gravity arch."""
+def _author_proposed_pair(stage, root_path, x, y):
+    """Proposed: per-leaf deterministic variation around the validated shape."""
     world_up = Gf.Vec3d(0.0, 0.0, 1.0)
 
     for side_name, sign in (("Left", -1.0), ("Right", 1.0)):
+        key = f"{root_path}/{side_name}"
         root = Gf.Vec3d(x, y, 0.055)
-        outward = Gf.Vec3d(sign, 0.0, 0.0)
-        length = PETIOLULE_LENGTH_M
-        lift = PETIOLULE_LIFT_M * lift_scale
+
+        base_outward = Gf.Vec3d(sign, 0.0, 0.0)
+        azimuth = LEAF_AZIMUTH_VARIATION_DEG * _stable_signed(key, "azimuth")
+        outward = _rotate_about_up(base_outward, azimuth)
+
+        petiolule_length = PETIOLULE_LENGTH_M * _stable_scale(
+            key,
+            "petiolule_length",
+            PETIOLULE_LENGTH_VARIATION,
+        )
+        lift = PETIOLULE_LIFT_M * _stable_scale(
+            key,
+            "petiolule_lift",
+            PETIOLULE_LIFT_VARIATION,
+        )
+        leaf_length = LEAF_LENGTH_M * _stable_scale(
+            key,
+            "leaf_length",
+            LEAF_LENGTH_VARIATION,
+        )
+        leaf_half_width = LEAF_HALF_WIDTH_M * _stable_scale(
+            key,
+            "leaf_width",
+            LEAF_WIDTH_VARIATION,
+        )
+        fold_depth = LEAF_LONGITUDINAL_FOLD_M * _stable_scale(
+            key,
+            "fold",
+            LEAF_FOLD_VARIATION,
+        )
+        arch_lift = LEAF_ARCH_LIFT_M * _stable_scale(
+            key,
+            "arch",
+            LEAF_ARCH_VARIATION,
+        )
+        tip_sag = LEAF_TIP_SAG_M * _stable_scale(
+            key,
+            "sag",
+            LEAF_SAG_VARIATION,
+        )
 
         p0 = root
-        p1 = root + outward * (length * 0.33) + world_up * (lift * 0.30)
-        p2 = root + outward * (length * 0.68) + world_up * (lift * 0.78)
-        p3 = root + outward * length + world_up * lift
+        p1 = root + outward * (petiolule_length * 0.33) + world_up * (lift * 0.30)
+        p2 = root + outward * (petiolule_length * 0.68) + world_up * (lift * 0.78)
+        p3 = root + outward * petiolule_length + world_up * lift
 
         centers, tangents = _sample_cubic(p0, p1, p2, p3)
         radii = _taper_radii(
@@ -428,20 +466,17 @@ def _author_proposed_pair(
             PETIOLULE_COLOR,
         )
 
-        # The blade begins nearly along the distal petiolule axis. The petiolule
-        # already supplies the basal upward direction; the blade centerline then
-        # adds only the smooth rise-and-fall gravity shape.
         distal_forward = _normalized(outward * 0.30 + tangents[-1] * 0.70)
         _author_leaf_blade(
             stage,
             f"{root_path}/{side_name}Leaf",
             centers[-1],
             distal_forward,
-            length=LEAF_LENGTH_M,
-            half_width=LEAF_HALF_WIDTH_M,
-            fold_depth=LEAF_LONGITUDINAL_FOLD_M * fold_scale,
-            arch_lift=LEAF_ARCH_LIFT_M * arch_scale,
-            tip_sag=LEAF_TIP_SAG_M,
+            length=leaf_length,
+            half_width=leaf_half_width,
+            fold_depth=fold_depth,
+            arch_lift=arch_lift,
+            tip_sag=tip_sag,
             color=LEAF_COLOR,
         )
 
@@ -458,17 +493,12 @@ def _author_scene(stage):
     proposed_x = 0.24
     UsdGeom.Xform.Define(stage, "/World/Proposed")
     _author_rachis(stage, "/World/Proposed/Rachis", proposed_x, STEM_COLOR)
-    for index, (y, lift_scale, fold_scale, arch_scale) in enumerate(
-        zip(PAIR_Y, PAIR_LIFT_SCALE, PAIR_FOLD_SCALE, PAIR_ARCH_SCALE)
-    ):
+    for index, y in enumerate(PAIR_Y):
         _author_proposed_pair(
             stage,
             f"/World/Proposed/Pair_{index + 1:02d}",
             proposed_x,
             y,
-            lift_scale,
-            fold_scale,
-            arch_scale,
         )
 
     dome = UsdLux.DomeLight.Define(stage, "/World/DomeLight")
@@ -496,12 +526,13 @@ def main():
     stage.GetRootLayer().Save()
 
     print("=" * 76)
-    print("TEST 5A v4 - MIDRIB FOLD + SINGLE GRAVITY ARCH")
+    print("TEST 5A v5 - ORGANIC RANDOMIZED LEAF REST SHAPES")
     print("=" * 76)
     print(f"USD: {OUTPUT_USD}")
     print("LEFT  : short straight petiolule + flat 2D blade")
-    print("RIGHT : short raised petiolule + longitudinal fold + smooth rise/fall")
-    print("Blade centerline: one upward arch, then monotonic gravity sag")
+    print("RIGHT : deterministic per-leaf variation around the validated shape")
+    print("Varies: azimuth, lengths, width, lift, midrib fold, arch and sag")
+    print("Randomness is stable: identical organ path -> identical generated shape")
     print("No physics / no joints / no UsdSkel / no runtime deformation")
     print("=" * 76)
 
