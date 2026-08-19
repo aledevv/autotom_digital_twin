@@ -8,7 +8,6 @@ from pxr import UsdGeom
 from .adapter import branch_system, resolve_vegetative_graph
 from .axis import build_visual_axes
 from .branch_physics import author_branch_joints, author_rigid_links
-from .fork_bridge import author_centered_existing_arm_bridge
 from .global_visual import author_global_visual_axes
 from .mesh import author_visual_axis
 from .terminal_fork import author_terminal_visual_forks
@@ -43,10 +42,10 @@ def _is_structural_terminal_host(branch: dict) -> bool:
 def _mark_centered_terminal_leaf_branches(all_branch_defs: Dict[str, dict]) -> None:
     """Center real terminal petioles for the segmented-fork visual mode.
 
-    This deliberately changes only the attachment offset of an already-existing
-    leaf petiole.  The branch, joint, mass, collision proxy and downstream leaf
-    hierarchy are preserved.  Trusses stay on the legacy path for now because
-    they are authored by the separate truss subsystem after this builder.
+    The existing leaf branch becomes the physical/visual continuation of the
+    lateral branch centerline.  No extra sleeve or bridge mesh is needed.
+    Trusses remain untouched because they are authored later by the separate
+    legacy truss subsystem.
     """
     for parent in all_branch_defs.values():
         if branch_system(parent) != "vegetative":
@@ -77,8 +76,6 @@ def _mark_centered_terminal_leaf_branches(all_branch_defs: Dict[str, dict]) -> N
                 candidates.append(child)
 
         if candidates:
-            # Deterministic: if malformed input contains multiple terminal
-            # petioles, center only one instead of stacking several on axis.
             chosen = sorted(candidates, key=lambda item: str(item.get("id", "")))[0]
             chosen["_terminal_fork_centered"] = True
 
@@ -101,8 +98,6 @@ def build_skinned_vegetative_structure(
             f"Unsupported visual_mode={visual_mode!r}; expected one of {VALID_VISUAL_MODES}"
         )
 
-    # Mark BEFORE graph resolution so the actual petiole joint starts on the
-    # parent centerline.  No visual bridge is required for leaf forks anymore.
     if visual_mode == "segmented-fork":
         _mark_centered_terminal_leaf_branches(all_branch_defs)
 
@@ -169,31 +164,17 @@ def build_skinned_vegetative_structure(
         }
 
     fork_records = []
-    fork_parent_ids = set()
+    fork_tip_scales = {}
     if visual_mode == "segmented-fork":
         fork_records = author_terminal_visual_forks(
             stage,
             visual_axes,
             all_branch_defs,
         )
-        fork_parent_ids = {record["parent"] for record in fork_records}
-
-        # Leaf petioles are now physically centered at their existing joint, so
-        # they need no sleeve/bridge.  Trusses are still authored later by the
-        # legacy truss subsystem; keep the short visual bridge only for those
-        # until that separate subsystem is centered too.
-        for record in fork_records:
-            child_def = all_branch_defs.get(record["existing_child"])
-            if child_def is None or branch_system(child_def) != "truss":
-                continue
-            parent_axis = axis_by_member.get(record["parent"])
-            if parent_axis is None:
-                continue
-            author_centered_existing_arm_bridge(
-                stage,
-                parent_axis,
-                child_def,
-            )
+        fork_tip_scales = {
+            record["parent"]: float(record["terminal_tip_scale"])
+            for record in fork_records
+        }
 
     counts = {
         "skinned_axes": 0,
@@ -220,9 +201,8 @@ def build_skinned_vegetative_structure(
         if segmented_mode:
             terminal_member_id = axis.members[-1].branch_id
             terminal_tip_scale = (
-                0.48
+                fork_tip_scales.get(terminal_member_id, 1.0)
                 if visual_mode == "segmented-fork"
-                and terminal_member_id in fork_parent_ids
                 else 1.0
             )
             stats = author_segmented_visual_axis(
