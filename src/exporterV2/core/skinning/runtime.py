@@ -1,6 +1,7 @@
 """Runtime synchronization for persisted vegetative SkelRoots."""
 
 from dataclasses import dataclass
+from time import perf_counter
 from typing import List
 
 from pxr import Gf, Usd, UsdGeom, UsdSkel, Vt
@@ -20,6 +21,7 @@ class _RuntimeBranch:
     skel_root_prim: object
     translations_attr: object
     rotations_attr: object
+    mesh_vertex_count: int = 0
 
 
 def _quatf_from_matrix(matrix: Gf.Matrix4d) -> Gf.Quatf:
@@ -92,12 +94,21 @@ class SkinningRuntime:
                 raise ValueError(
                     f"SkelRoot '{name}' Skeleton bone count does not match its links"
                 )
+
+            mesh_vertex_count = 0
+            for descendant in Usd.PrimRange(prim):
+                if not descendant.IsA(UsdGeom.Mesh):
+                    continue
+                points = UsdGeom.Mesh(descendant).GetPointsAttr().Get() or []
+                mesh_vertex_count += len(points)
+
             branches.append(_RuntimeBranch(
                 name=name,
                 link_prims=link_prims,
                 skel_root_prim=prim,
                 translations_attr=translations_attr,
                 rotations_attr=rotations_attr,
+                mesh_vertex_count=mesh_vertex_count,
             ))
         return cls(stage, branches)
 
@@ -105,10 +116,60 @@ class SkinningRuntime:
     def branch_count(self) -> int:
         return len(self.branches)
 
-    def sync(self) -> None:
-        """Write current rigid-link transforms into every SkelAnimation."""
-        self._cache.Clear()
+    @property
+    def bone_count(self) -> int:
+        return sum(len(branch.link_prims) for branch in self.branches)
+
+    @property
+    def single_bone_branch_count(self) -> int:
+        return sum(1 for branch in self.branches if len(branch.link_prims) == 1)
+
+    @property
+    def multi_bone_branch_count(self) -> int:
+        return self.branch_count - self.single_bone_branch_count
+
+    @property
+    def mesh_vertex_count(self) -> int:
+        return sum(branch.mesh_vertex_count for branch in self.branches)
+
+    @property
+    def animation_attribute_writes_per_sync(self) -> int:
+        # One translations + one rotations write per visual axis.
+        return self.branch_count * 2
+
+    def stats(self) -> dict:
+        """Return compact structural stats useful for performance diagnostics."""
+        return {
+            "visual_axes": self.branch_count,
+            "bones": self.bone_count,
+            "single_bone_axes": self.single_bone_branch_count,
+            "multi_bone_axes": self.multi_bone_branch_count,
+            "mesh_vertices": self.mesh_vertex_count,
+            "usd_attr_writes_per_sync": self.animation_attribute_writes_per_sync,
+        }
+
+    def _sync_impl(self, *, profiled: bool) -> dict | None:
+        """Internal sync implementation; optionally return a detailed timing split."""
+        if profiled:
+            profile = {
+                "cache_clear_s": 0.0,
+                "xform_reads_s": 0.0,
+                "local_matrices_s": 0.0,
+                "decompose_s": 0.0,
+                "usd_writes_s": 0.0,
+                "total_s": 0.0,
+            }
+            total_start = perf_counter()
+            start = perf_counter()
+            self._cache.Clear()
+            profile["cache_clear_s"] += perf_counter() - start
+        else:
+            profile = None
+            self._cache.Clear()
+
         for runtime in self.branches:
+            if profiled:
+                start = perf_counter()
             world = [
                 Gf.Matrix4d(self._cache.GetLocalToWorldTransform(prim))
                 for prim in runtime.link_prims
@@ -116,19 +177,47 @@ class SkinningRuntime:
             root_world = Gf.Matrix4d(
                 self._cache.GetLocalToWorldTransform(runtime.skel_root_prim)
             )
-            local = [world[0] * root_world.GetInverse()]
+            if profiled:
+                profile["xform_reads_s"] += perf_counter() - start
+                start = perf_counter()
+
+            root_inverse = root_world.GetInverse()
+            local = [world[0] * root_inverse]
             local.extend(
                 world[index] * world[index - 1].GetInverse()
                 for index in range(1, len(world))
             )
+            if profiled:
+                profile["local_matrices_s"] += perf_counter() - start
+                start = perf_counter()
+
             translations = []
             rotations = []
             for matrix in local:
                 translation = matrix.ExtractTranslation()
                 translations.append(Gf.Vec3f(*translation))
                 rotations.append(_quatf_from_matrix(matrix))
+            if profiled:
+                profile["decompose_s"] += perf_counter() - start
+                start = perf_counter()
+
             runtime.translations_attr.Set(Vt.Vec3fArray(translations))
             runtime.rotations_attr.Set(Vt.QuatfArray(rotations))
+            if profiled:
+                profile["usd_writes_s"] += perf_counter() - start
+
+        if profiled:
+            profile["total_s"] = perf_counter() - total_start
+            return profile
+        return None
+
+    def sync(self) -> None:
+        """Write current rigid-link transforms into every SkelAnimation."""
+        self._sync_impl(profiled=False)
+
+    def sync_profiled(self) -> dict:
+        """Run one sync and return detailed timing information in seconds."""
+        return self._sync_impl(profiled=True)
 
 
 def configure_physx_mouse_interaction(simulation_app) -> None:
