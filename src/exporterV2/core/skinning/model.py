@@ -8,12 +8,14 @@ from pxr import Gf
 
 @dataclass(frozen=True)
 class VisualProfile:
-    """Visual-only controls; none of these values affect branch physics."""
-
     radial_segments: int = 14
     axial_spacing_m: float = 0.005
     skin_blend_half_width_m: float = 0.010
-    radius_transition_half_width_m: float = 0.005
+
+    radius_transition_half_width_m: float = 0.025
+    radius_transition_max_fraction: float = 0.45
+    radius_transition_samples: int = 9
+
     junction_bulge_amplitude: float = 0.18
     junction_bulge_sigma: float = 0.04
     root_parent_fraction: float = 0.92

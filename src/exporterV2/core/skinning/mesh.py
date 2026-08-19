@@ -68,6 +68,20 @@ def _canonical_arc(value: float, total_length: float) -> float:
     return round(max(0.0, min(total_length, value)), _ARC_PRECISION)
 
 
+def _radius_transition_half_width(
+    axis: VisualAxisData,
+    previous,
+    current,
+) -> float:
+    profile = axis.profile
+
+    return min(
+        profile.radius_transition_half_width_m,
+        previous.length * profile.radius_transition_max_fraction,
+        current.length * profile.radius_transition_max_fraction,
+    )
+
+
 def build_axis_sample_arcs(axis: VisualAxisData) -> List[float]:
     """Build optimizer-independent axial samples in world-space meters."""
     spacing = axis.profile.axial_spacing_m
@@ -86,6 +100,46 @@ def build_axis_sample_arcs(axis: VisualAxisData) -> List[float]:
         _canonical_arc(segment.end_arc, axis.total_length)
         for segment in axis.visual_segments[:-1]
     )
+    # Add local samples around every botanical radius boundary.
+    # This keeps the global mesh resolution unchanged while giving
+    # radius transitions enough geometry to look smooth.
+    for previous, current in zip(
+        axis.visual_segments,
+        axis.visual_segments[1:],
+    ):
+        boundary = previous.end_arc
+
+        half_width = _radius_transition_half_width(
+            axis,
+            previous,
+            current,
+        )
+
+        sample_count = max(
+            3,
+            axis.profile.radius_transition_samples,
+        )
+
+        for index in range(sample_count):
+            t = (
+                index
+                / float(sample_count - 1)
+            )
+
+            transition_arc = (
+                boundary
+                - half_width
+                + 2.0
+                * half_width
+                * t
+            )
+
+            arcs.add(
+                _canonical_arc(
+                    transition_arc,
+                    axis.total_length,
+                )
+            )
     arcs.update(
         _canonical_arc(arc, axis.total_length)
         for arc in axis.attachment_arcs
@@ -101,19 +155,40 @@ def _profile_radius(axis: VisualAxisData, arc: float) -> float:
             radius = segment.radius
             break
 
-    transition_limit = axis.profile.radius_transition_half_width_m
-    for previous, current in zip(segments, segments[1:]):
+    for previous, current in zip(
+        segments,
+        segments[1:],
+    ):
         boundary = previous.end_arc
-        half_width = min(
-            transition_limit,
-            previous.length * 0.25,
-            current.length * 0.25,
+
+        half_width = _radius_transition_half_width(
+            axis,
+            previous,
+            current,
         )
-        if half_width > 0.0 and boundary - half_width <= arc <= boundary + half_width:
+
+        if (
+            half_width > 0.0
+            and boundary - half_width
+            <= arc
+            <= boundary + half_width
+        ):
             blend = _smoothstep(
-                (arc - (boundary - half_width)) / (2.0 * half_width)
+                (
+                    arc
+                    - (boundary - half_width)
+                )
+                / (2.0 * half_width)
             )
-            return previous.radius + (current.radius - previous.radius) * blend
+
+            return (
+                previous.radius
+                + (
+                    current.radius
+                    - previous.radius
+                )
+                * blend
+            )
     return radius
 
 
