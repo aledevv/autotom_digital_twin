@@ -30,11 +30,11 @@ parser.add_argument(
 )
 parser.add_argument(
     "--skinning-visual-mode",
-    choices=("skinned", "static", "rigid-single"),
+    choices=("skinned", "static", "rigid-single", "global"),
     default="skinned",
     help=(
-        "Visual mode for the skinned backend: full UsdSkel, static smooth mesh "
-        "benchmark, or rigid single-bone optimization"
+        "Visual mode for the skinned backend: per-axis UsdSkel, static smooth "
+        "mesh benchmark, rigid single-bone optimization, or one global shared Skeleton"
     ),
 )
 args = parser.parse_args()
@@ -187,7 +187,7 @@ def main():
         if candidate.branch_count > 0:
             skinning_runtime = candidate
             print(
-                f"  ✓ Runtime skinning: {candidate.branch_count} axes, "
+                f"  ✓ Runtime skinning: {candidate.branch_count} skeleton runtime(s), "
                 f"{candidate.bone_count} bones"
             )
         else:
