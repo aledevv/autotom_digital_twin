@@ -16,6 +16,7 @@ Or use wrapper script:
 import os
 import sys
 import argparse
+import time
 
 # Parse arguments BEFORE initializing SimulationApp
 parser = argparse.ArgumentParser(description="exporterV2 Tree Loader")
@@ -28,7 +29,36 @@ parser.add_argument(
     default="legacy",
     help="Vegetative branch backend (default: legacy)",
 )
+parser.add_argument(
+    "--skinning-profile",
+    action="store_true",
+    help="Print detailed runtime timing diagnostics for the skinned backend",
+)
+parser.add_argument(
+    "--skinning-no-sync",
+    action="store_true",
+    help="Diagnostic mode: keep skinned meshes authored but skip runtime SkelAnimation sync",
+)
+parser.add_argument(
+    "--skinning-sync-every",
+    type=int,
+    default=1,
+    metavar="N",
+    help="Update skinning every N simulation frames (default: 1)",
+)
+parser.add_argument(
+    "--skinning-profile-window",
+    type=int,
+    default=240,
+    metavar="N",
+    help="Number of frames per performance report (default: 240)",
+)
 args = parser.parse_args()
+
+if args.skinning_sync_every < 1:
+    parser.error("--skinning-sync-every must be >= 1")
+if args.skinning_profile_window < 1:
+    parser.error("--skinning-profile-window must be >= 1")
 
 # Bootstrap Isaac Sim
 from isaacsim import SimulationApp
@@ -179,13 +209,26 @@ def main():
         else None
     )
     if skinning_runtime is not None:
-        print(f"  ✓ Discovered {skinning_runtime.branch_count} skinned branches")
+        stats = skinning_runtime.stats()
+        print(
+            "  ✓ Skinning runtime: "
+            f"axes={stats['visual_axes']}, bones={stats['bones']}, "
+            f"single_bone_axes={stats['single_bone_axes']}, "
+            f"multi_bone_axes={stats['multi_bone_axes']}, "
+            f"vertices={stats['mesh_vertices']}, "
+            f"USD writes/sync={stats['usd_attr_writes_per_sync']}"
+        )
+        if args.skinning_no_sync:
+            print("  ⚠ Skinning runtime sync DISABLED for diagnostics")
+        elif args.skinning_sync_every > 1:
+            print(f"  ⚠ Skinning runtime sync every {args.skinning_sync_every} frames")
 
     my_world = World(stage_units_in_meters=1.0)
     my_world.reset()
     if skinning_runtime is not None:
         configure_physx_mouse_interaction(simulation_app)
-        skinning_runtime.sync()
+        if not args.skinning_no_sync:
+            skinning_runtime.sync()
         simulation_app.update()
 
     # Optimization report goes to console only when optimization was actually run.
@@ -195,15 +238,107 @@ def main():
     print("\n" + "=" * 80)
     print("  ✓ Simulation running — close the window to exit")
     print("=" * 80 + "\n")
+
+    profile_window = args.skinning_profile_window
+    profile_frames = 0
+    sync_calls = 0
+    profile_wall_s = 0.0
+    profile_physics_s = 0.0
+    profile_sync_s = 0.0
+    profile_render_s = 0.0
+    sync_detail = {
+        "cache_clear_s": 0.0,
+        "xform_reads_s": 0.0,
+        "local_matrices_s": 0.0,
+        "decompose_s": 0.0,
+        "usd_writes_s": 0.0,
+        "total_s": 0.0,
+    }
+    frame_index = 0
     
     # Run simulation loop
     while simulation_app.is_running():
         if skinning_runtime is None:
             my_world.step(render=True)
+            continue
+
+        frame_start = time.perf_counter()
+
+        physics_start = time.perf_counter()
+        my_world.step(render=False)
+        physics_end = time.perf_counter()
+
+        should_sync = (
+            not args.skinning_no_sync
+            and frame_index % args.skinning_sync_every == 0
+        )
+
+        if should_sync:
+            sync_start = time.perf_counter()
+            if args.skinning_profile:
+                detail = skinning_runtime.sync_profiled()
+                for key in sync_detail:
+                    sync_detail[key] += detail[key]
+            else:
+                skinning_runtime.sync()
+            sync_end = time.perf_counter()
+            sync_calls += 1
         else:
-            my_world.step(render=False)
-            skinning_runtime.sync()
-            simulation_app.update()
+            sync_start = sync_end = time.perf_counter()
+
+        render_start = time.perf_counter()
+        simulation_app.update()
+        render_end = time.perf_counter()
+
+        frame_end = time.perf_counter()
+        frame_index += 1
+
+        if args.skinning_profile:
+            profile_frames += 1
+            profile_wall_s += frame_end - frame_start
+            profile_physics_s += physics_end - physics_start
+            profile_sync_s += sync_end - sync_start
+            profile_render_s += render_end - render_start
+
+            if profile_frames >= profile_window:
+                frame_divisor = float(profile_frames)
+                sync_divisor = float(max(sync_calls, 1))
+                wall_ms = profile_wall_s / frame_divisor * 1000.0
+                physics_ms = profile_physics_s / frame_divisor * 1000.0
+                sync_ms_per_frame = profile_sync_s / frame_divisor * 1000.0
+                sync_ms_per_call = profile_sync_s / sync_divisor * 1000.0
+                render_ms = profile_render_s / frame_divisor * 1000.0
+                fps = 1000.0 / wall_ms if wall_ms > 0.0 else 0.0
+
+                print(
+                    "\n[SKIN-PERF] "
+                    f"frames={profile_frames} sync_calls={sync_calls} "
+                    f"wall={wall_ms:.2f}ms (~{fps:.1f} FPS) | "
+                    f"physics={physics_ms:.2f}ms | "
+                    f"sync/frame={sync_ms_per_frame:.2f}ms | "
+                    f"sync/call={sync_ms_per_call:.2f}ms | "
+                    f"render={render_ms:.2f}ms"
+                )
+
+                if sync_calls > 0:
+                    print(
+                        "[SKIN-SYNC] "
+                        f"cache={sync_detail['cache_clear_s'] / sync_divisor * 1000.0:.3f}ms | "
+                        f"xforms={sync_detail['xform_reads_s'] / sync_divisor * 1000.0:.3f}ms | "
+                        f"locals={sync_detail['local_matrices_s'] / sync_divisor * 1000.0:.3f}ms | "
+                        f"decompose={sync_detail['decompose_s'] / sync_divisor * 1000.0:.3f}ms | "
+                        f"USD-writes={sync_detail['usd_writes_s'] / sync_divisor * 1000.0:.3f}ms | "
+                        f"internal-total={sync_detail['total_s'] / sync_divisor * 1000.0:.3f}ms"
+                    )
+
+                profile_frames = 0
+                sync_calls = 0
+                profile_wall_s = 0.0
+                profile_physics_s = 0.0
+                profile_sync_s = 0.0
+                profile_render_s = 0.0
+                for key in sync_detail:
+                    sync_detail[key] = 0.0
     
     print("\n[INFO] Simulation finished.")
     simulation_app.close()
