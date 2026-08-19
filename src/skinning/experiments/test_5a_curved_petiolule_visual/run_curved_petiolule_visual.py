@@ -1,18 +1,18 @@
-"""Visual-only test for short tomato petiolules and folded, gravity-shaped blades.
+"""Visual-only test for plausible randomized tomato petiolules and leaf blades.
 
-The test stays isolated from exporterV2. The proposed shape combines two simple
-static effects:
+The test stays isolated from exporterV2.  It keeps the validated lightweight
+representation (short rigid petiolule + 2D blade) but adds controlled biological
+variation:
 
-- petiolules are short, thin, and only mildly tilted upward;
-- leaf blades remain lightweight 2D triangle sheets;
-- a center vertex row forms a longitudinal visual midrib from petiolule to tip;
-- the blade is folded slightly along that midrib;
-- the entire blade centerline follows one smooth gravity arch: it initially
-  continues the petiolule direction, rises gently, then bends down toward the
-  distal tip;
-- leaf length, width, petiolule length/lift, fold, arch, sag and small azimuth
-  offsets vary deterministically per leaf so the result is organic but stable;
-- there is no sinusoidal/serpentine longitudinal shape;
+- petiolule length and thickness can vary both above and below the nominal size;
+- petiolule tilt is randomized per leaf, including slightly downward cases;
+- blade length/width/fold vary asymmetrically so some leaves can be noticeably
+  finer without creating equally extreme oversized leaves;
+- the blade starts almost tangent-continuous with its petiolule;
+- gravity shaping is coupled to petiolule tilt: an upward petiolule needs a
+  stronger longitudinal bend to bring the distal blade back down, while a
+  downward petiolule receives a milder extra bend;
+- every variation is deterministic for a given organ path;
 - no physics, joints, UsdSkel, or runtime deformation are used.
 """
 
@@ -54,24 +54,28 @@ LEAF_HALF_WIDTH_M = 0.025
 PETIOLULE_LENGTH_M = 0.014
 PETIOLULE_ROOT_RADIUS_M = 0.0024
 PETIOLULE_TIP_RADIUS_M = 0.00135
-PETIOLULE_LIFT_M = 0.0032
 
 LEAF_LONGITUDINAL_FOLD_M = 0.0048
 LEAF_FOLD_EXPONENT = 0.78
-
 LEAF_ARCH_LIFT_M = 0.0060
 LEAF_TIP_SAG_M = 0.0100
 LEAF_TIP_SAG_EXPONENT = 1.85
 
-# Deterministic organic variation. These are deliberately moderate: the goal is
-# to remove cloning, not to create biologically implausible leaf shapes.
-PETIOLULE_LENGTH_VARIATION = 0.16
-PETIOLULE_LIFT_VARIATION = 0.28
-LEAF_LENGTH_VARIATION = 0.13
-LEAF_WIDTH_VARIATION = 0.14
-LEAF_FOLD_VARIATION = 0.25
-LEAF_ARCH_VARIATION = 0.28
-LEAF_SAG_VARIATION = 0.25
+# Asymmetric ranges: allow clearly smaller/finer organs, while positive growth
+# stays more moderate.  This matches the request to avoid all leaves being the
+# same size without making the largest samples implausibly dominant.
+PETIOLULE_LENGTH_SCALE_RANGE = (0.84, 1.20)
+PETIOLULE_RADIUS_SCALE_RANGE = (0.80, 1.12)
+LEAF_LENGTH_SCALE_RANGE = (0.86, 1.26)
+LEAF_WIDTH_SCALE_RANGE = (0.72, 1.20)
+LEAF_FOLD_SCALE_RANGE = (0.78, 1.28)
+LEAF_ARCH_RANDOM_RANGE = (0.86, 1.16)
+LEAF_SAG_RANDOM_RANGE = (0.84, 1.18)
+
+# Petiolules are mostly upward-oriented in the reference, but a few can be close
+# to horizontal or slightly downward.  The blade pose is adjusted from this same
+# tilt rather than independently randomized into an incompatible configuration.
+PETIOLULE_TILT_RANGE_DEG = (-5.0, 25.0)
 LEAF_AZIMUTH_VARIATION_DEG = 9.0
 
 PAIR_Y = (-0.105, 0.0, 0.105)
@@ -104,22 +108,37 @@ def _smoothstep(value):
     return value * value * (3.0 - 2.0 * value)
 
 
-def _stable_signed(key, salt):
-    """Stable pseudo-random scalar in [-1, 1] for one organ/property."""
-    payload = f"{key}|{salt}|test-5a-v5".encode("utf-8")
+def _stable_unit(key, salt):
+    """Stable pseudo-random scalar in [0, 1] for one organ/property."""
+    payload = f"{key}|{salt}|test-5a-v6".encode("utf-8")
     digest = hashlib.blake2b(payload, digest_size=8).digest()
     integer = int.from_bytes(digest, byteorder="big", signed=False)
-    unit = integer / float((1 << 64) - 1)
-    return unit * 2.0 - 1.0
+    return integer / float((1 << 64) - 1)
 
 
-def _stable_scale(key, salt, variation):
-    return 1.0 + variation * _stable_signed(key, salt)
+def _stable_range(key, salt, low, high):
+    return low + (high - low) * _stable_unit(key, salt)
+
+
+def _stable_signed(key, salt):
+    return _stable_unit(key, salt) * 2.0 - 1.0
+
+
+def _lerp(a, b, t):
+    return a + (b - a) * max(0.0, min(1.0, t))
 
 
 def _rotate_about_up(direction, angle_deg):
     rotation = Gf.Rotation(Gf.Vec3d(0.0, 0.0, 1.0), angle_deg)
     return _normalized(rotation.TransformDir(direction))
+
+
+def _tilted_direction(outward, tilt_deg):
+    radians = math.radians(tilt_deg)
+    return _normalized(
+        outward * math.cos(radians)
+        + Gf.Vec3d(0.0, 0.0, 1.0) * math.sin(radians)
+    )
 
 
 def _cubic_point(p0, p1, p2, p3, t):
@@ -171,7 +190,6 @@ def _transport_frames(tangents):
 
     normal = _normalized(Gf.Cross(reference, first))
     binormal = _normalized(Gf.Cross(first, normal))
-
     normals = [normal]
     binormals = [binormal]
     previous_tangent = first
@@ -210,12 +228,7 @@ def _tube_data(centers, tangents, radii, *, cap_start=True, cap_end=True):
     normals, binormals = _transport_frames(tangents)
     points = []
 
-    for center, normal, binormal, radius in zip(
-        centers,
-        normals,
-        binormals,
-        radii,
-    ):
+    for center, normal, binormal, radius in zip(centers, normals, binormals, radii):
         for radial in range(RADIAL_SEGMENTS):
             theta = 2.0 * math.pi * radial / RADIAL_SEGMENTS
             point = center + radius * (
@@ -334,7 +347,6 @@ def _author_leaf_blade(
             row1 + 1,
             row1 + 0,
         ))
-
         face_counts.extend((3, 3))
         face_indices.extend((
             row0 + 1,
@@ -401,7 +413,7 @@ def _author_straight_pair(stage, root_path, x, y):
 
 
 def _author_proposed_pair(stage, root_path, x, y):
-    """Proposed: per-leaf deterministic variation around the validated shape."""
+    """Per-leaf variation with petiolule tilt and gravity-aware blade pose."""
     world_up = Gf.Vec3d(0.0, 0.0, 1.0)
 
     for side_name, sign in (("Left", -1.0), ("Right", 1.0)):
@@ -412,51 +424,66 @@ def _author_proposed_pair(stage, root_path, x, y):
         azimuth = LEAF_AZIMUTH_VARIATION_DEG * _stable_signed(key, "azimuth")
         outward = _rotate_about_up(base_outward, azimuth)
 
-        petiolule_length = PETIOLULE_LENGTH_M * _stable_scale(
-            key,
-            "petiolule_length",
-            PETIOLULE_LENGTH_VARIATION,
+        petiolule_length = PETIOLULE_LENGTH_M * _stable_range(
+            key, "petiolule_length", *PETIOLULE_LENGTH_SCALE_RANGE
         )
-        lift = PETIOLULE_LIFT_M * _stable_scale(
-            key,
-            "petiolule_lift",
-            PETIOLULE_LIFT_VARIATION,
+        radius_scale = _stable_range(
+            key, "petiolule_radius", *PETIOLULE_RADIUS_SCALE_RANGE
         )
-        leaf_length = LEAF_LENGTH_M * _stable_scale(
-            key,
-            "leaf_length",
-            LEAF_LENGTH_VARIATION,
+        tilt_deg = _stable_range(key, "petiolule_tilt", *PETIOLULE_TILT_RANGE_DEG)
+        petiolule_direction = _tilted_direction(outward, tilt_deg)
+
+        leaf_length = LEAF_LENGTH_M * _stable_range(
+            key, "leaf_length", *LEAF_LENGTH_SCALE_RANGE
         )
-        leaf_half_width = LEAF_HALF_WIDTH_M * _stable_scale(
-            key,
-            "leaf_width",
-            LEAF_WIDTH_VARIATION,
+        leaf_half_width = LEAF_HALF_WIDTH_M * _stable_range(
+            key, "leaf_width", *LEAF_WIDTH_SCALE_RANGE
         )
-        fold_depth = LEAF_LONGITUDINAL_FOLD_M * _stable_scale(
-            key,
-            "fold",
-            LEAF_FOLD_VARIATION,
-        )
-        arch_lift = LEAF_ARCH_LIFT_M * _stable_scale(
-            key,
-            "arch",
-            LEAF_ARCH_VARIATION,
-        )
-        tip_sag = LEAF_TIP_SAG_M * _stable_scale(
-            key,
-            "sag",
-            LEAF_SAG_VARIATION,
+        fold_depth = LEAF_LONGITUDINAL_FOLD_M * _stable_range(
+            key, "fold", *LEAF_FOLD_SCALE_RANGE
         )
 
+        # Couple gravity shape to the petiolule tilt.  A more upward support
+        # means the blade must bend more around its short axis to settle under
+        # gravity; a downward support already points toward gravity and therefore
+        # receives a milder additional arch/sag.
+        tilt01 = (
+            (tilt_deg - PETIOLULE_TILT_RANGE_DEG[0])
+            / (PETIOLULE_TILT_RANGE_DEG[1] - PETIOLULE_TILT_RANGE_DEG[0])
+        )
+        pose_arch_scale = _lerp(0.48, 1.22, tilt01)
+        pose_sag_scale = _lerp(0.62, 1.38, tilt01)
+        arch_lift = (
+            LEAF_ARCH_LIFT_M
+            * pose_arch_scale
+            * _stable_range(key, "arch", *LEAF_ARCH_RANDOM_RANGE)
+        )
+        tip_sag = (
+            LEAF_TIP_SAG_M
+            * pose_sag_scale
+            * _stable_range(key, "sag", *LEAF_SAG_RANDOM_RANGE)
+        )
+
+        # Short petiolule: almost straight in its own randomized tilt direction,
+        # with only a tiny curvature perturbation for organic variation.
+        curve_bias = 0.00055 * _stable_signed(key, "petiolule_curve")
         p0 = root
-        p1 = root + outward * (petiolule_length * 0.33) + world_up * (lift * 0.30)
-        p2 = root + outward * (petiolule_length * 0.68) + world_up * (lift * 0.78)
-        p3 = root + outward * petiolule_length + world_up * lift
+        p1 = (
+            root
+            + petiolule_direction * (petiolule_length * 0.33)
+            + world_up * (curve_bias * 0.35)
+        )
+        p2 = (
+            root
+            + petiolule_direction * (petiolule_length * 0.68)
+            + world_up * curve_bias
+        )
+        p3 = root + petiolule_direction * petiolule_length
 
         centers, tangents = _sample_cubic(p0, p1, p2, p3)
         radii = _taper_radii(
-            PETIOLULE_ROOT_RADIUS_M,
-            PETIOLULE_TIP_RADIUS_M,
+            PETIOLULE_ROOT_RADIUS_M * radius_scale,
+            PETIOLULE_TIP_RADIUS_M * radius_scale,
             len(centers),
         )
         _author_mesh(
@@ -466,7 +493,10 @@ def _author_proposed_pair(stage, root_path, x, y):
             PETIOLULE_COLOR,
         )
 
-        distal_forward = _normalized(outward * 0.30 + tangents[-1] * 0.70)
+        # Begin essentially on the actual petiolule tangent.  The centerline
+        # deformation above then performs the gravity-dependent longitudinal bend
+        # rather than forcing every leaf into the same world-space pose.
+        distal_forward = _normalized(tangents[-1] * 0.88 + outward * 0.12)
         _author_leaf_blade(
             stage,
             f"{root_path}/{side_name}Leaf",
@@ -478,6 +508,14 @@ def _author_proposed_pair(stage, root_path, x, y):
             arch_lift=arch_lift,
             tip_sag=tip_sag,
             color=LEAF_COLOR,
+        )
+
+        print(
+            f"[LEAF] {key} | tilt={tilt_deg:+.1f}deg | "
+            f"petioleL={petiolule_length / PETIOLULE_LENGTH_M:.2f}x | "
+            f"width={leaf_half_width / LEAF_HALF_WIDTH_M:.2f}x | "
+            f"arch={arch_lift / LEAF_ARCH_LIFT_M:.2f}x | "
+            f"sag={tip_sag / LEAF_TIP_SAG_M:.2f}x"
         )
 
 
@@ -526,12 +564,12 @@ def main():
     stage.GetRootLayer().Save()
 
     print("=" * 76)
-    print("TEST 5A v5 - ORGANIC RANDOMIZED LEAF REST SHAPES")
+    print("TEST 5A v6 - TILT-AWARE RANDOMIZED LEAF REST SHAPES")
     print("=" * 76)
     print(f"USD: {OUTPUT_USD}")
     print("LEFT  : short straight petiolule + flat 2D blade")
-    print("RIGHT : deterministic per-leaf variation around the validated shape")
-    print("Varies: azimuth, lengths, width, lift, midrib fold, arch and sag")
+    print("RIGHT : asymmetric size variation + randomized petiolule tilt")
+    print("Leaf gravity bend is coupled to petiolule tilt for plausible poses")
     print("Randomness is stable: identical organ path -> identical generated shape")
     print("No physics / no joints / no UsdSkel / no runtime deformation")
     print("=" * 76)
