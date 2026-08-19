@@ -8,11 +8,12 @@ from pxr import UsdGeom
 from .adapter import resolve_vegetative_graph
 from .axis import build_visual_axes
 from .branch_physics import author_branch_joints, author_rigid_links
+from .global_visual import author_global_visual_axes
 from .mesh import author_visual_axis
 from .visual_modes import author_rigid_visual_axis, author_static_visual_axis
 
 
-VALID_VISUAL_MODES = ("skinned", "static", "rigid-single")
+VALID_VISUAL_MODES = ("skinned", "static", "rigid-single", "global")
 VISUAL_MODE_ENV = "AUTOTOM_SKINNING_VISUAL_MODE"
 
 
@@ -29,13 +30,12 @@ def build_skinned_vegetative_structure(
     """Build vegetative physics and one of the supported smooth visual modes.
 
     visual_mode:
-      - ``skinned``: current full UsdSkel implementation.
+      - ``skinned``: current validated per-axis UsdSkel implementation.
       - ``static``: exact same smooth tube meshes, but no UsdSkel anywhere.
-      - ``rigid-single``: one-link axes are plain meshes parented directly to
-        their PhysX rigid body; multi-link axes keep normal UsdSkel skinning.
-
-    If ``visual_mode`` is omitted, the diagnostic environment variable
-    ``AUTOTOM_SKINNING_VISUAL_MODE`` is used, falling back to ``skinned``.
+      - ``rigid-single``: one-link axes are rigid meshes; multi-link axes keep
+        normal per-axis UsdSkel skinning.
+      - ``global``: exact same smooth meshes, but every vegetative link is
+        represented by one shared plant-wide Skeleton and SkelAnimation.
     """
     if visual_mode is None:
         visual_mode = os.environ.get(VISUAL_MODE_ENV, "skinned")
@@ -48,6 +48,7 @@ def build_skinned_vegetative_structure(
     visual_parent = "/World/PlantVisual"
     UsdGeom.Xform.Define(stage, physics_parent)
     UsdGeom.Xform.Define(stage, visual_parent)
+
     resolved = resolve_vegetative_graph(
         branches,
         all_branch_defs=all_branch_defs,
@@ -69,6 +70,7 @@ def build_skinned_vegetative_structure(
         for axis in visual_axes
         for member in axis.members
     }
+
     for child in resolved:
         if child.parent_id is None:
             continue
@@ -76,6 +78,7 @@ def build_skinned_vegetative_structure(
         child_axis = axis_by_member[child.branch_id]
         if child_axis is parent_axis:
             continue
+
         parent = by_id[child.parent_id]
         attach_frac = max(
             0.0,
@@ -88,6 +91,21 @@ def build_skinned_vegetative_structure(
         global_arc = parent_axis.member_offsets[parent.branch_id] + local_arc
         parent_axis.attachment_arcs.append(round(global_arc, 12))
 
+    for axis in visual_axes:
+        axis.attachment_arcs = sorted(set(axis.attachment_arcs))
+
+    if visual_mode == "global":
+        stats = author_global_visual_axes(stage, visual_axes, resolved)
+        print(
+            "[SKIN-VISUAL] "
+            f"mode=global | shared_skeletons=1 | "
+            f"axes={stats['axes']} | bones={stats['bones']} | meshes={stats['meshes']}"
+        )
+        return {
+            branch.branch_id: branch.as_registry_entry()
+            for branch in resolved
+        }
+
     counts = {
         "skinned_axes": 0,
         "static_axes": 0,
@@ -95,8 +113,6 @@ def build_skinned_vegetative_structure(
     }
 
     for axis in visual_axes:
-        axis.attachment_arcs = sorted(set(axis.attachment_arcs))
-
         if visual_mode == "static":
             author_static_visual_axis(stage, axis)
             counts["static_axes"] += 1
