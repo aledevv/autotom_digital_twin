@@ -245,12 +245,26 @@ def resolve_vegetative_graph(
                 axis.Normalize()
                 orientation = Gf.Quatf(combined.GetQuat())
 
-                radial_distance = 0.0 if tilt == 0.0 and rot == 0.0 else parent_data.radius / 2.0
+                # ``segmented-fork`` may mark a terminal petiole for a true
+                # centerline attachment.  This is preferable to drawing a
+                # separate visual bridge: the real leaf branch itself becomes
+                # one arm of the Y, its joint remains physical, and there is no
+                # hollow/off-axis sleeve at the structural tip.
+                centered_terminal = bool(branch.get("_terminal_fork_centered", False))
+                radial_distance = (
+                    0.0
+                    if centered_terminal or (tilt == 0.0 and rot == 0.0)
+                    else parent_data.radius / 2.0
+                )
                 attach_frac = float(branch.get("attach_frac", 1.0))
                 z_local = (
-                    parent_data.link_height + gap
-                    if attach_frac >= 1.0
-                    else attach_frac * parent_data.link_height
+                    parent_data.link_height
+                    if centered_terminal and attach_frac >= 1.0
+                    else (
+                        parent_data.link_height + gap
+                        if attach_frac >= 1.0
+                        else attach_frac * parent_data.link_height
+                    )
                 )
                 base_offset = Gf.Vec3d(0.0, radial_distance, z_local)
                 offset_parent = rot_z.TransformDir(base_offset)
