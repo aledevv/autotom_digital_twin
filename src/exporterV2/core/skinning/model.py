@@ -97,16 +97,28 @@ class BranchData:
 
 @dataclass(frozen=True)
 class VisualSegment:
-    """One immutable botanical radius span in world-space meters."""
+    """One botanical radius span in world-space meters."""
 
     source_id: str
     start_arc: float
     length: float
     radius: float
 
+    # Optional visual-only radius at the distal end.
+    # None preserves the previous constant-radius behaviour.
+    end_radius: Optional[float] = None
+
     @property
     def end_arc(self) -> float:
         return self.start_arc + self.length
+
+    @property
+    def distal_radius(self) -> float:
+        return (
+            self.radius
+            if self.end_radius is None
+            else self.end_radius
+        )
 
 
 @dataclass

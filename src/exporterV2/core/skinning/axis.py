@@ -108,16 +108,44 @@ def _member_segments(member: BranchData, start_arc: float) -> List[VisualSegment
             source_id = str(raw["source_id"])
             length = scaled(float(raw["length"]))
             radius = scaled(float(raw["radius"]))
+
+            raw_end_radius = raw.get("end_radius")
+
+            end_radius = (
+                scaled(float(raw_end_radius))
+                if raw_end_radius is not None
+                else None
+            )
+
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError(
                 f"Branch '{member.branch_id}' has invalid visual segment {index}"
             ) from exc
-        if length <= 0.0 or radius <= 0.0:
+
+        # Validate both the normal radius and the optional distal radius.
+        if (
+            length <= 0.0
+            or radius <= 0.0
+            or (
+                end_radius is not None
+                and end_radius <= 0.0
+            )
+        ):
             raise ValueError(
                 f"Branch '{member.branch_id}' visual segment {index} must have "
-                "positive length and radius"
+                "positive length and radii"
             )
-        result.append(VisualSegment(source_id, cursor, length, radius))
+
+        result.append(
+            VisualSegment(
+                source_id=source_id,
+                start_arc=cursor,
+                length=length,
+                radius=radius,
+                end_radius=end_radius,
+            )
+        )
+
         cursor += length
 
     visual_length = cursor - start_arc

@@ -82,6 +82,32 @@ def _radius_transition_half_width(
     )
 
 
+def _segment_radius(
+    segment,
+    arc: float,
+) -> float:
+    """Evaluate the radius inside one visual segment."""
+
+    if segment.end_radius is None:
+        return segment.radius
+
+    t = (
+        (arc - segment.start_arc)
+        / max(segment.length, 1e-8)
+    )
+
+    t = _smoothstep(t)
+
+    return (
+        segment.radius
+        + (
+            segment.end_radius
+            - segment.radius
+        )
+        * t
+    )
+
+
 def build_axis_sample_arcs(axis: VisualAxisData) -> List[float]:
     """Build optimizer-independent axial samples in world-space meters."""
     spacing = axis.profile.axial_spacing_m
@@ -100,6 +126,38 @@ def build_axis_sample_arcs(axis: VisualAxisData) -> List[float]:
         _canonical_arc(segment.end_arc, axis.total_length)
         for segment in axis.visual_segments[:-1]
     )
+
+    # Extra local samples for explicitly tapered visual segments.
+    # This does not increase the resolution of the entire plant:
+    # only short segments using end_radius receive extra rings.
+    for segment in axis.visual_segments:
+        if segment.end_radius is None:
+            continue
+
+        taper_samples = 5
+
+        for index in range(
+            taper_samples
+        ):
+            t = (
+                index
+                / float(
+                    taper_samples - 1
+                )
+            )
+
+            sample_arc = (
+                segment.start_arc
+                + segment.length * t
+            )
+
+            arcs.add(
+                _canonical_arc(
+                    sample_arc,
+                    axis.total_length,
+                )
+            )
+
     # Add local samples around every botanical radius boundary.
     # This keeps the global mesh resolution unchanged while giving
     # radius transitions enough geometry to look smooth.
@@ -147,48 +205,95 @@ def build_axis_sample_arcs(axis: VisualAxisData) -> List[float]:
     return sorted(arcs)
 
 
-def _profile_radius(axis: VisualAxisData, arc: float) -> float:
+def _profile_radius(
+    axis: VisualAxisData,
+    arc: float,
+) -> float:
     segments = axis.visual_segments
-    radius = segments[-1].radius
+
+    # ---------------------------------------------------------------
+    # 1. Find the segment containing this arc position.
+    # ---------------------------------------------------------------
+    current_segment = segments[-1]
+
     for segment in segments:
         if arc <= segment.end_arc + 1e-12:
-            radius = segment.radius
+            current_segment = segment
             break
 
+    # Normal radius inside the segment.
+    radius = _segment_radius(
+        current_segment,
+        arc,
+    )
+
+    # ---------------------------------------------------------------
+    # 2. Smooth the boundary between consecutive visual segments.
+    # ---------------------------------------------------------------
     for previous, current in zip(
         segments,
         segments[1:],
     ):
         boundary = previous.end_arc
 
-        half_width = _radius_transition_half_width(
-            axis,
-            previous,
-            current,
+        half_width = (
+            _radius_transition_half_width(
+                axis,
+                previous,
+                current,
+            )
+        )
+
+        if half_width <= 0.0:
+            continue
+
+        transition_start = (
+            boundary - half_width
+        )
+
+        transition_end = (
+            boundary + half_width
         )
 
         if (
-            half_width > 0.0
-            and boundary - half_width
+            transition_start
             <= arc
-            <= boundary + half_width
+            <= transition_end
         ):
+            # Evaluate the REAL radius of both segments at the edges
+            # of the blending region. This is important now that
+            # segments themselves may taper.
+            radius_before = _segment_radius(
+                previous,
+                transition_start,
+            )
+
+            radius_after = _segment_radius(
+                current,
+                transition_end,
+            )
+
             blend = _smoothstep(
                 (
                     arc
-                    - (boundary - half_width)
+                    - transition_start
                 )
-                / (2.0 * half_width)
+                / max(
+                    transition_end
+                    - transition_start,
+                    1e-8,
+                )
             )
 
             return (
-                previous.radius
+                radius_before
                 + (
-                    current.radius
-                    - previous.radius
+                    radius_after
+                    - radius_before
                 )
                 * blend
             )
+
     return radius
 
 

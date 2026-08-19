@@ -8,14 +8,26 @@ from typing import List, Dict
 from pathlib import Path
 from functools import lru_cache
 
+PETIOLULE_TIP_RADIUS_SCALE = 0.65
 
-def _visual_segment(branch_id: str, length: float, radius: float) -> Dict:
-    """Preserve the authored visual profile independently of physics reduction."""
-    return {
+def _visual_segment(
+    branch_id: str,
+    length: float,
+    radius: float,
+    end_radius: float = None,
+) -> Dict:
+    """Preserve visual geometry independently of physics."""
+
+    segment = {
         "source_id": branch_id,
         "length": length,
         "radius": radius,
     }
+
+    if end_radius is not None:
+        segment["end_radius"] = end_radius
+
+    return segment
 
 
 @lru_cache(maxsize=1)
@@ -326,7 +338,15 @@ def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: f
             "system": "vegetative",
             "visual_axis_id": left_id,
             "visual_segments": [
-                _visual_segment(left_id, petiolule_length, petiolule_r)
+                _visual_segment(
+                    left_id,
+                    petiolule_length,
+                    petiolule_r,
+                    end_radius=(
+                        petiolule_r
+                        * PETIOLULE_TIP_RADIUS_SCALE
+                    ),
+                )
             ],
             "parent": rachis_id,
             "attach_link": attach_link_idx,
@@ -354,7 +374,15 @@ def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: f
             "system": "vegetative",
             "visual_axis_id": right_id,
             "visual_segments": [
-                _visual_segment(right_id, petiolule_length, petiolule_r)
+                _visual_segment(
+                    right_id,
+                    petiolule_length,
+                    petiolule_r,
+                    end_radius=(
+                        petiolule_r
+                        * PETIOLULE_TIP_RADIUS_SCALE
+                    ),
+                )
             ],
             "parent": rachis_id,
             "attach_link": attach_link_idx,
@@ -447,7 +475,15 @@ def create_terminal_petiolule(
         "system": "vegetative",
         "visual_axis_id": visual_axis_id,
         "visual_segments": [
-            _visual_segment(term_id, petiolule_length, petiolule_r)
+            _visual_segment(
+                term_id,
+                petiolule_length,
+                petiolule_r,
+                end_radius=(
+                    petiolule_r
+                    * PETIOLULE_TIP_RADIUS_SCALE
+                ),
+            )
         ],
         "parent": rachis_id,
         "attach_link": rachis_n_links,  # Last link of rachis
