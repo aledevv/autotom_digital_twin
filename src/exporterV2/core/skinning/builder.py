@@ -39,19 +39,7 @@ def build_skinned_vegetative_structure(
     legacy_physics: bool = False,
     visual_mode: str = None,
 ):
-    """Build vegetative physics and one of the supported smooth visual modes.
-
-    visual_mode:
-      - ``skinned``: current validated per-axis UsdSkel implementation.
-      - ``static``: exact same smooth tube meshes, but no UsdSkel anywhere.
-      - ``rigid-single``: one-link axes are rigid meshes; multi-link axes keep
-        normal per-axis UsdSkel skinning.
-      - ``global``: all vegetative axes share one Skeleton/SkelAnimation.
-      - ``segmented``: one organic rigid mesh per PhysX link, no UsdSkel.
-      - ``segmented-fork``: segmented mode plus visual-only terminal fork
-        dressing. The existing real leaf/truss remains unchanged; only a short
-        fake young continuation shoot is added on the complementary side.
-    """
+    """Build vegetative physics and one of the supported smooth visual modes."""
     if visual_mode is None:
         visual_mode = os.environ.get(VISUAL_MODE_ENV, "skinned")
     if visual_mode not in VALID_VISUAL_MODES:
@@ -121,6 +109,19 @@ def build_skinned_vegetative_structure(
             for branch in resolved
         }
 
+    # In fork mode, discover/author the dressing first.  This gives us the exact
+    # structural hosts that need a narrowed terminal tip while leaving normal
+    # segmented geometry unchanged everywhere else.
+    fork_records = []
+    fork_parent_ids = set()
+    if visual_mode == "segmented-fork":
+        fork_records = author_terminal_visual_forks(
+            stage,
+            visual_axes,
+            all_branch_defs,
+        )
+        fork_parent_ids = {record["parent"] for record in fork_records}
+
     counts = {
         "skinned_axes": 0,
         "static_axes": 0,
@@ -144,7 +145,18 @@ def build_skinned_vegetative_structure(
             continue
 
         if segmented_mode:
-            stats = author_segmented_visual_axis(stage, axis)
+            terminal_member_id = axis.members[-1].branch_id
+            terminal_tip_scale = (
+                0.56
+                if visual_mode == "segmented-fork"
+                and terminal_member_id in fork_parent_ids
+                else 1.0
+            )
+            stats = author_segmented_visual_axis(
+                stage,
+                axis,
+                terminal_tip_scale=terminal_tip_scale,
+            )
             counts["segmented_axes"] += 1
             counts["segmented_meshes"] += stats["segments"]
             counts["segmented_tongues"] += stats["tongues"]
@@ -152,14 +164,6 @@ def build_skinned_vegetative_structure(
 
         author_visual_axis(stage, axis)
         counts["skinned_axes"] += 1
-
-    fork_records = []
-    if visual_mode == "segmented-fork":
-        fork_records = author_terminal_visual_forks(
-            stage,
-            visual_axes,
-            all_branch_defs,
-        )
 
     if segmented_mode:
         print(
