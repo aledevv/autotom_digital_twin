@@ -21,13 +21,17 @@ from .mesh import (
 from .model import VisualAxisData
 
 
-# Segmented realtime mode.  Each physical link owns one rigid visual mesh.
-# The parent piece extends a short, narrower "tongue" into the next piece so a
-# bending joint exposes an organic overlap instead of a completely empty crack.
+# Segmented realtime mode. Each physical link owns one rigid visual mesh.
 _SEGMENT_TONGUE_MAX_M = 0.006
 _SEGMENT_TONGUE_FRACTION = 0.18
 _SEGMENT_TONGUE_START_SCALE = 0.90
 _SEGMENT_TONGUE_END_SCALE = 0.75
+
+# Optional terminal taper used only by ``segmented-fork`` structural hosts.
+# The normal segmented mode remains byte-for-byte equivalent in shape because
+# its default terminal_tip_scale is 1.0.
+_TERMINAL_TAPER_MAX_M = 0.022
+_TERMINAL_TAPER_LINK_FRACTION = 0.42
 
 
 def _author_plain_mesh(
@@ -111,13 +115,35 @@ def _segment_overlap(axis: VisualAxisData, link_index: int) -> float:
     )
 
 
+def _terminal_taper_start(
+    axis: VisualAxisData,
+    link_index: int,
+    terminal_tip_scale: float,
+):
+    if terminal_tip_scale >= 0.999999:
+        return None
+    if link_index != len(axis.link_paths) - 1:
+        return None
+
+    link_length = axis.bone_lengths[link_index]
+    taper_length = min(
+        _TERMINAL_TAPER_MAX_M,
+        link_length * _TERMINAL_TAPER_LINK_FRACTION,
+    )
+    if taper_length <= 1e-8:
+        return None
+    return max(axis.bone_starts[link_index], axis.total_length - taper_length)
+
+
 def _segment_sample_arcs(
     axis: VisualAxisData,
     core_start: float,
     core_end: float,
     tongue_end: float,
+    *,
+    terminal_taper_start=None,
 ):
-    """Reuse global smooth-mesh samples and add local tongue samples."""
+    """Reuse global smooth-mesh samples and add local tongue/tip samples."""
     eps = 1e-10
     arcs = {
         arc
@@ -132,6 +158,14 @@ def _segment_sample_arcs(
         overlap = tongue_end - core_end
         arcs.add(core_end + overlap / 3.0)
         arcs.add(core_end + 2.0 * overlap / 3.0)
+
+    if terminal_taper_start is not None:
+        taper_length = max(core_end - terminal_taper_start, 0.0)
+        arcs.add(terminal_taper_start)
+        arcs.add(terminal_taper_start + taper_length * 0.25)
+        arcs.add(terminal_taper_start + taper_length * 0.50)
+        arcs.add(terminal_taper_start + taper_length * 0.75)
+        arcs.add(core_end)
 
     return sorted(arcs)
 
@@ -149,12 +183,35 @@ def _tongue_radius_scale(arc: float, core_end: float, tongue_end: float) -> floa
     )
 
 
-def _build_segmented_link_mesh(axis: VisualAxisData, link_index: int):
+def _terminal_radius_scale(
+    arc: float,
+    core_end: float,
+    taper_start,
+    terminal_tip_scale: float,
+) -> float:
+    if taper_start is None or arc <= taper_start:
+        return 1.0
+    q = _smoothstep(
+        (arc - taper_start) / max(core_end - taper_start, 1e-8)
+    )
+    return 1.0 + (terminal_tip_scale - 1.0) * q
+
+
+def _build_segmented_link_mesh(
+    axis: VisualAxisData,
+    link_index: int,
+    *,
+    terminal_tip_scale: float = 1.0,
+):
     """Build one rigid piece of the organic tube in the link's local frame."""
     radial_segments = axis.profile.radial_segments
     if radial_segments < 3:
         raise ValueError(
             f"Visual axis '{axis.axis_id}' radial_segments must be at least 3"
+        )
+    if not 0.1 <= terminal_tip_scale <= 1.0:
+        raise ValueError(
+            f"terminal_tip_scale must be in [0.1, 1.0], got {terminal_tip_scale}"
         )
 
     core_start = axis.bone_starts[link_index]
@@ -164,7 +221,18 @@ def _build_segmented_link_mesh(axis: VisualAxisData, link_index: int):
     )
     overlap = _segment_overlap(axis, link_index)
     tongue_end = min(axis.total_length, core_end + overlap)
-    arcs = _segment_sample_arcs(axis, core_start, core_end, tongue_end)
+    taper_start = _terminal_taper_start(
+        axis,
+        link_index,
+        terminal_tip_scale,
+    )
+    arcs = _segment_sample_arcs(
+        axis,
+        core_start,
+        core_end,
+        tongue_end,
+        terminal_taper_start=taper_start,
+    )
 
     normals, binormals = build_parallel_transport_frames(axis, len(arcs))
     world_to_link = _link_rest_world(axis, link_index).GetInverse()
@@ -174,6 +242,12 @@ def _build_segmented_link_mesh(axis: VisualAxisData, link_index: int):
         center = axis.start + axis.axis * arc
         radius = _visual_radius(axis, arc)
         radius *= _tongue_radius_scale(arc, core_end, tongue_end)
+        radius *= _terminal_radius_scale(
+            arc,
+            core_end,
+            taper_start,
+            terminal_tip_scale,
+        )
 
         for radial in range(radial_segments):
             theta = 2.0 * math.pi * radial / radial_segments
@@ -203,13 +277,18 @@ def _build_segmented_link_mesh(axis: VisualAxisData, link_index: int):
     return points, face_counts, face_indices, overlap
 
 
-def author_segmented_visual_axis(stage, axis: VisualAxisData) -> dict:
+def author_segmented_visual_axis(
+    stage,
+    axis: VisualAxisData,
+    *,
+    terminal_tip_scale: float = 1.0,
+) -> dict:
     """Author one organic rigid mesh per PhysX link, with no UsdSkel.
 
-    This is the realtime Plan-B representation: visually it uses the same radius
-    profile/taper/bulges as the continuous skin, but each piece follows its rigid
-    PhysX link directly.  Internal pieces use a short nested tongue to reduce the
-    visible crack when adjacent links rotate.
+    ``terminal_tip_scale`` is normally 1.0.  The segmented-fork mode may pass a
+    smaller value for an eligible structural host so its last few centimetres
+    narrow naturally into the visual bifurcation instead of ending as a thick
+    flat tube.
     """
     segment_count = 0
     tongue_count = 0
@@ -218,6 +297,7 @@ def author_segmented_visual_axis(stage, axis: VisualAxisData) -> dict:
         points, face_counts, face_indices, overlap = _build_segmented_link_mesh(
             axis,
             link_index,
+            terminal_tip_scale=terminal_tip_scale,
         )
         _author_plain_mesh(
             stage,
