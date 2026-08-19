@@ -22,6 +22,12 @@ parser = argparse.ArgumentParser(description="exporterV2 Tree Loader")
 parser.add_argument("--day", type=int, help="Load plant from CSV for specified day")
 parser.add_argument("--plant-id", type=int, default=1, help="Plant ID (default: 1)")
 parser.add_argument("--optimize", action="store_true", help="Apply joint-budget optimization")
+parser.add_argument(
+    "--branch-backend",
+    choices=("legacy", "skinned"),
+    default="legacy",
+    help="Vegetative branch backend (default: legacy)",
+)
 args = parser.parse_args()
 
 # Bootstrap Isaac Sim
@@ -42,6 +48,8 @@ from exporterV2.core.usd import build_stage, get_output_usd_path
 from exporterV2.core.physics import apply_physx_scene_settings, apply_physx_articulation_settings
 from exporterV2.core.tree_config import BRANCHES, BranchResolutionConfig, limit_branch_resolution, MAX_N_JOINTS
 from exporterV2.core.optimizations.techniques.base import count_d6_joints
+from exporterV2.core.skinning import SkinningRuntime
+from exporterV2.core.skinning.runtime import configure_physx_mouse_interaction
 
 # ANSI color codes for terminal output
 RED = '\033[91m'
@@ -131,7 +139,12 @@ def main():
         f"{total_d6_joints} D6 joints, {len(terminal_bodies)} terminal bodies"
     )
     
-    stage, stem_path = build_stage(usd_path, branches=branches, terminal_bodies=terminal_bodies)
+    stage, stem_path = build_stage(
+        usd_path,
+        branches=branches,
+        terminal_bodies=terminal_bodies,
+        branch_backend=args.branch_backend,
+    )
     
     # Step 2: Apply PhysX settings
     print("\n[STEP 2/3] Applying PhysX configuration...")
@@ -145,6 +158,8 @@ def main():
     print("\n[STEP 3/3] Loading in Isaac Sim...")
     omni.usd.get_context().open_stage(usd_path)
     print("  ✓ Stage opened")
+    if args.branch_backend == "skinned":
+        configure_physx_mouse_interaction(simulation_app)
     
     # Set camera lighting mode
     try:
@@ -157,8 +172,21 @@ def main():
         print(f"  ⚠ Lighting action not available: {e}")
     
     # Initialize simulation
+    opened_stage = omni.usd.get_context().get_stage()
+    skinning_runtime = (
+        SkinningRuntime.discover(opened_stage)
+        if args.branch_backend == "skinned"
+        else None
+    )
+    if skinning_runtime is not None:
+        print(f"  ✓ Discovered {skinning_runtime.branch_count} skinned branches")
+
     my_world = World(stage_units_in_meters=1.0)
     my_world.reset()
+    if skinning_runtime is not None:
+        configure_physx_mouse_interaction(simulation_app)
+        skinning_runtime.sync()
+        simulation_app.update()
 
     # Optimization report goes to console only when optimization was actually run.
     if optimization_report is not None:
@@ -170,7 +198,12 @@ def main():
     
     # Run simulation loop
     while simulation_app.is_running():
-        my_world.step(render=True)
+        if skinning_runtime is None:
+            my_world.step(render=True)
+        else:
+            my_world.step(render=False)
+            skinning_runtime.sync()
+            simulation_app.update()
     
     print("\n[INFO] Simulation finished.")
     simulation_app.close()

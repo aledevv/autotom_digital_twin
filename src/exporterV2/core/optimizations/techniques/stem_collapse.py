@@ -226,7 +226,8 @@ class StemCollapseTechnique(OptimizationTechnique):
                         new_attach_link, new_attach_frac = remap_link_attachment(
                             old_attach_link,
                             original_links,
-                            self._target_segments
+                            self._target_segments,
+                            old_attach_frac,
                         )
                         
                         branch_copy["attach_link"] = new_attach_link
@@ -234,10 +235,18 @@ class StemCollapseTechnique(OptimizationTechnique):
                         children_remapped += 1
                     else:
                         # Fallback: proportional remapping without geometry module
-                        ratio = old_attach_link / original_links
-                        new_attach_link = max(1, int(ratio * self._target_segments))
+                        normalized = (
+                            old_attach_link - 1 + old_attach_frac
+                        ) / original_links
+                        scaled = normalized * self._target_segments
+                        if normalized >= 1.0:
+                            new_attach_link = self._target_segments
+                            new_attach_frac = 1.0
+                        else:
+                            new_attach_link = int(scaled) + 1
+                            new_attach_frac = scaled - int(scaled)
                         branch_copy["attach_link"] = new_attach_link
-                        branch_copy["attach_frac"] = 1.0
+                        branch_copy["attach_frac"] = new_attach_frac
                         children_remapped += 1
                 
                 modified.append(branch_copy)

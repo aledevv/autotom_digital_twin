@@ -18,6 +18,8 @@ The generator multiplies by GLOBAL_SCALE before building USD or computing physic
 Each dict describes one chain (trunk or branch). Fields:
 
   id          (str)        Unique identifier for this chain.
+  system      (str)        ``vegetative`` or ``truss``. Older definitions
+                           fall back to physics_profile for classification.
   parent      (str|None)   id of the parent chain, or None for the trunk.
   attach_link (int|None)   1-based index of the parent link to attach to.
                            None when parent is None.
@@ -223,6 +225,7 @@ class PlantColors:
 BRANCHES = [
     {
         "id"         : "trunk",
+        "system"     : "vegetative",
         "parent"     : None,
         "attach_link": None,
         "n_links"    : 5,
@@ -234,6 +237,7 @@ BRANCHES = [
     },
     {
         "id"         : "branchA",
+        "system"     : "vegetative",
         "parent"     : "trunk",
         "attach_link": 3,      # attaches to trunk link 3 (1-based)
         "n_links"    : 4,
@@ -244,6 +248,7 @@ BRANCHES = [
     },
     {
         "id"         : "subA1",
+        "system"     : "vegetative",
         "parent"     : "branchA",
         "attach_link": 2,      # attaches to branchA link 2 (1-based)
         "n_links"    : 3,

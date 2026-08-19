@@ -78,6 +78,14 @@ def _branch_damping_ratio(branch_def: dict, use_truss_physics: bool = False):
     return None
 
 
+def _is_truss_branch(branch_def: dict) -> bool:
+    """Honor explicit classification while retaining old profile-only configs."""
+    return (
+        branch_def.get("system") == "truss"
+        or branch_def.get("physics_profile") == "truss"
+    )
+
+
 def _resolve_terminal_body_attachment(body: dict, stem_path: str):
     """Resolve native detachment settings for one terminal body."""
     detachment_enabled = (
@@ -500,7 +508,7 @@ def build_chain(
         p_h_world = scaled(parent_def["height"])
         p_inner_radius_world = _branch_inner_radius_world(parent_def)
         
-        p_use_truss = parent_def.get("physics_profile") == "truss"
+        p_use_truss = _is_truss_branch(parent_def)
         p_ym = _branch_young_modulus(parent_def, use_truss_physics=p_use_truss)
         
         branch_EI = compute_flexural_rigidity(r_world, young_modulus, inner_radius_world)
@@ -637,6 +645,7 @@ def build_stage(
     skip_limit_check: bool = False,
     terminal_bodies=None,
     legacy_physics: bool = False,
+    branch_backend: str = "legacy",
 ):
     """
     Build the full tree USD stage from BRANCHES configuration.
@@ -649,6 +658,8 @@ def build_stage(
         skip_limit_check: If True, skip the link count limit check
         terminal_bodies: Optional rigid bodies attached to branch tips. This is a
                          generic hook used by adapter-generated tomatoes.
+        branch_backend: ``legacy`` keeps cylinder branches; ``skinned`` uses
+                        smooth UsdSkel visuals and capsule proxies for vegetation.
     
     Returns:
         Tuple (stage, stem_path)
@@ -657,6 +668,10 @@ def build_stage(
         branches = BRANCHES
     if terminal_bodies is None:
         terminal_bodies = []
+    if branch_backend not in ("legacy", "skinned"):
+        raise ValueError(
+            f"Unsupported branch_backend={branch_backend!r}; expected 'legacy' or 'skinned'"
+        )
 
     validate_branches(branches, skip_limit_check=skip_limit_check)
 
@@ -670,7 +685,32 @@ def build_stage(
     branch_registry = {}
     branch_defs = {branch["id"]: branch for branch in branches}
 
-    for b in branches:
+    branches_to_build = branches
+    if branch_backend == "skinned":
+        try:
+            from ..skinning import (
+                build_skinned_vegetative_structure,
+                partition_branches,
+            )
+        except ImportError:
+            from exporterV2.core.skinning import (
+                build_skinned_vegetative_structure,
+                partition_branches,
+            )
+
+        vegetative_branches, branches_to_build = partition_branches(branches)
+        if not vegetative_branches:
+            raise ValueError("The skinned backend requires at least one vegetative branch")
+        branch_registry.update(build_skinned_vegetative_structure(
+            stage,
+            stem_path,
+            vegetative_branches,
+            all_branch_defs=branch_defs,
+            locked_joints=locked_joints,
+            legacy_physics=legacy_physics,
+        ))
+
+    for b in branches_to_build:
         bid     = b["id"]
         is_root = b.get("parent") is None
         h_world = scaled(b["height"])
@@ -774,7 +814,7 @@ def build_stage(
                 attachment_local_rot0=local_rot0,
                 chain_orientation=chain_orientation,
                 locked_joints=locked_joints,
-                use_truss_physics=b.get("physics_profile") == "truss",
+                use_truss_physics=_is_truss_branch(b),
                 parent_def=parent_def,
                 legacy_physics=legacy_physics,
             )
@@ -827,7 +867,7 @@ def build_stage(
     return stage, stem_path
 
 
-def build_stage_locked(output_path: str, branches=None):
+def build_stage_locked(output_path: str, branches=None, branch_backend: str = "legacy"):
     """
     Convenience wrapper for build_stage() with locked_joints=True.
     
@@ -845,4 +885,9 @@ def build_stage_locked(output_path: str, branches=None):
     Example:
         stage, stem_path = build_stage_locked("test_locked.usda")
     """
-    return build_stage(output_path, branches, locked_joints=True)
+    return build_stage(
+        output_path,
+        branches,
+        locked_joints=True,
+        branch_backend=branch_backend,
+    )

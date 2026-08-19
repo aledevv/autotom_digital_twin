@@ -722,6 +722,7 @@ def lateral_branches_to_branch_config(lateral_branches: List[Dict], trunk_id: st
         # Create BRANCHES format dict
         branch = {
             "id": f"Branch_r{rank}_o{organ_index}",
+            "system": "vegetative",
             "parent": trunk_id,
             "attach_link": parent_rank + 1,  # 1-based indexing
             "n_links": len(group),
@@ -730,6 +731,12 @@ def lateral_branches_to_branch_config(lateral_branches: List[Dict], trunk_id: st
             "tilt": tilt_deg,
             "rot": rot_deg,
         }
+        branch["visual_axis_id"] = branch["id"]
+        branch["visual_segments"] = [{
+            "source_id": branch["id"],
+            "length": avg_height * len(group),
+            "radius": radius_final,
+        }]
         
         branches.append(branch)
     
@@ -769,6 +776,13 @@ def internodes_to_branch_config(internodes: List[Dict]) -> Dict:
     # Create BRANCHES format dict
     branch = {
         "id": "trunk",
+        "system": "vegetative",
+        "visual_axis_id": "trunk",
+        "visual_segments": [{
+            "source_id": "trunk",
+            "length": avg_height * len(internodes),
+            "radius": radius_final,
+        }],
         "parent": None,
         "attach_link": None,
         "n_links": len(internodes),
@@ -890,6 +904,7 @@ def _append_leaf_system(
         rachis_branch["n_links"],
         petiole_radius,
         leaf,
+        visual_axis_id=rachis_branch.get("visual_axis_id"),
     )
     all_branches.append(terminal_branch)
     terminal_bodies.append(terminal_body)
