@@ -34,6 +34,35 @@ def _quatf_from_matrix(matrix: Gf.Matrix4d) -> Gf.Quatf:
     return Gf.Quatf(float(quat.GetReal()), Gf.Vec3f(*quat.GetImaginary()))
 
 
+def link_rest_world(axis: VisualAxisData, link_index: int) -> Gf.Matrix4d:
+    """Return the world-space rest pose of a given physics link."""
+    matrix = Gf.Matrix4d(1.0)
+    matrix.SetTransform(
+        Gf.Rotation(Gf.Quatd(axis.link_orientations[link_index])),
+        axis.link_bases[link_index],
+    )
+    return matrix
+
+
+def author_plain_mesh(
+    stage,
+    path: str,
+    points,
+    face_counts,
+    face_indices,
+    color,
+) -> None:
+    """Author a non-skinned mesh with the given display color."""
+    mesh = UsdGeom.Mesh.Define(stage, path)
+    mesh.CreatePointsAttr().Set(Vt.Vec3fArray(points))
+    mesh.CreateFaceVertexCountsAttr().Set(Vt.IntArray(face_counts))
+    mesh.CreateFaceVertexIndicesAttr().Set(Vt.IntArray(face_indices))
+    mesh.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
+    mesh.CreateOrientationAttr().Set(UsdGeom.Tokens.rightHanded)
+    mesh.CreateDoubleSidedAttr().Set(True)
+    mesh.CreateDisplayColorAttr().Set(Vt.Vec3fArray([Gf.Vec3f(*color)]))
+
+
 def _decompose(transforms):
     translations = []
     rotations = []

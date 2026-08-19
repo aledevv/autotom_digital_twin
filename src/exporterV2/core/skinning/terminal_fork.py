@@ -17,7 +17,7 @@ from pxr import Gf, UsdGeom, Vt
 
 from ..tree_config import PlantColors
 from .adapter import branch_system
-from .mesh import _axis_color, _smoothstep, _visual_radius
+from .mesh import _axis_color, _smoothstep, _visual_radius, author_plain_mesh, link_rest_world
 from .model import BranchData, VisualAxisData
 
 
@@ -106,24 +106,6 @@ def _transport_frames(tangents):
     return normals, binormals
 
 
-def _author_plain_mesh(stage, path, points, face_counts, face_indices, color):
-    mesh = UsdGeom.Mesh.Define(stage, path)
-    mesh.CreatePointsAttr().Set(Vt.Vec3fArray(points))
-    mesh.CreateFaceVertexCountsAttr().Set(Vt.IntArray(face_counts))
-    mesh.CreateFaceVertexIndicesAttr().Set(Vt.IntArray(face_indices))
-    mesh.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
-    mesh.CreateOrientationAttr().Set(UsdGeom.Tokens.rightHanded)
-    mesh.CreateDoubleSidedAttr().Set(True)
-    mesh.CreateDisplayColorAttr().Set(Vt.Vec3fArray([Gf.Vec3f(*color)]))
-
-
-def _link_rest_world(axis: VisualAxisData) -> Gf.Matrix4d:
-    matrix = Gf.Matrix4d(1.0)
-    matrix.SetTransform(
-        Gf.Rotation(Gf.Quatd(axis.link_orientations[-1])),
-        axis.link_bases[-1],
-    )
-    return matrix
 
 
 def _is_structural_host(branch: BranchData) -> bool:
@@ -292,7 +274,7 @@ def _build_shoot_mesh(
     radii = _shoot_radii(parent_radius, len(centers))
     normals, binormals = _transport_frames(tangents)
     radial_segments = max(RADIAL_SEGMENTS_MIN, axis.profile.radial_segments)
-    world_to_link = _link_rest_world(axis).GetInverse()
+    world_to_link = link_rest_world(axis, -1).GetInverse()
 
     points = []
     for center, normal, binormal, radius in zip(
@@ -378,7 +360,7 @@ def _author_small_leaf(
         root_world + forward * (length * 0.28) - side * (half_width * 0.92),
     ]
     points = [Gf.Vec3f(*world_to_link.Transform(point)) for point in world_points]
-    _author_plain_mesh(
+    author_plain_mesh(
         stage,
         path,
         points,
@@ -418,7 +400,7 @@ def author_terminal_visual_fork(
     ) = _build_shoot_mesh(axis, junction, shoot_direction, parent_radius)
 
     root_path = axis.link_paths[-1]
-    _author_plain_mesh(
+    author_plain_mesh(
         stage,
         f"{root_path}/TerminalForkYoungShoot",
         points,

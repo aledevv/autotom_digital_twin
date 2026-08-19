@@ -14,9 +14,11 @@ from .mesh import (
     _axis_color,
     _smoothstep,
     _visual_radius,
+    author_plain_mesh,
     build_axis_sample_arcs,
     build_axis_tube_data,
     build_parallel_transport_frames,
+    link_rest_world,
 )
 from .model import VisualAxisData
 
@@ -46,47 +48,19 @@ _CENTERED_FORK_HOST_DOME_MAX_M = 0.0035
 _CENTERED_FORK_HOST_DOME_RADIUS_SCALE = 0.45
 
 
-def _author_plain_mesh(
-    stage,
-    mesh_path: str,
-    axis: VisualAxisData,
-    points,
-    face_counts,
-    face_indices,
-) -> None:
-    """Author a non-skinned mesh with the same display material as the tube."""
-    mesh = UsdGeom.Mesh.Define(stage, mesh_path)
-    mesh.CreatePointsAttr().Set(Vt.Vec3fArray(points))
-    mesh.CreateFaceVertexCountsAttr().Set(Vt.IntArray(face_counts))
-    mesh.CreateFaceVertexIndicesAttr().Set(Vt.IntArray(face_indices))
-    mesh.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
-    mesh.CreateOrientationAttr().Set(UsdGeom.Tokens.rightHanded)
-    mesh.CreateDoubleSidedAttr().Set(True)
-    mesh.CreateDisplayColorAttr().Set(Vt.Vec3fArray([
-        Gf.Vec3f(*_axis_color(axis))
-    ]))
-
-
-def _link_rest_world(axis: VisualAxisData, link_index: int) -> Gf.Matrix4d:
-    matrix = Gf.Matrix4d(1.0)
-    matrix.SetTransform(
-        Gf.Rotation(Gf.Quatd(axis.link_orientations[link_index])),
-        axis.link_bases[link_index],
-    )
-    return matrix
 
 
 def author_static_visual_axis(stage, axis: VisualAxisData) -> None:
     """Author the exact smooth tube as a static world-space mesh, with no UsdSkel."""
     UsdGeom.Xform.Define(stage, axis.visual_root_path)
     points, face_counts, face_indices, _, _ = build_axis_tube_data(axis)
-    _author_plain_mesh(
+    author_plain_mesh(
         stage,
         f"{axis.visual_root_path}/StaticMesh",
-        axis,
         points,
         face_counts,
         face_indices,
+        _axis_color(axis),
     )
 
 
@@ -98,19 +72,19 @@ def author_rigid_visual_axis(stage, axis: VisualAxisData) -> None:
         )
 
     world_points, face_counts, face_indices, _, _ = build_axis_tube_data(axis)
-    world_to_link = _link_rest_world(axis, 0).GetInverse()
+    world_to_link = link_rest_world(axis, 0).GetInverse()
     local_points = [
         Gf.Vec3f(*world_to_link.Transform(Gf.Vec3d(*point)))
         for point in world_points
     ]
 
-    _author_plain_mesh(
+    author_plain_mesh(
         stage,
         f"{axis.link_paths[0]}/VisualMesh",
-        axis,
         local_points,
         face_counts,
         face_indices,
+        _axis_color(axis),
     )
 
 
@@ -129,7 +103,7 @@ def _segment_overlap(axis: VisualAxisData, link_index: int) -> float:
 def _centered_fork_root_overlap(axis: VisualAxisData, link_index: int) -> float:
     if link_index != 0:
         return 0.0
-    if not bool(axis.definition.get("_terminal_fork_centered", False)):
+    if not axis.members[0].centered_terminal:
         return 0.0
 
     link_length = axis.bone_lengths[0]
@@ -142,7 +116,7 @@ def _centered_fork_root_overlap(axis: VisualAxisData, link_index: int) -> float:
 def _is_centered_fork_host(axis: VisualAxisData, link_index: int) -> bool:
     return (
         link_index == len(axis.link_paths) - 1
-        and bool(axis.members[-1].definition.get("_terminal_fork_centered_host", False))
+        and axis.members[-1].centered_terminal_host
     )
 
 
@@ -330,7 +304,7 @@ def _build_segmented_link_mesh(
     )
 
     normals, binormals = build_parallel_transport_frames(axis, len(arcs))
-    world_to_link = _link_rest_world(axis, link_index).GetInverse()
+    world_to_link = link_rest_world(axis, link_index).GetInverse()
     points = []
 
     for arc, normal, binormal in zip(arcs, normals, binormals):
@@ -404,13 +378,13 @@ def author_segmented_visual_axis(
             link_index,
             terminal_tip_scale=terminal_tip_scale,
         )
-        _author_plain_mesh(
+        author_plain_mesh(
             stage,
             f"{link_path}/OrganicVisual_{link_index + 1:02d}",
-            axis,
             points,
             face_counts,
             face_indices,
+            _axis_color(axis),
         )
         segment_count += 1
         if overlap > 0.0:

@@ -8,7 +8,6 @@ from pxr import UsdGeom
 from .adapter import branch_system, resolve_vegetative_graph
 from .axis import build_visual_axes
 from .branch_physics import author_branch_joints, author_rigid_links
-from .global_visual import author_global_visual_axes
 from .mesh import _visual_radius, author_visual_axis
 from .terminal_fork import author_terminal_visual_forks
 from .visual_modes import (
@@ -22,57 +21,11 @@ VALID_VISUAL_MODES = (
     "skinned",
     "static",
     "rigid-single",
-    "global",
     "segmented",
-    "segmented-fork",
 )
 VISUAL_MODE_ENV = "AUTOTOM_SKINNING_VISUAL_MODE"
 
 
-def _is_structural_terminal_host(branch: dict) -> bool:
-    branch_id = str(branch.get("id", "")).lower()
-    kind = str(branch.get("kind", "")).lower()
-    return (
-        branch.get("parent") is None
-        or branch_id.startswith("branch_r")
-        or kind in {"stem", "trunk", "branch", "lateral_branch"}
-    )
-
-
-def _mark_centered_terminal_leaf_branches(all_branch_defs: Dict[str, dict]) -> None:
-    """Center real terminal petioles for the segmented-fork visual mode."""
-    for parent in all_branch_defs.values():
-        if branch_system(parent) != "vegetative":
-            continue
-        if not _is_structural_terminal_host(parent):
-            continue
-
-        parent_id = parent.get("id")
-        parent_links = int(parent.get("n_links", 0))
-        if not parent_id or parent_links <= 0:
-            continue
-
-        candidates = []
-        for child in all_branch_defs.values():
-            if branch_system(child) != "vegetative":
-                continue
-            if child.get("parent") != parent_id:
-                continue
-            child_id = str(child.get("id", "")).lower()
-            if "petiole" not in child_id:
-                continue
-            try:
-                attach_link = int(child.get("attach_link", -1))
-                attach_frac = float(child.get("attach_frac", 1.0))
-            except (TypeError, ValueError):
-                continue
-            if attach_link == parent_links and attach_frac >= 0.95:
-                candidates.append(child)
-
-        if candidates:
-            chosen = sorted(candidates, key=lambda item: str(item.get("id", "")))[0]
-            chosen["_terminal_fork_centered"] = True
-            parent["_terminal_fork_centered_host"] = True
 
 
 def _compute_centered_fork_tip_scales(visual_axes, axis_by_member) -> Dict[str, float]:
@@ -89,9 +42,10 @@ def _compute_centered_fork_tip_scales(visual_axes, axis_by_member) -> Dict[str, 
         child = child_axis.members[0]
         if child.branch_id != child_id:
             continue
-        if not bool(child.definition.get("_terminal_fork_centered", False)):
-            continue
         if child.parent_id is None:
+            continue
+            
+        if not child.centered_terminal:
             continue
 
         parent_axis = axis_by_member.get(child.parent_id)
@@ -130,9 +84,6 @@ def build_skinned_vegetative_structure(
             f"Unsupported visual_mode={visual_mode!r}; expected one of {VALID_VISUAL_MODES}"
         )
 
-    if visual_mode == "segmented-fork":
-        _mark_centered_terminal_leaf_branches(all_branch_defs)
-
     physics_parent = f"{stem_path}/Vegetative"
     visual_parent = "/World/PlantVisual"
     UsdGeom.Xform.Define(stage, physics_parent)
@@ -162,7 +113,7 @@ def build_skinned_vegetative_structure(
 
     centered_fork_tip_scales = (
         _compute_centered_fork_tip_scales(visual_axes, axis_by_member)
-        if visual_mode == "segmented-fork"
+        if visual_mode == "segmented"
         else {}
     )
 
@@ -189,20 +140,8 @@ def build_skinned_vegetative_structure(
     for axis in visual_axes:
         axis.attachment_arcs = sorted(set(axis.attachment_arcs))
 
-    if visual_mode == "global":
-        stats = author_global_visual_axes(stage, visual_axes, resolved)
-        print(
-            "[SKIN-VISUAL] "
-            f"mode=global | shared_skeletons=1 | "
-            f"axes={stats['axes']} | bones={stats['bones']} | meshes={stats['meshes']}"
-        )
-        return {
-            branch.branch_id: branch.as_registry_entry()
-            for branch in resolved
-        }
-
     fork_records = []
-    if visual_mode == "segmented-fork":
+    if visual_mode == "segmented":
         fork_records = author_terminal_visual_forks(
             stage,
             visual_axes,
@@ -218,7 +157,7 @@ def build_skinned_vegetative_structure(
         "segmented_tongues": 0,
     }
 
-    segmented_mode = visual_mode in ("segmented", "segmented-fork")
+    segmented_mode = visual_mode == "segmented"
 
     for axis in visual_axes:
         if visual_mode == "static":
@@ -235,7 +174,7 @@ def build_skinned_vegetative_structure(
             terminal_member_id = axis.members[-1].branch_id
             terminal_tip_scale = (
                 centered_fork_tip_scales.get(terminal_member_id, 1.0)
-                if visual_mode == "segmented-fork"
+                if visual_mode == "segmented"
                 else 1.0
             )
             stats = author_segmented_visual_axis(

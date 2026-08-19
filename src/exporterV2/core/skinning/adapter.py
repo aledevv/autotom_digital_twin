@@ -45,6 +45,63 @@ def partition_branches(branches: Iterable[dict]) -> Tuple[List[dict], List[dict]
     return vegetative, truss
 
 
+def is_structural_terminal_host(branch_def: dict) -> bool:
+    """Return whether a branch definition is a main structural line."""
+    branch_id = str(branch_def.get("id", "")).lower()
+    kind = str(branch_def.get("kind", "")).lower()
+    return (
+        branch_def.get("parent") is None
+        or branch_id.startswith("branch_r")
+        or kind in {"stem", "trunk", "branch", "lateral_branch"}
+    )
+
+
+def is_centered_terminal_leaf(child_def: dict, parent_def: dict, all_branch_defs: Dict[str, dict]) -> bool:
+    """Check if the child is the primary terminal continuation of its host."""
+    if branch_system(child_def) != "vegetative":
+        return False
+    if "petiole" not in str(child_def.get("id", "")).lower():
+        return False
+    if not is_structural_terminal_host(parent_def):
+        return False
+
+    parent_links = int(parent_def.get("n_links", 0))
+    if parent_links <= 0:
+        return False
+
+    try:
+        attach_link = int(child_def.get("attach_link", -1))
+        attach_frac = float(child_def.get("attach_frac", 1.0))
+    except (TypeError, ValueError):
+        return False
+
+    if attach_link != parent_links or attach_frac < 0.95:
+        return False
+
+    parent_id = parent_def.get("id")
+    candidates = []
+    for sibling in all_branch_defs.values():
+        if sibling.get("parent") != parent_id:
+            continue
+        if branch_system(sibling) != "vegetative":
+            continue
+        if "petiole" not in str(sibling.get("id", "")).lower():
+            continue
+        try:
+            s_attach_link = int(sibling.get("attach_link", -1))
+            s_attach_frac = float(sibling.get("attach_frac", 1.0))
+            if s_attach_link == parent_links and s_attach_frac >= 0.95:
+                candidates.append(sibling)
+        except (TypeError, ValueError):
+            pass
+
+    if not candidates:
+        return False
+
+    chosen = sorted(candidates, key=lambda item: str(item.get("id", "")))[0]
+    return child_def.get("id") == chosen.get("id")
+
+
 def _path_component(value: str) -> str:
     result = re.sub(r"[^A-Za-z0-9_]", "_", value)
     if not result or result[0].isdigit():
@@ -218,6 +275,8 @@ def resolve_vegetative_graph(
             parent_link_index = None
             local_pos0 = None
             local_rot0 = None
+            centered_terminal = False
+            
             if is_root:
                 start = Gf.Vec3d(0.0, 0.0, 0.0)
                 axis = Gf.Vec3d(0.0, 0.0, 1.0)
@@ -245,12 +304,12 @@ def resolve_vegetative_graph(
                 axis.Normalize()
                 orientation = Gf.Quatf(combined.GetQuat())
 
-                # ``segmented-fork`` may mark a terminal petiole for a true
-                # centerline attachment.  This is preferable to drawing a
-                # separate visual bridge: the real leaf branch itself becomes
-                # one arm of the Y, its joint remains physical, and there is no
-                # hollow/off-axis sleeve at the structural tip.
-                centered_terminal = bool(branch.get("_terminal_fork_centered", False))
+                # A terminal petiole on a structural branch gets a true centerline
+                # attachment. This is preferable to drawing a separate visual bridge:
+                # the real leaf branch itself becomes one arm of the Y, its joint
+                # remains physical, and there is no hollow/off-axis sleeve at the
+                # structural tip.
+                centered_terminal = is_centered_terminal_leaf(branch, parent_definition, all_branch_defs)
                 radial_distance = (
                     0.0
                     if centered_terminal or (tilt == 0.0 and rot == 0.0)
@@ -320,9 +379,14 @@ def resolve_vegetative_graph(
                 parent_link_index=parent_link_index,
                 attachment_local_pos0=local_pos0,
                 attachment_local_rot0=local_rot0,
+                centered_terminal=centered_terminal,
             )
             resolved.append(data)
             by_id[branch_id] = data
+            
+            if centered_terminal and parent_id is not None:
+                by_id[parent_id].centered_terminal_host = True
+                
             unresolved.remove(branch)
             progress = True
 

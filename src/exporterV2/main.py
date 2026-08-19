@@ -25,8 +25,8 @@ parser.add_argument("--optimize", action="store_true", help="Apply joint-budget 
 parser.add_argument(
     "--branch-backend",
     choices=("legacy", "skinned"),
-    default="legacy",
-    help="Vegetative branch backend (default: legacy)",
+    default="skinned",
+    help="Vegetative branch backend (default: skinned)",
 )
 parser.add_argument(
     "--skinning-visual-mode",
@@ -34,21 +34,16 @@ parser.add_argument(
         "skinned",
         "static",
         "rigid-single",
-        "global",
         "segmented",
-        "segmented-fork",
     ),
-    default="skinned",
+    default="segmented",
     help=(
         "Visual mode for the skinned backend: per-axis UsdSkel, static smooth "
-        "mesh benchmark, rigid single-bone optimization, one global shared Skeleton, "
-        "rigid segmented organic meshes, or segmented meshes plus terminal visual forks"
+        "mesh benchmark, rigid single-bone optimization, or rigid segmented organic meshes"
     ),
 )
 args = parser.parse_args()
 
-if args.branch_backend != "skinned" and args.skinning_visual_mode != "skinned":
-    parser.error("--skinning-visual-mode requires --branch-backend skinned")
 
 # The builder reads this without changing the public build_stage API.
 os.environ["AUTOTOM_SKINNING_VISUAL_MODE"] = args.skinning_visual_mode
@@ -190,7 +185,7 @@ def main():
 
     opened_stage = omni.usd.get_context().get_stage()
     skinning_runtime = None
-    non_runtime_modes = ("static", "segmented", "segmented-fork")
+    non_runtime_modes = ("static", "segmented")
     if args.branch_backend == "skinned" and args.skinning_visual_mode not in non_runtime_modes:
         candidate = SkinningRuntime.discover(opened_stage)
         if candidate.branch_count > 0:
@@ -203,15 +198,8 @@ def main():
             print("  ✓ No runtime-skinned axes remain")
     elif args.branch_backend == "skinned" and args.skinning_visual_mode == "static":
         print("  ✓ Static visual benchmark: no UsdSkel runtime")
-    elif args.branch_backend == "skinned" and args.skinning_visual_mode in (
-        "segmented",
-        "segmented-fork",
-    ):
-        label = (
-            "Segmented organic visuals + terminal forks"
-            if args.skinning_visual_mode == "segmented-fork"
-            else "Segmented organic visuals"
-        )
+    elif args.branch_backend == "skinned" and args.skinning_visual_mode == "segmented":
+        label = "Segmented organic visuals + terminal forks"
         print(f"  ✓ {label}: no UsdSkel runtime")
 
     my_world = World(stage_units_in_meters=1.0)

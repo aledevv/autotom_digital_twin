@@ -80,6 +80,8 @@ class BranchData:
     parent_link_index: Optional[int] = None
     attachment_local_pos0: Optional[Gf.Vec3f] = None
     attachment_local_rot0: Optional[Gf.Quatf] = None
+    centered_terminal: bool = False
+    centered_terminal_host: bool = False
 
     @property
     def total_length(self) -> float:
