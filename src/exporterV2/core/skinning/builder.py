@@ -43,8 +43,10 @@ def _mark_centered_terminal_leaf_branches(all_branch_defs: Dict[str, dict]) -> N
     """Center real terminal petioles for the segmented-fork visual mode.
 
     The existing leaf branch becomes the physical/visual continuation of the
-    lateral branch centerline.  No extra sleeve or bridge mesh is needed.
-    Trusses remain untouched: the fork dressing is now intentionally leaf-only.
+    lateral branch centerline.  The host keeps its normal diameter almost to the
+    end, then closes over only a very short terminal zone until its final ring
+    matches the real petiole radius.  This avoids both the old long neck and the
+    newer oversized shoulder around the child.
     """
     for parent in all_branch_defs.values():
         if branch_system(parent) != "vegetative":
@@ -77,10 +79,23 @@ def _mark_centered_terminal_leaf_branches(all_branch_defs: Dict[str, dict]) -> N
         if candidates:
             chosen = sorted(candidates, key=lambda item: str(item.get("id", "")))[0]
             chosen["_terminal_fork_centered"] = True
-            # The parent marker is visual-only.  visual_modes uses it to close
-            # the terminal segmented mesh around the centered petiole instead
-            # of leaving the open tube end visible around the child.
             parent["_terminal_fork_centered_host"] = True
+
+            # Scaling cancels in the ratio, so use source radii directly.  The
+            # clamp is only defensive for malformed/extreme input; normally this
+            # is exactly child_radius / parent_radius.
+            try:
+                parent_radius = float(parent["radius"])
+                child_radius = float(chosen["radius"])
+                if parent_radius > 0.0 and child_radius > 0.0:
+                    parent["_terminal_fork_tip_scale"] = max(
+                        0.35,
+                        min(1.0, child_radius / parent_radius),
+                    )
+                else:
+                    parent["_terminal_fork_tip_scale"] = 1.0
+            except (KeyError, TypeError, ValueError):
+                parent["_terminal_fork_tip_scale"] = 1.0
 
 
 def build_skinned_vegetative_structure(
@@ -197,13 +212,18 @@ def build_skinned_vegetative_structure(
             continue
 
         if segmented_mode:
-            # No artificial terminal narrowing for lateral leaf forks.  The
-            # centered real petiole is the continuation; visual_modes closes the
-            # host end around it with a small rounded cap/overlap.
+            terminal_tip_scale = 1.0
+            if visual_mode == "segmented-fork":
+                terminal_tip_scale = float(
+                    axis.members[-1].definition.get(
+                        "_terminal_fork_tip_scale",
+                        1.0,
+                    )
+                )
             stats = author_segmented_visual_axis(
                 stage,
                 axis,
-                terminal_tip_scale=1.0,
+                terminal_tip_scale=terminal_tip_scale,
             )
             counts["segmented_axes"] += 1
             counts["segmented_meshes"] += stats["segments"]
