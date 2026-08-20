@@ -28,25 +28,9 @@ exporterV2/
 Edit only `core/tree_config.py`. `PhysicsRuntimeConfig` controls physics rate,
 solver iterations, and GPU dynamics; `BranchResolutionConfig` sets the
 pre-optimization maximum links per chain; `OrganGenerationConfig` enables or
-disables complete organ hierarchies.
-
-For example:
-
-```python
-class PhysicsRuntimeConfig:
-    PHYSICS_HZ = 480
-    SOLVER_POSITION_ITERATIONS = 32
-    SOLVER_VELOCITY_ITERATIONS = 4
-    TERMINAL_BODY_SOLVER_POSITION_ITERATIONS = 32
-    TERMINAL_BODY_SOLVER_VELOCITY_ITERATIONS = 1
-
-class BranchResolutionConfig:
-    MAX_LINKS_PER_BRANCH = 10
-
-class OrganGenerationConfig:
-    CREATE_LEAF_BRANCHES = False
-    CREATE_TRUSSES = False
-```
+disables complete organ hierarchies. `TrussPhysicsConfig` owns tomato
+detachment and overlap-filter policy. The file itself is the source of truth for
+current values.
 
 Then regenerate normally:
 
@@ -101,8 +85,14 @@ stage, stem_path = build_stage("output.usda")
 
 ### `core/usd/`
 - `build_stage()` - USD stage generation
-- Articulated physics with flexible joints
-- Automatic collision filtering
+- `branch_chains.py` - articulated rigid chains shared by legacy and truss paths
+- `terminal_bodies.py` - tomatoes, curved pedicels, detachment, and terminal filters
+- `materials.py` - shared leaf, stem, and fruit materials
+
+### `core/skinning/`
+- Vegetative rigid physics and continuous visual-axis resolution
+- Preserved `segmented`, `skinned`, `static`, and `rigid-single` visual modes
+- Procedural leaf blades and terminal leaf-only visual dressing
 
 ### `core/physics.py`
 - PhysX scene settings for Isaac Sim
@@ -170,7 +160,7 @@ branches, _ = parse_csv_to_branches(day=100, profile=MY_PROFILE)
 ### USD Stage
 - Articulated physics (PhysX)
 - Flexible joints with automatic spring/damping
-- Collision filtering (no self-collision)
+- Targeted branch and terminal-body collision filtering
 - Detachable tomato terminal bodies under `/World/TerminalBodies`
 - Breakable FixedJoints for tomato detachment
 - Compatible with Isaac Sim
@@ -189,6 +179,7 @@ Comprehensive documentation in `docs/`:
 - **[Testing](docs/06_testing.md)** - Test suite, how to run, expected results
 - **[Implementation Notes](docs/07_implementation_notes.md)** - Lessons learned, tricks, common pitfalls
 - **[Troubleshooting](docs/08_troubleshooting.md)** - Common issues and solutions
+- **[Vegetative Visual Modes](docs/09_segmented_branch_visuals.md)** - Organic geometry, mode ownership, and running options
 
 ---
 

@@ -11,11 +11,9 @@ from .branch_physics import author_branch_joints, author_rigid_links
 from .mesh import _visual_radius, author_visual_axis
 from .leaf_blade import author_petiolule_leaf_blades
 from .terminal_fork import author_terminal_visual_forks
-from .visual_modes import (
-    author_rigid_visual_axis,
-    author_segmented_visual_axis,
-    author_static_visual_axis,
-)
+from .visual_rigid import author_rigid_visual_axis
+from .visual_segmented import author_segmented_visual_axis
+from .visual_static import author_static_visual_axis
 
 
 VALID_VISUAL_MODES = (
@@ -26,17 +24,8 @@ VALID_VISUAL_MODES = (
 )
 VISUAL_MODE_ENV = "AUTOTOM_SKINNING_VISUAL_MODE"
 
-
-
-
-def _compute_centered_fork_tip_scales(visual_axes, axis_by_member) -> Dict[str, float]:
-    """Match host tip radius to the *actual visual* radius of the centered petiole.
-
-    Using the raw CSV radii was wrong here because the leaf axis has its own
-    visual root flare/profile.  The user-visible diameter at the junction is the
-    result of ``_visual_radius(child_axis, 0)``, so the lateral-branch tip must be
-    matched against that value rather than against ``child['radius']``.
-    """
+def _compute_centered_fork_tip_scales(axis_by_member) -> Dict[str, float]:
+    """Match host tip radius to the rendered centered-petiole root radius."""
     result = {}
 
     for child_id, child_axis in axis_by_member.items():
@@ -58,9 +47,6 @@ def _compute_centered_fork_tip_scales(visual_axes, axis_by_member) -> Dict[str, 
         if parent_radius <= 1e-8 or child_contact_radius <= 1e-8:
             continue
 
-        # The structural branch is already larger upstream, so expansion beyond
-        # its current radius is unnecessary.  The lower clamp is only defensive;
-        # normal values are driven directly by the visual-radius ratio.
         scale = max(0.45, min(1.0, child_contact_radius / parent_radius))
         result[child.parent_id] = scale
 
@@ -113,7 +99,7 @@ def build_skinned_vegetative_structure(
     }
 
     centered_fork_tip_scales = (
-        _compute_centered_fork_tip_scales(visual_axes, axis_by_member)
+        _compute_centered_fork_tip_scales(axis_by_member)
         if visual_mode == "segmented"
         else {}
     )
@@ -158,7 +144,6 @@ def build_skinned_vegetative_structure(
         "segmented_tongues": 0,
     }
 
-    # Author all standard leaf blades for petiolules
     leaf_blade_count = author_petiolule_leaf_blades(stage, visual_axes)
 
     segmented_mode = visual_mode == "segmented"
@@ -176,10 +161,8 @@ def build_skinned_vegetative_structure(
 
         if segmented_mode:
             terminal_member_id = axis.members[-1].branch_id
-            terminal_tip_scale = (
-                centered_fork_tip_scales.get(terminal_member_id, 1.0)
-                if visual_mode == "segmented"
-                else 1.0
+            terminal_tip_scale = centered_fork_tip_scales.get(
+                terminal_member_id, 1.0
             )
             stats = author_segmented_visual_axis(
                 stage,

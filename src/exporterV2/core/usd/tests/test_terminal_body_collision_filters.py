@@ -56,9 +56,17 @@ except ImportError:
 
     pxr.PhysxSchema = SimpleNamespace(PhysxRigidBodyAPI=_PhysxRigidBodyAPI)
 
-validate_terminal_body_clearance = importlib.import_module(
-    "exporterV2.core.usd.stage"
-).validate_terminal_body_clearance
+stage_module = importlib.import_module("exporterV2.core.usd.stage")
+terminal_bodies_module = importlib.import_module(
+    "exporterV2.core.usd.terminal_bodies"
+)
+validate_terminal_body_clearance = (
+    terminal_bodies_module.validate_terminal_body_clearance
+)
+
+
+def test_stage_reexports_terminal_clearance_validator():
+    assert stage_module.validate_terminal_body_clearance is validate_terminal_body_clearance
 
 
 def _filtered_targets(stage, prim_path):

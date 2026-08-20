@@ -9,17 +9,21 @@ from typing import Iterable
 from pxr import Gf
 from ..tree_config import PlantColors
 from ..usd.materials import get_or_create_tomato_leaf_material
-from .mesh import author_plain_mesh
+from .mesh import (
+    _is_petiolule_axis,
+    author_plain_mesh,
+    link_rest_world,
+)
 
 
 LEAF_STATIONS = 18
-LEAF_LENGTH_FRACTION = 5.35     # leaf_length / petiolule_length (0.075 / 0.014)
-LEAF_HALF_WIDTH_FRACTION = 0.33 # leaf_half_width / leaf_length (0.025 / 0.075)
+LEAF_LENGTH_FRACTION = 5.35
+LEAF_HALF_WIDTH_FRACTION = 0.33
 
-LEAF_LONGITUDINAL_FOLD_FRACTION = 0.064  # fold_depth / leaf_length (0.0048 / 0.075)
+LEAF_LONGITUDINAL_FOLD_FRACTION = 0.064
 LEAF_FOLD_EXPONENT = 0.78
-LEAF_ARCH_LIFT_FRACTION = 0.08  # arch_lift / leaf_length (0.0060 / 0.075)
-LEAF_TIP_SAG_FRACTION = 0.133   # tip_sag / leaf_length (0.0100 / 0.075)
+LEAF_ARCH_LIFT_FRACTION = 0.08
+LEAF_TIP_SAG_FRACTION = 0.133
 LEAF_TIP_SAG_EXPONENT = 1.85
 
 
@@ -33,10 +37,10 @@ def _normalized(vector: Gf.Vec3d) -> Gf.Vec3d:
 
 def _merlice_leaflet_width(t: float) -> float:
     """Normalized leaflet width based on Coussement et al. (2017) Merlice model."""
-    pos_norm = 1.0 - t  # 1.0 at root/base, 0.0 at tip
-    max_w = 0.6         # Position of maximum width
-    k1 = 2.0            # Curvature towards tip
-    k2 = 2.2            # Curvature towards base
+    pos_norm = 1.0 - t
+    max_w = 0.6
+    k1 = 2.0
+    k2 = 2.2
 
     if pos_norm <= max_w:
         return 1.0 - ((max_w - pos_norm) / max_w) ** k1
@@ -112,21 +116,16 @@ def author_leaf_blade(
     )
 
 
-def author_petiolule_leaf_blades(stage, visual_axes: Iterable) -> None:
+def author_petiolule_leaf_blades(stage, visual_axes: Iterable) -> int:
     """Find all petiolules and author a realistic leaf blade at their tip."""
-    # Import locally to avoid circular dependencies
-    from .mesh import _is_petiolule_axis, link_rest_world
-
     count = 0
     for axis in visual_axes:
         if not _is_petiolule_axis(axis):
             continue
 
-        # The petiolule tip is at the end of the visual axis
         root = axis.start + axis.axis * axis.total_length
         forward = axis.axis
 
-        # Calculate dynamic size based on petiolule length, but capped to realistic biological limits
         petiolule_length = axis.total_length
         leaf_length = min(0.09, max(0.04, petiolule_length * LEAF_LENGTH_FRACTION))
 
@@ -135,13 +134,10 @@ def author_petiolule_leaf_blades(stage, visual_axes: Iterable) -> None:
         arch_lift = leaf_length * LEAF_ARCH_LIFT_FRACTION
         tip_sag = leaf_length * LEAF_TIP_SAG_FRACTION
 
-        path = f"{axis.link_paths[-1]}/LeafBlade"
-
         world_to_link = link_rest_world(axis, -1).GetInverse()
-
         author_leaf_blade(
             stage,
-            path,
+            f"{axis.link_paths[-1]}/LeafBlade",
             root,
             forward,
             length=leaf_length,

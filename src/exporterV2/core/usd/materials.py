@@ -111,36 +111,47 @@ def _tomato_bucket_maturation(bucket: int) -> float:
     return bucket / float(TOMATO_FRUIT_MATURATION_BUCKETS - 1)
 
 
-def _create_realtime_tomato_leaf_material(stage, material_path: str):
+def _create_preview_surface_material(stage, material_path: str, inputs):
     material = UsdShade.Material.Define(stage, material_path)
     shader = UsdShade.Shader.Define(stage, f"{material_path}/Shader")
     shader.CreateIdAttr("UsdPreviewSurface")
 
-    for name, value in _TOMATO_LEAF_PRESETS["realtime"].items():
+    for name, value in inputs.items():
         _set_shader_input(shader, name, value)
 
     shader.CreateOutput("surface", Sdf.ValueTypeNames.Token)
     material.CreateSurfaceOutput().ConnectToSource(
-        shader.ConnectableAPI(),
-        "surface",
+        shader.ConnectableAPI(), "surface"
     )
     return material
+
+
+def _create_omnisurface_material(stage, material_path: str, inputs):
+    material = UsdShade.Material.Define(stage, material_path)
+    shader = UsdShade.Shader.Define(stage, f"{material_path}/Shader")
+    shader.CreateImplementationSourceAttr(UsdShade.Tokens.sourceAsset)
+    shader.SetSourceAsset("OmniSurface.mdl", "mdl")
+    shader.SetSourceAssetSubIdentifier("OmniSurface", "mdl")
+    shader.CreateOutput("out", Sdf.ValueTypeNames.Token)
+    material.CreateSurfaceOutput("mdl").ConnectToSource(
+        shader.ConnectableAPI(), "out"
+    )
+
+    for name, value in inputs.items():
+        _set_shader_input(shader, name, value)
+    return material
+
+
+def _create_realtime_tomato_leaf_material(stage, material_path: str):
+    return _create_preview_surface_material(
+        stage, material_path, _TOMATO_LEAF_PRESETS["realtime"]
+    )
 
 
 def _create_realtime_tomato_stem_material(stage, material_path: str):
-    material = UsdShade.Material.Define(stage, material_path)
-    shader = UsdShade.Shader.Define(stage, f"{material_path}/Shader")
-    shader.CreateIdAttr("UsdPreviewSurface")
-
-    for name, value in _TOMATO_STEM_PRESETS["realtime"].items():
-        _set_shader_input(shader, name, value)
-
-    shader.CreateOutput("surface", Sdf.ValueTypeNames.Token)
-    material.CreateSurfaceOutput().ConnectToSource(
-        shader.ConnectableAPI(),
-        "surface",
+    return _create_preview_surface_material(
+        stage, material_path, _TOMATO_STEM_PRESETS["realtime"]
     )
-    return material
 
 
 def _create_realtime_tomato_fruit_material(
@@ -148,61 +159,25 @@ def _create_realtime_tomato_fruit_material(
     material_path: str,
     maturation: float,
 ):
-    material = UsdShade.Material.Define(stage, material_path)
-    shader = UsdShade.Shader.Define(stage, f"{material_path}/Shader")
-    shader.CreateIdAttr("UsdPreviewSurface")
-    shader.CreateInput(
-        "diffuseColor",
-        Sdf.ValueTypeNames.Color3f,
-    ).Set(_tomato_color(maturation))
-
-    for name, value in _TOMATO_FRUIT_PRESETS["realtime"].items():
-        _set_shader_input(shader, name, value)
-
-    shader.CreateOutput("surface", Sdf.ValueTypeNames.Token)
-    material.CreateSurfaceOutput().ConnectToSource(
-        shader.ConnectableAPI(),
-        "surface",
+    inputs = {
+        "diffuseColor": _tomato_color(maturation),
+        **_TOMATO_FRUIT_PRESETS["realtime"],
+    }
+    return _create_preview_surface_material(
+        stage, material_path, inputs
     )
-    return material
 
 
 def _create_realistic_tomato_leaf_material(stage, material_path: str):
-    material = UsdShade.Material.Define(stage, material_path)
-    shader = UsdShade.Shader.Define(stage, f"{material_path}/Shader")
-    shader.CreateImplementationSourceAttr(UsdShade.Tokens.sourceAsset)
-    shader.SetSourceAsset("OmniSurface.mdl", "mdl")
-    shader.SetSourceAssetSubIdentifier("OmniSurface", "mdl")
-    shader.CreateOutput("out", Sdf.ValueTypeNames.Token)
-
-    material.CreateSurfaceOutput("mdl").ConnectToSource(
-        shader.ConnectableAPI(),
-        "out",
+    return _create_omnisurface_material(
+        stage, material_path, _TOMATO_LEAF_PRESETS["realistic"]
     )
-
-    for name, value in _TOMATO_LEAF_PRESETS["realistic"].items():
-        _set_shader_input(shader, name, value)
-
-    return material
 
 
 def _create_realistic_tomato_stem_material(stage, material_path: str):
-    material = UsdShade.Material.Define(stage, material_path)
-    shader = UsdShade.Shader.Define(stage, f"{material_path}/Shader")
-    shader.CreateImplementationSourceAttr(UsdShade.Tokens.sourceAsset)
-    shader.SetSourceAsset("OmniSurface.mdl", "mdl")
-    shader.SetSourceAssetSubIdentifier("OmniSurface", "mdl")
-    shader.CreateOutput("out", Sdf.ValueTypeNames.Token)
-
-    material.CreateSurfaceOutput("mdl").ConnectToSource(
-        shader.ConnectableAPI(),
-        "out",
+    return _create_omnisurface_material(
+        stage, material_path, _TOMATO_STEM_PRESETS["realistic"]
     )
-
-    for name, value in _TOMATO_STEM_PRESETS["realistic"].items():
-        _set_shader_input(shader, name, value)
-
-    return material
 
 
 def get_or_create_tomato_leaf_material(stage, preset: str = "realtime"):

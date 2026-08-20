@@ -6,6 +6,7 @@ from typing import Iterable, List
 
 from pxr import Gf, Sdf, UsdGeom, UsdShade, UsdSkel, Vt
 
+from ..mesh_geometry import build_open_tube_topology
 from ..tree_config import PlantColors
 from ..usd.materials import get_or_create_tomato_stem_material
 from .model import VisualAxisData
@@ -119,11 +120,7 @@ def _canonical_arc(value: float, total_length: float) -> float:
     return round(max(0.0, min(total_length, value)), _ARC_PRECISION)
 
 
-def _radius_transition_half_width(
-    axis: VisualAxisData,
-    previous,
-    current,
-) -> float:
+def _radius_transition_half_width(axis: VisualAxisData, previous, current) -> float:
     profile = axis.profile
 
     return min(
@@ -133,29 +130,13 @@ def _radius_transition_half_width(
     )
 
 
-def _segment_radius(
-    segment,
-    arc: float,
-) -> float:
+def _segment_radius(segment, arc: float) -> float:
     """Evaluate the radius inside one visual segment."""
-
     if segment.end_radius is None:
         return segment.radius
-
-    t = (
-        (arc - segment.start_arc)
-        / max(segment.length, 1e-8)
-    )
-
-    t = _smoothstep(t)
-
-    return (
-        segment.radius
-        + (
-            segment.end_radius
-            - segment.radius
-        )
-        * t
+    t = (arc - segment.start_arc) / max(segment.length, 1e-8)
+    return segment.radius + (segment.end_radius - segment.radius) * _smoothstep(
+        t
     )
 
 
@@ -178,76 +159,27 @@ def build_axis_sample_arcs(axis: VisualAxisData) -> List[float]:
         for segment in axis.visual_segments[:-1]
     )
 
-    # Extra local samples for explicitly tapered visual segments.
-    # This does not increase the resolution of the entire plant:
-    # only short segments using end_radius receive extra rings.
     for segment in axis.visual_segments:
         if segment.end_radius is None:
             continue
-
         taper_samples = 5
+        for index in range(taper_samples):
+            t = index / float(taper_samples - 1)
+            sample_arc = segment.start_arc + segment.length * t
+            arcs.add(_canonical_arc(sample_arc, axis.total_length))
 
-        for index in range(
-            taper_samples
-        ):
-            t = (
-                index
-                / float(
-                    taper_samples - 1
-                )
-            )
-
-            sample_arc = (
-                segment.start_arc
-                + segment.length * t
-            )
-
-            arcs.add(
-                _canonical_arc(
-                    sample_arc,
-                    axis.total_length,
-                )
-            )
-
-    # Add local samples around every botanical radius boundary.
-    # This keeps the global mesh resolution unchanged while giving
-    # radius transitions enough geometry to look smooth.
     for previous, current in zip(
-        axis.visual_segments,
-        axis.visual_segments[1:],
+        axis.visual_segments, axis.visual_segments[1:]
     ):
         boundary = previous.end_arc
-
-        half_width = _radius_transition_half_width(
-            axis,
-            previous,
-            current,
-        )
-
-        sample_count = max(
-            3,
-            axis.profile.radius_transition_samples,
-        )
+        half_width = _radius_transition_half_width(axis, previous, current)
+        sample_count = max(3, axis.profile.radius_transition_samples)
 
         for index in range(sample_count):
-            t = (
-                index
-                / float(sample_count - 1)
-            )
-
-            transition_arc = (
-                boundary
-                - half_width
-                + 2.0
-                * half_width
-                * t
-            )
-
+            t = index / float(sample_count - 1)
+            transition_arc = boundary - half_width + 2.0 * half_width * t
             arcs.add(
-                _canonical_arc(
-                    transition_arc,
-                    axis.total_length,
-                )
+                _canonical_arc(transition_arc, axis.total_length)
             )
     arcs.update(
         _canonical_arc(arc, axis.total_length)
@@ -256,94 +188,31 @@ def build_axis_sample_arcs(axis: VisualAxisData) -> List[float]:
     return sorted(arcs)
 
 
-def _profile_radius(
-    axis: VisualAxisData,
-    arc: float,
-) -> float:
+def _profile_radius(axis: VisualAxisData, arc: float) -> float:
     segments = axis.visual_segments
-
-    # ---------------------------------------------------------------
-    # 1. Find the segment containing this arc position.
-    # ---------------------------------------------------------------
     current_segment = segments[-1]
-
     for segment in segments:
         if arc <= segment.end_arc + 1e-12:
             current_segment = segment
             break
+    radius = _segment_radius(current_segment, arc)
 
-    # Normal radius inside the segment.
-    radius = _segment_radius(
-        current_segment,
-        arc,
-    )
-
-    # ---------------------------------------------------------------
-    # 2. Smooth the boundary between consecutive visual segments.
-    # ---------------------------------------------------------------
-    for previous, current in zip(
-        segments,
-        segments[1:],
-    ):
+    for previous, current in zip(segments, segments[1:]):
         boundary = previous.end_arc
-
-        half_width = (
-            _radius_transition_half_width(
-                axis,
-                previous,
-                current,
-            )
-        )
-
+        half_width = _radius_transition_half_width(axis, previous, current)
         if half_width <= 0.0:
             continue
+        transition_start = boundary - half_width
+        transition_end = boundary + half_width
 
-        transition_start = (
-            boundary - half_width
-        )
-
-        transition_end = (
-            boundary + half_width
-        )
-
-        if (
-            transition_start
-            <= arc
-            <= transition_end
-        ):
-            # Evaluate the REAL radius of both segments at the edges
-            # of the blending region. This is important now that
-            # segments themselves may taper.
-            radius_before = _segment_radius(
-                previous,
-                transition_start,
-            )
-
-            radius_after = _segment_radius(
-                current,
-                transition_end,
-            )
-
+        if transition_start <= arc <= transition_end:
+            radius_before = _segment_radius(previous, transition_start)
+            radius_after = _segment_radius(current, transition_end)
             blend = _smoothstep(
-                (
-                    arc
-                    - transition_start
-                )
-                / max(
-                    transition_end
-                    - transition_start,
-                    1e-8,
-                )
+                (arc - transition_start)
+                / max(transition_end - transition_start, 1e-8)
             )
-
-            return (
-                radius_before
-                + (
-                    radius_after
-                    - radius_before
-                )
-                * blend
-            )
+            return radius_before + (radius_after - radius_before) * blend
 
     return radius
 
@@ -447,22 +316,9 @@ def build_axis_tube_data(axis: VisualAxisData):
             joint_indices.extend((bone0, bone1))
             joint_weights.extend((weight0, weight1))
 
-    face_counts = []
-    face_indices = []
-    for ring in range(len(arcs) - 1):
-        row0 = ring * radial_segments
-        row1 = (ring + 1) * radial_segments
-        for radial in range(radial_segments):
-            next_radial = (radial + 1) % radial_segments
-            face_counts.extend((3, 3))
-            face_indices.extend((
-                row0 + radial,
-                row1 + radial,
-                row1 + next_radial,
-                row0 + radial,
-                row1 + next_radial,
-                row0 + next_radial,
-            ))
+    face_counts, face_indices = build_open_tube_topology(
+        len(arcs), radial_segments
+    )
     return points, face_counts, face_indices, joint_indices, joint_weights
 
 

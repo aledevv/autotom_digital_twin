@@ -45,9 +45,6 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-# The builder reads this without changing the public build_stage API.
-os.environ["AUTOTOM_SKINNING_VISUAL_MODE"] = args.skinning_visual_mode
-
 # Bootstrap Isaac Sim
 from isaacsim import SimulationApp
 simulation_app = SimulationApp({"headless": False})
@@ -157,6 +154,7 @@ def main():
         branches=branches,
         terminal_bodies=terminal_bodies,
         branch_backend=args.branch_backend,
+        skinning_visual_mode=args.skinning_visual_mode,
     )
 
     # Step 2: Apply PhysX settings

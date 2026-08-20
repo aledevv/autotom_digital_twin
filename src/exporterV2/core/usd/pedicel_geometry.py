@@ -1,14 +1,9 @@
-"""
-pedicel_geometry.py - Procedural generation of curved pedicel visuals.
-
-This module provides the "Gravity Elbow" cubic spline and mesh generation for
-tomato pedicels, which visually curve downward under the effect of gravity
-regardless of their physical straight-line proxy orientation.
-"""
+"""Procedural gravity-curved visual meshes for tomato pedicels."""
 
 import hashlib
 import math
 from pxr import Gf, UsdGeom, Vt
+from ..mesh_geometry import build_open_tube_topology
 from ..tree_config import PlantColors
 
 
@@ -20,7 +15,6 @@ SIDE_VARIATION_FRACTION = 0.025
 RADIAL_SEGMENTS = 14
 CURVE_SAMPLES = 15
 
-# Visual-only curve amplitude relative to physical pedicel length (fallback values)
 ROOT_RADIUS_SCALE_RANGE = (1.15, 1.28)
 MID_RADIUS_SCALE_RANGE = (0.82, 0.94)
 TIP_RADIUS_SCALE_RANGE = (0.96, 1.08)
@@ -167,22 +161,7 @@ def _tube_mesh_data(centers, tangents, radii):
             )
             points.append(Gf.Vec3f(*point))
 
-    counts = []
-    indices = []
-    for ring in range(len(centers) - 1):
-        row0 = ring * RADIAL_SEGMENTS
-        row1 = (ring + 1) * RADIAL_SEGMENTS
-        for radial_index in range(RADIAL_SEGMENTS):
-            nxt = (radial_index + 1) % RADIAL_SEGMENTS
-            counts.extend((3, 3))
-            indices.extend((
-                row0 + radial_index,
-                row1 + radial_index,
-                row1 + nxt,
-                row0 + radial_index,
-                row1 + nxt,
-                row0 + nxt,
-            ))
+    counts, indices = build_open_tube_topology(len(centers), RADIAL_SEGMENTS)
 
     start_center = len(points)
     points.append(Gf.Vec3f(*centers[0]))

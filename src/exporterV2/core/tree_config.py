@@ -165,7 +165,7 @@ class TrussPhysicsConfig:
     TOMATO_DETACHMENT_ENABLED = True
     # This is comfortably above the static weight of the generated tomatoes,
     # so gravity alone should not break the joint when detachment is enabled.
-    TOMATO_DETACHMENT_BREAK_FORCE_N = 12.0
+    TOMATO_DETACHMENT_BREAK_FORCE_N = 6.0
     # Keep tomato bodies outside the articulation while detachment is active.
     TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION = True
     # When the fixed joint is excluded, keep tomatoes outside the articulation

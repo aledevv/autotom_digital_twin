@@ -301,8 +301,12 @@ def test_hybrid_keeps_truss_and_tomato_on_legacy_backend(tmp_path):
         branches=[_root(), truss, pedicel],
         terminal_bodies=[tomato],
         branch_backend="skinned",
+        skinning_visual_mode="segmented",
     )
 
+    assert stage.GetPrimAtPath(
+        "/World/Stem/Vegetative/trunk/trunk_Link_01/OrganicVisual_01"
+    ).IsValid()
     truss_link = f"/World/Stem/{truss['id']}_Link_01"
     pedicel_link = f"/World/Stem/{pedicel['id']}_Link_01"
     assert stage.GetPrimAtPath(f"{truss_link}/Cylinder").IsValid()

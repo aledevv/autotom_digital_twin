@@ -57,48 +57,21 @@ graph LR
 
 ## Realtime Organic Branch Rendering
 
-V2 now separates **physics discretization** from **visual geometry**. PhysX still
-uses articulated rigid links and hidden capsule collision proxies, while the
-visible stem/branch surface is generated from a smooth swept-tube profile with
-taper, radius transitions, junction bulges, and local overlap between adjacent
-rigid pieces.
+V2 keeps physical links and collision proxies independent from organic branch
+surfaces. The preserved visual choices are:
 
-The default visual mode is `segmented`. Each PhysX link owns one rigid piece of
-the organic mesh, so the visual surface follows physics directly without
-`UsdSkel`, `SkelAnimation`, or a per-frame skinning synchronization step. Small
-visual overlaps at internal joints reduce visible cracks during bending.
+| Mode | Role |
+| --- | --- |
+| `segmented` | Current realtime default; one organic mesh per rigid link |
+| `skinned` | Continuous UsdSkel deformation reference |
+| `static` | Smooth geometry benchmark |
+| `rigid-single` | One-link runtime diagnostic |
+| `legacy` backend | Original cylinder branch representation |
 
-Terminal lateral branches receive an additional leaf-only visual treatment. A
-terminal petiole is centered on the structural branch centerline and acts as the
-real continuation of the branch. The host tip is shaped around that contact and
-a very small rigid young twig with a leaf is added as a secondary visual fork.
-The twig azimuth is deterministically varied around the branch axis to avoid
-repeating the same fork orientation. Truss/tomato terminal geometry is
-intentionally excluded from this visual-fork logic.
-
-The original `skinned` mode remains available as the high-quality continuous
-deformation reference. It uses UsdSkel and is useful for focused demonstrations
-and comparisons, while `segmented` is the realtime-oriented representation for
-full plants.
-
-Observed day-40 interactive results during development were approximately:
-
-| Visual configuration | Observed FPS | Purpose |
-| --- | ---: | --- |
-| Legacy cylinder visuals | 18–20 | Original realtime baseline |
-| Static smooth organic mesh | 19–20 | Geometry-cost isolation test |
-| Full UsdSkel skinning | ~8 | Continuous high-quality deformation |
-| Shared/global Skeleton experiment | ~10 | Skinning architecture diagnostic |
-| Segmented organic visuals | ~20 | Current realtime visual representation |
-
-These values are empirical development measurements and depend on scene,
-hardware, renderer, and simulation settings. The important result is that the
-smooth geometry itself was not the dominant cost; runtime UsdSkel deformation
-was. The segmented representation therefore preserves the organic geometry
-while avoiding that runtime cost.
-
-See `src/exporterV2/docs/09_segmented_branch_visuals.md` for the implementation
-details and geometry equations.
+The modes share botanical taper, radius transitions, leaf blades, and material
+authoring without changing plant physics. See
+`src/exporterV2/docs/09_segmented_branch_visuals.md` for geometry, performance
+rationale, terminal leaf junctions, and module ownership.
 
 ## Repository Layout
 

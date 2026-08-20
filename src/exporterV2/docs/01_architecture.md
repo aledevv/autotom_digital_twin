@@ -1,43 +1,49 @@
 # Exporter V2 Architecture
 
-Exporter V2 is the active pipeline for generating articulated tomato-plant USD scenes from GroIMP CSV exports. The design separates data adaptation, plant morphology, physics authoring, optimization, and demos so that production generation stays stable while experiments remain easy to inspect.
+Exporter V2 converts GroIMP graph exports into OpenUSD stages for Isaac Sim. Its main invariant is that physical authoring, visual authoring, and source-data adaptation remain separate.
 
-## Current Pipeline
+## Pipeline
 
-1. `parse_csv_to_branches()` reads the GroIMP graph CSV once per run and shares the same DataFrame with the trunk, lateral branch, leaf, and truss loaders.
-2. The tomato profile and `OrganGenerationConfig` decide which organs are generated: trunk, laterals, petioles, leaf rachis, petiolules, truss rachis, pedicels, and tomatoes.
-3. Leaf and truss builders convert CSV organs into the generic `BRANCHES` list plus terminal tomato metadata.
-4. `build_stage()` authors the USD stage: rigid segment meshes, D6 or Fixed joints, collision filters, terminal bodies, runtime PhysX settings, and optional optimization output.
-5. The optimizer can reduce D6 joint count through the current techniques while preserving generated geometry and attachment semantics.
+1. `adapters/groimp_csv/` reads the graph and emits generic branch definitions plus terminal-body metadata.
+2. `profiles/` and generation config decide which tomato organs are present.
+3. Optional optimization changes the physical joint budget while preserving compatible visual metadata.
+4. `core/usd/stage.py` orchestrates stage construction.
+5. Isaac Sim applies scene and articulation settings and runs the generated stage.
 
-## Main Components
+## Authoring Boundaries
 
-- `core/tree_config.py` contains runtime physics defaults, organ-generation switches, geometry constants, material colors, and mechanical helper functions.
-- `adapters/groimp_csv/` converts GroIMP CSV rows into the generic branch schema. The public loaders still work standalone; internally the full pipeline avoids repeated CSV reads.
-- `core/usd/` builds OpenUSD/PhysX scene structure. It owns chain construction, joint authoring, collision filtering, terminal tomato bodies, and runtime scene settings.
-- `core/optimizations/` contains the joint-budget optimizer and individual techniques such as petiole lock, lateral reduce, thin-link lock, leaf-branch reduce, stem collapse, and truss static handling.
-- `demos/` contains visual/Isaac assets for paper figures, videos, and manual inspection. These are intentionally outside the pytest suite.
+- `core/tree_config.py` is the source of truth for current geometry, mechanics, detachment, collision-filter, material-color, and runtime defaults.
+- `core/usd/branch_chains.py` authors articulated rigid chains used by the legacy backend and by legacy truss branches in hybrid scenes.
+- `core/usd/terminal_bodies.py` owns tomato and legacy leaf terminal bodies, curved pedicel visuals, breakable attachment joints, clearance validation, and terminal collision filters.
+- `core/usd/materials.py` owns shared leaf, stem, and maturation-bucketed fruit materials under `/World/Looks`.
+- `core/skinning/` resolves vegetative physics and authors organic visuals independently from truss geometry.
+- `core/optimizations/` contains joint-budget techniques. It does not own rendering.
+
+## Backends And Visual Modes
+
+`build_stage()` supports both branch backends:
+
+- `legacy` authors all branches through rigid cylinder chains.
+- `skinned` uses the vegetative backend for stems and leaves while retaining the legacy chain authoring required by trusses.
+
+The `skinned` backend supports four visual modes without removing any physical branches:
+
+| Mode | Implementation | Runtime role |
+| --- | --- | --- |
+| `segmented` | `visual_segmented.py` | Current realtime default; one organic mesh per rigid link |
+| `skinned` | `mesh.py` | Continuous UsdSkel reference mode |
+| `static` | `visual_static.py` | Smooth world-space benchmark |
+| `rigid-single` | `visual_rigid.py` | Direct visual attachment for one-link axes |
+
+`visual_modes.py` only re-exports the non-UsdSkel authoring functions for import compatibility.
 
 ## Stage Structure
 
-The generated stage uses `/World` as the default prim and `/World/Stem` as the main articulation root. Regular plant links are authored under `/World/Stem`. Detachable tomatoes are regular rigid bodies under `/World/TerminalBodies` and are connected back to the pedicel tip through breakable FixedJoints.
+- `/World` is the default prim.
+- `/World/Stem` is the main articulation root.
+- `/World/Stem/Vegetative` contains vegetative collision proxies and rigid links.
+- `/World/PlantVisual` contains visual-axis roots when the selected mode requires them.
+- `/World/TerminalBodies` contains tomatoes excluded from the main articulation when detachment configuration requires it.
+- `/World/Looks` contains shared materials.
 
-Terminal tomato bodies keep:
-
-- `PhysxRigidBodyAPI`
-- solver iterations from `PhysicsRuntimeConfig.TERMINAL_BODY_SOLVER_*`
-- `physics:excludeFromArticulation = True`
-- collision filters to the pedicel and truss rachis that generated them
-
-## Design Rules
-
-- CSV-derived geometry, organ order, prim paths, and generated metadata are treated as compatibility surfaces.
-- Truss, pedicel, and tomato structure comes from CSV-derived configuration, not from synthetic test geometry.
-- Demos and visual validation scripts are kept separate from automated tests so normal pytest runs stay fast and deterministic.
-
-## Documentation Consolidation
-
-Historical root summaries and task-by-task refactoring reports have been folded
-into this documentation set. `README.md` now gives the academic overview and V1
-vs V2 comparison, while these V2 docs hold the implementation details that are
-needed for final reporting.
+Generated prim paths, organ order, topology, joint frames, bindings, and collision relationships are compatibility surfaces. Refactors must preserve them unless a behavior change is explicitly requested.

@@ -1,22 +1,14 @@
-"""Visual-only terminal fork dressing for the realtime segmented backend.
-
-This module handles only centered terminal leaf branches. Truss/tomato terminal
-geometry is deliberately left untouched.
-
-At an eligible lateral-branch tip, the real petiole is the main continuation and
-this module adds only a tiny rigid decorative young twig as the secondary arm.
-The twig azimuth is deterministically varied around the lateral-branch axis so
-all terminal forks do not repeat the same visual orientation.
-"""
+"""Visual-only terminal leaf forks for the segmented backend."""
 
 import hashlib
 import math
 from typing import Dict, Iterable, Optional
 
-from pxr import Gf, UsdGeom, Vt
+from pxr import Gf
 
+from ..mesh_geometry import build_open_tube_topology
 from ..tree_config import PlantColors
-from .adapter import branch_system
+from .adapter import branch_system, is_structural_terminal_host
 from .mesh import _axis_color, _smoothstep, _visual_radius, author_plain_mesh, link_rest_world
 from .model import BranchData, VisualAxisData
 
@@ -43,10 +35,6 @@ LEAF_LENGTH_MIN_M = 0.008
 LEAF_LENGTH_MAX_M = 0.014
 LEAF_HALF_WIDTH_FRACTION = 0.27
 
-# Stable pseudo-random azimuth around the parent axis.  We keep the twig broadly
-# on the side opposite the real petiole, but allow enough rotation to make each
-# fork look different.  The value is deterministic per parent/child pair, so the
-# same exported plant does not reshuffle every time it is regenerated.
 AZIMUTH_JITTER_DEG = 75.0
 
 
@@ -106,17 +94,6 @@ def _transport_frames(tangents):
     return normals, binormals
 
 
-
-
-def _is_structural_host(branch: BranchData) -> bool:
-    branch_id = branch.branch_id.lower()
-    kind = str(branch.definition.get("kind", "")).lower()
-
-    if branch.parent_id is None:
-        return True
-    if branch_id.startswith("branch_r"):
-        return True
-    return kind in {"stem", "trunk", "branch", "lateral_branch"}
 
 
 def _is_supported_existing_organ(branch_def: dict) -> bool:
@@ -183,12 +160,7 @@ def _complementary_shoot_direction(
     existing_axis: Gf.Vec3d,
     azimuth_jitter_deg: float,
 ) -> Gf.Vec3d:
-    """Place the tiny twig at a varied azimuth around the structural axis.
-
-    The real petiole still defines the reference side.  We start from the
-    opposite radial direction, rotate that vector around the lateral-branch axis
-    by a stable pseudo-random angle, then retain a small forward/upward bias.
-    """
+    """Place the twig opposite the petiole with stable azimuth variation."""
     parent_axis = _normalized(parent_axis)
     existing_axis = _normalized(existing_axis)
     world_up = Gf.Vec3d(0.0, 0.0, 1.0)
@@ -290,22 +262,9 @@ def _build_shoot_mesh(
             )
             points.append(Gf.Vec3f(*world_to_link.Transform(world_point)))
 
-    face_counts = []
-    face_indices = []
-    for ring in range(len(centers) - 1):
-        row0 = ring * radial_segments
-        row1 = (ring + 1) * radial_segments
-        for radial in range(radial_segments):
-            next_radial = (radial + 1) % radial_segments
-            face_counts.extend((3, 3))
-            face_indices.extend((
-                row0 + radial,
-                row1 + radial,
-                row1 + next_radial,
-                row0 + radial,
-                row1 + next_radial,
-                row0 + next_radial,
-            ))
+    face_counts, face_indices = build_open_tube_topology(
+        len(centers), radial_segments
+    )
 
     tip_center = len(points)
     points.append(Gf.Vec3f(*world_to_link.Transform(centers[-1])))
@@ -434,7 +393,7 @@ def author_terminal_visual_forks(
 
     for axis in visual_axes:
         parent = axis.members[-1]
-        if not _is_structural_host(parent):
+        if not is_structural_terminal_host(parent.definition):
             continue
 
         existing_child = _find_terminal_existing_child(parent, all_branch_defs)
