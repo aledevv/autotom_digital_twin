@@ -39,7 +39,7 @@ from pxr import Gf, Usd, UsdGeom, UsdPhysics, Vt
 # direction: same lateral opening (~56 deg from the downward rachis direction),
 # but with a negative axial component so the physical tip is already below the
 # attachment point before the visual curve turns fully toward gravity.
-LATERAL_PEDICEL_CHORD_ANGLE_DEG = 124.0
+LATERAL_PEDICEL_CHORD_ANGLE_DEG = 56.0
 
 # Cubic control-arm fractions of physical pedicel length. A fairly long terminal
 # arm makes the last part read as a clear downward segment rather than a tiny
@@ -127,7 +127,7 @@ def _author_gravity_pedicels_and_hang_tomatoes(stage, branches, terminal_bodies)
 
     for branch in branches:
         branch_id = branch.get("id", "")
-        if "_pedicel_lat_" not in branch_id:
+        if "pedicel" not in branch_id:
             continue
 
         link_path = f"/World/Stem/{branch_id}_Link_01"
@@ -139,6 +139,11 @@ def _author_gravity_pedicels_and_hang_tomatoes(stage, branches, terminal_bodies)
         if not cylinder:
             raise RuntimeError(f"Missing physical proxy: {link_path}/Cylinder")
         cylinder.CreateVisibilityAttr().Set(UsdGeom.Tokens.invisible)
+
+        pedicel_filtered = UsdPhysics.FilteredPairsAPI(cylinder.GetPrim())
+        if not pedicel_filtered:
+            pedicel_filtered = UsdPhysics.FilteredPairsAPI.Apply(cylinder.GetPrim())
+        pedicel_filtered.GetFilteredPairsRel().AddTarget("/World/Stem")
 
         link_to_world = UsdGeom.Xformable(link_prim).ComputeLocalToWorldTransform(
             Usd.TimeCode.Default()
@@ -181,9 +186,11 @@ def _author_gravity_pedicels_and_hang_tomatoes(stage, branches, terminal_bodies)
         tip_local = centers[-1]
         terminal_down_local = base._normalized(tangents[-1])
 
-        # The sphere center is one radius below the pedicel tip, along the visual
-        # terminal tangent. This places the attachment at the TOP of the tomato.
-        tomato_center_local = tip_local + terminal_down_local * tomato_radius
+        # The sphere center is placed slightly less than one radius below the pedicel
+        # tip to create a small overlap (2mm). This swallows the flat end of the 
+        # pedicel tube and eliminates the visual gap.
+        visual_overlap = 0.002
+        tomato_center_local = tip_local + terminal_down_local * (tomato_radius - visual_overlap)
         tomato_center_world = link_to_world.Transform(tomato_center_local)
         _set_xform_translate(tomato_prim, Gf.Vec3d(tomato_center_world))
 
@@ -194,8 +201,16 @@ def _author_gravity_pedicels_and_hang_tomatoes(stage, branches, terminal_bodies)
 
         joint.CreateLocalPos0Attr().Set(Gf.Vec3f(*tip_local))
         joint.CreateLocalPos1Attr().Set(
-            Gf.Vec3f(*(-terminal_down_local * tomato_radius))
+            Gf.Vec3f(*(-terminal_down_local * (tomato_radius - visual_overlap)))
         )
+        
+        # Explicitly filter collisions between the tomato and the rest of the stem
+        # to prevent collision explosions that bend the branch up.
+        tomato_filtered = UsdPhysics.FilteredPairsAPI(tomato_prim)
+        if not tomato_filtered:
+            tomato_filtered = UsdPhysics.FilteredPairsAPI.Apply(tomato_prim)
+        tomato_filtered.GetFilteredPairsRel().AddTarget("/World/Stem")
+
         hung += 1
 
     return replaced, hung
@@ -211,6 +226,7 @@ def _build_gravity_stage(path):
         terminal_bodies=terminal_bodies,
     )
     base._add_scene_support(stage)
+    
     replaced, hung = _author_gravity_pedicels_and_hang_tomatoes(
         stage,
         branches,

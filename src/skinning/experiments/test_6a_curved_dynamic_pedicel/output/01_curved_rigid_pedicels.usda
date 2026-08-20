@@ -1,0 +1,1148 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "World"
+{
+    def Xform "Stem" (
+        prepend apiSchemas = ["PhysicsArticulationRootAPI"]
+    )
+    {
+        def Xform "trunk_Link_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.12)
+            float physics:mass = 0.19301945
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.24
+                color3f[] primvars:displayColor = [(0.3, 0.55, 0.18)]
+                double radius = 0.016
+                double3 xformOp:translate = (0, 0, 0.12)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsFixedJoint "RootFixedJoint"
+            {
+                rel physics:body1 = </World/Stem/trunk_Link_01>
+            }
+        }
+
+        def Xform "trunk_Link_02" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.12)
+            prepend rel physics:filteredPairs = </World/Stem/trunk_Link_01>
+            float physics:mass = 0.19301945
+            double3 xformOp:translate = (0, 0, 0.24)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.24
+                color3f[] primvars:displayColor = [(0.3, 0.55, 0.18)]
+                double radius = 0.016
+                double3 xformOp:translate = (0, 0, 0.12)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsFixedJoint "Joint_01_02"
+            {
+                rel physics:body0 = </World/Stem/trunk_Link_01>
+                rel physics:body1 = </World/Stem/trunk_Link_02>
+                point3f physics:localPos0 = (0, 0, 0.24)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "trunk_Link_03" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.12)
+            prepend rel physics:filteredPairs = </World/Stem/trunk_Link_02>
+            float physics:mass = 0.19301945
+            double3 xformOp:translate = (0, 0, 0.48)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.24
+                color3f[] primvars:displayColor = [(0.3, 0.55, 0.18)]
+                double radius = 0.016
+                double3 xformOp:translate = (0, 0, 0.12)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsFixedJoint "Joint_02_03"
+            {
+                rel physics:body0 = </World/Stem/trunk_Link_02>
+                rel physics:body1 = </World/Stem/trunk_Link_03>
+                point3f physics:localPos0 = (0, 0, 0.24)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "trunk_Link_04" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.12)
+            prepend rel physics:filteredPairs = </World/Stem/trunk_Link_03>
+            float physics:mass = 0.19301945
+            double3 xformOp:translate = (0, 0, 0.72)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.24
+                color3f[] primvars:displayColor = [(0.3, 0.55, 0.18)]
+                double radius = 0.016
+                double3 xformOp:translate = (0, 0, 0.12)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsFixedJoint "Joint_03_04"
+            {
+                rel physics:body0 = </World/Stem/trunk_Link_03>
+                rel physics:body1 = </World/Stem/trunk_Link_04>
+                point3f physics:localPos0 = (0, 0, 0.24)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_Link_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.0325)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/trunk_Link_03>,
+                </World/Stem/trunk_Link_04>,
+            ]
+            float physics:mass = 0.052929554
+            quatf xformOp:orient = (0.5862181, -0.3954091, -0.3954091, 0.5862181)
+            double3 xformOp:translate = (-0.008, 1.7763568394002505e-18, 0.72)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.065
+                color3f[] primvars:displayColor = [(0.3, 0.42, 0.16)]
+                double radius = 0.0036
+                double3 xformOp:translate = (0, 0, 0.0325)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "AttachJoint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 0.00595861
+                float drive:rotX:physics:stiffness = 0.27227697
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 0.00595861
+                float drive:rotY:physics:stiffness = 0.27227697
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/trunk_Link_03>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_Link_01>
+                point3f physics:localPos0 = (-0.008, 1.776357e-18, 0.24)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (0.5862181, -0.3954091, -0.3954091, 0.5862181)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_Link_02" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.0325)
+            prepend rel physics:filteredPairs = </World/Stem/Truss_r2_o0_rachis_Link_01>
+            float physics:mass = 0.052929554
+            quatf xformOp:orient = (0.5862181, -0.3954091, -0.3954091, 0.5862181)
+            double3 xformOp:translate = (-0.06826695054684118, 8.992806499463768e-18, 0.7443494285720342)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.065
+                color3f[] primvars:displayColor = [(0.3, 0.42, 0.16)]
+                double radius = 0.0036
+                double3 xformOp:translate = (0, 0, 0.0325)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint_01_02" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 0.0060787806
+                float drive:rotX:physics:stiffness = 0.28337002
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 0.0060787806
+                float drive:rotY:physics:stiffness = 0.28337002
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_Link_01>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_Link_02>
+                point3f physics:localPos0 = (0, 0, 0.065)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_Link_03" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.0325)
+            prepend rel physics:filteredPairs = </World/Stem/Truss_r2_o0_rachis_Link_02>
+            float physics:mass = 0.052929554
+            quatf xformOp:orient = (0.5862181, -0.3954091, -0.3954091, 0.5862181)
+            double3 xformOp:translate = (-0.12853390109368235, 1.6209256159527288e-17, 0.7686988571440685)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.065
+                color3f[] primvars:displayColor = [(0.3, 0.42, 0.16)]
+                double radius = 0.0036
+                double3 xformOp:translate = (0, 0, 0.0325)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint_02_03" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 0.0060787806
+                float drive:rotX:physics:stiffness = 0.28337002
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 0.0060787806
+                float drive:rotY:physics:stiffness = 0.28337002
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_Link_02>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_Link_03>
+                point3f physics:localPos0 = (0, 0, 0.065)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_Link_04" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.0325)
+            prepend rel physics:filteredPairs = </World/Stem/Truss_r2_o0_rachis_Link_03>
+            float physics:mass = 0.052929554
+            quatf xformOp:orient = (0.5862181, -0.3954091, -0.3954091, 0.5862181)
+            double3 xformOp:translate = (-0.18880085164052351, 2.3425705819590805e-17, 0.7930482857161028)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.065
+                color3f[] primvars:displayColor = [(0.3, 0.42, 0.16)]
+                double radius = 0.0036
+                double3 xformOp:translate = (0, 0, 0.0325)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "Joint_03_04" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 0.0060787806
+                float drive:rotX:physics:stiffness = 0.28337002
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 0.0060787806
+                float drive:rotY:physics:stiffness = 0.28337002
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float limit:rotX:physics:high = 30
+                float limit:rotX:physics:low = -30
+                float limit:rotY:physics:high = 30
+                float limit:rotY:physics:low = -30
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_Link_03>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_Link_04>
+                point3f physics:localPos0 = (0, 0, 0.065)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_pedicel_lat_0_L_Link_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.018)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/Truss_r2_o0_rachis_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_02>,
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_0_R_Link_01>,
+            ]
+            float physics:mass = 0.009047787
+            quatf xformOp:orient = (-0.39540905, -0.3954091, -0.5862181, 0.5862181)
+            double3 xformOp:translate = (-0.06826694948748277, -0.0017999979469881687, 0.7443494313458043)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.036
+                color3f[] primvars:displayColor = [(0.2, 0.55, 0.16)]
+                double radius = 0.002
+                token visibility = "invisible"
+                double3 xformOp:translate = (0, 0, 0.018)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "AttachJoint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 0.005332464
+                float drive:rotX:physics:stiffness = 4.1586103
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 0.005332464
+                float drive:rotY:physics:stiffness = 4.1586103
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float limit:rotX:physics:high = 25
+                float limit:rotX:physics:low = -25
+                float limit:rotY:physics:high = 25
+                float limit:rotY:physics:low = -25
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_Link_01>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_0_L_Link_01>
+                point3f physics:localPos0 = (-0.0018, 3.9968028e-19, 0.065)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (0.5, -0.5, -0.5, 0.5)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+
+            def Mesh "CurvedPedicelVisual"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 14, 15, 0, 15, 1, 1, 15, 16, 1, 16, 2, 2, 16, 17, 2, 17, 3, 3, 17, 18, 3, 18, 4, 4, 18, 19, 4, 19, 5, 5, 19, 20, 5, 20, 6, 6, 20, 21, 6, 21, 7, 7, 21, 22, 7, 22, 8, 8, 22, 23, 8, 23, 9, 9, 23, 24, 9, 24, 10, 10, 24, 25, 10, 25, 11, 11, 25, 26, 11, 26, 12, 12, 26, 27, 12, 27, 13, 13, 27, 14, 13, 14, 0, 14, 28, 29, 14, 29, 15, 15, 29, 30, 15, 30, 16, 16, 30, 31, 16, 31, 17, 17, 31, 32, 17, 32, 18, 18, 32, 33, 18, 33, 19, 19, 33, 34, 19, 34, 20, 20, 34, 35, 20, 35, 21, 21, 35, 36, 21, 36, 22, 22, 36, 37, 22, 37, 23, 23, 37, 38, 23, 38, 24, 24, 38, 39, 24, 39, 25, 25, 39, 40, 25, 40, 26, 26, 40, 41, 26, 41, 27, 27, 41, 28, 27, 28, 14, 28, 42, 43, 28, 43, 29, 29, 43, 44, 29, 44, 30, 30, 44, 45, 30, 45, 31, 31, 45, 46, 31, 46, 32, 32, 46, 47, 32, 47, 33, 33, 47, 48, 33, 48, 34, 34, 48, 49, 34, 49, 35, 35, 49, 50, 35, 50, 36, 36, 50, 51, 36, 51, 37, 37, 51, 52, 37, 52, 38, 38, 52, 53, 38, 53, 39, 39, 53, 54, 39, 54, 40, 40, 54, 55, 40, 55, 41, 41, 55, 42, 41, 42, 28, 42, 56, 57, 42, 57, 43, 43, 57, 58, 43, 58, 44, 44, 58, 59, 44, 59, 45, 45, 59, 60, 45, 60, 46, 46, 60, 61, 46, 61, 47, 47, 61, 62, 47, 62, 48, 48, 62, 63, 48, 63, 49, 49, 63, 64, 49, 64, 50, 50, 64, 65, 50, 65, 51, 51, 65, 66, 51, 66, 52, 52, 66, 67, 52, 67, 53, 53, 67, 68, 53, 68, 54, 54, 68, 69, 54, 69, 55, 55, 69, 56, 55, 56, 42, 56, 70, 71, 56, 71, 57, 57, 71, 72, 57, 72, 58, 58, 72, 73, 58, 73, 59, 59, 73, 74, 59, 74, 60, 60, 74, 75, 60, 75, 61, 61, 75, 76, 61, 76, 62, 62, 76, 77, 62, 77, 63, 63, 77, 78, 63, 78, 64, 64, 78, 79, 64, 79, 65, 65, 79, 80, 65, 80, 66, 66, 80, 81, 66, 81, 67, 67, 81, 82, 67, 82, 68, 68, 82, 83, 68, 83, 69, 69, 83, 70, 69, 70, 56, 70, 84, 85, 70, 85, 71, 71, 85, 86, 71, 86, 72, 72, 86, 87, 72, 87, 73, 73, 87, 88, 73, 88, 74, 74, 88, 89, 74, 89, 75, 75, 89, 90, 75, 90, 76, 76, 90, 91, 76, 91, 77, 77, 91, 92, 77, 92, 78, 78, 92, 93, 78, 93, 79, 79, 93, 94, 79, 94, 80, 80, 94, 95, 80, 95, 81, 81, 95, 96, 81, 96, 82, 82, 96, 97, 82, 97, 83, 83, 97, 84, 83, 84, 70, 84, 98, 99, 84, 99, 85, 85, 99, 100, 85, 100, 86, 86, 100, 101, 86, 101, 87, 87, 101, 102, 87, 102, 88, 88, 102, 103, 88, 103, 89, 89, 103, 104, 89, 104, 90, 90, 104, 105, 90, 105, 91, 91, 105, 106, 91, 106, 92, 92, 106, 107, 92, 107, 93, 93, 107, 108, 93, 108, 94, 94, 108, 109, 94, 109, 95, 95, 109, 110, 95, 110, 96, 96, 110, 111, 96, 111, 97, 97, 111, 98, 97, 98, 84, 98, 112, 113, 98, 113, 99, 99, 113, 114, 99, 114, 100, 100, 114, 115, 100, 115, 101, 101, 115, 116, 101, 116, 102, 102, 116, 117, 102, 117, 103, 103, 117, 118, 103, 118, 104, 104, 118, 119, 104, 119, 105, 105, 119, 120, 105, 120, 106, 106, 120, 121, 106, 121, 107, 107, 121, 122, 107, 122, 108, 108, 122, 123, 108, 123, 109, 109, 123, 124, 109, 124, 110, 110, 124, 125, 110, 125, 111, 111, 125, 112, 111, 112, 98, 112, 126, 127, 112, 127, 113, 113, 127, 128, 113, 128, 114, 114, 128, 129, 114, 129, 115, 115, 129, 130, 115, 130, 116, 116, 130, 131, 116, 131, 117, 117, 131, 132, 117, 132, 118, 118, 132, 133, 118, 133, 119, 119, 133, 134, 119, 134, 120, 120, 134, 135, 120, 135, 121, 121, 135, 136, 121, 136, 122, 122, 136, 137, 122, 137, 123, 123, 137, 138, 123, 138, 124, 124, 138, 139, 124, 139, 125, 125, 139, 126, 125, 126, 112, 126, 140, 141, 126, 141, 127, 127, 141, 142, 127, 142, 128, 128, 142, 143, 128, 143, 129, 129, 143, 144, 129, 144, 130, 130, 144, 145, 130, 145, 131, 131, 145, 146, 131, 146, 132, 132, 146, 147, 132, 147, 133, 133, 147, 148, 133, 148, 134, 134, 148, 149, 134, 149, 135, 135, 149, 150, 135, 150, 136, 136, 150, 151, 136, 151, 137, 137, 151, 152, 137, 152, 138, 138, 152, 153, 138, 153, 139, 139, 153, 140, 139, 140, 126, 140, 154, 155, 140, 155, 141, 141, 155, 156, 141, 156, 142, 142, 156, 157, 142, 157, 143, 143, 157, 158, 143, 158, 144, 144, 158, 159, 144, 159, 145, 145, 159, 160, 145, 160, 146, 146, 160, 161, 146, 161, 147, 147, 161, 162, 147, 162, 148, 148, 162, 163, 148, 163, 149, 149, 163, 164, 149, 164, 150, 150, 164, 165, 150, 165, 151, 151, 165, 166, 151, 166, 152, 152, 166, 167, 152, 167, 153, 153, 167, 154, 153, 154, 140, 154, 168, 169, 154, 169, 155, 155, 169, 170, 155, 170, 156, 156, 170, 171, 156, 171, 157, 157, 171, 172, 157, 172, 158, 158, 172, 173, 158, 173, 159, 159, 173, 174, 159, 174, 160, 160, 174, 175, 160, 175, 161, 161, 175, 176, 161, 176, 162, 162, 176, 177, 162, 177, 163, 163, 177, 178, 163, 178, 164, 164, 178, 179, 164, 179, 165, 165, 179, 180, 165, 180, 166, 166, 180, 181, 166, 181, 167, 167, 181, 168, 167, 168, 154, 168, 182, 183, 168, 183, 169, 169, 183, 184, 169, 184, 170, 170, 184, 185, 170, 185, 171, 171, 185, 186, 171, 186, 172, 172, 186, 187, 172, 187, 173, 173, 187, 188, 173, 188, 174, 174, 188, 189, 174, 189, 175, 175, 189, 190, 175, 190, 176, 176, 190, 191, 176, 191, 177, 177, 191, 192, 177, 192, 178, 178, 192, 193, 178, 193, 179, 179, 193, 194, 179, 194, 180, 180, 194, 195, 180, 195, 181, 181, 195, 182, 181, 182, 168, 182, 196, 197, 182, 197, 183, 183, 197, 198, 183, 198, 184, 184, 198, 199, 184, 199, 185, 185, 199, 200, 185, 200, 186, 186, 200, 201, 186, 201, 187, 187, 201, 202, 187, 202, 188, 188, 202, 203, 188, 203, 189, 189, 203, 204, 189, 204, 190, 190, 204, 205, 190, 205, 191, 191, 205, 206, 191, 206, 192, 192, 206, 207, 192, 207, 193, 193, 207, 208, 193, 208, 194, 194, 208, 209, 194, 209, 195, 195, 209, 196, 195, 196, 182, 210, 1, 0, 211, 196, 197, 210, 2, 1, 211, 197, 198, 210, 3, 2, 211, 198, 199, 210, 4, 3, 211, 199, 200, 210, 5, 4, 211, 200, 201, 210, 6, 5, 211, 201, 202, 210, 7, 6, 211, 202, 203, 210, 8, 7, 211, 203, 204, 210, 9, 8, 211, 204, 205, 210, 10, 9, 211, 205, 206, 210, 11, 10, 211, 206, 207, 210, 12, 11, 211, 207, 208, 210, 13, 12, 211, 208, 209, 210, 0, 13, 211, 209, 196]
+                point3f[] points = [(0.00043313013, 0.0023414346, 0), (-0.00047524134, 0.0022696601, 0.00054102356), (-0.0012894854, 0.0017483516, 0.0009748907), (-0.0018483311, 0.00088076055, 0.0012156689), (-0.0020410921, -0.00016127588, 0.0012156689), (-0.0018295898, -0.0011713697, 0.0009748907), (-0.0012557148, -0.0019494593, 0.00054102356), (-0.00043313013, -0.0023414346, 1.5270514e-19), (0.00047524134, -0.0022696601, -0.00054102356), (0.0012894854, -0.0017483516, -0.0009748907), (0.0018483311, -0.00088076055, -0.0012156689), (0.0020410921, 0.00016127588, -0.0012156689), (0.0018295898, 0.0011713697, -0.0009748907), (0.0012557148, 0.0019494593, -0.00054102356), (0.0015345046, 0.0021238283, 0.0021401495), (0.0005798152, 0.0020630914, 0.0025570393), (-0.00026642234, 0.0015570914, 0.0028987466), (-0.0008366003, 0.0007060476, 0.0030975922), (-0.001017788, -0.0003214803, 0.003114192), (-0.00077409885, -0.0013219777, 0.0029452585), (-0.00015379862, -0.002097284, 0.0026242507), (0.0007202547, -0.00249384, 0.0022147486), (0.0016749441, -0.002433103, 0.0017978587), (0.0025211817, -0.001927103, 0.0014561514), (0.0030913597, -0.0010760593, 0.0012573058), (0.0032725474, -0.000048531398, 0.001240706), (0.0030288582, 0.00095196604, 0.0014096395), (0.002408558, 0.0017272722, 0.0017306472), (0.0023851693, 0.001935579, 0.004462103), (0.0014293095, 0.0018816369, 0.004759719), (0.00058736146, 0.0013987905, 0.0050109876), (0.000026083333, 0.00058267347, 0.005166142), (-0.00014335685, -0.0004050723, 0.0051944517), (0.000112600566, -0.0013688115, 0.00509031), (0.0007432601, -0.0021176639, 0.004874343), (0.0016237119, -0.00250331, 0.0045893257), (0.0025795717, -0.002449368, 0.0042917095), (0.0034215197, -0.0019665216, 0.004040441), (0.0039827977, -0.0011504045, 0.0038852866), (0.004152238, -0.0001626587, 0.0038569767), (0.0038962804, 0.00080108055, 0.003961119), (0.003265621, 0.0015499329, 0.0041770856), (0.0030059228, 0.0017887313, 0.0069392947), (0.0020791073, 0.0017387054, 0.0071341773), (0.0012654439, 0.0012827103, 0.0073059006), (0.0007260882, 0.00051106146, 0.0074204514), (0.00056786643, -0.00042340683, 0.0074551427), (0.00082211633, -0.0013356116, 0.0074031027), (0.0014384806, -0.0020448794, 0.007274639), (0.0022948806, -0.002410731, 0.0070951954), (0.0032216958, -0.0023607053, 0.0069003124), (0.0040353592, -0.0019047102, 0.0067285895), (0.004574715, -0.0011330612, 0.0066140383), (0.0047329366, -0.00019859293, 0.006579347), (0.004478687, 0.0007136118, 0.006631387), (0.0038623228, 0.0014228796, 0.006759851), (0.0034175753, 0.0016950532, 0.009542348), (0.0025334605, 0.0016471941, 0.009654687), (0.0017584823, 0.0012174662, 0.009761044), (0.0012461345, 0.0004909824, 0.009840355), (0.0010978939, -0.00038836838, 0.009876912), (0.0013431214, -0.0012464199, 0.0098634735), (0.0019332466, -0.0019132243, 0.009802701), (0.0027513881, -0.002256713, 0.009706632), (0.003635503, -0.002208854, 0.009594293), (0.004410481, -0.0017791261, 0.009487935), (0.004922829, -0.0010526422, 0.009408624), (0.0050710696, -0.00017329154, 0.009372068), (0.004825842, 0.00068475987, 0.009385506), (0.004235717, 0.0013515644, 0.009446278), (0.003641676, 0.0016659801, 0.012240825), (0.002797972, 0.0016190456, 0.012289181), (0.0020588306, 0.0012102866, 0.01234362), (0.0015706478, 0.0005206628, 0.012393361), (0.0014301143, -0.0003132374, 0.012428552), (0.0016650643, -0.0011262498, 0.012442222), (0.0022289632, -0.0017573474, 0.012431664), (0.003010124, -0.0020815334, 0.01239897), (0.003853828, -0.002034599, 0.012350615), (0.0045929695, -0.00162584, 0.012296176), (0.005081152, -0.0009362161, 0.012246435), (0.005221686, -0.00010231592, 0.012211245), (0.0049867355, 0.0007106965, 0.012197574), (0.0044228365, 0.001341794, 0.012208131), (0.0037005257, 0.0017127208, 0.015004617), (0.002880333, 0.001665391, 0.0150028635), (0.0021618537, 0.0012671638, 0.015015579), (0.0016873913, 0.000596913, 0.015040246), (0.001550919, -0.00021261003, 0.015071978), (0.0017794668, -0.0010010693, 0.01510449), (0.002327768, -0.0016123009, 0.015131344), (0.0030872244, -0.0019252426, 0.015147219), (0.0039074174, -0.0018779128, 0.015148973), (0.0046258965, -0.0014796857, 0.015136258), (0.0051003587, -0.0008094348, 0.015111591), (0.0052368315, 8.821111e-8, 0.015079859), (0.0050082835, 0.0007885475, 0.015047346), (0.0044599823, 0.001399779, 0.015020493), (0.0036144173, 0.0018317325, 0.017805468), (0.0027941645, 0.0017825936, 0.017761499), (0.0020756088, 0.0013822312, 0.01773803), (0.0016010696, 0.0007099424, 0.01773971), (0.0014645347, -0.000101117956, 0.017766204), (0.0016930468, -0.00089030946, 0.017812265), (0.002241346, -0.001501323, 0.017868772), (0.0030008352, -0.0018131399, 0.017924532), (0.003821088, -0.0017640009, 0.017968502), (0.0045396434, -0.0013636387, 0.01799197), (0.005014183, -0.0006913498, 0.017990291), (0.0051507177, 0.00011971062, 0.017963797), (0.0049222056, 0.0009089021, 0.017917734), (0.0043739066, 0.0015199156, 0.017861227), (0.003396432, 0.001975823, 0.02061783), (0.0025664486, 0.0019243995, 0.020535812), (0.0018394428, 0.0015164788, 0.02047831), (0.0013594065, 0.00083285454, 0.020456713), (0.001221417, 0.0000089268315, 0.020475298), (0.0014528047, -0.0007921153, 0.020530386), (0.0020077405, -0.0014116156, 0.020611065), (0.0027763124, -0.0017268746, 0.020701354), (0.0036062957, -0.0016754512, 0.020783372), (0.0043333014, -0.0012675305, 0.020840874), (0.0048133377, -0.00058390625, 0.020862471), (0.0049513276, 0.00024002143, 0.020843886), (0.0047199395, 0.0010410636, 0.020788798), (0.004165004, 0.0016605639, 0.02070812), (0.0030635416, 0.0021209973, 0.023415755), (0.0022179787, 0.0020671508, 0.023298118), (0.0014776569, 0.0016484143, 0.023207027), (0.0009892059, 0.00094772375, 0.023160523), (0.0008493694, 0.000103859486, 0.023167817), (0.0010858438, -0.00071604084, 0.023227463), (0.0016517923, -0.0013495858, 0.023327649), (0.0024351222, -0.0016712942, 0.02344853), (0.003280685, -0.0016174477, 0.023566168), (0.0040210066, -0.0011987112, 0.023657259), (0.004509458, -0.0004980207, 0.023703763), (0.0046492945, 0.0003458436, 0.02369647), (0.00441282, 0.0011657439, 0.023636824), (0.0038468714, 0.0017992889, 0.023536637), (0.0026329649, 0.0022453356, 0.026173692), (0.0017689894, 0.002189214, 0.026021997), (0.0010133014, 0.0017581199, 0.025896667), (0.0005155743, 0.0010374363, 0.02582252), (0.00037438897, 0.00016990372, 0.025814248), (0.00061770895, -0.00067265244, 0.025873484), (0.0011973417, -0.0013233536, 0.025988499), (0.001998484, -0.0016533204, 0.026136512), (0.0028624593, -0.0015971989, 0.026288208), (0.0036181472, -0.0011661046, 0.026413538), (0.0041158744, -0.00044542106, 0.026487684), (0.0042570597, 0.00042211157, 0.026495956), (0.0040137395, 0.0012646677, 0.02643672), (0.003434107, 0.001915369, 0.026321705), (0.0021217298, 0.0023266997, 0.028866509), (0.0012396014, 0.0022687602, 0.028682085), (0.0004694113, 0.0018255427, 0.028521199), (-0.000036294998, 0.0010848312, 0.028415713), (-0.00017735608, 0.0001933331, 0.028386524), (0.0000741669, -0.0006723796, 0.02843941), (0.0006684567, -0.001340842, 0.028563896), (0.001487807, -0.0016796567, 0.028735328), (0.0023699354, -0.0016217174, 0.02891975), (0.0031401257, -0.0011784997, 0.029080639), (0.0036458317, -0.0004377883, 0.029186122), (0.0037868929, 0.00045370986, 0.029215313), (0.0035353699, 0.0013194226, 0.029162427), (0.0029410801, 0.001987885, 0.02903794), (0.001546618, 0.0023425748, 0.031469468), (0.00064970675, 0.0022836127, 0.031253893), (-0.00013114461, 0.00183038, 0.031055776), (-0.000641279, 0.0010726447, 0.030914359), (-0.00077965803, 0.0001604857, 0.030857649), (-0.00051887403, -0.0007254327, 0.030896878), (0.00008942153, -0.0014096436, 0.03102428), (0.00092474825, -0.0017566305, 0.031214615), (0.0018216594, -0.0016976686, 0.03143019), (0.0026025109, -0.0012444358, 0.031628307), (0.0031126451, -0.00048670048, 0.031769723), (0.0032510243, 0.0004254585, 0.031826433), (0.0029902402, 0.0013113769, 0.0317872), (0.0023819446, 0.0019955877, 0.031659804), (0.00092410104, 0.0022697984, 0.033958223), (0.000018875327, 0.0022109812, 0.03371368), (-0.0007657677, 0.0017518719, 0.03347651), (-0.0012744198, 0.0009834025, 0.033293694), (-0.0014063364, 0.00005777787, 0.033201434), (-0.0011353896, -0.0008416707, 0.033218008), (-0.00051524374, -0.0015367965, 0.03334013), (0.0003312736, -0.0018899211, 0.033543617), (0.0012364993, -0.001831104, 0.03378816), (0.0020211423, -0.0013719947, 0.034025326), (0.0025297946, -0.0006035254, 0.034208145), (0.002661711, 0.0003220993, 0.0343004), (0.0023907642, 0.001221548, 0.034283828), (0.0017706184, 0.0019166736, 0.034161706), (0.00027027217, 0.0020840764, 0.036308795), (-0.0006337296, 0.0020269908, 0.03603836), (-0.0014122135, 0.0015684346, 0.03576033), (-0.0019109912, 0.00079923094, 0.035529766), (-0.0020312737, -0.0001282703, 0.03539234), (-0.0017492374, -0.001030366, 0.035375267), (-0.0011207432, -0.0017283851, 0.03548193), (-0.00027027217, -0.0020840764, 0.035691205), (0.0006337296, -0.0020269908, 0.03596164), (0.0014122135, -0.0015684346, 0.03623967), (0.0019109912, -0.00079923094, 0.036470234), (0.0020312737, 0.0001282703, 0.03660766), (0.0017492374, 0.001030366, 0.036624733), (0.0011207432, 0.0017283851, 0.03651807), (0, 0, 0), (0, 0, 0.036)]
+                color3f[] primvars:displayColor = [(0.2, 0.55, 0.16)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_pedicel_lat_0_R_Link_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.018)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/Truss_r2_o0_rachis_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_02>,
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_0_L_Link_01>,
+            ]
+            float physics:mass = 0.009047787
+            quatf xformOp:orient = (-0.5862181, 0.5862181, 0.39540905, 0.3954091)
+            double3 xformOp:translate = (-0.06826694931890778, 0.0018000020530118256, 0.7443494314595096)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.036
+                color3f[] primvars:displayColor = [(0.2, 0.55, 0.16)]
+                double radius = 0.002
+                token visibility = "invisible"
+                double3 xformOp:translate = (0, 0, 0.018)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "AttachJoint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 0.005332464
+                float drive:rotX:physics:stiffness = 4.1586103
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 0.005332464
+                float drive:rotY:physics:stiffness = 4.1586103
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float limit:rotX:physics:high = 25
+                float limit:rotX:physics:low = -25
+                float limit:rotY:physics:high = 25
+                float limit:rotY:physics:low = -25
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_Link_01>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_0_R_Link_01>
+                point3f physics:localPos0 = (0.0018, -3.9968028e-19, 0.065)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (-0.5, 0.5, -0.5, 0.5)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+
+            def Mesh "CurvedPedicelVisual"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 14, 15, 0, 15, 1, 1, 15, 16, 1, 16, 2, 2, 16, 17, 2, 17, 3, 3, 17, 18, 3, 18, 4, 4, 18, 19, 4, 19, 5, 5, 19, 20, 5, 20, 6, 6, 20, 21, 6, 21, 7, 7, 21, 22, 7, 22, 8, 8, 22, 23, 8, 23, 9, 9, 23, 24, 9, 24, 10, 10, 24, 25, 10, 25, 11, 11, 25, 26, 11, 26, 12, 12, 26, 27, 12, 27, 13, 13, 27, 14, 13, 14, 0, 14, 28, 29, 14, 29, 15, 15, 29, 30, 15, 30, 16, 16, 30, 31, 16, 31, 17, 17, 31, 32, 17, 32, 18, 18, 32, 33, 18, 33, 19, 19, 33, 34, 19, 34, 20, 20, 34, 35, 20, 35, 21, 21, 35, 36, 21, 36, 22, 22, 36, 37, 22, 37, 23, 23, 37, 38, 23, 38, 24, 24, 38, 39, 24, 39, 25, 25, 39, 40, 25, 40, 26, 26, 40, 41, 26, 41, 27, 27, 41, 28, 27, 28, 14, 28, 42, 43, 28, 43, 29, 29, 43, 44, 29, 44, 30, 30, 44, 45, 30, 45, 31, 31, 45, 46, 31, 46, 32, 32, 46, 47, 32, 47, 33, 33, 47, 48, 33, 48, 34, 34, 48, 49, 34, 49, 35, 35, 49, 50, 35, 50, 36, 36, 50, 51, 36, 51, 37, 37, 51, 52, 37, 52, 38, 38, 52, 53, 38, 53, 39, 39, 53, 54, 39, 54, 40, 40, 54, 55, 40, 55, 41, 41, 55, 42, 41, 42, 28, 42, 56, 57, 42, 57, 43, 43, 57, 58, 43, 58, 44, 44, 58, 59, 44, 59, 45, 45, 59, 60, 45, 60, 46, 46, 60, 61, 46, 61, 47, 47, 61, 62, 47, 62, 48, 48, 62, 63, 48, 63, 49, 49, 63, 64, 49, 64, 50, 50, 64, 65, 50, 65, 51, 51, 65, 66, 51, 66, 52, 52, 66, 67, 52, 67, 53, 53, 67, 68, 53, 68, 54, 54, 68, 69, 54, 69, 55, 55, 69, 56, 55, 56, 42, 56, 70, 71, 56, 71, 57, 57, 71, 72, 57, 72, 58, 58, 72, 73, 58, 73, 59, 59, 73, 74, 59, 74, 60, 60, 74, 75, 60, 75, 61, 61, 75, 76, 61, 76, 62, 62, 76, 77, 62, 77, 63, 63, 77, 78, 63, 78, 64, 64, 78, 79, 64, 79, 65, 65, 79, 80, 65, 80, 66, 66, 80, 81, 66, 81, 67, 67, 81, 82, 67, 82, 68, 68, 82, 83, 68, 83, 69, 69, 83, 70, 69, 70, 56, 70, 84, 85, 70, 85, 71, 71, 85, 86, 71, 86, 72, 72, 86, 87, 72, 87, 73, 73, 87, 88, 73, 88, 74, 74, 88, 89, 74, 89, 75, 75, 89, 90, 75, 90, 76, 76, 90, 91, 76, 91, 77, 77, 91, 92, 77, 92, 78, 78, 92, 93, 78, 93, 79, 79, 93, 94, 79, 94, 80, 80, 94, 95, 80, 95, 81, 81, 95, 96, 81, 96, 82, 82, 96, 97, 82, 97, 83, 83, 97, 84, 83, 84, 70, 84, 98, 99, 84, 99, 85, 85, 99, 100, 85, 100, 86, 86, 100, 101, 86, 101, 87, 87, 101, 102, 87, 102, 88, 88, 102, 103, 88, 103, 89, 89, 103, 104, 89, 104, 90, 90, 104, 105, 90, 105, 91, 91, 105, 106, 91, 106, 92, 92, 106, 107, 92, 107, 93, 93, 107, 108, 93, 108, 94, 94, 108, 109, 94, 109, 95, 95, 109, 110, 95, 110, 96, 96, 110, 111, 96, 111, 97, 97, 111, 98, 97, 98, 84, 98, 112, 113, 98, 113, 99, 99, 113, 114, 99, 114, 100, 100, 114, 115, 100, 115, 101, 101, 115, 116, 101, 116, 102, 102, 116, 117, 102, 117, 103, 103, 117, 118, 103, 118, 104, 104, 118, 119, 104, 119, 105, 105, 119, 120, 105, 120, 106, 106, 120, 121, 106, 121, 107, 107, 121, 122, 107, 122, 108, 108, 122, 123, 108, 123, 109, 109, 123, 124, 109, 124, 110, 110, 124, 125, 110, 125, 111, 111, 125, 112, 111, 112, 98, 112, 126, 127, 112, 127, 113, 113, 127, 128, 113, 128, 114, 114, 128, 129, 114, 129, 115, 115, 129, 130, 115, 130, 116, 116, 130, 131, 116, 131, 117, 117, 131, 132, 117, 132, 118, 118, 132, 133, 118, 133, 119, 119, 133, 134, 119, 134, 120, 120, 134, 135, 120, 135, 121, 121, 135, 136, 121, 136, 122, 122, 136, 137, 122, 137, 123, 123, 137, 138, 123, 138, 124, 124, 138, 139, 124, 139, 125, 125, 139, 126, 125, 126, 112, 126, 140, 141, 126, 141, 127, 127, 141, 142, 127, 142, 128, 128, 142, 143, 128, 143, 129, 129, 143, 144, 129, 144, 130, 130, 144, 145, 130, 145, 131, 131, 145, 146, 131, 146, 132, 132, 146, 147, 132, 147, 133, 133, 147, 148, 133, 148, 134, 134, 148, 149, 134, 149, 135, 135, 149, 150, 135, 150, 136, 136, 150, 151, 136, 151, 137, 137, 151, 152, 137, 152, 138, 138, 152, 153, 138, 153, 139, 139, 153, 140, 139, 140, 126, 140, 154, 155, 140, 155, 141, 141, 155, 156, 141, 156, 142, 142, 156, 157, 142, 157, 143, 143, 157, 158, 143, 158, 144, 144, 158, 159, 144, 159, 145, 145, 159, 160, 145, 160, 146, 146, 160, 161, 146, 161, 147, 147, 161, 162, 147, 162, 148, 148, 162, 163, 148, 163, 149, 149, 163, 164, 149, 164, 150, 150, 164, 165, 150, 165, 151, 151, 165, 166, 151, 166, 152, 152, 166, 167, 152, 167, 153, 153, 167, 154, 153, 154, 140, 154, 168, 169, 154, 169, 155, 155, 169, 170, 155, 170, 156, 156, 170, 171, 156, 171, 157, 157, 171, 172, 157, 172, 158, 158, 172, 173, 158, 173, 159, 159, 173, 174, 159, 174, 160, 160, 174, 175, 160, 175, 161, 161, 175, 176, 161, 176, 162, 162, 176, 177, 162, 177, 163, 163, 177, 178, 163, 178, 164, 164, 178, 179, 164, 179, 165, 165, 179, 180, 165, 180, 166, 166, 180, 181, 166, 181, 167, 167, 181, 168, 167, 168, 154, 168, 182, 183, 168, 183, 169, 169, 183, 184, 169, 184, 170, 170, 184, 185, 170, 185, 171, 171, 185, 186, 171, 186, 172, 172, 186, 187, 172, 187, 173, 173, 187, 188, 173, 188, 174, 174, 188, 189, 174, 189, 175, 175, 189, 190, 175, 190, 176, 176, 190, 191, 176, 191, 177, 177, 191, 192, 177, 192, 178, 178, 192, 193, 178, 193, 179, 179, 193, 194, 179, 194, 180, 180, 194, 195, 180, 195, 181, 181, 195, 182, 181, 182, 168, 182, 196, 197, 182, 197, 183, 183, 197, 198, 183, 198, 184, 184, 198, 199, 184, 199, 185, 185, 199, 200, 185, 200, 186, 186, 200, 201, 186, 201, 187, 187, 201, 202, 187, 202, 188, 188, 202, 203, 188, 203, 189, 189, 203, 204, 189, 204, 190, 190, 204, 205, 190, 205, 191, 191, 205, 206, 191, 206, 192, 192, 206, 207, 192, 207, 193, 193, 207, 208, 193, 208, 194, 194, 208, 209, 194, 209, 195, 195, 209, 196, 195, 196, 182, 210, 1, 0, 211, 196, 197, 210, 2, 1, 211, 197, 198, 210, 3, 2, 211, 198, 199, 210, 4, 3, 211, 199, 200, 210, 5, 4, 211, 200, 201, 210, 6, 5, 211, 201, 202, 210, 7, 6, 211, 202, 203, 210, 8, 7, 211, 203, 204, 210, 9, 8, 211, 204, 205, 210, 10, 9, 211, 205, 206, 210, 11, 10, 211, 206, 207, 210, 12, 11, 211, 207, 208, 210, 13, 12, 211, 208, 209, 210, 0, 13, 211, 209, 196]
+                point3f[] points = [(-0.001493296, -0.0018039965, 0), (-0.00069484813, -0.0021638635, 0.0005649928), (0.00024122286, -0.002095151, 0.0010180818), (0.0011295167, -0.0016114679, 0.0012695272), (0.001794096, -0.0008086139, 0.0012695272), (0.0021033324, 0.00015439598, 0.0010180818), (0.0019959782, 0.0010868259, 0.0005649928), (0.001493296, 0.0018039965, 1.5947051e-19), (0.00069484813, 0.0021638635, -0.0005649928), (-0.00024122286, 0.002095151, -0.0010180818), (-0.0011295167, 0.0016114679, -0.0012695272), (-0.001794096, 0.0008086139, -0.0012695272), (-0.0021033324, -0.00015439598, -0.0010180818), (-0.0019959782, -0.0010868259, -0.0005649928), (-0.0024297382, -0.00095701945, 0.0022107128), (-0.001588502, -0.0013581349, 0.002643127), (-0.0006194603, -0.0013300368, 0.002983308), (0.00028545604, -0.0008782903, 0.0031638786), (0.0009470173, -0.00009236921, 0.003149075), (0.0012341931, 0.000872065, 0.0029418287), (0.0010901049, 0.0018239943, 0.0025831878), (0.000543291, 0.0025748776, 0.0021441854), (-0.0002979454, 0.002975993, 0.001711771), (-0.0012669871, 0.002947895, 0.0013715901), (-0.0021719034, 0.0024961485, 0.0011910193), (-0.0028334646, 0.0017102273, 0.001205823), (-0.0031206405, 0.00074579316, 0.0014130692), (-0.0029765521, -0.00020613619, 0.0017717102), (-0.0030825255, -0.00023078808, 0.0045832894), (-0.0022382136, -0.0006487965, 0.0048872437), (-0.001275927, -0.00064841274, 0.0051195924), (-0.0003862583, -0.0002297128, 0.0052343165), (0.0002545827, 0.00052437466, 0.005208693), (0.0005196696, 0.0014644933, 0.005047797), (0.00035649867, 0.0024044411, 0.0047834967), (-0.00020261206, 0.0031580501, 0.0044681393), (-0.0010469239, 0.0035760584, 0.004164185), (-0.0020092104, 0.0035756747, 0.003931836), (-0.002898879, 0.003156975, 0.0038171122), (-0.00353972, 0.0024028874, 0.0038427354), (-0.003804807, 0.0014627688, 0.004003631), (-0.003641636, 0.0005228208, 0.004267932), (-0.0034938403, 0.0003654077, 0.0070887124), (-0.002673211, -0.000051262938, 0.0072817206), (-0.0017435518, -0.000067290675, 0.0074223466), (-0.0008889928, 0.00032049898, 0.007482737), (-0.00027878996, 0.0010352995, 0.007450931), (-0.00003380149, 0.0019355359, 0.007333228), (-0.00020255035, 0.0028429055, 0.0071529406), (-0.00075161376, 0.0035776922, 0.006945777), (-0.0015722429, 0.003994363, 0.006752769), (-0.0025019022, 0.0040103905, 0.0066121435), (-0.0033564612, 0.0036226008, 0.006551753), (-0.003966664, 0.0029078003, 0.006583559), (-0.0042116526, 0.0020075638, 0.0067012617), (-0.004042904, 0.0011001945, 0.006881549), (-0.0037058773, 0.00082256406, 0.009700635), (-0.0029211857, 0.00041741366, 0.009804711), (-0.0020349289, 0.00039308082, 0.009873091), (-0.0012226405, 0.0007543849, 0.009892233), (-0.0006452045, 0.0014297653, 0.009858346), (-0.00041698912, 0.0022854544, 0.009778139), (-0.0005831951, 0.0031519728, 0.009667502), (-0.0011109035, 0.0038576957, 0.009548345), (-0.001895595, 0.0042628464, 0.009444269), (-0.002781852, 0.004287179, 0.009375889), (-0.0035941403, 0.003925875, 0.009356746), (-0.0041715764, 0.0032504946, 0.0093906345), (-0.004399792, 0.0023948054, 0.00947084), (-0.0042335857, 0.001528287, 0.009581478), (-0.0037602268, 0.0011313934, 0.012393859), (-0.0030099726, 0.0007398556, 0.012429468), (-0.0021635152, 0.00071215024, 0.012443376), (-0.0013885057, 0.0010537646, 0.012432827), (-0.00083844445, 0.001697038, 0.012399911), (-0.00062227785, 0.0025145619, 0.012351147), (-0.00078282016, 0.0033444157, 0.012296194), (-0.0012882742, 0.004022237, 0.012245936), (-0.0020385284, 0.0044137747, 0.012210327), (-0.0028849859, 0.00444148, 0.01219642), (-0.0036599953, 0.004099866, 0.012206969), (-0.0042100567, 0.0034565926, 0.012239885), (-0.004426223, 0.0026390685, 0.012288649), (-0.004265681, 0.0018092146, 0.012343601), (-0.003697866, 0.0012822035, 0.01514304), (-0.0029682422, 0.0008990292, 0.0151256975), (-0.0021448866, 0.0008703905, 0.015098495), (-0.0013908751, 0.0012019596, 0.015066822), (-0.0008555491, 0.0018280651, 0.01503695), (-0.0006449363, 0.0026246994, 0.0150147965), (-0.00080075115, 0.0034340788, 0.0150047485), (-0.0012921327, 0.004095896, 0.015008797), (-0.0020217567, 0.00447907, 0.015026139), (-0.0028451122, 0.0045077093, 0.015053341), (-0.0035991236, 0.00417614, 0.0150850145), (-0.0041344496, 0.0035500345, 0.015114887), (-0.0043450627, 0.0027534002, 0.01513704), (-0.0041892477, 0.0019440209, 0.015147088), (-0.0035488803, 0.0012773216, 0.0179212), (-0.0028214885, 0.00089417404, 0.01786042), (-0.0019997873, 0.0008655785, 0.017800545), (-0.0012465249, 0.0011971986, 0.017753437), (-0.00071089406, 0.0018233531, 0.017728426), (-0.0004989831, 0.0026200244, 0.017730463), (-0.00065276347, 0.0034294217, 0.017759148), (-0.0011417771, 0.0040912344, 0.017808799), (-0.0018691691, 0.004474382, 0.01786958), (-0.00269087, 0.0045029772, 0.017929455), (-0.0034441326, 0.004171357, 0.017976563), (-0.0039797635, 0.0035452028, 0.018001575), (-0.0041916743, 0.0027485315, 0.017999537), (-0.004037894, 0.0019391342, 0.01797085), (-0.0033146322, 0.001152404, 0.02069905), (-0.002584575, 0.000767664, 0.020601423), (-0.0017585281, 0.00073988753, 0.020515317), (-0.0010001, 0.0010745762, 0.020457787), (-0.00045950687, 0.0017054407, 0.020440226), (-0.00024381971, 0.0025075306, 0.020466113), (-0.00039575802, 0.0033219822, 0.02053032), (-0.00088522857, 0.003987483, 0.020620134), (-0.0016152856, 0.0043722233, 0.02071776), (-0.0024413327, 0.0044, 0.020803867), (-0.0031997606, 0.004065311, 0.020861397), (-0.0037403537, 0.0034344466, 0.020878958), (-0.003956041, 0.0026323567, 0.02085307), (-0.0038041028, 0.0018179052, 0.020788863), (-0.0030159762, 0.0009202641, 0.02344805), (-0.0022803158, 0.00053312135, 0.0233189), (-0.0014462541, 0.00050652516, 0.023212178), (-0.00067898724, 0.0008457432, 0.023149023), (-0.00013048196, 0.0014835893, 0.023141945), (0.0000906236, 0.0022937302, 0.023192342), (-0.000059463233, 0.0031157073, 0.023290236), (-0.0005510159, 0.0037867182, 0.023416236), (-0.0012866764, 0.004173861, 0.023545386), (-0.0021207382, 0.004200457, 0.023652108), (-0.002888005, 0.0038612392, 0.023715261), (-0.0034365102, 0.003223393, 0.023722341), (-0.0036576157, 0.0024132524, 0.023671944), (-0.003507529, 0.0015912751, 0.02357405), (-0.002675401, 0.0005918889, 0.026139325), (-0.0019323268, 0.00020195507, 0.025983324), (-0.001087922, 0.00017653691, 0.025861345), (-0.00030943158, 0.0005206688, 0.02579755), (0.000248955, 0.0011661912, 0.025804572), (0.00047664242, 0.0019852505, 0.02588102), (0.0003285344, 0.002815622, 0.026011754), (-0.00016603446, 0.0034928403, 0.02617088), (-0.0009091087, 0.0038827742, 0.02632688), (-0.0017535135, 0.0039081923, 0.026448859), (-0.002532004, 0.0035640604, 0.026512654), (-0.0030903905, 0.002918538, 0.026505632), (-0.003318078, 0.0020994786, 0.026429184), (-0.00316997, 0.0012691072, 0.02629845), (-0.0023153634, 0.0001784853, 0.02874355), (-0.0015642835, -0.00021415281, 0.028565245), (-0.00070862746, -0.00023875936, 0.028433617), (0.00008213156, 0.00010953927, 0.028374739), (0.00065137405, 0.0007617583, 0.02840027), (0.00088635454, 0.0015887177, 0.028505154), (0.00074053224, 0.002426628, 0.02866862), (0.00024278907, 0.0031095308, 0.028858287), (-0.00050829083, 0.003502169, 0.029036593), (-0.0013639468, 0.0035267756, 0.02916822), (-0.0021547058, 0.0031784768, 0.029227098), (-0.0027239483, 0.002526258, 0.029201567), (-0.002958929, 0.0016992985, 0.029096682), (-0.0028131066, 0.00086138817, 0.028933218), (-0.0019582466, -0.00030837962, 0.031230863), (-0.0011998367, -0.0007031752, 0.031035107), (-0.00033349474, -0.00072778424, 0.030900143), (0.00046918978, -0.00037733276, 0.030852703), (0.0010492353, 0.00027876813, 0.03090218), (0.0012917568, 0.0011105696, 0.03103878), (0.0011487196, 0.0019533231, 0.031235443), (0.00064845436, 0.0026401111, 0.03145322), (-0.000109955516, 0.0030349067, 0.031648975), (-0.00097629754, 0.0030595157, 0.03178394), (-0.0017789821, 0.0027090642, 0.03183138), (-0.0023590275, 0.0020529632, 0.0317819), (-0.002601549, 0.0012211618, 0.0316453), (-0.0024585119, 0.00037840832, 0.03144864), (-0.001626253, -0.0008565528, 0.033570707), (-0.0008624959, -0.0012525802, 0.033363048), (0.00001242547, -0.0012786349, 0.033232216), (0.0008252223, -0.0009295563, 0.033204116), (0.0014149101, -0.00027448384, 0.033284318), (0.001664694, 0.0005568374, 0.033456936), (0.0015251014, 0.0013997541, 0.03368778), (0.0010237801, 0.002087316, 0.033931132), (0.00026002296, 0.0024833435, 0.034138788), (-0.0006148984, 0.0025093982, 0.034269623), (-0.0014276953, 0.0021603196, 0.034297723), (-0.002017383, 0.0015052471, 0.034217518), (-0.002267167, 0.0006739259, 0.034044903), (-0.0021275743, -0.00016899075, 0.033814058), (-0.0013411654, -0.001452903, 0.03573157), (-0.00057541527, -0.0018490248, 0.035518635), (0.00030430296, -0.0018789246, 0.035401043), (0.0011237502, -0.0015366803, 0.035402082), (0.001720625, -0.00089007756, 0.035521545), (0.0019767089, -0.00006718409, 0.03573577), (0.0018412813, 0.00076901604, 0.036002334), (0.0013411654, 0.001452903, 0.03626843), (0.00057541527, 0.0018490248, 0.036481366), (-0.00030430296, 0.0018789246, 0.036598958), (-0.0011237502, 0.0015366803, 0.03659792), (-0.001720625, 0.00089007756, 0.036478456), (-0.0019767089, 0.00006718409, 0.036264226), (-0.0018412813, -0.00076901604, 0.035997666), (0, 0, 0), (0, 0, 0.036)]
+                color3f[] primvars:displayColor = [(0.2, 0.55, 0.16)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_pedicel_lat_1_L_Link_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.018)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/Truss_r2_o0_rachis_Link_02>,
+                </World/Stem/Truss_r2_o0_rachis_Link_03>,
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_1_R_Link_01>,
+            ]
+            float physics:mass = 0.009047787
+            quatf xformOp:orient = (-0.39540905, -0.3954091, -0.5862181, 0.5862181)
+            double3 xformOp:translate = (-0.12853390003432397, -0.0017999979469881615, 0.7686988599178386)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.036
+                color3f[] primvars:displayColor = [(0.2, 0.55, 0.16)]
+                double radius = 0.002
+                token visibility = "invisible"
+                double3 xformOp:translate = (0, 0, 0.018)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "AttachJoint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 0.005332464
+                float drive:rotX:physics:stiffness = 4.1586103
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 0.005332464
+                float drive:rotY:physics:stiffness = 4.1586103
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float limit:rotX:physics:high = 25
+                float limit:rotX:physics:low = -25
+                float limit:rotY:physics:high = 25
+                float limit:rotY:physics:low = -25
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_Link_02>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_1_L_Link_01>
+                point3f physics:localPos0 = (-0.0018, 3.9968028e-19, 0.065)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (0.5, -0.5, -0.5, 0.5)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+
+            def Mesh "CurvedPedicelVisual"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 14, 15, 0, 15, 1, 1, 15, 16, 1, 16, 2, 2, 16, 17, 2, 17, 3, 3, 17, 18, 3, 18, 4, 4, 18, 19, 4, 19, 5, 5, 19, 20, 5, 20, 6, 6, 20, 21, 6, 21, 7, 7, 21, 22, 7, 22, 8, 8, 22, 23, 8, 23, 9, 9, 23, 24, 9, 24, 10, 10, 24, 25, 10, 25, 11, 11, 25, 26, 11, 26, 12, 12, 26, 27, 12, 27, 13, 13, 27, 14, 13, 14, 0, 14, 28, 29, 14, 29, 15, 15, 29, 30, 15, 30, 16, 16, 30, 31, 16, 31, 17, 17, 31, 32, 17, 32, 18, 18, 32, 33, 18, 33, 19, 19, 33, 34, 19, 34, 20, 20, 34, 35, 20, 35, 21, 21, 35, 36, 21, 36, 22, 22, 36, 37, 22, 37, 23, 23, 37, 38, 23, 38, 24, 24, 38, 39, 24, 39, 25, 25, 39, 40, 25, 40, 26, 26, 40, 41, 26, 41, 27, 27, 41, 28, 27, 28, 14, 28, 42, 43, 28, 43, 29, 29, 43, 44, 29, 44, 30, 30, 44, 45, 30, 45, 31, 31, 45, 46, 31, 46, 32, 32, 46, 47, 32, 47, 33, 33, 47, 48, 33, 48, 34, 34, 48, 49, 34, 49, 35, 35, 49, 50, 35, 50, 36, 36, 50, 51, 36, 51, 37, 37, 51, 52, 37, 52, 38, 38, 52, 53, 38, 53, 39, 39, 53, 54, 39, 54, 40, 40, 54, 55, 40, 55, 41, 41, 55, 42, 41, 42, 28, 42, 56, 57, 42, 57, 43, 43, 57, 58, 43, 58, 44, 44, 58, 59, 44, 59, 45, 45, 59, 60, 45, 60, 46, 46, 60, 61, 46, 61, 47, 47, 61, 62, 47, 62, 48, 48, 62, 63, 48, 63, 49, 49, 63, 64, 49, 64, 50, 50, 64, 65, 50, 65, 51, 51, 65, 66, 51, 66, 52, 52, 66, 67, 52, 67, 53, 53, 67, 68, 53, 68, 54, 54, 68, 69, 54, 69, 55, 55, 69, 56, 55, 56, 42, 56, 70, 71, 56, 71, 57, 57, 71, 72, 57, 72, 58, 58, 72, 73, 58, 73, 59, 59, 73, 74, 59, 74, 60, 60, 74, 75, 60, 75, 61, 61, 75, 76, 61, 76, 62, 62, 76, 77, 62, 77, 63, 63, 77, 78, 63, 78, 64, 64, 78, 79, 64, 79, 65, 65, 79, 80, 65, 80, 66, 66, 80, 81, 66, 81, 67, 67, 81, 82, 67, 82, 68, 68, 82, 83, 68, 83, 69, 69, 83, 70, 69, 70, 56, 70, 84, 85, 70, 85, 71, 71, 85, 86, 71, 86, 72, 72, 86, 87, 72, 87, 73, 73, 87, 88, 73, 88, 74, 74, 88, 89, 74, 89, 75, 75, 89, 90, 75, 90, 76, 76, 90, 91, 76, 91, 77, 77, 91, 92, 77, 92, 78, 78, 92, 93, 78, 93, 79, 79, 93, 94, 79, 94, 80, 80, 94, 95, 80, 95, 81, 81, 95, 96, 81, 96, 82, 82, 96, 97, 82, 97, 83, 83, 97, 84, 83, 84, 70, 84, 98, 99, 84, 99, 85, 85, 99, 100, 85, 100, 86, 86, 100, 101, 86, 101, 87, 87, 101, 102, 87, 102, 88, 88, 102, 103, 88, 103, 89, 89, 103, 104, 89, 104, 90, 90, 104, 105, 90, 105, 91, 91, 105, 106, 91, 106, 92, 92, 106, 107, 92, 107, 93, 93, 107, 108, 93, 108, 94, 94, 108, 109, 94, 109, 95, 95, 109, 110, 95, 110, 96, 96, 110, 111, 96, 111, 97, 97, 111, 98, 97, 98, 84, 98, 112, 113, 98, 113, 99, 99, 113, 114, 99, 114, 100, 100, 114, 115, 100, 115, 101, 101, 115, 116, 101, 116, 102, 102, 116, 117, 102, 117, 103, 103, 117, 118, 103, 118, 104, 104, 118, 119, 104, 119, 105, 105, 119, 120, 105, 120, 106, 106, 120, 121, 106, 121, 107, 107, 121, 122, 107, 122, 108, 108, 122, 123, 108, 123, 109, 109, 123, 124, 109, 124, 110, 110, 124, 125, 110, 125, 111, 111, 125, 112, 111, 112, 98, 112, 126, 127, 112, 127, 113, 113, 127, 128, 113, 128, 114, 114, 128, 129, 114, 129, 115, 115, 129, 130, 115, 130, 116, 116, 130, 131, 116, 131, 117, 117, 131, 132, 117, 132, 118, 118, 132, 133, 118, 133, 119, 119, 133, 134, 119, 134, 120, 120, 134, 135, 120, 135, 121, 121, 135, 136, 121, 136, 122, 122, 136, 137, 122, 137, 123, 123, 137, 138, 123, 138, 124, 124, 138, 139, 124, 139, 125, 125, 139, 126, 125, 126, 112, 126, 140, 141, 126, 141, 127, 127, 141, 142, 127, 142, 128, 128, 142, 143, 128, 143, 129, 129, 143, 144, 129, 144, 130, 130, 144, 145, 130, 145, 131, 131, 145, 146, 131, 146, 132, 132, 146, 147, 132, 147, 133, 133, 147, 148, 133, 148, 134, 134, 148, 149, 134, 149, 135, 135, 149, 150, 135, 150, 136, 136, 150, 151, 136, 151, 137, 137, 151, 152, 137, 152, 138, 138, 152, 153, 138, 153, 139, 139, 153, 140, 139, 140, 126, 140, 154, 155, 140, 155, 141, 141, 155, 156, 141, 156, 142, 142, 156, 157, 142, 157, 143, 143, 157, 158, 143, 158, 144, 144, 158, 159, 144, 159, 145, 145, 159, 160, 145, 160, 146, 146, 160, 161, 146, 161, 147, 147, 161, 162, 147, 162, 148, 148, 162, 163, 148, 163, 149, 149, 163, 164, 149, 164, 150, 150, 164, 165, 150, 165, 151, 151, 165, 166, 151, 166, 152, 152, 166, 167, 152, 167, 153, 153, 167, 154, 153, 154, 140, 154, 168, 169, 154, 169, 155, 155, 169, 170, 155, 170, 156, 156, 170, 171, 156, 171, 157, 157, 171, 172, 157, 172, 158, 158, 172, 173, 158, 173, 159, 159, 173, 174, 159, 174, 160, 160, 174, 175, 160, 175, 161, 161, 175, 176, 161, 176, 162, 162, 176, 177, 162, 177, 163, 163, 177, 178, 163, 178, 164, 164, 178, 179, 164, 179, 165, 165, 179, 180, 165, 180, 166, 166, 180, 181, 166, 181, 167, 167, 181, 168, 167, 168, 154, 168, 182, 183, 168, 183, 169, 169, 183, 184, 169, 184, 170, 170, 184, 185, 170, 185, 171, 171, 185, 186, 171, 186, 172, 172, 186, 187, 172, 187, 173, 173, 187, 188, 173, 188, 174, 174, 188, 189, 174, 189, 175, 175, 189, 190, 175, 190, 176, 176, 190, 191, 176, 191, 177, 177, 191, 192, 177, 192, 178, 178, 192, 193, 178, 193, 179, 179, 193, 194, 179, 194, 180, 180, 194, 195, 180, 195, 181, 181, 195, 182, 181, 182, 168, 182, 196, 197, 182, 197, 183, 183, 197, 198, 183, 198, 184, 184, 198, 199, 184, 199, 185, 185, 199, 200, 185, 200, 186, 186, 200, 201, 186, 201, 187, 187, 201, 202, 187, 202, 188, 188, 202, 203, 188, 203, 189, 189, 203, 204, 189, 204, 190, 190, 204, 205, 190, 205, 191, 191, 205, 206, 191, 206, 192, 192, 206, 207, 192, 207, 193, 193, 207, 208, 193, 208, 194, 194, 208, 209, 194, 209, 195, 195, 209, 196, 195, 196, 182, 210, 1, 0, 211, 196, 197, 210, 2, 1, 211, 197, 198, 210, 3, 2, 211, 198, 199, 210, 4, 3, 211, 199, 200, 210, 5, 4, 211, 200, 201, 210, 6, 5, 211, 201, 202, 210, 7, 6, 211, 202, 203, 210, 8, 7, 211, 203, 204, 210, 9, 8, 211, 204, 205, 210, 10, 9, 211, 205, 206, 210, 11, 10, 211, 206, 207, 210, 12, 11, 211, 207, 208, 210, 13, 12, 211, 208, 209, 210, 0, 13, 211, 209, 196]
+                point3f[] points = [(-0.0012720337, -0.001981162, 0), (-0.00037475154, -0.0022801969, 0.00045092852), (0.0005967547, -0.0021276106, 0.0008125451), (0.0014500665, -0.0015536251, 0.0010132272), (0.0020161746, -0.000671925, 0.0010132272), (0.0021829547, 0.00034285805, 0.0008125451), (0.001917374, 0.0012897338, 0.00045092852), (0.0012720337, 0.001981162, 1.272756e-19), (0.00037475154, 0.0022801969, -0.00045092852), (-0.0005967547, 0.0021276106, -0.0008125451), (-0.0014500665, 0.0015536251, -0.0010132272), (-0.0020161746, 0.000671925, -0.0010132272), (-0.0021829547, -0.00034285805, -0.0008125451), (-0.001917374, -0.0012897338, -0.00045092852), (-0.0020224373, -0.001457402, 0.0021829368), (-0.0010987908, -0.0017773216, 0.0025186085), (-0.00010919177, -0.0016470812, 0.0027867095), (0.0007503576, -0.0010924767, 0.0029341388), (0.001309613, -0.00022335396, 0.0029316966), (0.001457807, 0.00078814634, 0.002779866), (0.0011655882, 0.0017416843, 0.0025087197), (0.00049083383, 0.0024483998, 0.0021719611), (-0.00043281264, 0.0027683196, 0.0018362894), (-0.0014224116, 0.0026380792, 0.0015681885), (-0.002281961, 0.0020834745, 0.0014207591), (-0.0028412163, 0.0012143519, 0.0014232015), (-0.0029894104, 0.00020285156, 0.0015750318), (-0.0026971917, -0.00075068633, 0.0018461782), (-0.002563183, -0.0010035858, 0.0045348937), (-0.0016488343, -0.0013274653, 0.0047671106), (-0.0006751896, -0.0012140331, 0.0049515157), (0.00016490876, -0.0006857559, 0.005051586), (0.00070506905, 0.00015273463, 0.005047501), (0.0008383059, 0.0011353651, 0.0049400697), (0.00053823006, 0.0020675135, 0.0047505703), (-0.00013572468, 0.0027645563, 0.004516535), (-0.0010500734, 0.0030884359, 0.004284318), (-0.002023718, 0.0029750038, 0.004099913), (-0.0028638165, 0.0024467264, 0.0039998423), (-0.0034039768, 0.001608236, 0.0040039276), (-0.0035372137, 0.0006256055, 0.004111359), (-0.0032371378, -0.0003065429, 0.0043008584), (-0.0029230674, -0.0006300719, 0.007028373), (-0.002039921, -0.00094695843, 0.007175062), (-0.001102727, -0.0008458369, 0.0072904928), (-0.00029710846, -0.00034673573, 0.007351804), (0.0002173722, 0.00045149197, 0.0073468518), (0.0003388157, 0.0013907475, 0.0072766165), (0.00004316866, 0.0022849997, 0.0071550095), (-0.0006110124, 0.002957131, 0.007006117), (-0.0014941589, 0.0032740175, 0.0068594282), (-0.0024313529, 0.0031728959, 0.006743997), (-0.0032369713, 0.0026737947, 0.0066826856), (-0.003751452, 0.0018755671, 0.0066876383), (-0.0038728956, 0.0009363116, 0.006757873), (-0.0035772484, 0.000042059393, 0.00687948), (-0.0031308096, -0.00034726143, 0.009636158), (-0.0022873166, -0.00065207016, 0.00971577), (-0.0013937787, -0.00055971014, 0.009777303), (-0.0006271718, -0.00008847438, 0.00980857), (-0.00013933188, 0.0006683031, 0.009803377), (-0.000026881693, 0.0015607332, 0.009762753), (-0.00031209333, 0.0024120593, 0.009694745), (-0.0009384771, 0.0030536656, 0.009612821), (-0.0017819701, 0.0033584745, 0.00953321), (-0.0026755081, 0.0032661145, 0.009471676), (-0.003442115, 0.0027948786, 0.00944041), (-0.003929955, 0.0020381012, 0.009445603), (-0.004042405, 0.001145671, 0.009486226), (-0.0037571935, 0.000294345, 0.009554235), (-0.0032150282, -0.00016561612, 0.012331102), (-0.0024072125, -0.00045854144, 0.012359448), (-0.0015520866, -0.00037185766, 0.01237996), (-0.00081901875, 0.00007726646, 0.012388577), (-0.00035320214, 0.0007998764, 0.01238359), (-0.00024689737, 0.0016528503, 0.012365989), (-0.00052115944, 0.0024672465, 0.012339259), (-0.0011216673, 0.0030817634, 0.012308694), (-0.0019294831, 0.0033746888, 0.012280349), (-0.0027846089, 0.003288005, 0.012259836), (-0.0035176768, 0.0028388808, 0.01225122), (-0.0039834934, 0.0021162708, 0.012256206), (-0.0040897983, 0.0012632969, 0.012273807), (-0.0038155362, 0.0004489009, 0.012300537), (-0.0032042635, -0.00009564611, 0.015085979), (-0.002416764, -0.0003815335, 0.01507462), (-0.0015832095, -0.00029739147, 0.015063517), (-0.00086869585, 0.00014011464, 0.015054871), (-0.0004147411, 0.0008443314, 0.0150503935), (-0.00031125668, 0.0016757799, 0.015050971), (-0.00057873887, 0.0024697818, 0.01505649), (-0.0011642094, 0.003069075, 0.015065857), (-0.001951709, 0.0033549624, 0.0150772175), (-0.0027852634, 0.0032708205, 0.01508832), (-0.003499777, 0.0028333145, 0.015096966), (-0.0039537316, 0.0021290977, 0.015101443), (-0.0040572165, 0.0012976491, 0.015100866), (-0.003789734, 0.0005036472, 0.015095347), (-0.0031201453, -0.0001372355, 0.017873323), (-0.0023323465, -0.00042314254, 0.017829163), (-0.0014982104, -0.0003385072, 0.017792102), (-0.00078294764, 0.00009990743, 0.01776948), (-0.00032822508, 0.000805268, 0.017765775), (-0.00022410596, 0.0016378692, 0.017781725), (-0.00049121235, 0.002432804, 0.017814167), (-0.0010766407, 0.0030326261, 0.017856678), (-0.0018644395, 0.003318533, 0.017900838), (-0.0026985756, 0.0032338977, 0.017937899), (-0.0034138383, 0.0027954832, 0.01796052), (-0.003868561, 0.0020901226, 0.017964225), (-0.00397268, 0.0012575214, 0.017948275), (-0.0037055735, 0.00046258653, 0.017915834), (-0.0029634796, -0.00025799216, 0.020665323), (-0.002166077, -0.0005470283, 0.020592624), (-0.0013213027, -0.0004604167, 0.020533191), (-0.00059647457, -0.000015311713, 0.020498792), (-0.00013515356, 0.0007001281, 0.020496242), (-0.000028710108, 0.001544201, 0.020526046), (-0.0002982266, 0.0023497283, 0.0205823), (-0.00089032203, 0.002957165, 0.02065386), (-0.0016877246, 0.0032462012, 0.020726558), (-0.002532499, 0.0031595896, 0.020785993), (-0.003257327, 0.0027144847, 0.02082039), (-0.003718648, 0.0019990448, 0.020822942), (-0.0038250915, 0.0011549719, 0.020793138), (-0.0035555752, 0.0003494447, 0.020736884), (-0.0027455857, -0.0004418304, 0.023434203), (-0.0019326836, -0.0007359585, 0.02333604), (-0.0010708919, -0.00064645644, 0.023256913), (-0.0003308988, -0.00019105118, 0.02321249), (0.0001407309, 0.00054005865, 0.023211574), (0.00025058512, 0.0014020678, 0.023254342), (-0.000023094077, 0.0022242449, 0.023332328), (-0.00062610116, 0.0028437474, 0.023430083), (-0.0014390033, 0.0031378756, 0.023528244), (-0.002300795, 0.0030483736, 0.023607373), (-0.0030407882, 0.0025929683, 0.023651795), (-0.003512418, 0.0018618584, 0.023652712), (-0.003622272, 0.0009998493, 0.023609944), (-0.003348593, 0.00017767222, 0.023531958), (-0.0024788093, -0.0006742373, 0.026152125), (-0.0016472242, -0.0009744989, 0.026031122), (-0.00076495094, -0.00088163046, 0.025934674), (-0.000006734645, -0.00041402574, 0.025881885), (0.00047725067, 0.00033570043, 0.025883209), (0.0005911457, 0.0012190555, 0.025938386), (0.00031239222, 0.0020610804, 0.026036486), (-0.00030379926, 0.0026950014, 0.02615808), (-0.0011353844, 0.0029952629, 0.026279083), (-0.0020176577, 0.0029023944, 0.02637553), (-0.002775874, 0.0024347897, 0.02642832), (-0.0032598593, 0.0016850636, 0.026426995), (-0.0033737544, 0.0008017085, 0.026371818), (-0.003095001, -0.000040316263, 0.026273718), (-0.0021755074, -0.00094068743, 0.028791176), (-0.0013247954, -0.0012471855, 0.028650068), (-0.00042151212, -0.0011509015, 0.028538836), (0.00035543615, -0.0006709059, 0.028479513), (0.00085216534, 0.00009773252, 0.028483849), (0.0009702921, 0.0010027754, 0.028550982), (0.00068641995, 0.0018649679, 0.028667621), (0.00005677333, 0.0025135423, 0.02881066), (-0.0007939386, 0.0028200403, 0.02895177), (-0.0016972218, 0.0027237565, 0.029063001), (-0.0024741702, 0.0022437607, 0.029122325), (-0.0029708992, 0.0014751223, 0.029117988), (-0.003089026, 0.0005700794, 0.029050853), (-0.0028051538, -0.0002921131, 0.028934216), (-0.0018480476, -0.0012266373, 0.03132337), (-0.0009805022, -0.0015385435, 0.03116543), (-0.00005861114, -0.0014392311, 0.031042472), (0.00073503394, -0.0009483702, 0.030978845), (0.0012432418, -0.00016318173, 0.030987155), (0.0013653558, 0.0007608181, 0.031065753), (0.0010771896, 0.0016406197, 0.031199075), (0.00043581802, 0.0023019677, 0.031360712), (-0.00043172733, 0.002613874, 0.031518653), (-0.0013536185, 0.0025145614, 0.03164161), (-0.0021472636, 0.0020237006, 0.031705238), (-0.0026554714, 0.0012385121, 0.031696927), (-0.0027775853, 0.00031451232, 0.031618327), (-0.0024894192, -0.0005652893, 0.031485006), (-0.0015088107, -0.0015175181, 0.033720605), (-0.00062944466, -0.001833095, 0.03355), (0.00030573798, -0.0017316001, 0.03341919), (0.0011115128, -0.0012331358, 0.03335409), (0.0016282863, -0.00043642908, 0.033367578), (0.001753705, 0.0005007227, 0.033456996), (0.0014629284, 0.001392705, 0.033604626), (0.0008135481, 0.0020628497, 0.033781234), (-0.00006581796, 0.0023784267, 0.033951834), (-0.0010010006, 0.002276932, 0.034082644), (-0.0018067755, 0.0017784677, 0.03414775), (-0.002323549, 0.0009817608, 0.034134258), (-0.0024489677, 0.000044609103, 0.034044843), (-0.002158191, -0.0008473732, 0.03389721), (-0.0011701863, -0.0017987222, 0.035954613), (-0.0002867104, -0.0021153588, 0.035776723), (0.0006535521, -0.0020130228, 0.03564306), (0.0014643705, -0.0015119826, 0.03558009), (0.0019851525, -0.00071147596, 0.03560029), (0.0021127507, 0.00022994727, 0.035699654), (0.0018218926, 0.0011258266, 0.03585851), (0.0011701863, 0.0017987222, 0.036045387), (0.0002867104, 0.0021153588, 0.036223274), (-0.0006535521, 0.0020130228, 0.03635694), (-0.0014643705, 0.0015119826, 0.03641991), (-0.0019851525, 0.00071147596, 0.03639971), (-0.0021127507, -0.00022994727, 0.036300346), (-0.0018218926, -0.0011258266, 0.036141492), (0, 0, 0), (0, 0, 0.036)]
+                color3f[] primvars:displayColor = [(0.2, 0.55, 0.16)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_pedicel_lat_1_R_Link_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.018)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/Truss_r2_o0_rachis_Link_02>,
+                </World/Stem/Truss_r2_o0_rachis_Link_03>,
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_1_L_Link_01>,
+            ]
+            float physics:mass = 0.009047787
+            quatf xformOp:orient = (-0.5862181, 0.5862181, 0.39540905, 0.3954091)
+            double3 xformOp:translate = (-0.12853389986574895, 0.0018000020530118328, 0.7686988600315439)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.036
+                color3f[] primvars:displayColor = [(0.2, 0.55, 0.16)]
+                double radius = 0.002
+                token visibility = "invisible"
+                double3 xformOp:translate = (0, 0, 0.018)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "AttachJoint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 0.005332464
+                float drive:rotX:physics:stiffness = 4.1586103
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 0.005332464
+                float drive:rotY:physics:stiffness = 4.1586103
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float limit:rotX:physics:high = 25
+                float limit:rotX:physics:low = -25
+                float limit:rotY:physics:high = 25
+                float limit:rotY:physics:low = -25
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_Link_02>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_1_R_Link_01>
+                point3f physics:localPos0 = (0.0018, -3.9968028e-19, 0.065)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (-0.5, 0.5, -0.5, 0.5)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+
+            def Mesh "CurvedPedicelVisual"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 14, 15, 0, 15, 1, 1, 15, 16, 1, 16, 2, 2, 16, 17, 2, 17, 3, 3, 17, 18, 3, 18, 4, 4, 18, 19, 4, 19, 5, 5, 19, 20, 5, 20, 6, 6, 20, 21, 6, 21, 7, 7, 21, 22, 7, 22, 8, 8, 22, 23, 8, 23, 9, 9, 23, 24, 9, 24, 10, 10, 24, 25, 10, 25, 11, 11, 25, 26, 11, 26, 12, 12, 26, 27, 12, 27, 13, 13, 27, 14, 13, 14, 0, 14, 28, 29, 14, 29, 15, 15, 29, 30, 15, 30, 16, 16, 30, 31, 16, 31, 17, 17, 31, 32, 17, 32, 18, 18, 32, 33, 18, 33, 19, 19, 33, 34, 19, 34, 20, 20, 34, 35, 20, 35, 21, 21, 35, 36, 21, 36, 22, 22, 36, 37, 22, 37, 23, 23, 37, 38, 23, 38, 24, 24, 38, 39, 24, 39, 25, 25, 39, 40, 25, 40, 26, 26, 40, 41, 26, 41, 27, 27, 41, 28, 27, 28, 14, 28, 42, 43, 28, 43, 29, 29, 43, 44, 29, 44, 30, 30, 44, 45, 30, 45, 31, 31, 45, 46, 31, 46, 32, 32, 46, 47, 32, 47, 33, 33, 47, 48, 33, 48, 34, 34, 48, 49, 34, 49, 35, 35, 49, 50, 35, 50, 36, 36, 50, 51, 36, 51, 37, 37, 51, 52, 37, 52, 38, 38, 52, 53, 38, 53, 39, 39, 53, 54, 39, 54, 40, 40, 54, 55, 40, 55, 41, 41, 55, 42, 41, 42, 28, 42, 56, 57, 42, 57, 43, 43, 57, 58, 43, 58, 44, 44, 58, 59, 44, 59, 45, 45, 59, 60, 45, 60, 46, 46, 60, 61, 46, 61, 47, 47, 61, 62, 47, 62, 48, 48, 62, 63, 48, 63, 49, 49, 63, 64, 49, 64, 50, 50, 64, 65, 50, 65, 51, 51, 65, 66, 51, 66, 52, 52, 66, 67, 52, 67, 53, 53, 67, 68, 53, 68, 54, 54, 68, 69, 54, 69, 55, 55, 69, 56, 55, 56, 42, 56, 70, 71, 56, 71, 57, 57, 71, 72, 57, 72, 58, 58, 72, 73, 58, 73, 59, 59, 73, 74, 59, 74, 60, 60, 74, 75, 60, 75, 61, 61, 75, 76, 61, 76, 62, 62, 76, 77, 62, 77, 63, 63, 77, 78, 63, 78, 64, 64, 78, 79, 64, 79, 65, 65, 79, 80, 65, 80, 66, 66, 80, 81, 66, 81, 67, 67, 81, 82, 67, 82, 68, 68, 82, 83, 68, 83, 69, 69, 83, 70, 69, 70, 56, 70, 84, 85, 70, 85, 71, 71, 85, 86, 71, 86, 72, 72, 86, 87, 72, 87, 73, 73, 87, 88, 73, 88, 74, 74, 88, 89, 74, 89, 75, 75, 89, 90, 75, 90, 76, 76, 90, 91, 76, 91, 77, 77, 91, 92, 77, 92, 78, 78, 92, 93, 78, 93, 79, 79, 93, 94, 79, 94, 80, 80, 94, 95, 80, 95, 81, 81, 95, 96, 81, 96, 82, 82, 96, 97, 82, 97, 83, 83, 97, 84, 83, 84, 70, 84, 98, 99, 84, 99, 85, 85, 99, 100, 85, 100, 86, 86, 100, 101, 86, 101, 87, 87, 101, 102, 87, 102, 88, 88, 102, 103, 88, 103, 89, 89, 103, 104, 89, 104, 90, 90, 104, 105, 90, 105, 91, 91, 105, 106, 91, 106, 92, 92, 106, 107, 92, 107, 93, 93, 107, 108, 93, 108, 94, 94, 108, 109, 94, 109, 95, 95, 109, 110, 95, 110, 96, 96, 110, 111, 96, 111, 97, 97, 111, 98, 97, 98, 84, 98, 112, 113, 98, 113, 99, 99, 113, 114, 99, 114, 100, 100, 114, 115, 100, 115, 101, 101, 115, 116, 101, 116, 102, 102, 116, 117, 102, 117, 103, 103, 117, 118, 103, 118, 104, 104, 118, 119, 104, 119, 105, 105, 119, 120, 105, 120, 106, 106, 120, 121, 106, 121, 107, 107, 121, 122, 107, 122, 108, 108, 122, 123, 108, 123, 109, 109, 123, 124, 109, 124, 110, 110, 124, 125, 110, 125, 111, 111, 125, 112, 111, 112, 98, 112, 126, 127, 112, 127, 113, 113, 127, 128, 113, 128, 114, 114, 128, 129, 114, 129, 115, 115, 129, 130, 115, 130, 116, 116, 130, 131, 116, 131, 117, 117, 131, 132, 117, 132, 118, 118, 132, 133, 118, 133, 119, 119, 133, 134, 119, 134, 120, 120, 134, 135, 120, 135, 121, 121, 135, 136, 121, 136, 122, 122, 136, 137, 122, 137, 123, 123, 137, 138, 123, 138, 124, 124, 138, 139, 124, 139, 125, 125, 139, 126, 125, 126, 112, 126, 140, 141, 126, 141, 127, 127, 141, 142, 127, 142, 128, 128, 142, 143, 128, 143, 129, 129, 143, 144, 129, 144, 130, 130, 144, 145, 130, 145, 131, 131, 145, 146, 131, 146, 132, 132, 146, 147, 132, 147, 133, 133, 147, 148, 133, 148, 134, 134, 148, 149, 134, 149, 135, 135, 149, 150, 135, 150, 136, 136, 150, 151, 136, 151, 137, 137, 151, 152, 137, 152, 138, 138, 152, 153, 138, 153, 139, 139, 153, 140, 139, 140, 126, 140, 154, 155, 140, 155, 141, 141, 155, 156, 141, 156, 142, 142, 156, 157, 142, 157, 143, 143, 157, 158, 143, 158, 144, 144, 158, 159, 144, 159, 145, 145, 159, 160, 145, 160, 146, 146, 160, 161, 146, 161, 147, 147, 161, 162, 147, 162, 148, 148, 162, 163, 148, 163, 149, 149, 163, 164, 149, 164, 150, 150, 164, 165, 150, 165, 151, 151, 165, 166, 151, 166, 152, 152, 166, 167, 152, 167, 153, 153, 167, 154, 153, 154, 140, 154, 168, 169, 154, 169, 155, 155, 169, 170, 155, 170, 156, 156, 170, 171, 156, 171, 157, 157, 171, 172, 157, 172, 158, 158, 172, 173, 158, 173, 159, 159, 173, 174, 159, 174, 160, 160, 174, 175, 160, 175, 161, 161, 175, 176, 161, 176, 162, 162, 176, 177, 162, 177, 163, 163, 177, 178, 163, 178, 164, 164, 178, 179, 164, 179, 165, 165, 179, 180, 165, 180, 166, 166, 180, 181, 166, 181, 167, 167, 181, 168, 167, 168, 154, 168, 182, 183, 168, 183, 169, 169, 183, 184, 169, 184, 170, 170, 184, 185, 170, 185, 171, 171, 185, 186, 171, 186, 172, 172, 186, 187, 172, 187, 173, 173, 187, 188, 173, 188, 174, 174, 188, 189, 174, 189, 175, 175, 189, 190, 175, 190, 176, 176, 190, 191, 176, 191, 177, 177, 191, 192, 177, 192, 178, 178, 192, 193, 178, 193, 179, 179, 193, 194, 179, 194, 180, 180, 194, 195, 180, 195, 181, 181, 195, 182, 181, 182, 168, 182, 196, 197, 182, 197, 183, 183, 197, 198, 183, 198, 184, 184, 198, 199, 184, 199, 185, 185, 199, 200, 185, 200, 186, 186, 200, 201, 186, 201, 187, 187, 201, 202, 187, 202, 188, 188, 202, 203, 188, 203, 189, 189, 203, 204, 189, 204, 190, 190, 204, 205, 190, 205, 191, 191, 205, 206, 191, 206, 192, 192, 206, 207, 192, 207, 193, 193, 207, 208, 193, 208, 194, 194, 208, 209, 194, 209, 195, 195, 209, 196, 195, 196, 182, 210, 1, 0, 211, 196, 197, 210, 2, 1, 211, 197, 198, 210, 3, 2, 211, 198, 199, 210, 4, 3, 211, 199, 200, 210, 5, 4, 211, 200, 201, 210, 6, 5, 211, 201, 202, 210, 7, 6, 211, 202, 203, 210, 8, 7, 211, 203, 204, 210, 9, 8, 211, 204, 205, 210, 10, 9, 211, 205, 206, 210, 11, 10, 211, 206, 207, 210, 12, 11, 211, 207, 208, 210, 13, 12, 211, 208, 209, 210, 0, 13, 211, 209, 196]
+                point3f[] points = [(0, -0.002545446, -0.00016887125), (0.0010374011, -0.0022678215, -0.0005372129), (0.0018693323, -0.001541027, -0.00079915294), (0.0023310194, -0.00050901325, -0.00090281095), (0.0023310194, 0.0006238168, -0.0008276562), (0.0018693323, 0.0016330923, -0.0005885739), (0.0010374011, 0.0023189138, -0.00023291742), (2.9280886e-19, 0.002545446, 0.00016887125), (-0.0010374011, 0.0022678215, 0.0005372129), (-0.0018693323, 0.001541027, 0.00079915294), (-0.0023310194, 0.00050901325, 0.00090281095), (-0.0023310194, -0.0006238168, 0.0008276562), (-0.0018693323, -0.0016330923, 0.0005885739), (-0.0010374011, -0.0023189138, 0.00023291742), (0.00071947346, -0.0026030564, 0.0020848657), (0.0017626631, -0.0023355698, 0.0018099975), (0.0025946, -0.0016267773, 0.0016079075), (0.0030505087, -0.0006170638, 0.0015186223), (0.0030400911, 0.00049358467, 0.0015598257), (0.0025654105, 0.0014851904, 0.001723357), (0.001720483, 0.0021613538, 0.0019768267), (0.00067265704, 0.0023881523, 0.0022700322), (-0.00037053257, 0.0021206657, 0.0025449004), (-0.0012024695, 0.0014118733, 0.0027469904), (-0.0016583782, 0.00040215964, 0.0028362756), (-0.0016479605, -0.0007084888, 0.0027950723), (-0.0011732798, -0.0017000946, 0.0026315409), (-0.0003283524, -0.002376258, 0.0023780712), (0.0012734936, -0.00252134, 0.0044916393), (0.0022760464, -0.0022699344, 0.004300173), (0.0030731806, -0.001600603, 0.0041533783), (0.003507014, -0.0006459154, 0.004080329), (0.0034916205, 0.00040504092, 0.004095494), (0.0030300494, 0.0013441112, 0.004195869), (0.00221372, 0.0019853008, 0.004361574), (0.0012043166, 0.0022016147, 0.0045597893), (0.0002017639, 0.0019502089, 0.0047512553), (-0.00059537025, 0.0012808775, 0.0048980503), (-0.0010292038, 0.0003261899, 0.0049710996), (-0.0010138104, -0.0007247664, 0.004955935), (-0.00055223913, -0.0016638367, 0.0048555597), (0.00026409022, -0.0023050264, 0.004689854), (0.0016780519, -0.0023492668, 0.0070229555), (0.002613199, -0.0021171148, 0.00689947), (0.003355603, -0.0014986909, 0.006799311), (0.0037582212, -0.0006164815, 0.0067423163), (0.0037413107, 0.00035478105, 0.0067397747), (0.0033082203, 0.0012227263, 0.0067921896), (0.0025447295, 0.001815447, 0.0068891793), (0.0016020563, 0.0020155476, 0.007011534), (0.00066690927, 0.0017833957, 0.00713502), (-0.000075494565, 0.0011649717, 0.0072351787), (-0.00047811292, 0.0002827623, 0.0072921733), (-0.00046120232, -0.00068850024, 0.007294715), (-0.0000281121, -0.0015564455, 0.0072423), (0.0007353789, -0.002149166, 0.0071453103), (0.0019483954, -0.0021353038, 0.009654231), (0.0028086693, -0.001922379, 0.009582804), (0.0034911584, -0.0013560499, 0.009519632), (0.003860687, -0.000548485, 0.009477229), (0.0038440651, 0.00034036755, 0.009463992), (0.0034445857, 0.0011344596, 0.009482544), (0.00274137, 0.0016765116, 0.009529211), (0.0018736986, 0.0018591634, 0.009594748), (0.0010134246, 0.0016462386, 0.009666176), (0.00033093564, 0.0010799095, 0.009729348), (-0.00003859285, 0.0002723446, 0.009771751), (-0.000021971247, -0.00061650795, 0.009784987), (0.00037750832, -0.0014106001, 0.009766435), (0.0010807241, -0.0019526521, 0.0097197695), (0.0020987757, -0.0019275129, 0.012362429), (0.0028952346, -0.001730188, 0.012329477), (0.0035269419, -0.0012066417, 0.012294627), (0.0038687806, -0.00046056844, 0.012264782), (0.003853045, 0.00036026267, 0.012245853), (0.003482852, 0.001093276, 0.012241591), (0.0028315226, 0.0015932892, 0.012252837), (0.0020280606, 0.0017612686, 0.012277367), (0.0012316019, 0.0015639437, 0.01231032), (0.00059989456, 0.0010403973, 0.01234517), (0.000258056, 0.0002943241, 0.012375014), (0.00027379158, -0.00052650704, 0.012393942), (0.00064398465, -0.0012595203, 0.012398205), (0.0012953139, -0.0017595335, 0.012386958), (0.002142621, -0.0017737052, 0.015124533), (0.002904082, -0.0015844617, 0.015120528), (0.0035080086, -0.0010837021, 0.015107688), (0.0038347852, -0.0003706081, 0.0150885545), (0.00381969, 0.00041358336, 0.015066919), (0.003465713, 0.0011135535, 0.015047066), (0.0028429632, 0.0015906647, 0.0150329275), (0.0020747841, 0.0017504191, 0.015027303), (0.001313323, 0.0015611756, 0.015031309), (0.00070939655, 0.001060416, 0.015044149), (0.00038261982, 0.000347322, 0.015063282), (0.0003977149, -0.00043686945, 0.015084918), (0.0007516921, -0.0011368396, 0.015104771), (0.0013744418, -0.0016139508, 0.015118909), (0.0020923128, -0.0016950759, 0.017915677), (0.0028532636, -0.0015051762, 0.01793597), (0.0034567888, -0.0010039394, 0.017942209), (0.003783353, -0.00029064142, 0.017933153), (0.0037682757, 0.00049344025, 0.0179106), (0.0034145433, 0.0011930086, 0.017879015), (0.002792217, 0.0016695055, 0.017844655), (0.0020245563, 0.001828555, 0.017814323), (0.0012636053, 0.0016386554, 0.01779403), (0.00066008, 0.0011374186, 0.017787792), (0.000333516, 0.0004241206, 0.017796846), (0.00034859325, -0.00035996104, 0.0178194), (0.00070232555, -0.0010595294, 0.017850986), (0.0013246518, -0.0015360264, 0.017885346), (0.0019586247, -0.0016414291, 0.020707205), (0.0027279835, -0.0014485746, 0.020749873), (0.003338133, -0.0009406083, 0.02077466), (0.0036682254, -0.00021813936, 0.020776657), (0.003652882, 0.00057573844, 0.020755466), (0.003295142, 0.0012837879, 0.020715287), (0.0026658599, 0.0017657712, 0.020664077), (0.0018896726, 0.0019262255, 0.020611979), (0.0011203138, 0.0017333708, 0.02056931), (0.00051016436, 0.0012254047, 0.020544523), (0.00018007185, 0.0005029357, 0.020542527), (0.00019541514, -0.00029094212, 0.020563716), (0.0005531553, -0.0009989915, 0.020603895), (0.0011824375, -0.0014809748, 0.020655107), (0.0017532432, -0.001612468, 0.023470879), (0.0025357842, -0.0014154585, 0.023535019), (0.00315623, -0.0008973575, 0.023578782), (0.003491694, -0.00016078146, 0.023593502), (0.0034757333, 0.0006483817, 0.023576263), (0.0031115091, 0.0013698674, 0.023530478), (0.0024711604, 0.0018607765, 0.023465218), (0.0016815163, 0.0020238783, 0.023393406), (0.00089897536, 0.0018268686, 0.023329267), (0.00027852942, 0.0013087677, 0.023285503), (-0.000056934576, 0.00057219167, 0.023270784), (-0.000040973857, -0.00023697152, 0.023288023), (0.00032325037, -0.0009584572, 0.023333807), (0.000963599, -0.0014493662, 0.023399068), (0.0014879627, -0.0016120494, 0.02617805), (0.0022860651, -0.0014103405, 0.026263379), (0.002918508, -0.0008803686, 0.026327262), (0.0032600276, -0.00012710097, 0.026357047), (0.0032429823, 0.0007002684, 0.026346834), (0.002870748, 0.001437869, 0.026298646), (0.0022170504, 0.0019396099, 0.026222028), (0.001411362, 0.002106115, 0.026132153), (0.00061325944, 0.0019044062, 0.026046826), (-0.000019183197, 0.0013744342, 0.025982942), (-0.00036070298, 0.0006211666, 0.025953157), (-0.0003436577, -0.00020620282, 0.02596337), (0.000028576591, -0.00094380334, 0.026011558), (0.00068227435, -0.0014455442, 0.026088176), (0.0011746545, -0.0016439287, 0.0287996), (0.0019882638, -0.0014376519, 0.028906185), (0.0026323847, -0.00089577725, 0.028991919), (0.002979441, -0.00012562974, 0.029039824), (0.0029606945, 0.00072025356, 0.02904041), (0.0025798576, 0.001474335, 0.028993562), (0.00191236, 0.0019872596, 0.028908558), (0.0010904076, 0.0021574362, 0.028802237), (0.00027679832, 0.0019511594, 0.028695652), (-0.00036732262, 0.0014092848, 0.028609918), (-0.00071437913, 0.00063913723, 0.028562013), (-0.0006956324, -0.00020674606, 0.028561426), (-0.00031479556, -0.0009608275, 0.028608276), (0.0003527021, -0.0014737521, 0.028693277), (0.0008253107, -0.0017116846, 0.031305946), (0.0016519135, -0.001501677, 0.03143401), (0.0023053319, -0.00094963214, 0.031543862), (0.0026561487, -0.00016488944, 0.031613737), (0.0026348801, 0.00069712324, 0.031629805), (0.0022457386, 0.0014656738, 0.03158887), (0.0015657984, 0.001988541, 0.031499054), (0.00072973024, 0.0021621652, 0.031378135), (-0.00009687255, 0.0019521576, 0.03125007), (-0.00075029104, 0.0014001128, 0.03114022), (-0.0011011078, 0.00061537005, 0.031070342), (-0.0010798391, -0.00024664268, 0.031054279), (-0.00069069763, -0.0010151932, 0.03109521), (-0.000010757512, -0.0015380606, 0.03118503), (0.00045210024, -0.0018185814, 0.033666972), (0.0012867035, -0.0016064349, 0.033816792), (0.0019449247, -0.0010478182, 0.033953566), (0.0022963951, -0.00025337213, 0.0340502), (0.0022715016, 0.0006195536, 0.03408756), (0.0018751749, 0.0013980652, 0.034058247), (0.001185912, 0.0019279692, 0.03396806), (0.00034023027, 0.0021043113, 0.033834867), (-0.000494373, 0.0018921648, 0.033685047), (-0.0011525942, 0.0013335481, 0.033548273), (-0.0015040645, 0.00053910195, 0.033451635), (-0.0014791712, -0.0003338238, 0.033414274), (-0.0010828443, -0.0011123355, 0.033443592), (-0.0003935816, -0.0016422393, 0.033533778), (0.00006745026, -0.001967311, 0.035851892), (0.00090255437, -0.0017554571, 0.03602373), (0.0015588965, -0.0011959136, 0.036190864), (0.00190648, -0.00039950485, 0.0363202), (0.0018764619, 0.00047603084, 0.036386114), (0.0014747874, 0.0012572828, 0.036375552), (0.0007810132, 0.0017895144, 0.03629061), (-0.00006745026, 0.001967311, 0.03614811), (-0.00090255437, 0.0017554571, 0.035976272), (-0.0015588965, 0.0011959136, 0.035809133), (-0.00190648, 0.00039950485, 0.035679802), (-0.0018764619, -0.00047603084, 0.035613887), (-0.0014747874, -0.0012572828, 0.03562445), (-0.0007810132, -0.0017895144, 0.035709392), (0, 0, 0), (0, 0, 0.036)]
+                color3f[] primvars:displayColor = [(0.2, 0.55, 0.16)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_pedicel_lat_2_L_Link_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.018)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/Truss_r2_o0_rachis_Link_03>,
+                </World/Stem/Truss_r2_o0_rachis_Link_04>,
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_2_R_Link_01>,
+            ]
+            float physics:mass = 0.009047787
+            quatf xformOp:orient = (-0.39540905, -0.3954091, -0.5862181, 0.5862181)
+            double3 xformOp:translate = (-0.18880085058116514, -0.0017999979469881541, 0.7930482884898729)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.036
+                color3f[] primvars:displayColor = [(0.2, 0.55, 0.16)]
+                double radius = 0.002
+                token visibility = "invisible"
+                double3 xformOp:translate = (0, 0, 0.018)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "AttachJoint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 0.005332464
+                float drive:rotX:physics:stiffness = 4.1586103
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 0.005332464
+                float drive:rotY:physics:stiffness = 4.1586103
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float limit:rotX:physics:high = 25
+                float limit:rotX:physics:low = -25
+                float limit:rotY:physics:high = 25
+                float limit:rotY:physics:low = -25
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_Link_03>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_2_L_Link_01>
+                point3f physics:localPos0 = (-0.0018, 3.9968028e-19, 0.065)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (0.5, -0.5, -0.5, 0.5)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+
+            def Mesh "CurvedPedicelVisual"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 14, 15, 0, 15, 1, 1, 15, 16, 1, 16, 2, 2, 16, 17, 2, 17, 3, 3, 17, 18, 3, 18, 4, 4, 18, 19, 4, 19, 5, 5, 19, 20, 5, 20, 6, 6, 20, 21, 6, 21, 7, 7, 21, 22, 7, 22, 8, 8, 22, 23, 8, 23, 9, 9, 23, 24, 9, 24, 10, 10, 24, 25, 10, 25, 11, 11, 25, 26, 11, 26, 12, 12, 26, 27, 12, 27, 13, 13, 27, 14, 13, 14, 0, 14, 28, 29, 14, 29, 15, 15, 29, 30, 15, 30, 16, 16, 30, 31, 16, 31, 17, 17, 31, 32, 17, 32, 18, 18, 32, 33, 18, 33, 19, 19, 33, 34, 19, 34, 20, 20, 34, 35, 20, 35, 21, 21, 35, 36, 21, 36, 22, 22, 36, 37, 22, 37, 23, 23, 37, 38, 23, 38, 24, 24, 38, 39, 24, 39, 25, 25, 39, 40, 25, 40, 26, 26, 40, 41, 26, 41, 27, 27, 41, 28, 27, 28, 14, 28, 42, 43, 28, 43, 29, 29, 43, 44, 29, 44, 30, 30, 44, 45, 30, 45, 31, 31, 45, 46, 31, 46, 32, 32, 46, 47, 32, 47, 33, 33, 47, 48, 33, 48, 34, 34, 48, 49, 34, 49, 35, 35, 49, 50, 35, 50, 36, 36, 50, 51, 36, 51, 37, 37, 51, 52, 37, 52, 38, 38, 52, 53, 38, 53, 39, 39, 53, 54, 39, 54, 40, 40, 54, 55, 40, 55, 41, 41, 55, 42, 41, 42, 28, 42, 56, 57, 42, 57, 43, 43, 57, 58, 43, 58, 44, 44, 58, 59, 44, 59, 45, 45, 59, 60, 45, 60, 46, 46, 60, 61, 46, 61, 47, 47, 61, 62, 47, 62, 48, 48, 62, 63, 48, 63, 49, 49, 63, 64, 49, 64, 50, 50, 64, 65, 50, 65, 51, 51, 65, 66, 51, 66, 52, 52, 66, 67, 52, 67, 53, 53, 67, 68, 53, 68, 54, 54, 68, 69, 54, 69, 55, 55, 69, 56, 55, 56, 42, 56, 70, 71, 56, 71, 57, 57, 71, 72, 57, 72, 58, 58, 72, 73, 58, 73, 59, 59, 73, 74, 59, 74, 60, 60, 74, 75, 60, 75, 61, 61, 75, 76, 61, 76, 62, 62, 76, 77, 62, 77, 63, 63, 77, 78, 63, 78, 64, 64, 78, 79, 64, 79, 65, 65, 79, 80, 65, 80, 66, 66, 80, 81, 66, 81, 67, 67, 81, 82, 67, 82, 68, 68, 82, 83, 68, 83, 69, 69, 83, 70, 69, 70, 56, 70, 84, 85, 70, 85, 71, 71, 85, 86, 71, 86, 72, 72, 86, 87, 72, 87, 73, 73, 87, 88, 73, 88, 74, 74, 88, 89, 74, 89, 75, 75, 89, 90, 75, 90, 76, 76, 90, 91, 76, 91, 77, 77, 91, 92, 77, 92, 78, 78, 92, 93, 78, 93, 79, 79, 93, 94, 79, 94, 80, 80, 94, 95, 80, 95, 81, 81, 95, 96, 81, 96, 82, 82, 96, 97, 82, 97, 83, 83, 97, 84, 83, 84, 70, 84, 98, 99, 84, 99, 85, 85, 99, 100, 85, 100, 86, 86, 100, 101, 86, 101, 87, 87, 101, 102, 87, 102, 88, 88, 102, 103, 88, 103, 89, 89, 103, 104, 89, 104, 90, 90, 104, 105, 90, 105, 91, 91, 105, 106, 91, 106, 92, 92, 106, 107, 92, 107, 93, 93, 107, 108, 93, 108, 94, 94, 108, 109, 94, 109, 95, 95, 109, 110, 95, 110, 96, 96, 110, 111, 96, 111, 97, 97, 111, 98, 97, 98, 84, 98, 112, 113, 98, 113, 99, 99, 113, 114, 99, 114, 100, 100, 114, 115, 100, 115, 101, 101, 115, 116, 101, 116, 102, 102, 116, 117, 102, 117, 103, 103, 117, 118, 103, 118, 104, 104, 118, 119, 104, 119, 105, 105, 119, 120, 105, 120, 106, 106, 120, 121, 106, 121, 107, 107, 121, 122, 107, 122, 108, 108, 122, 123, 108, 123, 109, 109, 123, 124, 109, 124, 110, 110, 124, 125, 110, 125, 111, 111, 125, 112, 111, 112, 98, 112, 126, 127, 112, 127, 113, 113, 127, 128, 113, 128, 114, 114, 128, 129, 114, 129, 115, 115, 129, 130, 115, 130, 116, 116, 130, 131, 116, 131, 117, 117, 131, 132, 117, 132, 118, 118, 132, 133, 118, 133, 119, 119, 133, 134, 119, 134, 120, 120, 134, 135, 120, 135, 121, 121, 135, 136, 121, 136, 122, 122, 136, 137, 122, 137, 123, 123, 137, 138, 123, 138, 124, 124, 138, 139, 124, 139, 125, 125, 139, 126, 125, 126, 112, 126, 140, 141, 126, 141, 127, 127, 141, 142, 127, 142, 128, 128, 142, 143, 128, 143, 129, 129, 143, 144, 129, 144, 130, 130, 144, 145, 130, 145, 131, 131, 145, 146, 131, 146, 132, 132, 146, 147, 132, 147, 133, 133, 147, 148, 133, 148, 134, 134, 148, 149, 134, 149, 135, 135, 149, 150, 135, 150, 136, 136, 150, 151, 136, 151, 137, 137, 151, 152, 137, 152, 138, 138, 152, 153, 138, 153, 139, 139, 153, 140, 139, 140, 126, 140, 154, 155, 140, 155, 141, 141, 155, 156, 141, 156, 142, 142, 156, 157, 142, 157, 143, 143, 157, 158, 143, 158, 144, 144, 158, 159, 144, 159, 145, 145, 159, 160, 145, 160, 146, 146, 160, 161, 146, 161, 147, 147, 161, 162, 147, 162, 148, 148, 162, 163, 148, 163, 149, 149, 163, 164, 149, 164, 150, 150, 164, 165, 150, 165, 151, 151, 165, 166, 151, 166, 152, 152, 166, 167, 152, 167, 153, 153, 167, 154, 153, 154, 140, 154, 168, 169, 154, 169, 155, 155, 169, 170, 155, 170, 156, 156, 170, 171, 156, 171, 157, 157, 171, 172, 157, 172, 158, 158, 172, 173, 158, 173, 159, 159, 173, 174, 159, 174, 160, 160, 174, 175, 160, 175, 161, 161, 175, 176, 161, 176, 162, 162, 176, 177, 162, 177, 163, 163, 177, 178, 163, 178, 164, 164, 178, 179, 164, 179, 165, 165, 179, 180, 165, 180, 166, 166, 180, 181, 166, 181, 167, 167, 181, 168, 167, 168, 154, 168, 182, 183, 168, 183, 169, 169, 183, 184, 169, 184, 170, 170, 184, 185, 170, 185, 171, 171, 185, 186, 171, 186, 172, 172, 186, 187, 172, 187, 173, 173, 187, 188, 173, 188, 174, 174, 188, 189, 174, 189, 175, 175, 189, 190, 175, 190, 176, 176, 190, 191, 176, 191, 177, 177, 191, 192, 177, 192, 178, 178, 192, 193, 178, 193, 179, 179, 193, 194, 179, 194, 180, 180, 194, 195, 180, 195, 181, 181, 195, 182, 181, 182, 168, 182, 196, 197, 182, 197, 183, 183, 197, 198, 183, 198, 184, 184, 198, 199, 184, 199, 185, 185, 199, 200, 185, 200, 186, 186, 200, 201, 186, 201, 187, 187, 201, 202, 187, 202, 188, 188, 202, 203, 188, 203, 189, 189, 203, 204, 189, 204, 190, 190, 204, 205, 190, 205, 191, 191, 205, 206, 191, 206, 192, 192, 206, 207, 192, 207, 193, 193, 207, 208, 193, 208, 194, 194, 208, 209, 194, 209, 195, 195, 209, 196, 195, 196, 182, 210, 1, 0, 211, 196, 197, 210, 2, 1, 211, 197, 198, 210, 3, 2, 211, 198, 199, 210, 4, 3, 211, 199, 200, 210, 5, 4, 211, 200, 201, 210, 6, 5, 211, 201, 202, 210, 7, 6, 211, 202, 203, 210, 8, 7, 211, 203, 204, 210, 9, 8, 211, 204, 205, 210, 10, 9, 211, 205, 206, 210, 11, 10, 211, 206, 207, 210, 12, 11, 211, 207, 208, 210, 13, 12, 211, 208, 209, 210, 0, 13, 211, 209, 196]
+                point3f[] points = [(0.0015897877, -0.0016854191, 0), (0.0020669857, -0.0009198832, 0.000499447), (0.002134792, 0.00002784688, 0.0008999724), (0.0017797764, 0.0009700616, 0.0011222472), (0.0010722544, 0.0017201436, 0.0011222472), (0.00015235918, 0.00212953, 0.0008999724), (-0.0007977126, 0.0021171372, 0.000499447), (-0.0015897877, 0.0016854191, 1.4097006e-19), (-0.0020669857, 0.0009198832, -0.000499447), (-0.002134792, -0.00002784688, -0.0008999724), (-0.0017797764, -0.0009700616, -0.0011222472), (-0.0010722544, -0.0017201436, -0.0011222472), (-0.00015235918, -0.00212953, -0.0008999724), (0.0007977126, -0.0021171372, -0.000499447), (0.0007797694, -0.0023807127, 0.002187206), (0.00128919, -0.0015911822, 0.0025619348), (0.0013894967, -0.0006298914, 0.0028605117), (0.0010608225, 0.0003127643, 0.0030237995), (0.0003682652, 0.0010500804, 0.0030194572), (-0.0005510056, 0.0014360225, 0.0028483449), (-0.001514917, 0.0013941498, 0.0025443535), (-0.0023325547, 0.00093275594, 0.002167692), (-0.0028419753, 0.00014322554, 0.0017929631), (-0.002942282, -0.00081806525, 0.0014943863), (-0.0026136078, -0.0017607209, 0.0013310985), (-0.0019210505, -0.002498037, 0.0013354407), (-0.0010017797, -0.0028839791, 0.001506553), (-0.00003786826, -0.0028421064, 0.0018105445), (0.000098676224, -0.0028480592, 0.0045420574), (0.00060875417, -0.0020739245, 0.0047996673), (0.00072499434, -0.00114067, 0.0050030174), (0.000424374, -0.00023313836, 0.005111832), (-0.00023356528, 0.00046892278, 0.0051045585), (-0.0011185106, 0.0008264616, 0.004982638), (-0.0020551877, 0.00076866307, 0.004770218), (-0.0028580762, 0.000306975, 0.0045093712), (-0.0033681542, -0.00046715967, 0.0042517614), (-0.0034843942, -0.001400414, 0.004048411), (-0.003183774, -0.0023079456, 0.0039395965), (-0.0025258346, -0.0030100069, 0.00394687), (-0.0016408893, -0.0033675455, 0.0040687905), (-0.00070421223, -0.0033097472, 0.0042812107), (-0.00044612892, -0.0031272806, 0.007036861), (0.00004368154, -0.0023932038, 0.007196793), (0.00016370707, -0.0015131544, 0.007321163), (-0.00010982486, -0.0006614368, 0.0073853387), (-0.0007227379, -0.0000067441983, 0.0073766084), (-0.0015536371, 0.00032125358, 0.007296702), (-0.0024379527, 0.0002575925, 0.007161446), (-0.003200535, -0.00018511854, 0.0069976286), (-0.0036903454, -0.0009191952, 0.006837697), (-0.003810371, -0.0017992447, 0.0067133266), (-0.003536839, -0.0026509622, 0.0066491514), (-0.002923926, -0.0033056547, 0.006657881), (-0.0020930269, -0.0036336526, 0.0067377877), (-0.0012087113, -0.0035699916, 0.006873044), (-0.00084726204, -0.003258151, 0.009644714), (-0.00038699713, -0.002573339, 0.009729357), (-0.0002701131, -0.0017546609, 0.009793231), (-0.00051976024, -0.0009642656, 0.009823684), (-0.0010864929, -0.00035870072, 0.009814683), (-0.0018580628, -0.000057905814, 0.009768013), (-0.002681651, -0.00012145699, 0.009692916), (-0.0033941355, -0.0005367672, 0.009604266), (-0.0038544005, -0.001221579, 0.009519622), (-0.0039712847, -0.0020402572, 0.009455748), (-0.0037216374, -0.0028306525, 0.0094252955), (-0.0031549048, -0.0034362176, 0.009434297), (-0.0023833348, -0.0037370124, 0.009480967), (-0.0015597468, -0.0036734613, 0.009556064), (-0.0010971853, -0.0032802809, 0.012338983), (-0.0006647081, -0.0026392573, 0.012368124), (-0.00055319123, -0.0018737658, 0.0123877125), (-0.0007847221, -0.0011354213, 0.012393869), (-0.0013134431, -0.0005704622, 0.012385376), (-0.0020346346, -0.00029078533, 0.0123639135), (-0.0028054556, -0.00035178423, 0.012333733), (-0.0034732358, -0.0007413773, 0.012300813), (-0.003905713, -0.0013824009, 0.0122716725), (-0.00401723, -0.0021478923, 0.012252083), (-0.0037856991, -0.0028862366, 0.012245926), (-0.003256978, -0.003451196, 0.01225442), (-0.0025357865, -0.0037308729, 0.012275882), (-0.0017649655, -0.0036698738, 0.0123060625), (-0.0011882121, -0.003233133, 0.015092909), (-0.0007717925, -0.002616865, 0.015080686), (-0.00066405, -0.0018809584, 0.015067519), (-0.0008863242, -0.001171168, 0.015056015), (-0.0013945911, -0.00062807667, 0.015048454), (-0.002088182, -0.00035925026, 0.015046332), (-0.0028297228, -0.0004179332, 0.01505007), (-0.0034723424, -0.00079250254, 0.015058928), (-0.003888762, -0.0014087702, 0.015071151), (-0.0039965045, -0.002144677, 0.015084318), (-0.0037742304, -0.0028544674, 0.015095822), (-0.0032659636, -0.0033975588, 0.015103383), (-0.0025723726, -0.003666385, 0.0151055055), (-0.0018308316, -0.0036077022, 0.015101767), (-0.0011228449, -0.0031451099, 0.017879168), (-0.00070552307, -0.002527544, 0.017833052), (-0.0005979283, -0.0017896337, 0.017793262), (-0.000821371, -0.0010775307, 0.017767683), (-0.0013315956, -0.0005322759, 0.017761376), (-0.0020275458, -0.00026186372, 0.017775595), (-0.0027713801, -0.0003198526, 0.01780752), (-0.0034157732, -0.00069475715, 0.017850831), (-0.003833095, -0.0013123228, 0.017896948), (-0.00394069, -0.0020502333, 0.017936738), (-0.0037172472, -0.0027623363, 0.017962318), (-0.0032070226, -0.003307591, 0.017968623), (-0.0025110722, -0.0035780033, 0.017954405), (-0.0017672379, -0.0035200142, 0.017922478), (-0.00093734596, -0.0030085016, 0.02066959), (-0.0005099076, -0.002375384, 0.020593096), (-0.00040051932, -0.0016181413, 0.020529771), (-0.0006308467, -0.0008867541, 0.020492159), (-0.0011552707, -0.00032608275, 0.020487709), (-0.0018699226, -0.000047175192, 0.020517303), (-0.0026332568, -0.000105272426, 0.020575078), (-0.0032940859, -0.0004888676, 0.020649593), (-0.0037215243, -0.0011219849, 0.020726088), (-0.0038309125, -0.0018792278, 0.020789413), (-0.0036005853, -0.002610615, 0.020827025), (-0.0030761613, -0.0031712863, 0.020831475), (-0.0023615093, -0.003450194, 0.020801881), (-0.0015981749, -0.0033920966, 0.020744104), (-0.0006550233, -0.002829467, 0.023436021), (-0.00021153686, -0.0021715632, 0.02333105), (-0.00009908594, -0.0013837338, 0.0232461), (-0.00033994287, -0.00062201807, 0.023198), (-0.00088640297, -0.00003728311, 0.023196274), (-0.0016302331, 0.00025465715, 0.023241265), (-0.0024241088, 0.00019598036, 0.023324061), (-0.0031107927, -0.00020169182, 0.023428265), (-0.0035542792, -0.00085959554, 0.023533236), (-0.0036667301, -0.0016474249, 0.023618186), (-0.0034258734, -0.0024091406, 0.023666287), (-0.002879413, -0.0029938756, 0.023668012), (-0.002135583, -0.003285816, 0.023623021), (-0.0013417074, -0.0032271391, 0.023540225), (-0.00029777543, -0.0026157224, 0.026150191), (0.00016485796, -0.0019280965, 0.026018327), (0.00028105007, -0.0011036156, 0.025913553), (0.000027787604, -0.0003055781, 0.02585662), (-0.0005447677, 0.00030795488, 0.025858805), (-0.0013232143, 0.00061546563, 0.025919676), (-0.0021533712, 0.00055604783, 0.026027175), (-0.0028708156, 0.00014146995, 0.026160013), (-0.003333449, -0.0005461558, 0.026291877), (-0.0034496412, -0.0013706367, 0.02639665), (-0.0031963787, -0.0021686743, 0.026453584), (-0.0026238232, -0.0027822072, 0.0264514), (-0.0018453768, -0.0030897178, 0.026390528), (-0.00101522, -0.0030303001, 0.02628303), (0.000112457434, -0.0023749971, 0.02878374), (0.0005945172, -0.001657, 0.028627193), (0.00071455765, -0.00079497875, 0.028505055), (0.00044880333, 0.000040332925, 0.028441517), (-0.00015010989, 0.0006834913, 0.028449161), (-0.0009635599, 0.0010071109, 0.028526476), (-0.0018304329, 0.00094709505, 0.028658148), (-0.002579034, 0.00051533047, 0.028818097), (-0.0030610939, -0.00020266655, 0.028974643), (-0.0031811344, -0.0010646879, 0.029096782), (-0.00291538, -0.0018999996, 0.02916032), (-0.0023164668, -0.002543158, 0.029152676), (-0.0015030168, -0.0028667776, 0.02907536), (-0.0006361438, -0.0028067615, 0.02894369), (0.00055368716, -0.002115022, 0.031308234), (0.0010526889, -0.0013702541, 0.031130526), (0.0011761676, -0.00047495004, 0.030994711), (0.0008996666, 0.00039356423, 0.03092769), (0.00027795025, 0.0010632689, 0.030942736), (-0.0005658427, 0.0014015207, 0.031036869), (-0.0014645888, 0.0013413248, 0.031191444), (-0.0022402804, 0.0008946036, 0.031375848), (-0.0027392823, 0.00014983583, 0.031553555), (-0.0028627608, -0.00074546813, 0.03168937), (-0.0025862597, -0.0016139825, 0.03175639), (-0.0019645435, -0.002283687, 0.031741347), (-0.0011207506, -0.002621939, 0.031647213), (-0.00022200444, -0.002561743, 0.03149264), (0.0010038709, -0.0018435057, 0.03369519), (0.001514641, -0.0010797827, 0.03350166), (0.0016407006, -0.0001605769, 0.033357494), (0.001357082, 0.000732052, 0.033291254), (0.00071995944, 0.0014213078, 0.033316053), (-0.00014447716, 0.001770675, 0.033426985), (-0.0010650156, 0.001710957, 0.033602074), (-0.0018593319, 0.0012539818, 0.033806644), (-0.002370102, 0.000490259, 0.034000177), (-0.0024961615, -0.0004289469, 0.034144342), (-0.002212543, -0.0013215758, 0.034210585), (-0.0015754205, -0.0020108316, 0.034185782), (-0.0007109838, -0.0023601986, 0.034074854), (0.00020955458, -0.0023004808, 0.03389976), (0.0014408998, -0.0015680944, 0.03591608), (0.001955658, -0.0007974341, 0.035714246), (0.0020830743, 0.00013116778, 0.035569012), (0.001797912, 0.0010337903, 0.03550914), (0.0011566513, 0.0017316579, 0.03554649), (0.00028630157, 0.0020865495, 0.03567366), (-0.00064075366, 0.0020281742, 0.035865467), (-0.0014408998, 0.0015680944, 0.03608392), (-0.001955658, 0.0007974341, 0.036285754), (-0.0020830743, -0.00013116778, 0.03643099), (-0.001797912, -0.0010337903, 0.03649086), (-0.0011566513, -0.0017316579, 0.03645351), (-0.00028630157, -0.0020865495, 0.03632634), (0.00064075366, -0.0020281742, 0.03613453), (0, 0, 0), (0, 0, 0.036)]
+                color3f[] primvars:displayColor = [(0.2, 0.55, 0.16)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_pedicel_lat_2_R_Link_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.018)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/Truss_r2_o0_rachis_Link_03>,
+                </World/Stem/Truss_r2_o0_rachis_Link_04>,
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_2_L_Link_01>,
+            ]
+            float physics:mass = 0.009047787
+            quatf xformOp:orient = (-0.5862181, 0.5862181, 0.39540905, 0.3954091)
+            double3 xformOp:translate = (-0.18880085041259012, 0.0018000020530118401, 0.7930482886035781)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.036
+                color3f[] primvars:displayColor = [(0.2, 0.55, 0.16)]
+                double radius = 0.002
+                token visibility = "invisible"
+                double3 xformOp:translate = (0, 0, 0.018)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "AttachJoint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 0.005332464
+                float drive:rotX:physics:stiffness = 4.1586103
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 0.005332464
+                float drive:rotY:physics:stiffness = 4.1586103
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float limit:rotX:physics:high = 25
+                float limit:rotX:physics:low = -25
+                float limit:rotY:physics:high = 25
+                float limit:rotY:physics:low = -25
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_Link_03>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_2_R_Link_01>
+                point3f physics:localPos0 = (0.0018, -3.9968028e-19, 0.065)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (-0.5, 0.5, -0.5, 0.5)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+
+            def Mesh "CurvedPedicelVisual"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 14, 15, 0, 15, 1, 1, 15, 16, 1, 16, 2, 2, 16, 17, 2, 17, 3, 3, 17, 18, 3, 18, 4, 4, 18, 19, 4, 19, 5, 5, 19, 20, 5, 20, 6, 6, 20, 21, 6, 21, 7, 7, 21, 22, 7, 22, 8, 8, 22, 23, 8, 23, 9, 9, 23, 24, 9, 24, 10, 10, 24, 25, 10, 25, 11, 11, 25, 26, 11, 26, 12, 12, 26, 27, 12, 27, 13, 13, 27, 14, 13, 14, 0, 14, 28, 29, 14, 29, 15, 15, 29, 30, 15, 30, 16, 16, 30, 31, 16, 31, 17, 17, 31, 32, 17, 32, 18, 18, 32, 33, 18, 33, 19, 19, 33, 34, 19, 34, 20, 20, 34, 35, 20, 35, 21, 21, 35, 36, 21, 36, 22, 22, 36, 37, 22, 37, 23, 23, 37, 38, 23, 38, 24, 24, 38, 39, 24, 39, 25, 25, 39, 40, 25, 40, 26, 26, 40, 41, 26, 41, 27, 27, 41, 28, 27, 28, 14, 28, 42, 43, 28, 43, 29, 29, 43, 44, 29, 44, 30, 30, 44, 45, 30, 45, 31, 31, 45, 46, 31, 46, 32, 32, 46, 47, 32, 47, 33, 33, 47, 48, 33, 48, 34, 34, 48, 49, 34, 49, 35, 35, 49, 50, 35, 50, 36, 36, 50, 51, 36, 51, 37, 37, 51, 52, 37, 52, 38, 38, 52, 53, 38, 53, 39, 39, 53, 54, 39, 54, 40, 40, 54, 55, 40, 55, 41, 41, 55, 42, 41, 42, 28, 42, 56, 57, 42, 57, 43, 43, 57, 58, 43, 58, 44, 44, 58, 59, 44, 59, 45, 45, 59, 60, 45, 60, 46, 46, 60, 61, 46, 61, 47, 47, 61, 62, 47, 62, 48, 48, 62, 63, 48, 63, 49, 49, 63, 64, 49, 64, 50, 50, 64, 65, 50, 65, 51, 51, 65, 66, 51, 66, 52, 52, 66, 67, 52, 67, 53, 53, 67, 68, 53, 68, 54, 54, 68, 69, 54, 69, 55, 55, 69, 56, 55, 56, 42, 56, 70, 71, 56, 71, 57, 57, 71, 72, 57, 72, 58, 58, 72, 73, 58, 73, 59, 59, 73, 74, 59, 74, 60, 60, 74, 75, 60, 75, 61, 61, 75, 76, 61, 76, 62, 62, 76, 77, 62, 77, 63, 63, 77, 78, 63, 78, 64, 64, 78, 79, 64, 79, 65, 65, 79, 80, 65, 80, 66, 66, 80, 81, 66, 81, 67, 67, 81, 82, 67, 82, 68, 68, 82, 83, 68, 83, 69, 69, 83, 70, 69, 70, 56, 70, 84, 85, 70, 85, 71, 71, 85, 86, 71, 86, 72, 72, 86, 87, 72, 87, 73, 73, 87, 88, 73, 88, 74, 74, 88, 89, 74, 89, 75, 75, 89, 90, 75, 90, 76, 76, 90, 91, 76, 91, 77, 77, 91, 92, 77, 92, 78, 78, 92, 93, 78, 93, 79, 79, 93, 94, 79, 94, 80, 80, 94, 95, 80, 95, 81, 81, 95, 96, 81, 96, 82, 82, 96, 97, 82, 97, 83, 83, 97, 84, 83, 84, 70, 84, 98, 99, 84, 99, 85, 85, 99, 100, 85, 100, 86, 86, 100, 101, 86, 101, 87, 87, 101, 102, 87, 102, 88, 88, 102, 103, 88, 103, 89, 89, 103, 104, 89, 104, 90, 90, 104, 105, 90, 105, 91, 91, 105, 106, 91, 106, 92, 92, 106, 107, 92, 107, 93, 93, 107, 108, 93, 108, 94, 94, 108, 109, 94, 109, 95, 95, 109, 110, 95, 110, 96, 96, 110, 111, 96, 111, 97, 97, 111, 98, 97, 98, 84, 98, 112, 113, 98, 113, 99, 99, 113, 114, 99, 114, 100, 100, 114, 115, 100, 115, 101, 101, 115, 116, 101, 116, 102, 102, 116, 117, 102, 117, 103, 103, 117, 118, 103, 118, 104, 104, 118, 119, 104, 119, 105, 105, 119, 120, 105, 120, 106, 106, 120, 121, 106, 121, 107, 107, 121, 122, 107, 122, 108, 108, 122, 123, 108, 123, 109, 109, 123, 124, 109, 124, 110, 110, 124, 125, 110, 125, 111, 111, 125, 112, 111, 112, 98, 112, 126, 127, 112, 127, 113, 113, 127, 128, 113, 128, 114, 114, 128, 129, 114, 129, 115, 115, 129, 130, 115, 130, 116, 116, 130, 131, 116, 131, 117, 117, 131, 132, 117, 132, 118, 118, 132, 133, 118, 133, 119, 119, 133, 134, 119, 134, 120, 120, 134, 135, 120, 135, 121, 121, 135, 136, 121, 136, 122, 122, 136, 137, 122, 137, 123, 123, 137, 138, 123, 138, 124, 124, 138, 139, 124, 139, 125, 125, 139, 126, 125, 126, 112, 126, 140, 141, 126, 141, 127, 127, 141, 142, 127, 142, 128, 128, 142, 143, 128, 143, 129, 129, 143, 144, 129, 144, 130, 130, 144, 145, 130, 145, 131, 131, 145, 146, 131, 146, 132, 132, 146, 147, 132, 147, 133, 133, 147, 148, 133, 148, 134, 134, 148, 149, 134, 149, 135, 135, 149, 150, 135, 150, 136, 136, 150, 151, 136, 151, 137, 137, 151, 152, 137, 152, 138, 138, 152, 153, 138, 153, 139, 139, 153, 140, 139, 140, 126, 140, 154, 155, 140, 155, 141, 141, 155, 156, 141, 156, 142, 142, 156, 157, 142, 157, 143, 143, 157, 158, 143, 158, 144, 144, 158, 159, 144, 159, 145, 145, 159, 160, 145, 160, 146, 146, 160, 161, 146, 161, 147, 147, 161, 162, 147, 162, 148, 148, 162, 163, 148, 163, 149, 149, 163, 164, 149, 164, 150, 150, 164, 165, 150, 165, 151, 151, 165, 166, 151, 166, 152, 152, 166, 167, 152, 167, 153, 153, 167, 154, 153, 154, 140, 154, 168, 169, 154, 169, 155, 155, 169, 170, 155, 170, 156, 156, 170, 171, 156, 171, 157, 157, 171, 172, 157, 172, 158, 158, 172, 173, 158, 173, 159, 159, 173, 174, 159, 174, 160, 160, 174, 175, 160, 175, 161, 161, 175, 176, 161, 176, 162, 162, 176, 177, 162, 177, 163, 163, 177, 178, 163, 178, 164, 164, 178, 179, 164, 179, 165, 165, 179, 180, 165, 180, 166, 166, 180, 181, 166, 181, 167, 167, 181, 168, 167, 168, 154, 168, 182, 183, 168, 183, 169, 169, 183, 184, 169, 184, 170, 170, 184, 185, 170, 185, 171, 171, 185, 186, 171, 186, 172, 172, 186, 187, 172, 187, 173, 173, 187, 188, 173, 188, 174, 174, 188, 189, 174, 189, 175, 175, 189, 190, 175, 190, 176, 176, 190, 191, 176, 191, 177, 177, 191, 192, 177, 192, 178, 178, 192, 193, 178, 193, 179, 179, 193, 194, 179, 194, 180, 180, 194, 195, 180, 195, 181, 181, 195, 182, 181, 182, 168, 182, 196, 197, 182, 197, 183, 183, 197, 198, 183, 198, 184, 184, 198, 199, 184, 199, 185, 185, 199, 200, 185, 200, 186, 186, 200, 201, 186, 201, 187, 187, 201, 202, 187, 202, 188, 188, 202, 203, 188, 203, 189, 189, 203, 204, 189, 204, 190, 190, 204, 205, 190, 205, 191, 191, 205, 206, 191, 206, 192, 192, 206, 207, 192, 207, 193, 193, 207, 208, 193, 208, 194, 194, 208, 209, 194, 209, 195, 195, 209, 196, 195, 196, 182, 210, 1, 0, 211, 196, 197, 210, 2, 1, 211, 197, 198, 210, 3, 2, 211, 198, 199, 210, 4, 3, 211, 199, 200, 210, 5, 4, 211, 200, 201, 210, 6, 5, 211, 201, 202, 210, 7, 6, 211, 202, 203, 210, 8, 7, 211, 203, 204, 210, 9, 8, 211, 204, 205, 210, 10, 9, 211, 205, 206, 210, 11, 10, 211, 206, 207, 210, 12, 11, 211, 207, 208, 210, 13, 12, 211, 208, 209, 210, 0, 13, 211, 209, 196]
+                point3f[] points = [(-0.0013564508, -0.0020014248, 0), (-0.00050947204, -0.0022862135, 0.0005994389), (0.00043841405, -0.0021181894, 0.0010801516), (0.0012994668, -0.0015306319, 0.001346927), (0.0019031443, -0.00063991407, 0.001346927), (0.0021298807, 0.00037754662, 0.0010801516), (0.001934768, 0.0013202296, 0.0005994389), (0.0013564508, 0.0020014248, 1.6919301e-19), (0.00050947204, 0.0022862135, -0.0005994389), (-0.00043841405, 0.0021181894, -0.0010801516), (-0.0012994668, 0.0015306319, -0.001346927), (-0.0019031443, 0.00063991407, -0.001346927), (-0.0021298807, -0.00037754662, -0.0010801516), (-0.001934768, -0.0013202296, -0.0005994389), (-0.00240532, -0.001239482, 0.0021853787), (-0.0015083727, -0.0015629323, 0.0026472728), (-0.00052377424, -0.0014325333, 0.0030161124), (0.00035346355, -0.0008741119, 0.0032188445), (0.0009495929, 0.0000017294715, 0.0032153155), (0.0011465432, 0.0010215198, 0.0030062243), (0.00090530585, 0.001983277, 0.002632984), (0.00027366102, 0.0026965134, 0.0021695192), (-0.00062328635, 0.0030199636, 0.0017076252), (-0.0016078848, 0.0028895645, 0.0013387855), (-0.0024851225, 0.0023311432, 0.0011360535), (-0.0030812519, 0.0014553019, 0.0011395825), (-0.0032782021, 0.00043551158, 0.0013486737), (-0.003036965, -0.0005262456, 0.001721914), (-0.0031661016, -0.00059380144, 0.0045394916), (-0.0022636983, -0.00093298865, 0.004865511), (-0.0012847666, -0.0008308814, 0.0051242295), (-0.00042319595, -0.0003077033, 0.0052644047), (0.00015036896, 0.00053292385, 0.005258273), (0.0003223266, 0.0015245036, 0.0051070494), (0.000058618687, 0.0024706412, 0.004840685), (-0.0005885242, 0.0031839428, 0.004511937), (-0.0014909275, 0.00352313, 0.004185918), (-0.002469859, 0.0034210228, 0.003927199), (-0.0033314298, 0.0028978446, 0.003787024), (-0.0039049948, 0.0020572175, 0.0037931555), (-0.0040769526, 0.0010656378, 0.0039443793), (-0.0038132444, 0.00011950012, 0.0042107436), (-0.0036767537, -0.000073407646, 0.0070343534), (-0.002799823, -0.00041110007, 0.0072420193), (-0.0018550004, -0.0003282597, 0.007405166), (-0.0010294198, 0.00015870595, 0.0074914796), (-0.00048659756, 0.00095334736, 0.0074838656), (-0.00033404626, 0.001898276, 0.007383832), (-0.0006019805, 0.0028063373, 0.0072111906), (-0.0012373327, 0.0034976783, 0.007000136), (-0.0021142634, 0.0038353708, 0.0067924703), (-0.003059086, 0.0037525303, 0.006629324), (-0.0038846666, 0.0032655648, 0.00654301), (-0.004427489, 0.0024709234, 0.006550624), (-0.00458004, 0.0015259946, 0.0066506583), (-0.004312106, 0.00061793346, 0.006823299), (-0.003975304, 0.00031273605, 0.009642685), (-0.0031385152, -0.000013876461, 0.009755386), (-0.0022401486, 0.00005683512, 0.009842163), (-0.0014581366, 0.0005108655, 0.009885826), (-0.0009473663, 0.0012582884, 0.009877728), (-0.000809002, 0.0021510674, 0.009819474), (-0.0010704485, 0.003012377, 0.009722601), (-0.001679923, 0.003671624, 0.009606295), (-0.0025167118, 0.0039982363, 0.009493593), (-0.0034150784, 0.0039275247, 0.009406817), (-0.0041970904, 0.0034734944, 0.009363153), (-0.0047078608, 0.0027260715, 0.009371251), (-0.004846225, 0.0018332925, 0.009429505), (-0.0045847786, 0.000971983, 0.009526379), (-0.00409965, 0.00055559014, 0.012337526), (-0.0033017334, 0.00024205595, 0.012377422), (-0.0024463558, 0.000305953, 0.0124059245), (-0.0017029352, 0.0007346257, 0.012417388), (-0.001218715, 0.00144317, 0.012409543), (-0.0010896011, 0.0022912503, 0.012383942), (-0.0013411659, 0.0031108938, 0.012345657), (-0.001923584, 0.0037397598, 0.012302269), (-0.0027215004, 0.004053294, 0.012262373), (-0.003576878, 0.003989397, 0.012233871), (-0.004320299, 0.0035607242, 0.012222408), (-0.004804519, 0.0028521798, 0.012230254), (-0.004933633, 0.0020040995, 0.012255854), (-0.004682068, 0.0011844563, 0.01229414), (-0.004087532, 0.00064601435, 0.015091901), (-0.003312736, 0.00034084768, 0.015075786), (-0.0024822666, 0.00040214433, 0.015059697), (-0.0017606089, 0.00081776374, 0.015046822), (-0.0012906956, 0.0015053874, 0.015039708), (-0.0011655991, 0.0023288229, 0.015039768), (-0.0014100962, 0.0031249789, 0.015046987), (-0.0019757613, 0.003736167, 0.015059936), (-0.0027505571, 0.0040413337, 0.015076051), (-0.0035810266, 0.003980037, 0.015092139), (-0.004302684, 0.0035644176, 0.015105016), (-0.0047725975, 0.002876794, 0.015112128), (-0.004897694, 0.0020533584, 0.015112069), (-0.004653197, 0.0012572024, 0.01510485), (-0.0039666477, 0.0005893497, 0.017878413), (-0.0031935559, 0.00028498613, 0.01781632), (-0.0023643605, 0.00034702016, 0.017763868), (-0.0016432945, 0.0007631652, 0.017731447), (-0.0011731734, 0.0014509986, 0.017725477), (-0.0010471108, 0.0022742865, 0.017747141), (-0.0012900748, 0.0030699666, 0.01779215), (-0.0018539433, 0.0036804448, 0.017851587), (-0.0026270354, 0.0039848085, 0.01791368), (-0.0034562305, 0.0039227745, 0.017966133), (-0.0041772965, 0.0035066293, 0.017998554), (-0.004647418, 0.002818796, 0.018004524), (-0.0047734804, 0.001995508, 0.017982857), (-0.0045305165, 0.0011998279, 0.01793785), (-0.0037373102, 0.00043093064, 0.020669065), (-0.0029598717, 0.00012552826, 0.020567628), (-0.0021250516, 0.00018971738, 0.020484405), (-0.0013981963, 0.00061078457, 0.02043588), (-0.0009232685, 0.0013053323, 0.020431664), (-0.0007943333, 0.002135797, 0.020472592), (-0.001036928, 0.0029376948, 0.020550558), (-0.0016030038, 0.0035521998, 0.020650119), (-0.0023804423, 0.0038576024, 0.020751556), (-0.0032152624, 0.003793413, 0.02083478), (-0.0039421176, 0.003372346, 0.020883303), (-0.0044170455, 0.0026777983, 0.02088752), (-0.0045459806, 0.0018473336, 0.020846592), (-0.004303386, 0.0010454359, 0.020768626), (-0.0034179513, 0.00018956418, 0.023436045), (-0.0026325902, -0.00011794193, 0.023300437), (-0.0017880547, -0.0000508119, 0.023190916), (-0.0010516155, 0.00037765832, 0.02312917), (-0.00056913344, 0.001082605, 0.023127435), (-0.00043616994, 0.0019244048, 0.023186048), (-0.0006790601, 0.0027363289, 0.023293406), (-0.0012496966, 0.0033575657, 0.02342824), (-0.0020350576, 0.0036650717, 0.023563849), (-0.0028795933, 0.0035979417, 0.02367337), (-0.0036160324, 0.0031694714, 0.023735115), (-0.0040985146, 0.002464525, 0.023736851), (-0.004231478, 0.0016227252, 0.023678238), (-0.0039885878, 0.00081080105, 0.02357088), (-0.0030285732, -0.00011821581, 0.026151458), (-0.0022332466, -0.00042842436, 0.02598612), (-0.0013766481, -0.00035799862, 0.025854252), (-0.00062843744, 0.00007911269, 0.02578197), (-0.00013680696, 0.00079633435, 0.025783593), (8.699002e-7, 0.0016516118, 0.025858797), (-0.00024267544, 0.0024755467, 0.025992688), (-0.00081920583, 0.003104949, 0.026158746), (-0.0016145324, 0.0034151576, 0.026324084), (-0.0024711308, 0.0033447319, 0.026455952), (-0.0032193416, 0.0029076205, 0.026528234), (-0.0037109721, 0.0021903988, 0.026526611), (-0.0038486489, 0.0013351215, 0.026451407), (-0.0036051036, 0.0005111864, 0.026317516), (-0.0025891948, -0.00047585048, 0.028787289), (-0.0017834868, -0.00078883354, 0.028596528), (-0.00091429177, -0.00071514474, 0.028446248), (-0.00015376466, -0.00026937906, 0.028366217), (0.0003474629, 0.00046017408, 0.028372282), (0.0004901166, 0.0013290178, 0.028463244), (0.00024594212, 0.002165067, 0.028621089), (-0.00033669872, 0.0028027317, 0.028814549), (-0.0011424068, 0.0031157148, 0.02900531), (-0.0020116018, 0.003042026, 0.029155588), (-0.002772129, 0.0025962603, 0.02923562), (-0.0032733565, 0.0018667071, 0.029229553), (-0.0034160102, 0.0009978634, 0.029138591), (-0.0031718358, 0.00016181426, 0.028980749), (-0.0021198594, -0.00086674164, 0.031315383), (-0.0013050104, -0.0011820336, 0.031103846), (-0.00042451924, -0.0011055009, 0.030939486), (0.00034722197, -0.00065230153, 0.030854857), (0.00085736037, 0.000087802626, 0.030866722), (0.0010048568, 0.0009682249, 0.030972729), (0.0007604978, 0.0018145868, 0.031151881), (0.00017268167, 0.0024592562, 0.0313687), (-0.0006421674, 0.0027745483, 0.031580236), (-0.0015226586, 0.0026980154, 0.031744596), (-0.0022943998, 0.0022448162, 0.031829227), (-0.0028045382, 0.0015047119, 0.03181736), (-0.0029520346, 0.0006242896, 0.031711355), (-0.0027076756, -0.00022207233, 0.0315322), (-0.0016406396, -0.0012742296, 0.033707377), (-0.0008195424, -0.0015908513, 0.033480465), (0.000069120455, -0.0015123115, 0.03330712), (0.00084933836, -0.0010541658, 0.033221677), (0.0013665797, -0.00030715563, 0.033241056), (0.0015183983, 0.00058076443, 0.03336142), (0.0012747248, 0.001433731, 0.033558927), (0.0006838217, 0.0020828035, 0.033794463), (-0.0001372755, 0.0023994253, 0.03402137), (-0.0010259383, 0.0023208854, 0.034194715), (-0.0018061562, 0.0018627397, 0.03428016), (-0.0023233977, 0.0011157296, 0.03426078), (-0.0024752163, 0.00022780946, 0.03414042), (-0.0022315427, -0.0006251571, 0.03394291), (-0.0011716405, -0.0016815542, 0.035934575), (-0.00034881773, -0.0019980706, 0.035698857), (0.00054309267, -0.0019188446, 0.035522785), (0.0013274369, -0.0014595679, 0.035441235), (0.001848866, -0.0007112058, 0.03547035), (0.0020041044, 0.00017801927, 0.035604373), (0.0017624055, 0.0010319855, 0.03581675), (0.0011716405, 0.0016815542, 0.036065426), (0.00034881773, 0.0019980706, 0.036301143), (-0.00054309267, 0.0019188446, 0.036477212), (-0.0013274369, 0.0014595679, 0.036558766), (-0.001848866, 0.0007112058, 0.03652965), (-0.0020041044, -0.00017801927, 0.036395628), (-0.0017624055, -0.0010319855, 0.03618325), (0, 0, 0), (0, 0, 0.036)]
+                color3f[] primvars:displayColor = [(0.2, 0.55, 0.16)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_pedicel_term_Link_01" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0.018)
+            prepend rel physics:filteredPairs = </World/Stem/Truss_r2_o0_rachis_Link_04>
+            float physics:mass = 0.009047787
+            quatf xformOp:orient = (0.5862181, -0.39540908, -0.39540908, 0.58621806)
+            double3 xformOp:translate = (-0.24906780104371878, 2.0530118500783343e-9, 0.8173977171187597)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Cylinder "Cylinder" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                uniform token axis = "Z"
+                double height = 0.036
+                color3f[] primvars:displayColor = [(0.2, 0.55, 0.16)]
+                double radius = 0.002
+                token visibility = "invisible"
+                double3 xformOp:translate = (0, 0, 0.018)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+            }
+
+            def PhysicsJoint "AttachJoint" (
+                prepend apiSchemas = ["PhysicsLimitAPI:transX", "PhysicsLimitAPI:transY", "PhysicsLimitAPI:transZ", "PhysicsLimitAPI:rotX", "PhysicsDriveAPI:rotX", "PhysicsLimitAPI:rotY", "PhysicsDriveAPI:rotY", "PhysicsLimitAPI:rotZ"]
+            )
+            {
+                float drive:rotX:physics:damping = 0.005332464
+                float drive:rotX:physics:stiffness = 4.1586103
+                float drive:rotX:physics:targetPosition = 0
+                uniform token drive:rotX:physics:type = "force"
+                float drive:rotY:physics:damping = 0.005332464
+                float drive:rotY:physics:stiffness = 4.1586103
+                float drive:rotY:physics:targetPosition = 0
+                uniform token drive:rotY:physics:type = "force"
+                float limit:rotX:physics:high = 25
+                float limit:rotX:physics:low = -25
+                float limit:rotY:physics:high = 25
+                float limit:rotY:physics:low = -25
+                float limit:rotZ:physics:high = -1
+                float limit:rotZ:physics:low = 1
+                float limit:transX:physics:high = -1
+                float limit:transX:physics:low = 1
+                float limit:transY:physics:high = -1
+                float limit:transY:physics:low = 1
+                float limit:transZ:physics:high = -1
+                float limit:transZ:physics:low = 1
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_Link_04>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_pedicel_term_Link_01>
+                point3f physics:localPos0 = (0, 0, 0.065)
+                point3f physics:localPos1 = (0, 0, 0)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+
+            def Mesh "CurvedPedicelVisual"
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                int[] faceVertexIndices = [0, 14, 15, 0, 15, 1, 1, 15, 16, 1, 16, 2, 2, 16, 17, 2, 17, 3, 3, 17, 18, 3, 18, 4, 4, 18, 19, 4, 19, 5, 5, 19, 20, 5, 20, 6, 6, 20, 21, 6, 21, 7, 7, 21, 22, 7, 22, 8, 8, 22, 23, 8, 23, 9, 9, 23, 24, 9, 24, 10, 10, 24, 25, 10, 25, 11, 11, 25, 26, 11, 26, 12, 12, 26, 27, 12, 27, 13, 13, 27, 14, 13, 14, 0, 14, 28, 29, 14, 29, 15, 15, 29, 30, 15, 30, 16, 16, 30, 31, 16, 31, 17, 17, 31, 32, 17, 32, 18, 18, 32, 33, 18, 33, 19, 19, 33, 34, 19, 34, 20, 20, 34, 35, 20, 35, 21, 21, 35, 36, 21, 36, 22, 22, 36, 37, 22, 37, 23, 23, 37, 38, 23, 38, 24, 24, 38, 39, 24, 39, 25, 25, 39, 40, 25, 40, 26, 26, 40, 41, 26, 41, 27, 27, 41, 28, 27, 28, 14, 28, 42, 43, 28, 43, 29, 29, 43, 44, 29, 44, 30, 30, 44, 45, 30, 45, 31, 31, 45, 46, 31, 46, 32, 32, 46, 47, 32, 47, 33, 33, 47, 48, 33, 48, 34, 34, 48, 49, 34, 49, 35, 35, 49, 50, 35, 50, 36, 36, 50, 51, 36, 51, 37, 37, 51, 52, 37, 52, 38, 38, 52, 53, 38, 53, 39, 39, 53, 54, 39, 54, 40, 40, 54, 55, 40, 55, 41, 41, 55, 42, 41, 42, 28, 42, 56, 57, 42, 57, 43, 43, 57, 58, 43, 58, 44, 44, 58, 59, 44, 59, 45, 45, 59, 60, 45, 60, 46, 46, 60, 61, 46, 61, 47, 47, 61, 62, 47, 62, 48, 48, 62, 63, 48, 63, 49, 49, 63, 64, 49, 64, 50, 50, 64, 65, 50, 65, 51, 51, 65, 66, 51, 66, 52, 52, 66, 67, 52, 67, 53, 53, 67, 68, 53, 68, 54, 54, 68, 69, 54, 69, 55, 55, 69, 56, 55, 56, 42, 56, 70, 71, 56, 71, 57, 57, 71, 72, 57, 72, 58, 58, 72, 73, 58, 73, 59, 59, 73, 74, 59, 74, 60, 60, 74, 75, 60, 75, 61, 61, 75, 76, 61, 76, 62, 62, 76, 77, 62, 77, 63, 63, 77, 78, 63, 78, 64, 64, 78, 79, 64, 79, 65, 65, 79, 80, 65, 80, 66, 66, 80, 81, 66, 81, 67, 67, 81, 82, 67, 82, 68, 68, 82, 83, 68, 83, 69, 69, 83, 70, 69, 70, 56, 70, 84, 85, 70, 85, 71, 71, 85, 86, 71, 86, 72, 72, 86, 87, 72, 87, 73, 73, 87, 88, 73, 88, 74, 74, 88, 89, 74, 89, 75, 75, 89, 90, 75, 90, 76, 76, 90, 91, 76, 91, 77, 77, 91, 92, 77, 92, 78, 78, 92, 93, 78, 93, 79, 79, 93, 94, 79, 94, 80, 80, 94, 95, 80, 95, 81, 81, 95, 96, 81, 96, 82, 82, 96, 97, 82, 97, 83, 83, 97, 84, 83, 84, 70, 84, 98, 99, 84, 99, 85, 85, 99, 100, 85, 100, 86, 86, 100, 101, 86, 101, 87, 87, 101, 102, 87, 102, 88, 88, 102, 103, 88, 103, 89, 89, 103, 104, 89, 104, 90, 90, 104, 105, 90, 105, 91, 91, 105, 106, 91, 106, 92, 92, 106, 107, 92, 107, 93, 93, 107, 108, 93, 108, 94, 94, 108, 109, 94, 109, 95, 95, 109, 110, 95, 110, 96, 96, 110, 111, 96, 111, 97, 97, 111, 98, 97, 98, 84, 98, 112, 113, 98, 113, 99, 99, 113, 114, 99, 114, 100, 100, 114, 115, 100, 115, 101, 101, 115, 116, 101, 116, 102, 102, 116, 117, 102, 117, 103, 103, 117, 118, 103, 118, 104, 104, 118, 119, 104, 119, 105, 105, 119, 120, 105, 120, 106, 106, 120, 121, 106, 121, 107, 107, 121, 122, 107, 122, 108, 108, 122, 123, 108, 123, 109, 109, 123, 124, 109, 124, 110, 110, 124, 125, 110, 125, 111, 111, 125, 112, 111, 112, 98, 112, 126, 127, 112, 127, 113, 113, 127, 128, 113, 128, 114, 114, 128, 129, 114, 129, 115, 115, 129, 130, 115, 130, 116, 116, 130, 131, 116, 131, 117, 117, 131, 132, 117, 132, 118, 118, 132, 133, 118, 133, 119, 119, 133, 134, 119, 134, 120, 120, 134, 135, 120, 135, 121, 121, 135, 136, 121, 136, 122, 122, 136, 137, 122, 137, 123, 123, 137, 138, 123, 138, 124, 124, 138, 139, 124, 139, 125, 125, 139, 126, 125, 126, 112, 126, 140, 141, 126, 141, 127, 127, 141, 142, 127, 142, 128, 128, 142, 143, 128, 143, 129, 129, 143, 144, 129, 144, 130, 130, 144, 145, 130, 145, 131, 131, 145, 146, 131, 146, 132, 132, 146, 147, 132, 147, 133, 133, 147, 148, 133, 148, 134, 134, 148, 149, 134, 149, 135, 135, 149, 150, 135, 150, 136, 136, 150, 151, 136, 151, 137, 137, 151, 152, 137, 152, 138, 138, 152, 153, 138, 153, 139, 139, 153, 140, 139, 140, 126, 140, 154, 155, 140, 155, 141, 141, 155, 156, 141, 156, 142, 142, 156, 157, 142, 157, 143, 143, 157, 158, 143, 158, 144, 144, 158, 159, 144, 159, 145, 145, 159, 160, 145, 160, 146, 146, 160, 161, 146, 161, 147, 147, 161, 162, 147, 162, 148, 148, 162, 163, 148, 163, 149, 149, 163, 164, 149, 164, 150, 150, 164, 165, 150, 165, 151, 151, 165, 166, 151, 166, 152, 152, 166, 167, 152, 167, 153, 153, 167, 154, 153, 154, 140, 154, 168, 169, 154, 169, 155, 155, 169, 170, 155, 170, 156, 156, 170, 171, 156, 171, 157, 157, 171, 172, 157, 172, 158, 158, 172, 173, 158, 173, 159, 159, 173, 174, 159, 174, 160, 160, 174, 175, 160, 175, 161, 161, 175, 176, 161, 176, 162, 162, 176, 177, 162, 177, 163, 163, 177, 178, 163, 178, 164, 164, 178, 179, 164, 179, 165, 165, 179, 180, 165, 180, 166, 166, 180, 181, 166, 181, 167, 167, 181, 168, 167, 168, 154, 168, 182, 183, 168, 183, 169, 169, 183, 184, 169, 184, 170, 170, 184, 185, 170, 185, 171, 171, 185, 186, 171, 186, 172, 172, 186, 187, 172, 187, 173, 173, 187, 188, 173, 188, 174, 174, 188, 189, 174, 189, 175, 175, 189, 190, 175, 190, 176, 176, 190, 191, 176, 191, 177, 177, 191, 192, 177, 192, 178, 178, 192, 193, 178, 193, 179, 179, 193, 194, 179, 194, 180, 180, 194, 195, 180, 195, 181, 181, 195, 182, 181, 182, 168, 182, 196, 197, 182, 197, 183, 183, 197, 198, 183, 198, 184, 184, 198, 199, 184, 199, 185, 185, 199, 200, 185, 200, 186, 186, 200, 201, 186, 201, 187, 187, 201, 202, 187, 202, 188, 188, 202, 203, 188, 203, 189, 189, 203, 204, 189, 204, 190, 190, 204, 205, 190, 205, 191, 191, 205, 206, 191, 206, 192, 192, 206, 207, 192, 207, 193, 193, 207, 208, 193, 208, 194, 194, 208, 209, 194, 209, 195, 195, 209, 196, 195, 196, 182, 210, 1, 0, 211, 196, 197, 210, 2, 1, 211, 197, 198, 210, 3, 2, 211, 198, 199, 210, 4, 3, 211, 199, 200, 210, 5, 4, 211, 200, 201, 210, 6, 5, 211, 201, 202, 210, 7, 6, 211, 202, 203, 210, 8, 7, 211, 203, 204, 210, 9, 8, 211, 204, 205, 210, 10, 9, 211, 205, 206, 210, 11, 10, 211, 206, 207, 210, 12, 11, 211, 207, 208, 210, 13, 12, 211, 208, 209, 210, 0, 13, 211, 209, 196]
+                point3f[] points = [(0, -0.0024643028, -0.0002827222), (0.00098524, -0.0022696254, 0.00017556203), (0.0017753412, -0.0016254211, 0.00059907406), (0.0022138143, -0.0006592821, 0.00090393214), (0.0022138143, 0.0004374358, 0.0010297553), (0.0017753412, 0.0014475142, 0.0009516229), (0.00098524, 0.0021708945, 0.0006850099), (2.7808626e-19, 0.0024643028, 0.0002827222), (-0.00098524, 0.0022696254, -0.00017556203), (-0.0017753412, 0.0016254211, -0.00059907406), (-0.0022138143, 0.0006592821, -0.00090393214), (-0.0022138143, -0.0004374358, -0.0010297553), (-0.0017753412, -0.0014475142, -0.0009516229), (-0.00098524, -0.0021708945, -0.0006850099), (-0.0008280467, -0.0026574256, 0.0019266063), (0.00018049216, -0.0024544415, 0.0022663886), (0.0009912717, -0.0018120628, 0.0025885554), (0.0014437072, -0.00085752073, 0.0028292977), (0.0014481881, 0.0002201261, 0.0029409332), (0.0010038271, 0.0012074364, 0.0029013513), (0.00019863511, 0.0019088614, 0.0027183916), (-0.0008079095, 0.0021854753, 0.0024282916), (-0.0018164484, 0.001982491, 0.0020885093), (-0.002627228, 0.0013401124, 0.0017663424), (-0.0030796633, 0.00038557028, 0.0015256003), (-0.0030841443, -0.0006920766, 0.0014139649), (-0.0026397833, -0.001679387, 0.0014535468), (-0.0018345913, -0.0023808118, 0.0016365064), (-0.0014571672, -0.0027700164, 0.0043141292), (-0.00047278448, -0.0025680787, 0.004547632), (0.00031996984, -0.0019489364, 0.004776793), (0.000764081, -0.0010352182, 0.0049562254), (0.00077158737, -0.000007897249, 0.0050503896), (0.00034100222, 0.00092955295, 0.0050406354), (-0.00044239179, 0.0015914589, 0.004928895), (-0.0014234339, 0.001846722, 0.0047372994), (-0.0024078167, 0.0016447841, 0.004503797), (-0.0032005708, 0.0010256418, 0.0042746356), (-0.003644682, 0.00011192361, 0.0040952032), (-0.0036521885, -0.00091539737, 0.004001039), (-0.0032216033, -0.0018528475, 0.0040107933), (-0.0024382093, -0.0025147535, 0.004122534), (-0.0019050409, -0.002827889, 0.006846825), (-0.00097321364, -0.0026333884, 0.006993579), (-0.00022186202, -0.002050117, 0.0071450206), (0.00020019949, -0.0011935985, 0.0072711543), (0.00020937645, -0.00023347724, 0.0073469984), (-0.00019614877, 0.00064008316, 0.0073575303), (-0.0009360569, 0.0012540633, 0.007300665), (-0.0018638001, 0.0014868568, 0.0071876645), (-0.0027956273, 0.0012923563, 0.0070409104), (-0.003546979, 0.00070908485, 0.006889469), (-0.0039690407, -0.00014743353, 0.0067633353), (-0.0039782175, -0.0011075548, 0.0066874917), (-0.0035726924, -0.0019811152, 0.0066769593), (-0.002832784, -0.0025950954, 0.006733825), (-0.0021898407, -0.0028570408, 0.009493363), (-0.0013202769, -0.0026728513, 0.00957364), (-0.00061857374, -0.002128828, 0.00966399), (-0.00022371222, -0.0013327219, 0.009746515), (-0.0002138994, -0.00044221105, 0.009804872), (-0.00059107883, 0.0003663277, 0.009827502), (-0.0012805455, 0.0009327534, 0.009809923), (-0.002145742, 0.0011448784, 0.009755617), (-0.0030153058, 0.00096068886, 0.009675339), (-0.0037170087, 0.0004166657, 0.00958499), (-0.00411187, -0.0003794406, 0.009502465), (-0.004121683, -0.0012699515, 0.009444107), (-0.0037445037, -0.00207849, 0.009421477), (-0.0030550372, -0.0026449158, 0.009439057), (-0.0023298955, -0.0028836096, 0.012224218), (-0.0015148241, -0.0027089159, 0.012255256), (-0.00085682434, -0.002198096, 0.012299097), (-0.0004862212, -0.001452324, 0.012347058), (-0.0004764172, -0.0006193093, 0.012389639), (-0.0008293541, 0.00013595929, 0.012418408), (-0.0014751285, 0.0006638916, 0.012427665), (-0.0022858367, 0.0008599242, 0.012415579), (-0.0031009081, 0.00068523036, 0.01238454), (-0.0037589078, 0.00017441042, 0.012340699), (-0.004129511, -0.0005713615, 0.012292738), (-0.004139315, -0.0014043762, 0.012250156), (-0.003786378, -0.0021596448, 0.012221388), (-0.0031406037, -0.0026875772, 0.01221213), (-0.002343463, -0.0029338216, 0.015011901), (-0.0015588625, -0.0027641505, 0.0150058465), (-0.00092543015, -0.0022710732, 0.01501367), (-0.0005686251, -0.0015522498, 0.0150338225), (-0.0005591169, -0.00075005234, 0.015062313), (-0.0008987887, -0.000023365685, 0.015093498), (-0.0015203644, 0.0004838809, 0.015121201), (-0.0023007332, 0.000671221, 0.015139936), (-0.0030853336, 0.0005015496, 0.01514599), (-0.003718766, 0.000008472329, 0.015138167), (-0.004075571, -0.000710351, 0.015118014), (-0.0040850793, -0.0015125484, 0.015089524), (-0.0037454076, -0.002239235, 0.01505834), (-0.0031238317, -0.0027464817, 0.0150306355), (-0.0022483056, -0.003013393, 0.017831765), (-0.0014638209, -0.0028426875, 0.01779502), (-0.00083067955, -0.002348203, 0.017772136), (-0.00047428286, -0.001627878, 0.017767644), (-0.00046521955, -0.00082438206, 0.017782435), (-0.00080528477, -0.000096857184, 0.017813578), (-0.0014271244, 0.00041060135, 0.017854907), (-0.0022075754, 0.00059748517, 0.017898235), (-0.00299206, 0.0004267796, 0.01793498), (-0.0036252015, -0.00006770499, 0.017957864), (-0.003981598, -0.00078802987, 0.017962355), (-0.0039906614, -0.0015915259, 0.017947566), (-0.0036505964, -0.0023190507, 0.01791642), (-0.0030287567, -0.0028265093, 0.017875092), (-0.0020612387, -0.0030696446, 0.020660724), (-0.0012660997, -0.0028959813, 0.020596664), (-0.00062480493, -0.0023934005, 0.020545067), (-0.00026437067, -0.0016614444, 0.020516153), (-0.0002561854, -0.0008450858, 0.020515649), (-0.0006018703, -0.000106014464, 0.020543655), (-0.0012329582, 0.0004093873, 0.020594623), (-0.0020244545, 0.000599038, 0.020658458), (-0.0028195935, 0.00042537483, 0.02072252), (-0.0034608883, -0.00007720595, 0.020774115), (-0.0038213225, -0.0008091621, 0.02080303), (-0.0038295079, -0.0016255208, 0.020803533), (-0.0034838228, -0.0023645922, 0.020775529), (-0.0028527349, -0.0028799938, 0.020724561), (-0.0017993585, -0.0030852589, 0.02347367), (-0.0009871239, -0.0029076317, 0.023384461), (-0.00033277393, -0.0023931433, 0.023304695), (0.000034089626, -0.0016436948, 0.02325017), (0.00004080484, -0.0008077234, 0.023231689), (-0.00031395833, -0.000050803552, 0.02325291), (-0.0009599346, 0.00047714746, 0.02330963), (-0.0017691806, 0.0006715625, 0.023390615), (-0.002581415, 0.00049393525, 0.023479825), (-0.0032357653, -0.000020552987, 0.02355959), (-0.0036026288, -0.00077000156, 0.023614114), (-0.003609344, -0.001605973, 0.023632597), (-0.0032545808, -0.0023628927, 0.023611376), (-0.0026086045, -0.002890844, 0.023554657), (-0.0014796931, -0.0030458942, 0.026245406), (-0.00064695766, -0.0028639615, 0.026132708), (0.000022830984, -0.0023358413, 0.026024446), (0.00039701298, -0.001566134, 0.025942061), (0.000401477, -0.0007072898, 0.025901873), (0.000035338864, 0.00007058693, 0.025911838), (-0.00062888325, 0.000613428, 0.025969986), (-0.0014596321, 0.0008137172, 0.026064798), (-0.0022923674, 0.0006317846, 0.026177496), (-0.0029621562, 0.0001036644, 0.026285758), (-0.003336338, -0.00066604285, 0.026368143), (-0.0033408022, -0.0015248872, 0.026408331), (-0.002974664, -0.0023027638, 0.026398366), (-0.0023104418, -0.002845605, 0.026340218), (-0.0011191923, -0.0029369255, 0.028950807), (-0.00026561008, -0.002751029, 0.02881631), (0.00041944717, -0.0022097093, 0.028678766), (0.00080029544, -0.0014201804, 0.028565414), (0.000801503, -0.00053881895, 0.028498707), (0.00042283075, 0.00025981103, 0.028491858), (-0.00026072067, 0.0008175309, 0.028546222), (-0.0011137655, 0.0010238774, 0.02865103), (-0.0019673477, 0.00083798124, 0.028785527), (-0.002652405, 0.00029666122, 0.028923072), (-0.0030332534, -0.0004928675, 0.029036423), (-0.0030344608, -0.001374229, 0.02910313), (-0.0026557886, -0.002172859, 0.029109979), (-0.0019722371, -0.0027305789, 0.029055616), (-0.0007347608, -0.0027432947, 0.031564865), (0.00013696085, -0.0025544525, 0.031410687), (0.0008345595, -0.002002602, 0.03124291), (0.0012198671, -0.0011970443, 0.03109477), (0.001216569, -0.0002973297, 0.030995606), (0.0008253181, 0.00051834213, 0.030965054), (0.00012360665, 0.0010884174, 0.031009171), (-0.00074958283, 0.0012999857, 0.031119216), (-0.0016213044, 0.0011111434, 0.031273395), (-0.002318903, 0.000559293, 0.03144117), (-0.0027042108, -0.00024626477, 0.03158931), (-0.0027009125, -0.0011459793, 0.031688478), (-0.0023096616, -0.0019616513, 0.031719025), (-0.0016079503, -0.0025317264, 0.03167491), (-0.00034331472, -0.0024492575, 0.034062717), (0.00054080493, -0.002259132, 0.03389171), (0.0012456784, -0.0017017686, 0.03369282), (0.0016316968, -0.0008875604, 0.033505436), (0.0016224044, 0.000022228764, 0.033366673), (0.0012196419, 0.000847404, 0.033304013), (0.000503181, 0.0014245292, 0.03332987), (-0.00038507415, 0.0016392978, 0.03343912), (-0.0012691938, 0.001449172, 0.033610124), (-0.0019740672, 0.00089180877, 0.033809014), (-0.0023600857, 0.00007760056, 0.0339964), (-0.0023507932, -0.00083218864, 0.034135163), (-0.0019480307, -0.0016573638, 0.034197822), (-0.0012315699, -0.0022344892, 0.03417197), (0.000038102517, -0.00203795, 0.0364196), (0.0009258672, -0.0018487864, 0.036235616), (0.0016302526, -0.0012934478, 0.036004964), (0.0020117464, -0.00048192608, 0.03577333), (0.001994789, 0.000425047, 0.03558659), (0.0015827394, 0.0012478343, 0.035481732), (0.00085720886, 0.0018234728, 0.035479523), (-0.000038102517, 0.00203795, 0.0355804), (-0.0009258672, 0.0018487864, 0.035764385), (-0.0016302526, 0.0012934478, 0.035995036), (-0.0020117464, 0.00048192608, 0.03622667), (-0.001994789, -0.000425047, 0.03641341), (-0.0015827394, -0.0012478343, 0.03651827), (-0.00085720886, -0.0018234728, 0.036520477), (0, 0, 0), (0, 0, 0.036)]
+                color3f[] primvars:displayColor = [(0.2, 0.55, 0.16)]
+                uniform token subdivisionScheme = "none"
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_pedicel_lat_0_L_tomato" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_1_L_tomato>,
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_0_L_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_02>,
+                </World/Stem/Truss_r2_o0_rachis_Link_03>,
+                </World/Stem/Truss_r2_o0_rachis_Link_04>,
+            ]
+            float physics:mass = 0.024429025
+            quatf xformOp:orient = (-0.39540905, -0.3954091, -0.5862181, 0.5862181)
+            double3 xformOp:translate = (-0.06826695285898286, -0.07379999794698805, 0.7443494290716989)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Sphere "Sphere" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                color3f[] primvars:displayColor = [(0.9, 0.17, 0.08)]
+                double radius = 0.036
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_0_L_Link_01>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_0_L_tomato>
+                point3f physics:localPos0 = (0, 0, 0.036)
+                point3f physics:localPos1 = (0, 0, -0.036)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_pedicel_lat_0_R_tomato" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_1_R_tomato>,
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_0_R_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_02>,
+                </World/Stem/Truss_r2_o0_rachis_Link_03>,
+                </World/Stem/Truss_r2_o0_rachis_Link_04>,
+            ]
+            float physics:mass = 0.03351032
+            quatf xformOp:orient = (-0.5862181, 0.5862181, 0.39540905, 0.3954091)
+            double3 xformOp:translate = (-0.06826694576010216, 0.0778000020530117, 0.7443494338599542)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Sphere "Sphere" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                color3f[] primvars:displayColor = [(0.8025, 0.242, 0.08)]
+                double radius = 0.04
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_0_R_Link_01>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_0_R_tomato>
+                point3f physics:localPos0 = (0, 0, 0.036)
+                point3f physics:localPos1 = (0, 0, -0.04)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_pedicel_lat_1_L_tomato" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_0_L_tomato>,
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_2_L_tomato>,
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_1_L_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_02>,
+                </World/Stem/Truss_r2_o0_rachis_Link_03>,
+                </World/Stem/Truss_r2_o0_rachis_Link_04>,
+            ]
+            float physics:mass = 0.020579526
+            quatf xformOp:orient = (-0.39540905, -0.3954091, -0.5862181, 0.5862181)
+            double3 xformOp:translate = (-0.12853390331217127, -0.07179999794698806, 0.7686988577069028)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Sphere "Sphere" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                color3f[] primvars:displayColor = [(0.6725, 0.338, 0.08)]
+                double radius = 0.034
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_1_L_Link_01>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_1_L_tomato>
+                point3f physics:localPos0 = (0, 0, 0.036)
+                point3f physics:localPos1 = (0, 0, -0.034)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_pedicel_lat_1_R_tomato" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_0_R_tomato>,
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_2_R_tomato>,
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_1_R_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_02>,
+                </World/Stem/Truss_r2_o0_rachis_Link_03>,
+                </World/Stem/Truss_r2_o0_rachis_Link_04>,
+            ]
+            float physics:mass = 0.038792387
+            quatf xformOp:orient = (-0.5862181, 0.5862181, 0.39540905, 0.3954091)
+            double3 xformOp:translate = (-0.12853389621329053, 0.0798000020530117, 0.7686988624951581)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Sphere "Sphere" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                color3f[] primvars:displayColor = [(0.9, 0.17, 0.08)]
+                double radius = 0.042
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_1_R_Link_01>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_1_R_tomato>
+                point3f physics:localPos0 = (0, 0, 0.036)
+                point3f physics:localPos1 = (0, 0, -0.042)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_pedicel_lat_2_L_tomato" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_1_L_tomato>,
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_2_L_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_02>,
+                </World/Stem/Truss_r2_o0_rachis_Link_03>,
+                </World/Stem/Truss_r2_o0_rachis_Link_04>,
+            ]
+            float physics:mass = 0.028730912
+            quatf xformOp:orient = (-0.39540905, -0.3954091, -0.5862181, 0.5862181)
+            double3 xformOp:translate = (-0.188800854046318, -0.07579999794698804, 0.7930482861525978)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Sphere "Sphere" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                color3f[] primvars:displayColor = [(0.5425, 0.434, 0.08)]
+                double radius = 0.038
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_2_L_Link_01>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_2_L_tomato>
+                point3f physics:localPos0 = (0, 0, 0.036)
+                point3f physics:localPos1 = (0, 0, -0.038)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_pedicel_lat_2_R_tomato" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_1_R_tomato>,
+                </World/Stem/Truss_r2_o0_rachis_pedicel_lat_2_R_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_02>,
+                </World/Stem/Truss_r2_o0_rachis_Link_03>,
+                </World/Stem/Truss_r2_o0_rachis_Link_04>,
+            ]
+            float physics:mass = 0.024429025
+            quatf xformOp:orient = (-0.5862181, 0.5862181, 0.39540905, 0.3954091)
+            double3 xformOp:translate = (-0.18880084704109004, 0.07380000205301172, 0.7930482908776836)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Sphere "Sphere" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                color3f[] primvars:displayColor = [(0.835, 0.218, 0.08)]
+                double radius = 0.036
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_2_R_Link_01>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_pedicel_lat_2_R_tomato>
+                point3f physics:localPos0 = (0, 0, 0.036)
+                point3f physics:localPos1 = (0, 0, -0.036)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+
+        def Xform "Truss_r2_o0_rachis_pedicel_term_tomato" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI", "PhysicsFilteredPairsAPI"]
+        )
+        {
+            point3f physics:centerOfMass = (0, 0, 0)
+            prepend rel physics:filteredPairs = [
+                </World/Stem/Truss_r2_o0_rachis_pedicel_term_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_01>,
+                </World/Stem/Truss_r2_o0_rachis_Link_02>,
+                </World/Stem/Truss_r2_o0_rachis_Link_03>,
+                </World/Stem/Truss_r2_o0_rachis_Link_04>,
+            ]
+            float physics:mass = 0.03351032
+            quatf xformOp:orient = (0.5862181, -0.39540908, -0.39540908, 0.58621806)
+            double3 xformOp:translate = (-0.3195337726536086, 4.453456447395254e-9, 0.8458678215280202)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+            def Sphere "Sphere" (
+                prepend apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                color3f[] primvars:displayColor = [(0.718, 0.3044, 0.08)]
+                double radius = 0.04
+            }
+
+            def PhysicsFixedJoint "TerminalBodyFixedJoint"
+            {
+                rel physics:body0 = </World/Stem/Truss_r2_o0_rachis_pedicel_term_Link_01>
+                rel physics:body1 = </World/Stem/Truss_r2_o0_rachis_pedicel_term_tomato>
+                point3f physics:localPos0 = (0, 0, 0.036)
+                point3f physics:localPos1 = (0, 0, -0.04)
+                quatf physics:localRot0 = (1, 0, 0, 0)
+                quatf physics:localRot1 = (1, 0, 0, 0)
+            }
+        }
+    }
+
+    def PhysicsScene "PhysicsScene"
+    {
+        vector3f physics:gravityDirection = (0, 0, -1)
+        float physics:gravityMagnitude = 9.81
+    }
+
+    def DomeLight "DomeLight"
+    {
+        float inputs:intensity = 500
+    }
+
+    def DistantLight "KeyLight"
+    {
+        float inputs:intensity = 1600
+        float3 xformOp:rotateXYZ = (-35, 20, 20)
+        uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+    }
+
+    def Camera "Camera"
+    {
+        float2 clippingRange = (0.01, 100)
+        float focalLength = 48
+        matrix4d xformOp:transform = ( (0.824728851845978, 0.5655283555515277, 0, 0), (-0.12970697378936785, 0.18915600344282815, 0.9733427491443811, -0), (0.5504529243116248, -0.8027438479544531, 0.2293553851298438, 0), (0.7200000000000002, -0.9500000000000003, 0.7800000000000001, 1.0000000000000002) )
+        uniform token[] xformOpOrder = ["xformOp:transform"]
+    }
+}
+

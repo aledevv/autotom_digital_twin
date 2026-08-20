@@ -145,7 +145,7 @@ class TrussPhysicsConfig:
     - Higher damping to reduce oscillations
     - Custom minimum K to handle thin pedicels
     """
-    YOUNG_MODULUS = 80.0e8  # [Pa] Stable detachable-truss test setting
+    YOUNG_MODULUS = 15.0e8  # [Pa] Stable detachable-truss test setting
     DAMPING_RATIO = 5.0      # High damping to reduce oscillations
     # Inflated density to achieve ~5:1 mass ratio with attached tomato.
     # PhysX TGS solver becomes unstable when joint mass ratio exceeds ~10:1.
@@ -157,7 +157,7 @@ class TrussPhysicsConfig:
     PEDICEL_BEND_LIMIT_DEG = 25.0
     # Real pedicels are much shorter than the visual-lab sample, so they need a
     # softer attachment drive for tomato weight to produce visible droop.
-    PEDICEL_DRIVE_STIFFNESS_SCALE = 50.0
+    PEDICEL_DRIVE_STIFFNESS_SCALE = 0.1
     # Break force for detachable tomato joints. Keep this low while validating
     # the detachment path; tune it only after the truss is stable.
     # When disabled, tomatoes remain regular, unbreakable articulation links.
