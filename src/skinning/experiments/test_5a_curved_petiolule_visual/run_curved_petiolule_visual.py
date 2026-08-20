@@ -1,9 +1,12 @@
-"""Visual-only test for short tomato petiolules and subtly varied leaf blades.
+"""Visual-only test for short tomato petiolules and organically varied leaf blades.
 
-The proposed specimen deliberately stays close to one common pose:
-- petiolules are short, thin and almost horizontal;
-- tilt/azimuth variation is very small;
-- leaf size variation is also small;
+The proposed specimen keeps one important structural constraint while allowing
+visible variation in the leaf organs:
+- petiolules are short and remain almost horizontal, with only a very small tilt
+  spread so leaves emerge at nearly the same height;
+- petiolule thickness/length and blade size can still vary noticeably;
+- leaf azimuth, width, longitudinal fold, arch and sag retain the broader organic
+  variation used in the previous version;
 - blades keep the longitudinal midrib fold;
 - each blade follows one gentle rise and then a gravity-like distal sag;
 - no physics, joints, UsdSkel or runtime deformation are used.
@@ -45,19 +48,22 @@ LEAF_ARCH_LIFT_M = 0.0060
 LEAF_TIP_SAG_M = 0.0100
 LEAF_TIP_SAG_EXPONENT = 1.85
 
-# Small, conservative variation around one common tomato-leaf pose.
-PETIOLULE_LENGTH_SCALE_RANGE = (0.95, 1.05)
-PETIOLULE_RADIUS_SCALE_RANGE = (0.90, 1.05)
-LEAF_LENGTH_SCALE_RANGE = (0.95, 1.05)
-LEAF_WIDTH_SCALE_RANGE = (0.90, 1.06)
-LEAF_FOLD_SCALE_RANGE = (0.92, 1.08)
-LEAF_ARCH_SCALE_RANGE = (0.94, 1.06)
-LEAF_SAG_SCALE_RANGE = (0.94, 1.06)
+# Restore the broader organic variation from the previous version. Smaller/finer
+# organs are allowed somewhat more strongly than oversized ones where useful.
+PETIOLULE_LENGTH_SCALE_RANGE = (0.84, 1.20)
+PETIOLULE_RADIUS_SCALE_RANGE = (0.80, 1.12)
+LEAF_LENGTH_SCALE_RANGE = (0.86, 1.26)
+LEAF_WIDTH_SCALE_RANGE = (0.72, 1.20)
+LEAF_FOLD_SCALE_RANGE = (0.78, 1.28)
+LEAF_ARCH_SCALE_RANGE = (0.86, 1.16)
+LEAF_SAG_SCALE_RANGE = (0.84, 1.18)
 
-# Petiolules stay essentially at the same height. The tiny range exists only to
-# avoid a perfectly synthetic copy/paste appearance.
+# The vertical inclination is the constrained variable: tomato leaflets usually
+# emerge with very similar petiolule elevation, so only a few degrees of tilt are
+# allowed. Azimuthal variation can remain broader because it does not make the
+# leaflets originate at visibly different heights.
 PETIOLULE_TILT_RANGE_DEG = (-2.0, 4.0)
-LEAF_AZIMUTH_VARIATION_DEG = 3.0
+LEAF_AZIMUTH_VARIATION_DEG = 9.0
 
 PAIR_Y = (-0.105, 0.0, 0.105)
 
@@ -332,9 +338,8 @@ def _author_proposed_pair(stage, root_path, x, y):
         arch = LEAF_ARCH_LIFT_M * _stable_range(key, "arch", *LEAF_ARCH_SCALE_RANGE)
         sag = LEAF_TIP_SAG_M * _stable_range(key, "sag", *LEAF_SAG_SCALE_RANGE)
 
-        # With such a small tilt range there is no need for strong pose coupling.
-        # A tiny correction preserves the intuitive rule: slightly more upward
-        # petiolules bend down a touch more; slightly downward ones a touch less.
+        # Tilt remains a tiny perturbation, so only a very small gravity correction
+        # is needed; leaf shape variation itself remains independent and visible.
         tilt_norm = (tilt_deg - PETIOLULE_TILT_RANGE_DEG[0]) / (
             PETIOLULE_TILT_RANGE_DEG[1] - PETIOLULE_TILT_RANGE_DEG[0]
         )
@@ -402,12 +407,12 @@ def main():
     stage.GetRootLayer().Save()
 
     print("=" * 76)
-    print("TEST 5A v7 - SUBTLE TOMATO LEAF VARIATION")
+    print("TEST 5A v8 - BROAD LEAF VARIATION, SUBTLE PETIOLULE TILT")
     print("=" * 76)
     print(f"USD: {OUTPUT_USD}")
     print("LEFT  : short straight petiolule + flat 2D blade")
-    print("RIGHT : almost-level petiolules + subtle stable organic variation")
-    print("Tilt range: -2 to +4 degrees; leaf dimensions stay close to nominal")
+    print("RIGHT : varied blades/petiolules with near-level vertical inclination")
+    print("Tilt range: -2 to +4 degrees; broader size/fold/arch/sag variation restored")
     print("No physics / no joints / no UsdSkel / no runtime deformation")
     print("=" * 76)
 
