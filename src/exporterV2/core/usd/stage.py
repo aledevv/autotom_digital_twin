@@ -32,6 +32,7 @@ else:
 from ..physics import apply_physx_rigid_body_solver_settings
 
 from .geometry import create_rigid_segment, create_sphere_rigid_body, create_static_mesh
+from .pedicel_geometry import sample_gravity_elbow, create_gravity_elbow_mesh
 from .joints import (
     anchor_link_to_world,
     create_internal_joint,
@@ -348,6 +349,50 @@ def _build_terminal_bodies(
 
         if shape == "sphere":
             maturation = body.get("maturation", 0.0)
+            
+            # --- START GRAVITY ELBOW INJECTION ---
+            is_pedicel = "pedicel" in parent_branch_id.lower() or branch_defs[parent_branch_id].get("kind") == "pedicel"
+            local_pos0 = None
+            local_pos1 = None
+            
+            if is_pedicel:
+                # 1. Hide physical proxy
+                cylinder = UsdGeom.Cylinder.Get(stage, f"{parent_link_path}/Cylinder")
+                if cylinder:
+                    cylinder.CreateVisibilityAttr().Set(UsdGeom.Tokens.invisible)
+                    pedicel_filtered = UsdPhysics.FilteredPairsAPI(cylinder.GetPrim())
+                    if not pedicel_filtered:
+                        pedicel_filtered = UsdPhysics.FilteredPairsAPI.Apply(cylinder.GetPrim())
+                    pedicel_filtered.GetFilteredPairsRel().AddTarget("/World/Stem")
+                
+                # 2. Sample gravity elbow
+                parent_world_to_local = parent_orientation.GetInverse()
+                parent_rotation = Gf.Rotation(parent_world_to_local)
+                gravity_local = parent_rotation.TransformDir(Gf.Vec3d(0.0, 0.0, -1.0))
+                
+                centers, tangents = sample_gravity_elbow(
+                    parent_height, parent_branch_id, gravity_local
+                )
+                
+                # 3. Create visual mesh
+                create_gravity_elbow_mesh(
+                    stage, parent_link_path, centers, tangents, 
+                    scaled(branch_defs[parent_branch_id]["radius"]), parent_branch_id
+                )
+                
+                # 4. Recompute tomato position with overlap
+                tip_local = centers[-1]
+                terminal_down_local = Gf.Vec3d(*tangents[-1]).GetNormalized()
+                visual_overlap = 0.002
+                tomato_center_local = tip_local + terminal_down_local * (radius - visual_overlap)
+                
+                parent_fwd_rotation = Gf.Rotation(parent_orientation)
+                body_pos = parent_base + parent_fwd_rotation.TransformDir(tomato_center_local)
+                
+                local_pos0 = Gf.Vec3f(*tip_local)
+                local_pos1 = Gf.Vec3f(*(-terminal_down_local * (radius - visual_overlap)))
+            # --- END GRAVITY ELBOW INJECTION ---
+            
             body_path = create_sphere_rigid_body(
                 stage,
                 body_parent_path,
@@ -358,6 +403,14 @@ def _build_terminal_bodies(
                 orientation=parent_orientation,
                 color=PlantColors.tomato_color(maturation),
             )
+            
+            if is_pedicel:
+                tomato_prim = stage.GetPrimAtPath(body_path)
+                tomato_filtered = UsdPhysics.FilteredPairsAPI(tomato_prim)
+                if not tomato_filtered:
+                    tomato_filtered = UsdPhysics.FilteredPairsAPI.Apply(tomato_prim)
+                tomato_filtered.GetFilteredPairsRel().AddTarget("/World/Stem")
+            
             if detachment_enabled and exclude_from_articulation:
                 apply_physx_rigid_body_solver_settings(stage, body_path)
 
@@ -370,6 +423,8 @@ def _build_terminal_bodies(
                 joint_name="TerminalBodyFixedJoint",
                 break_force=break_force,
                 exclude_from_articulation=exclude_from_articulation,
+                local_pos0=local_pos0,
+                local_pos1=local_pos1,
             )
 
             terminal_body_records.append({

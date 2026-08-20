@@ -127,6 +127,7 @@ class TrussGeometryConfig:
     RACHIS_RADIUS = 0.00075
     PEDICEL_LENGTH = 0.006
     PEDICEL_RADIUS = 0.0005
+    LATERAL_PEDICEL_CHORD_ANGLE_DEG = 56.0
 
 
 class BioConfig:
@@ -186,23 +187,23 @@ class PlantColors:
     where maturation ∈ [0.0, 1.0] from CSV fruit_age_dd / fruit_ripening_dd.
     """
 
-    # Stems and lateral branches — light green
-    STEM = (0.30, 0.55, 0.18)
+    # Stems and lateral branches — light green (#436c3a)
+    STEM = (0.263, 0.424, 0.227)
 
     # Petiole and rachis — slightly darker green
-    PETIOLE = (0.25, 0.48, 0.15)
+    PETIOLE = (0.263, 0.424, 0.227)
 
     # Petiolules — same as petiole
-    PETIOLULE = (0.25, 0.48, 0.15)
+    PETIOLULE = (0.263, 0.424, 0.227)
 
-    # Leaf blades — deep dark green
-    LEAF_BLADE = (0.13, 0.38, 0.08)
+    # Leaf blades — deep dark green (#325928)
+    LEAF_BLADE = (0.196, 0.349, 0.157)
 
     # Truss rachis — olive green
-    TRUSS_RACHIS = (0.30, 0.42, 0.16)
+    TRUSS_RACHIS = (0.263, 0.424, 0.227)
 
     # Pedicels — medium green
-    PEDICEL = (0.20, 0.55, 0.16)
+    PEDICEL = (0.263, 0.424, 0.227)
 
     # Tomato unripe color (maturation=0.0)
     TOMATO_UNRIPE = (0.25, 0.65, 0.08)

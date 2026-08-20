@@ -211,7 +211,10 @@ def create_lateral_pedicels(
         rachis_id,
         terminal=True,
     )
-    pedicel_angle = truss_dict.get("pedicel_angle", 90.0)  # Default perpendicular
+    pedicel_angle = truss_dict.get(
+        "pedicel_angle",
+        tree_config.TrussGeometryConfig.LATERAL_PEDICEL_CHORD_ANGLE_DEG
+    )
     branches = []
 
     for j in range(lateral_pairs):
