@@ -2,14 +2,16 @@ import copy
 import math
 
 import pytest
-from pxr import Sdf, Usd, UsdGeom, UsdSkel
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, UsdSkel
 
 from exporterV2.core.optimizations.techniques.leaf_branch_reduce import (
     LeafBranchReductionTechnique,
 )
+from exporterV2.core.skinning.leaf_blade import author_leaf_blade
 from exporterV2.core.optimizations.techniques.stem_collapse import (
     StemCollapseTechnique,
 )
+from exporterV2.core.usd.materials import TOMATO_LEAF_MATERIAL_PATH
 from exporterV2.core.skinning import (
     SkinningRuntime,
     build_skinned_vegetative_structure,
@@ -127,6 +129,51 @@ def _mesh_snapshot(stage, path):
         list(mesh.GetFaceVertexCountsAttr().Get()),
         list(mesh.GetFaceVertexIndicesAttr().Get()),
     )
+
+
+def test_leaf_blade_uses_tomato_material_and_preserves_topology():
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(stage, "/World")
+
+    author_leaf_blade(
+        stage,
+        "/World/LeafBlade",
+        Gf.Vec3d(0.0, 0.0, 0.0),
+        Gf.Vec3d(1.0, 0.0, 0.0),
+        length=0.08,
+        half_width=0.026,
+        fold_depth=0.004,
+        arch_lift=0.005,
+        tip_sag=0.008,
+        color=(0.196, 0.349, 0.157),
+        world_to_link=Gf.Matrix4d(1.0),
+    )
+
+    assert stage.GetPrimAtPath(TOMATO_LEAF_MATERIAL_PATH).IsValid()
+
+    mesh = UsdGeom.Mesh(stage.GetPrimAtPath("/World/LeafBlade"))
+    assert mesh
+    assert mesh.GetDoubleSidedAttr().Get() is True
+
+    points = list(mesh.GetPointsAttr().Get())
+    face_counts = list(mesh.GetFaceVertexCountsAttr().Get())
+    face_indices = list(mesh.GetFaceVertexIndicesAttr().Get())
+    assert len(points) == 54
+    assert face_counts == [3] * 68
+    assert len(face_indices) == 204
+
+    display_colors = list(mesh.GetDisplayColorAttr().Get())
+    assert display_colors == [Gf.Vec3f(0.196, 0.349, 0.157)]
+
+    bound_material = UsdShade.MaterialBindingAPI(
+        mesh.GetPrim()
+    ).GetDirectBinding().GetMaterial()
+    assert bound_material.GetPath() == Sdf.Path(TOMATO_LEAF_MATERIAL_PATH)
+
+    shader = UsdShade.Shader(
+        stage.GetPrimAtPath(f"{TOMATO_LEAF_MATERIAL_PATH}/Shader")
+    )
+    assert shader.GetIdAttr().Get() == "UsdPreviewSurface"
 
 
 @pytest.mark.parametrize("day", (1, 40))

@@ -4,7 +4,7 @@ import bisect
 import math
 from typing import Iterable, List
 
-from pxr import Gf, Sdf, UsdGeom, UsdSkel, Vt
+from pxr import Gf, Sdf, UsdGeom, UsdShade, UsdSkel, Vt
 
 from ..tree_config import PlantColors
 from .model import VisualAxisData
@@ -51,8 +51,11 @@ def author_plain_mesh(
     face_counts,
     face_indices,
     color,
+    *,
+    vertex_colors=None,
+    material=None,
 ) -> None:
-    """Author a non-skinned mesh with the given display color."""
+    """Author a non-skinned mesh with display color and optional material."""
     mesh = UsdGeom.Mesh.Define(stage, path)
     mesh.CreatePointsAttr().Set(Vt.Vec3fArray(points))
     mesh.CreateFaceVertexCountsAttr().Set(Vt.IntArray(face_counts))
@@ -60,7 +63,15 @@ def author_plain_mesh(
     mesh.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
     mesh.CreateOrientationAttr().Set(UsdGeom.Tokens.rightHanded)
     mesh.CreateDoubleSidedAttr().Set(True)
-    mesh.CreateDisplayColorAttr().Set(Vt.Vec3fArray([Gf.Vec3f(*color)]))
+
+    if vertex_colors is None:
+        mesh.CreateDisplayColorAttr().Set(Vt.Vec3fArray([Gf.Vec3f(*color)]))
+    else:
+        color_primvar = mesh.CreateDisplayColorPrimvar(UsdGeom.Tokens.vertex)
+        color_primvar.Set(Vt.Vec3fArray(vertex_colors))
+
+    if material is not None:
+        UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(material)
 
 
 def _decompose(transforms):

@@ -8,6 +8,7 @@ import math
 from typing import Iterable
 from pxr import Gf
 from ..tree_config import PlantColors
+from ..usd.materials import get_or_create_tomato_leaf_material
 from .mesh import author_plain_mesh
 
 
@@ -99,7 +100,16 @@ def author_leaf_blade(
             a + 1, b + 2, b + 1
         ))
 
-    author_plain_mesh(stage, path, points, counts, indices, color)
+    material = get_or_create_tomato_leaf_material(stage)
+    author_plain_mesh(
+        stage,
+        path,
+        points,
+        counts,
+        indices,
+        color,
+        material=material,
+    )
 
 
 def author_petiolule_leaf_blades(stage, visual_axes: Iterable) -> None:
