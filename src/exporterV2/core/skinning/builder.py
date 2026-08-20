@@ -9,6 +9,7 @@ from .adapter import branch_system, resolve_vegetative_graph
 from .axis import build_visual_axes
 from .branch_physics import author_branch_joints, author_rigid_links
 from .mesh import _visual_radius, author_visual_axis
+from .leaf_blade import author_petiolule_leaf_blades
 from .terminal_fork import author_terminal_visual_forks
 from .visual_modes import (
     author_rigid_visual_axis,
@@ -157,6 +158,9 @@ def build_skinned_vegetative_structure(
         "segmented_tongues": 0,
     }
 
+    # Author all standard leaf blades for petiolules
+    leaf_blade_count = author_petiolule_leaf_blades(stage, visual_axes)
+
     segmented_mode = visual_mode == "segmented"
 
     for axis in visual_axes:
@@ -197,7 +201,8 @@ def build_skinned_vegetative_structure(
             f"axes={counts['segmented_axes']} | "
             f"rigid_meshes={counts['segmented_meshes']} | "
             f"joint_tongues={counts['segmented_tongues']} | "
-            f"terminal_forks={len(fork_records)}"
+            f"terminal_forks={len(fork_records)} | "
+            f"leaf_blades={leaf_blade_count}"
         )
         if fork_records:
             preview = ", ".join(
@@ -221,7 +226,8 @@ def build_skinned_vegetative_structure(
             f"mode={visual_mode} | "
             f"skinned_axes={counts['skinned_axes']} | "
             f"rigid_single_axes={counts['rigid_single_axes']} | "
-            f"static_axes={counts['static_axes']}"
+            f"static_axes={counts['static_axes']} | "
+            f"leaf_blades={leaf_blade_count}"
         )
 
     return {branch.branch_id: branch.as_registry_entry() for branch in resolved}

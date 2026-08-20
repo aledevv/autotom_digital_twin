@@ -214,6 +214,19 @@ def _author_mesh(stage, path, data, color):
     mesh.CreateDisplayColorAttr().Set(Vt.Vec3fArray([color]))
 
 
+def _merlice_leaflet_width(t):
+    """Normalized leaflet width based on Coussement et al. (2017) Merlice model."""
+    pos_norm = 1.0 - t  # 1.0 at root/base, 0.0 at tip
+    max_w = 0.6         # Position of maximum width
+    k1 = 2.0            # Curvature towards tip
+    k2 = 2.2            # Curvature towards base
+
+    if pos_norm <= max_w:
+        return 1.0 - ((max_w - pos_norm) / max_w) ** k1
+    else:
+        return 1.0 - ((pos_norm - max_w) / (1.0 - max_w)) ** k2
+
+
 def _author_leaf_blade(stage, path, root, forward, *, length, half_width,
                        fold_depth, arch_lift, tip_sag, color):
     """2D blade with longitudinal midrib fold and one gentle gravity arch."""
@@ -228,8 +241,7 @@ def _author_leaf_blade(stage, path, root, forward, *, length, half_width,
     points = []
     for index in range(LEAF_STATIONS):
         t = index / float(LEAF_STATIONS - 1)
-        width_profile = math.sin(math.pi * t) ** 0.78
-        width_profile *= 1.13 - 0.27 * t
+        width_profile = _merlice_leaflet_width(t)
         width = half_width * width_profile
 
         arch_offset = arch_lift * (4.0 * t * (1.0 - t))
