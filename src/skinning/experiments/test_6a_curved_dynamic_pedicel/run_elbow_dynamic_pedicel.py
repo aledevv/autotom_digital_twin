@@ -33,8 +33,13 @@ import run_curved_dynamic_pedicel as base
 from pxr import Gf, Usd, UsdGeom, UsdPhysics, Vt
 
 
-# The root-to-tip rigid-body chord remains diagonal rather than horizontal.
-LATERAL_PEDICEL_CHORD_ANGLE_DEG = 56.0
+# IMPORTANT: tilt is measured away from the parent rachis +Z axis.
+# Values below 90 deg still have a POSITIVE component along the rachis, which is
+# why the previous 56 deg version sent the fruit upward. 124 deg is the mirrored
+# direction: same lateral opening (~56 deg from the downward rachis direction),
+# but with a negative axial component so the physical tip is already below the
+# attachment point before the visual curve turns fully toward gravity.
+LATERAL_PEDICEL_CHORD_ANGLE_DEG = 124.0
 
 # Cubic control-arm fractions of physical pedicel length. A fairly long terminal
 # arm makes the last part read as a clear downward segment rather than a tiny
@@ -140,8 +145,8 @@ def _author_gravity_pedicels_and_hang_tomatoes(stage, branches, terminal_bodies)
         )
         world_to_link = link_to_world.GetInverse()
 
-        # This is the key correction relative to v2: terminal direction is not
-        # inferred from rachis orientation. It is the actual world gravity vector.
+        # Terminal direction is the actual world gravity vector expressed in the
+        # pedicel local frame.
         gravity_local = base._normalized(
             world_to_link.TransformDir(Gf.Vec3d(0.0, 0.0, -1.0))
         )
@@ -188,9 +193,6 @@ def _author_gravity_pedicels_and_hang_tomatoes(stage, branches, terminal_bodies)
             raise RuntimeError(f"Missing tomato FixedJoint: {joint_path}")
 
         joint.CreateLocalPos0Attr().Set(Gf.Vec3f(*tip_local))
-        # Tomato orientation is still authored from the pedicel rigid body frame,
-        # so terminal_down_local is also valid in the tomato local frame. The
-        # anchor lies one radius opposite the center->down vector: at its top.
         joint.CreateLocalPos1Attr().Set(
             Gf.Vec3f(*(-terminal_down_local * tomato_radius))
         )
@@ -220,7 +222,7 @@ def _build_gravity_stage(path):
 
 def main():
     print("=" * 80)
-    print("TEST 6A v3 - GRAVITY ELBOW + TOMATO BELOW PEDICEL TIP")
+    print("TEST 6A v4 - DOWNWARD CHORD + GRAVITY ELBOW")
     print("=" * 80)
     print("Target side profile:")
     print("      \\")
@@ -228,6 +230,10 @@ def main():
     print("        |")
     print("        |")
     print("        O")
+    print(
+        f"Pedicel chord tilt from rachis +Z: "
+        f"{LATERAL_PEDICEL_CHORD_ANGLE_DEG:.1f} deg (>90 => downward)"
+    )
     print("Terminal tangent is forced to WORLD -Z (gravity).")
     print("Tomato center is moved one radius below the visual tip.")
     print("Pedicel remains ONE rigid D6 child; rachis physics is unchanged.")
