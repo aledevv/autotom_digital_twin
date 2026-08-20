@@ -26,9 +26,11 @@ from __future__ import annotations
 
 import math
 
-from pxr import Gf, Usd, UsdGeom, UsdPhysics, Vt
-
+# IMPORTANT: import the base test first. It creates SimulationApp before importing
+# pxr/omni modules, which is required when running through Isaac Sim's Python.
 import run_curved_dynamic_pedicel as base
+
+from pxr import Gf, Usd, UsdGeom, UsdPhysics, Vt
 
 
 # The root-to-tip rigid-body chord remains diagonal rather than horizontal.
