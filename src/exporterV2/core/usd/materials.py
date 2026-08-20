@@ -16,7 +16,6 @@ _TOMATO_LEAF_PRESETS = {
         "diffuseColor": Gf.Vec3f(0.10, 0.30, 0.075),
         "roughness": 0.62,
         "metallic": 0.0,
-        "specularColor": Gf.Vec3f(0.22, 0.28, 0.16),
     },
     "realistic": {
         "diffuse_reflection_weight": 0.85,
