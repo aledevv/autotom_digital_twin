@@ -65,10 +65,11 @@ fidelity of the same GroIMP-derived plant. The main additions are:
   complexity.
 
 ### V2.2 — Appearance and Geometry Demo
-<!-- Add/embed the video from assets/demo_v2_2.mp4 here. -->
+https://github.com/user-attachments/assets/93242538-9968-4b30-b65f-cb6679a7f718
 
 ### V2.2 — Gravity Response Demo
-<!-- Add/embed the video from assets/demo_v2_2_gravity.mp4 here. -->
+https://github.com/user-attachments/assets/e33f672d-72b8-41b2-9b4d-43bf5656226e
+
 
 ## V2.2 Gallery
 
