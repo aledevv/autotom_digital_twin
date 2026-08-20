@@ -69,6 +69,7 @@ def _make_pedicel_branch(
     """Create one truss pedicel branch with the standard soft D6 settings."""
     return {
         "id": branch_id,
+        "system": "truss",
         "parent": rachis_id,
         "attach_link": attach_link,
         "n_links": 1,
@@ -158,6 +159,7 @@ def truss_rachis_to_branch(
     # Create rachis branch
     rachis_branch = {
         "id": f"{truss_id_base}_rachis",
+        "system": "truss",
         "parent": parent_trunk_id,
         "attach_link": attach_link,
         "n_links": n_rachis_links,
@@ -209,7 +211,10 @@ def create_lateral_pedicels(
         rachis_id,
         terminal=True,
     )
-    pedicel_angle = truss_dict.get("pedicel_angle", 90.0)  # Default perpendicular
+    pedicel_angle = truss_dict.get(
+        "pedicel_angle",
+        tree_config.TrussGeometryConfig.LATERAL_PEDICEL_CHORD_ANGLE_DEG
+    )
     branches = []
 
     for j in range(lateral_pairs):

@@ -7,7 +7,7 @@ Tests the create_sphere_rigid_body function to ensure correct USD structure.
 import os
 import sys
 from pathlib import Path
-from pxr import Usd, UsdGeom, UsdPhysics, Gf
+from pxr import Sdf, Usd, UsdGeom, UsdPhysics, UsdShade, Gf
 
 # Add parent directories to path
 script_dir = Path(__file__).parent
@@ -15,6 +15,7 @@ core_dir = script_dir.parent
 sys.path.insert(0, str(core_dir))
 
 from geometry import create_sphere_rigid_body
+from materials import get_or_create_tomato_fruit_material, TOMATO_FRUIT_MATERIAL_ROOT
 
 
 def test_sphere_creation():
@@ -160,11 +161,64 @@ def test_sphere_with_orientation():
     print("\n" + "="*80)
     print("TEST PASSED: Sphere with orientation successful")
     print("="*80)
+
+
+def test_sphere_with_material_binding():
+    """Test sphere creation with an optional material binding."""
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
+    UsdGeom.Xform.Define(stage, "/World")
+
+    material = UsdShade.Material.Define(stage, "/World/Looks/TestFruit")
+    shader = UsdShade.Shader.Define(stage, "/World/Looks/TestFruit/Shader")
+    shader.CreateIdAttr("UsdPreviewSurface")
+    shader.CreateOutput("surface", Sdf.ValueTypeNames.Token)
+    material.CreateSurfaceOutput().ConnectToSource(
+        shader.ConnectableAPI(),
+        "surface",
+    )
+
+    sphere_path = create_sphere_rigid_body(
+        stage,
+        "/World",
+        "MaterialSphere",
+        0.03,
+        Gf.Vec3d(0.0, 0.0, 0.0),
+        0.05,
+        color=(0.9, 0.2, 0.08),
+        material=material,
+    )
+
+    sphere = stage.GetPrimAtPath(f"{sphere_path}/Sphere")
+    bound_material = UsdShade.MaterialBindingAPI(
+        sphere
+    ).GetDirectBinding().GetMaterial()
+    assert bound_material.GetPath() == Sdf.Path("/World/Looks/TestFruit")
+
+    display_color = UsdGeom.Gprim(sphere).GetDisplayColorAttr().Get()
+    assert display_color == [Gf.Vec3f(0.9, 0.2, 0.08)]
+
+
+def test_tomato_fruit_material_is_bucketed():
+    """Test maturation-bucketed tomato materials are shared."""
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(stage, "/World")
+
+    first = get_or_create_tomato_fruit_material(stage, 0.50)
+    second = get_or_create_tomato_fruit_material(stage, 0.52)
+
+    assert first.GetPath() == second.GetPath()
+    assert str(first.GetPath()).startswith(TOMATO_FRUIT_MATERIAL_ROOT)
+
+    shader = UsdShade.Shader(stage.GetPrimAtPath(f"{first.GetPath()}/Shader"))
+    assert shader.GetIdAttr().Get() == "UsdPreviewSurface"
     
 if __name__ == "__main__":
     try:
         test_sphere_creation()
         test_sphere_with_orientation()
+        test_sphere_with_material_binding()
+        test_tomato_fruit_material_is_bucketed()
         
         print("\n" + "="*80)
         print("ALL TESTS PASSED ✓")

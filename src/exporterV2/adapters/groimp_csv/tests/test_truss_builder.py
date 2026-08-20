@@ -16,6 +16,7 @@ adapters_dir = script_dir.parent
 sys.path.insert(0, str(adapters_dir))
 
 from truss_builder import (
+    _load_tree_config,
     truss_rachis_to_branch,
     create_lateral_pedicels,
     create_terminal_pedicel,
@@ -154,6 +155,31 @@ def test_terminal_pedicel():
     assert terminal["n_links"] == 1, "Pedicel should have 1 link"
     
     print("\n✓ Terminal pedicel test PASSED")
+
+
+def test_default_pedicel_length_uses_truss_geometry_config():
+    """Test default tomato pedicels use the configured visual/physics length."""
+    truss_dict = {
+        "n_fruits": 3,
+    }
+
+    pedicels = create_lateral_pedicels(
+        truss_dict,
+        "Truss_r3_o0_rachis",
+        2,
+        0.001,
+    )
+    terminal = create_terminal_pedicel(
+        truss_dict,
+        "Truss_r3_o0_rachis",
+        2,
+        0.001,
+    )
+
+    assert pedicels
+    expected_length = _load_tree_config().TrussGeometryConfig.PEDICEL_LENGTH
+    assert all(pedicel["height"] == expected_length for pedicel in pedicels)
+    assert terminal["height"] == expected_length
 
 
 def test_complete_truss():

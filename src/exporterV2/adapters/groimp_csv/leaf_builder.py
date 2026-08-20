@@ -8,6 +8,27 @@ from typing import List, Dict
 from pathlib import Path
 from functools import lru_cache
 
+PETIOLULE_TIP_RADIUS_SCALE = 0.65
+
+def _visual_segment(
+    branch_id: str,
+    length: float,
+    radius: float,
+    end_radius: float = None,
+) -> Dict:
+    """Preserve visual geometry independently of physics."""
+
+    segment = {
+        "source_id": branch_id,
+        "length": length,
+        "radius": radius,
+    }
+
+    if end_radius is not None:
+        segment["end_radius"] = end_radius
+
+    return segment
+
 
 @lru_cache(maxsize=1)
 def _load_tree_config():
@@ -147,8 +168,15 @@ def leaf_to_petiole_rachis_branches(
         attach_link = 1  # Lateral branches have only 1 link
     
     # Create petiole branch
+    visual_axis_id = f"{leaf_id_base}_axis"
+    petiole_id = f"{leaf_id_base}_petiole"
     petiole_branch = {
-        "id": f"{leaf_id_base}_petiole",
+        "id": petiole_id,
+        "system": "vegetative",
+        "visual_axis_id": visual_axis_id,
+        "visual_segments": [
+            _visual_segment(petiole_id, leaf_dict["length_petiole"], petiole_r)
+        ],
         "parent": parent_trunk_id,
         "attach_link": attach_link,
         "n_links": 1,
@@ -172,8 +200,14 @@ def leaf_to_petiole_rachis_branches(
         # Plus we want smooth distribution, so use max(lateral_pairs, 1)
         n_rachis_links = max(lateral_pairs, 1)
         
+        rachis_id = f"{leaf_id_base}_rachis"
         rachis_branch = {
-            "id": f"{leaf_id_base}_rachis",
+            "id": rachis_id,
+            "system": "vegetative",
+            "visual_axis_id": visual_axis_id,
+            "visual_segments": [
+                _visual_segment(rachis_id, rachis_length, rachis_r)
+            ],
             "parent": petiole_branch["id"],
             "attach_link": 1,  # Top of petiole
             "n_links": n_rachis_links,
@@ -301,6 +335,19 @@ def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: f
         # Create left petiolule
         branches.append({
             "id": left_id,
+            "system": "vegetative",
+            "visual_axis_id": left_id,
+            "visual_segments": [
+                _visual_segment(
+                    left_id,
+                    petiolule_length,
+                    petiolule_r,
+                    end_radius=(
+                        petiolule_r
+                        * PETIOLULE_TIP_RADIUS_SCALE
+                    ),
+                )
+            ],
             "parent": rachis_id,
             "attach_link": attach_link_idx,
             "n_links": 1,
@@ -324,6 +371,19 @@ def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: f
         # Create right petiolule
         branches.append({
             "id": right_id,
+            "system": "vegetative",
+            "visual_axis_id": right_id,
+            "visual_segments": [
+                _visual_segment(
+                    right_id,
+                    petiolule_length,
+                    petiolule_r,
+                    end_radius=(
+                        petiolule_r
+                        * PETIOLULE_TIP_RADIUS_SCALE
+                    ),
+                )
+            ],
             "parent": rachis_id,
             "attach_link": attach_link_idx,
             "n_links": 1,
@@ -347,7 +407,13 @@ def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: f
     return branches, terminal_bodies
 
 
-def create_terminal_petiolule(rachis_id: str, rachis_n_links: int, petiole_radius: float, leaf_dict: Dict) -> tuple[Dict, Dict]:
+def create_terminal_petiolule(
+    rachis_id: str,
+    rachis_n_links: int,
+    petiole_radius: float,
+    leaf_dict: Dict,
+    visual_axis_id: str = None,
+) -> tuple[Dict, Dict]:
     """
     Create terminal petiolule branch at the end of rachis.
     
@@ -397,9 +463,28 @@ def create_terminal_petiolule(rachis_id: str, rachis_n_links: int, petiole_radiu
     petiolule_length = 0.01
     
     term_id = f"{rachis_id}_petiolule_term"
+    if visual_axis_id is None:
+        visual_axis_id = (
+            f"{rachis_id[:-len('_rachis')]}_axis"
+            if rachis_id.endswith("_rachis")
+            else term_id
+        )
     
     branch = {
         "id": term_id,
+        "system": "vegetative",
+        "visual_axis_id": visual_axis_id,
+        "visual_segments": [
+            _visual_segment(
+                term_id,
+                petiolule_length,
+                petiolule_r,
+                end_radius=(
+                    petiolule_r
+                    * PETIOLULE_TIP_RADIUS_SCALE
+                ),
+            )
+        ],
         "parent": rachis_id,
         "attach_link": rachis_n_links,  # Last link of rachis
         "n_links": 1,

@@ -32,6 +32,11 @@ else:
 from ..physics import apply_physx_rigid_body_solver_settings
 
 from .geometry import create_rigid_segment, create_sphere_rigid_body, create_static_mesh
+try:
+    from .materials import get_or_create_tomato_fruit_material
+except ImportError:
+    from exporterV2.core.usd.materials import get_or_create_tomato_fruit_material
+from .pedicel_geometry import sample_gravity_elbow, create_gravity_elbow_mesh
 from .joints import (
     anchor_link_to_world,
     create_internal_joint,
@@ -78,22 +83,31 @@ def _branch_damping_ratio(branch_def: dict, use_truss_physics: bool = False):
     return None
 
 
+def _is_truss_branch(branch_def: dict) -> bool:
+    """Honor explicit classification while retaining old profile-only configs."""
+    return (
+        branch_def.get("system") == "truss"
+        or branch_def.get("physics_profile") == "truss"
+    )
+
+
 def _resolve_terminal_body_attachment(body: dict, stem_path: str):
     """Resolve native detachment settings for one terminal body."""
     detachment_enabled = (
         TrussPhysicsConfig.TOMATO_DETACHMENT_ENABLED
         and body.get("detachment_enabled", True)
     )
-    if not detachment_enabled:
-        return detachment_enabled, None, False, stem_path
-
-    break_force = body.get(
-        "break_force",
-        TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N,
-    )
     exclude_from_articulation = body.get(
         "exclude_from_articulation",
         TrussPhysicsConfig.TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION,
+    )
+    break_force = (
+        body.get(
+            "break_force",
+            TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N,
+        )
+        if detachment_enabled
+        else None
     )
     body_parent_path = body.get("parent_path")
     if body_parent_path is None:
@@ -142,7 +156,7 @@ def setup_base_stage(path: str, legacy_physics: bool = False):
     world_prim = UsdGeom.Xform.Define(stage, "/World")
     stage.SetDefaultPrim(world_prim.GetPrim())
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
-    
+
     if not legacy_physics:
         UsdGeom.SetStageMetersPerUnit(stage, 1.0)
         UsdPhysics.SetStageKilogramsPerUnit(stage, 1.0)
@@ -161,14 +175,16 @@ def validate_terminal_body_clearance(
     margin: float = 0.002,
     stage=None,
     apply_filters: bool = False,
+    filter_terminal_body_pairs: bool = False,
     branch_defs=None,
 ):
     """
     Warn about terminal body intersections before the simulation starts.
 
-    When ``apply_filters`` is true, detected initial overlaps are also collision
-    filtered. This avoids impossible fixed-body contact constraints during
-    PhysX scene initialization while preserving the visible geometry and mass.
+    When ``apply_filters`` is true, detected initial overlaps against branches
+    are also collision filtered. Terminal body pairs can be filtered separately
+    with ``filter_terminal_body_pairs``; by default tomato-tomato contacts remain
+    active so clustered fruit can collide during simulation.
     """
     if not terminal_body_records:
         return
@@ -202,7 +218,8 @@ def validate_terminal_body_clearance(
                     f"terminal bodies '{body_a['id']}' and '{body_b['id']}' overlap "
                     f"by {overlap * 1000.0:.1f}mm (distance={distance * 1000.0:.1f}mm)"
                 )
-                maybe_filter(body_a.get("path"), body_b.get("path"))
+                if filter_terminal_body_pairs:
+                    maybe_filter(body_a.get("path"), body_b.get("path"))
 
     for body in terminal_body_records:
         parent_branch_id = body["parent_branch_id"]
@@ -340,6 +357,51 @@ def _build_terminal_bodies(
 
         if shape == "sphere":
             maturation = body.get("maturation", 0.0)
+            tomato_material = get_or_create_tomato_fruit_material(stage, maturation)
+
+            # --- START GRAVITY ELBOW INJECTION ---
+            is_pedicel = "pedicel" in parent_branch_id.lower() or branch_defs[parent_branch_id].get("kind") == "pedicel"
+            local_pos0 = None
+            local_pos1 = None
+
+            if is_pedicel:
+                # 1. Hide physical proxy
+                cylinder = UsdGeom.Cylinder.Get(stage, f"{parent_link_path}/Cylinder")
+                if cylinder:
+                    cylinder.CreateVisibilityAttr().Set(UsdGeom.Tokens.invisible)
+                    pedicel_filtered = UsdPhysics.FilteredPairsAPI(cylinder.GetPrim())
+                    if not pedicel_filtered:
+                        pedicel_filtered = UsdPhysics.FilteredPairsAPI.Apply(cylinder.GetPrim())
+                    pedicel_filtered.GetFilteredPairsRel().AddTarget("/World/Stem")
+
+                # 2. Sample gravity elbow
+                parent_world_to_local = parent_orientation.GetInverse()
+                parent_rotation = Gf.Rotation(parent_world_to_local)
+                gravity_local = parent_rotation.TransformDir(Gf.Vec3d(0.0, 0.0, -1.0))
+
+                centers, tangents = sample_gravity_elbow(
+                    parent_height, parent_branch_id, gravity_local
+                )
+
+                # 3. Create visual mesh
+                create_gravity_elbow_mesh(
+                    stage, parent_link_path, centers, tangents,
+                    scaled(branch_defs[parent_branch_id]["radius"]), parent_branch_id
+                )
+
+                # 4. Recompute tomato position with overlap
+                tip_local = centers[-1]
+                terminal_down_local = Gf.Vec3d(*tangents[-1]).GetNormalized()
+                visual_overlap = 0.002
+                tomato_center_local = tip_local + terminal_down_local * (radius - visual_overlap)
+
+                parent_fwd_rotation = Gf.Rotation(parent_orientation)
+                body_pos = parent_base + parent_fwd_rotation.TransformDir(tomato_center_local)
+
+                local_pos0 = Gf.Vec3f(*tip_local)
+                local_pos1 = Gf.Vec3f(*(-terminal_down_local * (radius - visual_overlap)))
+            # --- END GRAVITY ELBOW INJECTION ---
+
             body_path = create_sphere_rigid_body(
                 stage,
                 body_parent_path,
@@ -349,8 +411,17 @@ def _build_terminal_bodies(
                 mass,
                 orientation=parent_orientation,
                 color=PlantColors.tomato_color(maturation),
+                material=tomato_material,
             )
-            if detachment_enabled and exclude_from_articulation:
+
+            if is_pedicel:
+                tomato_prim = stage.GetPrimAtPath(body_path)
+                tomato_filtered = UsdPhysics.FilteredPairsAPI(tomato_prim)
+                if not tomato_filtered:
+                    tomato_filtered = UsdPhysics.FilteredPairsAPI.Apply(tomato_prim)
+                tomato_filtered.GetFilteredPairsRel().AddTarget("/World/Stem")
+
+            if exclude_from_articulation:
                 apply_physx_rigid_body_solver_settings(stage, body_path)
 
             create_fixed_joint_to_tip(
@@ -362,6 +433,8 @@ def _build_terminal_bodies(
                 joint_name="TerminalBodyFixedJoint",
                 break_force=break_force,
                 exclude_from_articulation=exclude_from_articulation,
+                local_pos0=local_pos0,
+                local_pos1=local_pos1,
             )
 
             terminal_body_records.append({
@@ -370,6 +443,7 @@ def _build_terminal_bodies(
                 "parent_branch_id": parent_branch_id,
                 "pos": (body_pos[0], body_pos[1], body_pos[2]),
                 "radius": radius,
+                "exclude_from_articulation": exclude_from_articulation,
             })
 
             if OutputConfig.STEP_1_VERBOSE:
@@ -457,7 +531,7 @@ def build_chain(
     elif is_root and PhysicsRuntimeConfig.RIGID_TRUNK:
         locked_joints = True
     # else: use locked_joints parameter as-is
-    
+
     r_world = scaled(branch_def["radius"])
     h_world = scaled(branch_def["height"])
     inner_radius_world = _branch_inner_radius_world(branch_def)
@@ -466,7 +540,7 @@ def build_chain(
     bid     = branch_def["id"]
     density = _branch_density(branch_def, use_truss_physics=use_truss_physics)
     mass    = compute_mass(r_world, h_world, density=density, inner_radius=inner_radius_world)
-    
+
     # Use truss physics if requested (for rachis/pedicels)
     if use_truss_physics:
         young_modulus = _branch_young_modulus(branch_def, use_truss_physics=True)
@@ -499,22 +573,22 @@ def build_chain(
         p_r_world = scaled(parent_def["radius"])
         p_h_world = scaled(parent_def["height"])
         p_inner_radius_world = _branch_inner_radius_world(parent_def)
-        
-        p_use_truss = parent_def.get("physics_profile") == "truss"
+
+        p_use_truss = _is_truss_branch(parent_def)
         p_ym = _branch_young_modulus(parent_def, use_truss_physics=p_use_truss)
-        
+
         branch_EI = compute_flexural_rigidity(r_world, young_modulus, inner_radius_world)
         parent_EI = compute_flexural_rigidity(p_r_world, p_ym, p_inner_radius_world)
-        
+
         K_attach_rad = compute_hinge_stiffness_rad(p_h_world, parent_EI, h_world, branch_EI)
-        
+
         rad_to_deg = math.pi / 180.0
         K_attach_deg = K_attach_rad * rad_to_deg
-        
+
         # Scale damping to maintain same damping ratio: D scales with sqrt(K)
         stiffness_ratio = K_attach_deg / K if K > 0 else 1.0
         D_attach_deg = D * math.sqrt(stiffness_ratio)
-        
+
         K_attach = K_attach_deg
         D_attach = D_attach_deg
     else:
@@ -550,7 +624,7 @@ def build_chain(
 
     for i in range(n_links):
         link_name = f"{bid}_Link_{i + 1:02d}"
-        
+
         # Determine link color from branch kind/id
         branch_kind = branch_def.get("kind", "")
         bid_lower = bid.lower()
@@ -565,7 +639,7 @@ def build_chain(
         else:
             # Trunk, lateral branches, etc.
             link_color = PlantColors.STEM
-        
+
         link_path = create_rigid_segment(
             stage, stem_path, link_name,
             r_world, h_world, cur_pos, mass,
@@ -637,10 +711,11 @@ def build_stage(
     skip_limit_check: bool = False,
     terminal_bodies=None,
     legacy_physics: bool = False,
+    branch_backend: str = "legacy",
 ):
     """
     Build the full tree USD stage from BRANCHES configuration.
-    
+
     Args:
         output_path: Path where to save the USD file
         branches: List of branch definitions (uses BRANCHES from tree_config if None)
@@ -649,7 +724,9 @@ def build_stage(
         skip_limit_check: If True, skip the link count limit check
         terminal_bodies: Optional rigid bodies attached to branch tips. This is a
                          generic hook used by adapter-generated tomatoes.
-    
+        branch_backend: ``legacy`` keeps cylinder branches; ``skinned`` uses
+                        smooth UsdSkel visuals and capsule proxies for vegetation.
+
     Returns:
         Tuple (stage, stem_path)
     """
@@ -657,11 +734,15 @@ def build_stage(
         branches = BRANCHES
     if terminal_bodies is None:
         terminal_bodies = []
+    if branch_backend not in ("legacy", "skinned"):
+        raise ValueError(
+            f"Unsupported branch_backend={branch_backend!r}; expected 'legacy' or 'skinned'"
+        )
 
     validate_branches(branches, skip_limit_check=skip_limit_check)
 
     stage, stem_path = setup_base_stage(output_path, legacy_physics=legacy_physics)
-    
+
     if legacy_physics:
         # Revert to legacy non-physics units to simulate original behavior
         UsdGeom.SetStageMetersPerUnit(stage, 0.01) # fallback to default cm
@@ -670,7 +751,32 @@ def build_stage(
     branch_registry = {}
     branch_defs = {branch["id"]: branch for branch in branches}
 
-    for b in branches:
+    branches_to_build = branches
+    if branch_backend == "skinned":
+        try:
+            from ..skinning import (
+                build_skinned_vegetative_structure,
+                partition_branches,
+            )
+        except ImportError:
+            from exporterV2.core.skinning import (
+                build_skinned_vegetative_structure,
+                partition_branches,
+            )
+
+        vegetative_branches, branches_to_build = partition_branches(branches)
+        if not vegetative_branches:
+            raise ValueError("The skinned backend requires at least one vegetative branch")
+        branch_registry.update(build_skinned_vegetative_structure(
+            stage,
+            stem_path,
+            vegetative_branches,
+            all_branch_defs=branch_defs,
+            locked_joints=locked_joints,
+            legacy_physics=legacy_physics,
+        ))
+
+    for b in branches_to_build:
         bid     = b["id"]
         is_root = b.get("parent") is None
         h_world = scaled(b["height"])
@@ -692,7 +798,7 @@ def build_stage(
                 chain_orientation=None,
                 locked_joints=locked_joints,
             )
-            
+
             branch_registry[bid] = (link_paths, link_bases, chain_axis, Gf.Quatf(1, 0, 0, 0))
 
         else:
@@ -707,13 +813,13 @@ def build_stage(
             parent_def = branch_defs[parent_id]
             p_h_world  = scaled(parent_def["height"])
             p_r_world  = scaled(parent_def["radius"])
-            
+
             # Compute branch orientation: rot_z → tilt → roll
             rot_z    = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_deg)
             rot_tilt = Gf.Rotation(Gf.Vec3d(1, 0, 0), -tilt_deg)
             rot_roll = Gf.Rotation(Gf.Vec3d(0, 0, 1), roll_deg)
             branch_rot_in_parent_frame = rot_roll * rot_tilt * rot_z
-            
+
             # FIX 2: For leaf-internal branches, always use parent orientation
             # (don't reset to identity, just don't add extra trunk rotation accumulation)
             parent_rot = Gf.Rotation(Gf.Quatd(parent_orientation))
@@ -743,11 +849,11 @@ def build_stage(
             else:
                 z_local = attach_frac * p_h_world  # sub-link: exact fraction, no gap
             base_offset_local = Gf.Vec3d(0.0, radial_distance, z_local)
-            
+
             rot_z_local = Gf.Rotation(Gf.Vec3d(0, 0, 1), rot_deg)
             offset_in_parent_frame = rot_z_local.TransformDir(base_offset_local)
             offset_in_world = parent_rot.TransformDir(offset_in_parent_frame)
-            
+
             attach_base  = parent_bases[attach_idx]
             start_pos    = attach_base + offset_in_world
 
@@ -774,11 +880,11 @@ def build_stage(
                 attachment_local_rot0=local_rot0,
                 chain_orientation=chain_orientation,
                 locked_joints=locked_joints,
-                use_truss_physics=b.get("physics_profile") == "truss",
+                use_truss_physics=_is_truss_branch(b),
                 parent_def=parent_def,
                 legacy_physics=legacy_physics,
             )
-            
+
             branch_registry[bid] = (link_paths, link_bases, chain_axis, chain_orientation)
 
     terminal_body_records = _build_terminal_bodies(
@@ -795,17 +901,18 @@ def build_stage(
         branches,
         stage=stage,
         apply_filters=True,
+        filter_terminal_body_pairs=TrussPhysicsConfig.FILTER_TERMINAL_BODY_PAIR_OVERLAPS,
         branch_defs=branch_defs,
     )
 
-    # ── Unconditional collision filtering for detached tomato bodies ──
-    # When a tomato is excluded from the articulation (breakable FixedJoint),
-    # PhysX treats it as an independent RigidBody. Without explicit filtering,
-    # any micro-contact between the tomato sphere and its pedicel / rachis links
-    # triggers depenetration forces that cause the characteristic "pop" on first touch.
+    # ── Unconditional collision filtering for external terminal bodies ──
+    # When a tomato is excluded from the articulation, PhysX treats it as an
+    # independent RigidBody. Without explicit filtering, any micro-contact
+    # between the tomato sphere and its pedicel / rachis links triggers
+    # depenetration forces that cause the characteristic "pop" on first touch.
     # We filter unconditionally here, regardless of geometry overlap at rest.
-    if TrussPhysicsConfig.TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION:
-        for record in terminal_body_records:
+    for record in terminal_body_records:
+        if record.get("exclude_from_articulation"):
             tomato_path = record["path"]
             parent_branch_id = record["parent_branch_id"]
 
@@ -827,22 +934,27 @@ def build_stage(
     return stage, stem_path
 
 
-def build_stage_locked(output_path: str, branches=None):
+def build_stage_locked(output_path: str, branches=None, branch_backend: str = "legacy"):
     """
     Convenience wrapper for build_stage() with locked_joints=True.
-    
+
     Creates a USD stage where all joints are FixedJoint (completely rigid).
     Used for Isaac Sim integration tests to verify geometry doesn't change
     during simulation when joints have no flexibility.
-    
+
     Args:
         output_path: Path where to save the USD file
         branches: List of branch definitions (uses BRANCHES if None)
-    
+
     Returns:
         Tuple (stage, stem_path)
-    
+
     Example:
         stage, stem_path = build_stage_locked("test_locked.usda")
     """
-    return build_stage(output_path, branches, locked_joints=True)
+    return build_stage(
+        output_path,
+        branches,
+        locked_joints=True,
+        branch_backend=branch_backend,
+    )

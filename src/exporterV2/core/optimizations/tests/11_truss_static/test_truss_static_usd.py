@@ -167,7 +167,7 @@ def test_usd_uses_official_pedicel_and_static_root_overrides(tmp_path, monkeypat
     assert root_limit.GetHighAttr().Get() == 18.0
 
 
-def test_detachment_master_switch_keeps_tomatoes_in_articulation(tmp_path, monkeypatch):
+def test_detachment_master_switch_suppresses_break_force_only(tmp_path, monkeypatch):
     monkeypatch.setattr(TrussPhysicsConfig, "TOMATO_DETACHMENT_ENABLED", False)
     branches, terminal_bodies = make_truss()
     terminal_bodies = [
@@ -197,8 +197,9 @@ def test_detachment_master_switch_keeps_tomatoes_in_articulation(tmp_path, monke
     assert len(terminal_joints) == len(terminal_bodies)
     for joint in terminal_joints:
         assert not joint.GetAttribute("physics:breakForce").HasAuthoredValue()
-        assert not joint.GetAttribute(
-            "physics:excludeFromArticulation"
-        ).HasAuthoredValue()
+        assert joint.GetAttribute("physics:excludeFromArticulation").Get() is True
         body_path = str(joint.GetRelationship("physics:body1").GetTargets()[0])
-        assert body_path.startswith(f"{stem_path}/")
+        assert body_path.startswith(
+            TrussPhysicsConfig.TOMATO_DETACHMENT_BODY_PARENT_PATH
+        )
+        assert not body_path.startswith(f"{stem_path}/")

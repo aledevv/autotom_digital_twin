@@ -10,6 +10,7 @@ Usage:
         modified, report = technique.apply(branches)
 """
 
+from copy import deepcopy
 from typing import List, Dict, Tuple
 
 try:
@@ -89,7 +90,7 @@ class LeafBranchReductionTechnique(OptimizationTechnique):
         petiolules_remapped = 0
         
         # Build lookup for all branches to ease modification
-        branch_dict = {b["id"]: b.copy() for b in branches}
+        branch_dict = {b["id"]: deepcopy(b) for b in branches}
         
         petiole_id = rachis["parent"]
         petiole = branch_dict[petiole_id]
@@ -108,6 +109,17 @@ class LeafBranchReductionTechnique(OptimizationTechnique):
         branch_dict[petiole_id]["height"] = total_len
         branch_dict[petiole_id]["n_links"] = 1
         branch_dict[petiole_id]["radius"] = (petiole.get("radius", 0.01) + rachis.get("radius", 0.01)) / 2.0
+        petiole_segments = deepcopy(petiole.get("visual_segments", [{
+            "source_id": petiole_id,
+            "length": petiole_len,
+            "radius": petiole.get("radius", 0.01),
+        }]))
+        rachis_segments = deepcopy(rachis.get("visual_segments", [{
+            "source_id": rachis_id,
+            "length": rachis_len,
+            "radius": rachis.get("radius", 0.01),
+        }]))
+        branch_dict[petiole_id]["visual_segments"] = petiole_segments + rachis_segments
         
         # Count savings (we removed the rachis n_links)
         links_removed += rachis.get("n_links", 1)
@@ -117,10 +129,13 @@ class LeafBranchReductionTechnique(OptimizationTechnique):
             if b.get("parent") == rachis_id:
                 # It was attached to the rachis
                 old_attach_link = b.get("attach_link", 1)
+                old_attach_frac = b.get("attach_frac", 1.0)
                 old_rachis_n = rachis.get("n_links", 1)
                 
                 # Fraction along rachis
-                rachis_fraction = old_attach_link / old_rachis_n
+                rachis_fraction = (
+                    old_attach_link - 1 + old_attach_frac
+                ) / old_rachis_n
                 
                 # Distance from base of merged leaf
                 absolute_dist = petiole_len + (rachis_fraction * rachis_len)

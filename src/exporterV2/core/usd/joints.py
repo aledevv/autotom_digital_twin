@@ -304,6 +304,8 @@ def create_fixed_joint_to_tip(
     break_force: float = None,
     break_torque: float = None,
     exclude_from_articulation: bool = False,
+    local_pos0: Gf.Vec3f = None,
+    local_pos1: Gf.Vec3f = None,
 ) -> None:
     """
     Create FixedJoint attaching a rigid body (leaf node) to the tip of a parent link.
@@ -342,11 +344,17 @@ def create_fixed_joint_to_tip(
     joint.CreateBody1Rel().SetTargets([Sdf.Path(child_body_path)])
     
     # Parent anchor: tip of parent link
-    joint.CreateLocalPos0Attr().Set(Gf.Vec3f(0.0, 0.0, parent_height))
+    if local_pos0 is not None:
+        joint.CreateLocalPos0Attr().Set(local_pos0)
+    else:
+        joint.CreateLocalPos0Attr().Set(Gf.Vec3f(0.0, 0.0, parent_height))
     
     # Child anchor: at child origin, but offset if needed
     # Negative offset because we're measuring from child's perspective
-    joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, -child_offset))
+    if local_pos1 is not None:
+        joint.CreateLocalPos1Attr().Set(local_pos1)
+    else:
+        joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, -child_offset))
     
     # Both rotations identity (child inherits parent orientation)
     joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))

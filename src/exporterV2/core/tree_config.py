@@ -18,6 +18,8 @@ The generator multiplies by GLOBAL_SCALE before building USD or computing physic
 Each dict describes one chain (trunk or branch). Fields:
 
   id          (str)        Unique identifier for this chain.
+  system      (str)        ``vegetative`` or ``truss``. Older definitions
+                           fall back to physics_profile for classification.
   parent      (str|None)   id of the parent chain, or None for the trunk.
   attach_link (int|None)   1-based index of the parent link to attach to.
                            None when parent is None.
@@ -123,8 +125,9 @@ class TrussGeometryConfig:
     MAX_TILT_DEG = 95.0
     RACHIS_SEGMENT_LENGTH = 0.020
     RACHIS_RADIUS = 0.00075
-    PEDICEL_LENGTH = 0.006
+    PEDICEL_LENGTH = 0.015
     PEDICEL_RADIUS = 0.0005
+    LATERAL_PEDICEL_CHORD_ANGLE_DEG = 56.0
 
 
 class BioConfig:
@@ -143,8 +146,8 @@ class TrussPhysicsConfig:
     - Higher damping to reduce oscillations
     - Custom minimum K to handle thin pedicels
     """
-    YOUNG_MODULUS = 80.0e8  # [Pa] Stable detachable-truss test setting
-    DAMPING_RATIO = 5.0      # High damping to reduce oscillations
+    YOUNG_MODULUS = 30.0e8  # [Pa] Stable detachable-truss test setting
+    DAMPING_RATIO = 7.0      # High damping to reduce oscillations
     # Inflated density to achieve ~5:1 mass ratio with attached tomato.
     # PhysX TGS solver becomes unstable when joint mass ratio exceeds ~10:1.
     # A 2mm pedicel at normal plant density weighs ~0.3g vs a 50g tomato (ratio ~160:1).
@@ -155,18 +158,22 @@ class TrussPhysicsConfig:
     PEDICEL_BEND_LIMIT_DEG = 25.0
     # Real pedicels are much shorter than the visual-lab sample, so they need a
     # softer attachment drive for tomato weight to produce visible droop.
-    PEDICEL_DRIVE_STIFFNESS_SCALE = 50.0
-    # Break force for detachable tomato joints. Keep this low while validating
-    # the detachment path; tune it only after the truss is stable.
-    # When disabled, tomatoes remain regular, unbreakable articulation links.
+    PEDICEL_DRIVE_STIFFNESS_SCALE = 0.1
+    # Breakable tomato detachment remains enabled for truss tests. Initial
+    # compenetrating tomato pairs are filtered separately to avoid solver
+    # repulsion spikes breaking the joints at startup.
     TOMATO_DETACHMENT_ENABLED = True
     # This is comfortably above the static weight of the generated tomatoes,
     # so gravity alone should not break the joint when detachment is enabled.
-    TOMATO_DETACHMENT_BREAK_FORCE_N = 6.0
+    TOMATO_DETACHMENT_BREAK_FORCE_N = 12.0
+    # Keep tomato bodies outside the articulation while detachment is active.
     TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION = True
     # When the fixed joint is excluded, keep tomatoes outside the articulation
-    # root and attach them as regular rigid bodies through the breakable joint.
+    # root and attach them as regular rigid bodies through the terminal joint.
     TOMATO_DETACHMENT_BODY_PARENT_PATH = "/World/TerminalBodies"
+    # Filter tomato pairs that start overlapped, preventing contact impulses
+    # from breaking detachable joints during initialization.
+    FILTER_TERMINAL_BODY_PAIR_OVERLAPS = True
 
 
 # ==============================================================================
@@ -184,23 +191,23 @@ class PlantColors:
     where maturation ∈ [0.0, 1.0] from CSV fruit_age_dd / fruit_ripening_dd.
     """
 
-    # Stems and lateral branches — light green
-    STEM = (0.30, 0.55, 0.18)
+    # Stems and lateral branches — light green (#436c3a)
+    STEM = (0.263, 0.424, 0.227)
 
     # Petiole and rachis — slightly darker green
-    PETIOLE = (0.25, 0.48, 0.15)
+    PETIOLE = (0.263, 0.424, 0.227)
 
     # Petiolules — same as petiole
-    PETIOLULE = (0.25, 0.48, 0.15)
+    PETIOLULE = (0.263, 0.424, 0.227)
 
-    # Leaf blades — deep dark green
-    LEAF_BLADE = (0.13, 0.38, 0.08)
+    # Leaf blades — deep dark green (#325928)
+    LEAF_BLADE = (0.196, 0.349, 0.157)
 
     # Truss rachis — olive green
-    TRUSS_RACHIS = (0.30, 0.42, 0.16)
+    TRUSS_RACHIS = (0.263, 0.424, 0.227)
 
     # Pedicels — medium green
-    PEDICEL = (0.20, 0.55, 0.16)
+    PEDICEL = (0.263, 0.424, 0.227)
 
     # Tomato unripe color (maturation=0.0)
     TOMATO_UNRIPE = (0.25, 0.65, 0.08)
@@ -223,6 +230,7 @@ class PlantColors:
 BRANCHES = [
     {
         "id"         : "trunk",
+        "system"     : "vegetative",
         "parent"     : None,
         "attach_link": None,
         "n_links"    : 5,
@@ -234,6 +242,7 @@ BRANCHES = [
     },
     {
         "id"         : "branchA",
+        "system"     : "vegetative",
         "parent"     : "trunk",
         "attach_link": 3,      # attaches to trunk link 3 (1-based)
         "n_links"    : 4,
@@ -244,6 +253,7 @@ BRANCHES = [
     },
     {
         "id"         : "subA1",
+        "system"     : "vegetative",
         "parent"     : "branchA",
         "attach_link": 2,      # attaches to branchA link 2 (1-based)
         "n_links"    : 3,
