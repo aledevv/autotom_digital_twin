@@ -309,5 +309,5 @@ def test_hybrid_keeps_truss_and_tomato_on_legacy_backend(tmp_path):
     joint = stage.GetPrimAtPath("/World/TerminalBodies/Tomato_01/TerminalBodyFixedJoint")
     assert joint.IsValid()
     assert UsdPhysics.Joint(joint).GetBody0Rel().GetTargets()[0].pathString == pedicel_link
-    assert joint.GetAttribute("physics:breakForce").Get() == pytest.approx(6.0)
+    assert not joint.GetAttribute("physics:breakForce").HasAuthoredValue()
     assert joint.GetAttribute("physics:excludeFromArticulation").Get() is True

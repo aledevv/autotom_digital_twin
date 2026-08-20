@@ -11,7 +11,10 @@ from exporterV2.core.skinning.leaf_blade import author_leaf_blade
 from exporterV2.core.optimizations.techniques.stem_collapse import (
     StemCollapseTechnique,
 )
-from exporterV2.core.usd.materials import TOMATO_LEAF_MATERIAL_PATH
+from exporterV2.core.usd.materials import (
+    TOMATO_LEAF_MATERIAL_PATH,
+    TOMATO_STEM_MATERIAL_PATH,
+)
 from exporterV2.core.skinning import (
     SkinningRuntime,
     build_skinned_vegetative_structure,
@@ -108,7 +111,7 @@ def _leaf_graph():
     ]
 
 
-def _build(path, branches):
+def _build(path, branches, visual_mode=None):
     stage = Usd.Stage.CreateNew(str(path))
     UsdGeom.Xform.Define(stage, "/World")
     UsdGeom.Xform.Define(stage, "/World/Stem")
@@ -117,6 +120,7 @@ def _build(path, branches):
         "/World/Stem",
         branches,
         all_branch_defs={branch["id"]: branch for branch in branches},
+        visual_mode=visual_mode,
     )
     return stage
 
@@ -129,6 +133,26 @@ def _mesh_snapshot(stage, path):
         list(mesh.GetFaceVertexCountsAttr().Get()),
         list(mesh.GetFaceVertexIndicesAttr().Get()),
     )
+
+
+def _bound_material_path(stage, path):
+    mesh = UsdGeom.Mesh(stage.GetPrimAtPath(path))
+    assert mesh
+    material = UsdShade.MaterialBindingAPI(
+        mesh.GetPrim()
+    ).GetDirectBinding().GetMaterial()
+    return material.GetPath()
+
+
+def _organic_visual_mesh_paths(stage):
+    names = ("BranchMesh", "StaticMesh", "VisualMesh")
+    paths = []
+    for prim in stage.Traverse():
+        if prim.IsA(UsdGeom.Mesh) and (
+            prim.GetName() in names or prim.GetName().startswith("OrganicVisual_")
+        ):
+            paths.append(str(prim.GetPath()))
+    return paths
 
 
 def test_leaf_blade_uses_tomato_material_and_preserves_topology():
@@ -174,6 +198,22 @@ def test_leaf_blade_uses_tomato_material_and_preserves_topology():
         stage.GetPrimAtPath(f"{TOMATO_LEAF_MATERIAL_PATH}/Shader")
     )
     assert shader.GetIdAttr().Get() == "UsdPreviewSurface"
+
+
+@pytest.mark.parametrize("visual_mode", ("skinned", "static", "rigid-single", "segmented"))
+def test_vegetative_visual_meshes_use_tomato_stem_material(tmp_path, visual_mode):
+    stage = _build(tmp_path / f"{visual_mode}.usda", _leaf_graph(), visual_mode)
+
+    assert stage.GetPrimAtPath(TOMATO_STEM_MATERIAL_PATH).IsValid()
+    shader = UsdShade.Shader(
+        stage.GetPrimAtPath(f"{TOMATO_STEM_MATERIAL_PATH}/Shader")
+    )
+    assert shader.GetIdAttr().Get() == "UsdPreviewSurface"
+
+    mesh_paths = _organic_visual_mesh_paths(stage)
+    assert mesh_paths
+    for path in mesh_paths:
+        assert _bound_material_path(stage, path) == Sdf.Path(TOMATO_STEM_MATERIAL_PATH)
 
 
 @pytest.mark.parametrize("day", (1, 40))

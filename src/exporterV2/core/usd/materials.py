@@ -5,6 +5,10 @@ from pxr import Gf, Sdf, UsdGeom, UsdShade
 
 TOMATO_LEAF_MATERIAL_PATH = "/World/Looks/TomatoLeaf"
 TOMATO_LEAF_OMNISURFACE_MATERIAL_PATH = "/World/Looks/TomatoLeafOmniSurface"
+TOMATO_STEM_MATERIAL_PATH = "/World/Looks/TomatoStem"
+TOMATO_STEM_OMNISURFACE_MATERIAL_PATH = "/World/Looks/TomatoStemOmniSurface"
+TOMATO_FRUIT_MATERIAL_ROOT = "/World/Looks/TomatoFruit"
+TOMATO_FRUIT_MATURATION_BUCKETS = 8
 
 
 _TOMATO_LEAF_PRESETS = {
@@ -33,10 +37,50 @@ _TOMATO_LEAF_PRESETS = {
 }
 
 
-def _material_path_for_preset(preset: str) -> str:
+_TOMATO_STEM_PRESETS = {
+    "realtime": {
+        "diffuseColor": Gf.Vec3f(0.22, 0.40, 0.18),
+        "roughness": 0.68,
+        "metallic": 0.0,
+    },
+    "realistic": {
+        "diffuse_reflection_weight": 0.90,
+        "diffuse_reflection_color": Gf.Vec3f(0.22, 0.40, 0.18),
+        "diffuse_reflection_roughness": 0.20,
+        "metalness": 0.0,
+        "specular_reflection_weight": 0.45,
+        "specular_reflection_roughness": 0.68,
+        "specular_reflection_ior": 1.42,
+        "thin_walled": False,
+        "enable_diffuse_transmission": True,
+        "subsurface_weight": 0.05,
+        "specular_retro_reflection_weight": 0.12,
+        "specular_retro_reflection_color": Gf.Vec3f(0.40, 0.55, 0.30),
+        "specular_retro_reflection_roughness": 0.65,
+    },
+}
+
+
+_TOMATO_FRUIT_PRESETS = {
+    "realtime": {
+        "roughness": 0.28,
+        "metallic": 0.0,
+        "clearcoat": 0.28,
+        "clearcoatRoughness": 0.18,
+    },
+}
+
+
+def _leaf_material_path_for_preset(preset: str) -> str:
     if preset == "realistic":
         return TOMATO_LEAF_OMNISURFACE_MATERIAL_PATH
     return TOMATO_LEAF_MATERIAL_PATH
+
+
+def _stem_material_path_for_preset(preset: str) -> str:
+    if preset == "realistic":
+        return TOMATO_STEM_OMNISURFACE_MATERIAL_PATH
+    return TOMATO_STEM_MATERIAL_PATH
 
 
 def _set_shader_input(shader, name: str, value) -> None:
@@ -50,12 +94,69 @@ def _set_shader_input(shader, name: str, value) -> None:
     shader.CreateInput(name, value_type).Set(value)
 
 
+def _tomato_color(maturation: float) -> Gf.Vec3f:
+    t = max(0.0, min(1.0, float(maturation)))
+    unripe = Gf.Vec3f(0.25, 0.65, 0.08)
+    ripe = Gf.Vec3f(0.90, 0.17, 0.08)
+    return unripe * (1.0 - t) + ripe * t
+
+
+def _tomato_maturation_bucket(maturation: float) -> int:
+    t = max(0.0, min(1.0, float(maturation)))
+    return int(round(t * (TOMATO_FRUIT_MATURATION_BUCKETS - 1)))
+
+
+def _tomato_bucket_maturation(bucket: int) -> float:
+    bucket = max(0, min(TOMATO_FRUIT_MATURATION_BUCKETS - 1, int(bucket)))
+    return bucket / float(TOMATO_FRUIT_MATURATION_BUCKETS - 1)
+
+
 def _create_realtime_tomato_leaf_material(stage, material_path: str):
     material = UsdShade.Material.Define(stage, material_path)
     shader = UsdShade.Shader.Define(stage, f"{material_path}/Shader")
     shader.CreateIdAttr("UsdPreviewSurface")
 
     for name, value in _TOMATO_LEAF_PRESETS["realtime"].items():
+        _set_shader_input(shader, name, value)
+
+    shader.CreateOutput("surface", Sdf.ValueTypeNames.Token)
+    material.CreateSurfaceOutput().ConnectToSource(
+        shader.ConnectableAPI(),
+        "surface",
+    )
+    return material
+
+
+def _create_realtime_tomato_stem_material(stage, material_path: str):
+    material = UsdShade.Material.Define(stage, material_path)
+    shader = UsdShade.Shader.Define(stage, f"{material_path}/Shader")
+    shader.CreateIdAttr("UsdPreviewSurface")
+
+    for name, value in _TOMATO_STEM_PRESETS["realtime"].items():
+        _set_shader_input(shader, name, value)
+
+    shader.CreateOutput("surface", Sdf.ValueTypeNames.Token)
+    material.CreateSurfaceOutput().ConnectToSource(
+        shader.ConnectableAPI(),
+        "surface",
+    )
+    return material
+
+
+def _create_realtime_tomato_fruit_material(
+    stage,
+    material_path: str,
+    maturation: float,
+):
+    material = UsdShade.Material.Define(stage, material_path)
+    shader = UsdShade.Shader.Define(stage, f"{material_path}/Shader")
+    shader.CreateIdAttr("UsdPreviewSurface")
+    shader.CreateInput(
+        "diffuseColor",
+        Sdf.ValueTypeNames.Color3f,
+    ).Set(_tomato_color(maturation))
+
+    for name, value in _TOMATO_FRUIT_PRESETS["realtime"].items():
         _set_shader_input(shader, name, value)
 
     shader.CreateOutput("surface", Sdf.ValueTypeNames.Token)
@@ -85,6 +186,25 @@ def _create_realistic_tomato_leaf_material(stage, material_path: str):
     return material
 
 
+def _create_realistic_tomato_stem_material(stage, material_path: str):
+    material = UsdShade.Material.Define(stage, material_path)
+    shader = UsdShade.Shader.Define(stage, f"{material_path}/Shader")
+    shader.CreateImplementationSourceAttr(UsdShade.Tokens.sourceAsset)
+    shader.SetSourceAsset("OmniSurface.mdl", "mdl")
+    shader.SetSourceAssetSubIdentifier("OmniSurface", "mdl")
+    shader.CreateOutput("out", Sdf.ValueTypeNames.Token)
+
+    material.CreateSurfaceOutput("mdl").ConnectToSource(
+        shader.ConnectableAPI(),
+        "out",
+    )
+
+    for name, value in _TOMATO_STEM_PRESETS["realistic"].items():
+        _set_shader_input(shader, name, value)
+
+    return material
+
+
 def get_or_create_tomato_leaf_material(stage, preset: str = "realtime"):
     """Return the shared tomato leaf material for a stage.
 
@@ -94,7 +214,7 @@ def get_or_create_tomato_leaf_material(stage, preset: str = "realtime"):
     if preset not in _TOMATO_LEAF_PRESETS:
         raise ValueError(f"Unknown tomato leaf material preset: {preset!r}")
 
-    material_path = _material_path_for_preset(preset)
+    material_path = _leaf_material_path_for_preset(preset)
     existing = stage.GetPrimAtPath(material_path)
     if existing.IsValid():
         return UsdShade.Material(existing)
@@ -104,3 +224,45 @@ def get_or_create_tomato_leaf_material(stage, preset: str = "realtime"):
     if preset == "realistic":
         return _create_realistic_tomato_leaf_material(stage, material_path)
     return _create_realtime_tomato_leaf_material(stage, material_path)
+
+
+def get_or_create_tomato_stem_material(stage, preset: str = "realtime"):
+    """Return the shared tomato stem material for vegetative visual meshes."""
+    if preset not in _TOMATO_STEM_PRESETS:
+        raise ValueError(f"Unknown tomato stem material preset: {preset!r}")
+
+    material_path = _stem_material_path_for_preset(preset)
+    existing = stage.GetPrimAtPath(material_path)
+    if existing.IsValid():
+        return UsdShade.Material(existing)
+
+    UsdGeom.Scope.Define(stage, "/World/Looks")
+
+    if preset == "realistic":
+        return _create_realistic_tomato_stem_material(stage, material_path)
+    return _create_realtime_tomato_stem_material(stage, material_path)
+
+
+def get_or_create_tomato_fruit_material(
+    stage,
+    maturation: float,
+    preset: str = "realtime",
+):
+    """Return a shared tomato fruit material bucketed by maturation."""
+    if preset not in _TOMATO_FRUIT_PRESETS:
+        raise ValueError(f"Unknown tomato fruit material preset: {preset!r}")
+
+    bucket = _tomato_maturation_bucket(maturation)
+    material_path = f"{TOMATO_FRUIT_MATERIAL_ROOT}/Maturation_{bucket}"
+    existing = stage.GetPrimAtPath(material_path)
+    if existing.IsValid():
+        return UsdShade.Material(existing)
+
+    UsdGeom.Scope.Define(stage, "/World/Looks")
+    UsdGeom.Scope.Define(stage, TOMATO_FRUIT_MATERIAL_ROOT)
+
+    return _create_realtime_tomato_fruit_material(
+        stage,
+        material_path,
+        _tomato_bucket_maturation(bucket),
+    )

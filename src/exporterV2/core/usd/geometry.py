@@ -4,7 +4,7 @@ geometry.py - USD Geometry Creation
 Creates rigid body links with cylindrical collision shapes.
 """
 
-from pxr import Usd, UsdGeom, Gf, UsdPhysics
+from pxr import Usd, UsdGeom, UsdShade, Gf, UsdPhysics
 
 
 def create_rigid_segment(
@@ -72,6 +72,7 @@ def create_sphere_rigid_body(
     mass: float,
     orientation: Gf.Quatf = None,
     color: tuple = None,
+    material=None,
 ) -> str:
     """
     Create one rigid sphere body directly under parent_path.
@@ -88,6 +89,7 @@ def create_sphere_rigid_body(
         mass: Sphere mass [kg]
         orientation: Optional world-space orientation (None = identity)
         color: Optional (R, G, B) display color tuple
+        material: Optional UsdShade.Material to bind to the visible sphere
 
     Returns:
         USD path of the created sphere
@@ -109,6 +111,8 @@ def create_sphere_rigid_body(
     sphere.GetRadiusAttr().Set(radius)
     if color is not None:
         UsdGeom.Gprim(sphere.GetPrim()).CreateDisplayColorAttr().Set([color])
+    if material is not None:
+        UsdShade.MaterialBindingAPI.Apply(sphere.GetPrim()).Bind(material)
     UsdPhysics.CollisionAPI.Apply(sphere.GetPrim())
 
     return sphere_path

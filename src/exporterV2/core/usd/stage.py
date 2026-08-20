@@ -32,6 +32,10 @@ else:
 from ..physics import apply_physx_rigid_body_solver_settings
 
 from .geometry import create_rigid_segment, create_sphere_rigid_body, create_static_mesh
+try:
+    from .materials import get_or_create_tomato_fruit_material
+except ImportError:
+    from exporterV2.core.usd.materials import get_or_create_tomato_fruit_material
 from .pedicel_geometry import sample_gravity_elbow, create_gravity_elbow_mesh
 from .joints import (
     anchor_link_to_world,
@@ -93,16 +97,17 @@ def _resolve_terminal_body_attachment(body: dict, stem_path: str):
         TrussPhysicsConfig.TOMATO_DETACHMENT_ENABLED
         and body.get("detachment_enabled", True)
     )
-    if not detachment_enabled:
-        return detachment_enabled, None, False, stem_path
-
-    break_force = body.get(
-        "break_force",
-        TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N,
-    )
     exclude_from_articulation = body.get(
         "exclude_from_articulation",
         TrussPhysicsConfig.TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION,
+    )
+    break_force = (
+        body.get(
+            "break_force",
+            TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N,
+        )
+        if detachment_enabled
+        else None
     )
     body_parent_path = body.get("parent_path")
     if body_parent_path is None:
@@ -170,14 +175,16 @@ def validate_terminal_body_clearance(
     margin: float = 0.002,
     stage=None,
     apply_filters: bool = False,
+    filter_terminal_body_pairs: bool = False,
     branch_defs=None,
 ):
     """
     Warn about terminal body intersections before the simulation starts.
 
-    When ``apply_filters`` is true, detected initial overlaps are also collision
-    filtered. This avoids impossible fixed-body contact constraints during
-    PhysX scene initialization while preserving the visible geometry and mass.
+    When ``apply_filters`` is true, detected initial overlaps against branches
+    are also collision filtered. Terminal body pairs can be filtered separately
+    with ``filter_terminal_body_pairs``; by default tomato-tomato contacts remain
+    active so clustered fruit can collide during simulation.
     """
     if not terminal_body_records:
         return
@@ -211,7 +218,8 @@ def validate_terminal_body_clearance(
                     f"terminal bodies '{body_a['id']}' and '{body_b['id']}' overlap "
                     f"by {overlap * 1000.0:.1f}mm (distance={distance * 1000.0:.1f}mm)"
                 )
-                maybe_filter(body_a.get("path"), body_b.get("path"))
+                if filter_terminal_body_pairs:
+                    maybe_filter(body_a.get("path"), body_b.get("path"))
 
     for body in terminal_body_records:
         parent_branch_id = body["parent_branch_id"]
@@ -349,6 +357,7 @@ def _build_terminal_bodies(
 
         if shape == "sphere":
             maturation = body.get("maturation", 0.0)
+            tomato_material = get_or_create_tomato_fruit_material(stage, maturation)
             
             # --- START GRAVITY ELBOW INJECTION ---
             is_pedicel = "pedicel" in parent_branch_id.lower() or branch_defs[parent_branch_id].get("kind") == "pedicel"
@@ -402,6 +411,7 @@ def _build_terminal_bodies(
                 mass,
                 orientation=parent_orientation,
                 color=PlantColors.tomato_color(maturation),
+                material=tomato_material,
             )
             
             if is_pedicel:
@@ -411,7 +421,7 @@ def _build_terminal_bodies(
                     tomato_filtered = UsdPhysics.FilteredPairsAPI.Apply(tomato_prim)
                 tomato_filtered.GetFilteredPairsRel().AddTarget("/World/Stem")
             
-            if detachment_enabled and exclude_from_articulation:
+            if exclude_from_articulation:
                 apply_physx_rigid_body_solver_settings(stage, body_path)
 
             create_fixed_joint_to_tip(
@@ -433,6 +443,7 @@ def _build_terminal_bodies(
                 "parent_branch_id": parent_branch_id,
                 "pos": (body_pos[0], body_pos[1], body_pos[2]),
                 "radius": radius,
+                "exclude_from_articulation": exclude_from_articulation,
             })
 
             if OutputConfig.STEP_1_VERBOSE:
@@ -890,17 +901,18 @@ def build_stage(
         branches,
         stage=stage,
         apply_filters=True,
+        filter_terminal_body_pairs=TrussPhysicsConfig.FILTER_TERMINAL_BODY_PAIR_OVERLAPS,
         branch_defs=branch_defs,
     )
 
-    # ── Unconditional collision filtering for detached tomato bodies ──
-    # When a tomato is excluded from the articulation (breakable FixedJoint),
-    # PhysX treats it as an independent RigidBody. Without explicit filtering,
-    # any micro-contact between the tomato sphere and its pedicel / rachis links
-    # triggers depenetration forces that cause the characteristic "pop" on first touch.
+    # ── Unconditional collision filtering for external terminal bodies ──
+    # When a tomato is excluded from the articulation, PhysX treats it as an
+    # independent RigidBody. Without explicit filtering, any micro-contact
+    # between the tomato sphere and its pedicel / rachis links triggers
+    # depenetration forces that cause the characteristic "pop" on first touch.
     # We filter unconditionally here, regardless of geometry overlap at rest.
-    if TrussPhysicsConfig.TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION:
-        for record in terminal_body_records:
+    for record in terminal_body_records:
+        if record.get("exclude_from_articulation"):
             tomato_path = record["path"]
             parent_branch_id = record["parent_branch_id"]
 

@@ -156,6 +156,30 @@ def test_terminal_pedicel():
     print("\n✓ Terminal pedicel test PASSED")
 
 
+def test_default_pedicel_length_uses_truss_geometry_config():
+    """Test default tomato pedicels use the configured visual/physics length."""
+    truss_dict = {
+        "n_fruits": 3,
+    }
+
+    pedicels = create_lateral_pedicels(
+        truss_dict,
+        "Truss_r3_o0_rachis",
+        2,
+        0.001,
+    )
+    terminal = create_terminal_pedicel(
+        truss_dict,
+        "Truss_r3_o0_rachis",
+        2,
+        0.001,
+    )
+
+    assert pedicels
+    assert all(pedicel["height"] == 0.010 for pedicel in pedicels)
+    assert terminal["height"] == 0.010
+
+
 def test_complete_truss():
     """Test complete truss branch configuration."""
     print("\n" + "="*80)

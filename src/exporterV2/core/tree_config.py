@@ -125,7 +125,7 @@ class TrussGeometryConfig:
     MAX_TILT_DEG = 95.0
     RACHIS_SEGMENT_LENGTH = 0.020
     RACHIS_RADIUS = 0.00075
-    PEDICEL_LENGTH = 0.006
+    PEDICEL_LENGTH = 0.015
     PEDICEL_RADIUS = 0.0005
     LATERAL_PEDICEL_CHORD_ANGLE_DEG = 56.0
 
@@ -146,8 +146,8 @@ class TrussPhysicsConfig:
     - Higher damping to reduce oscillations
     - Custom minimum K to handle thin pedicels
     """
-    YOUNG_MODULUS = 15.0e8  # [Pa] Stable detachable-truss test setting
-    DAMPING_RATIO = 5.0      # High damping to reduce oscillations
+    YOUNG_MODULUS = 30.0e8  # [Pa] Stable detachable-truss test setting
+    DAMPING_RATIO = 7.0      # High damping to reduce oscillations
     # Inflated density to achieve ~5:1 mass ratio with attached tomato.
     # PhysX TGS solver becomes unstable when joint mass ratio exceeds ~10:1.
     # A 2mm pedicel at normal plant density weighs ~0.3g vs a 50g tomato (ratio ~160:1).
@@ -159,17 +159,24 @@ class TrussPhysicsConfig:
     # Real pedicels are much shorter than the visual-lab sample, so they need a
     # softer attachment drive for tomato weight to produce visible droop.
     PEDICEL_DRIVE_STIFFNESS_SCALE = 0.1
-    # Break force for detachable tomato joints. Keep this low while validating
-    # the detachment path; tune it only after the truss is stable.
-    # When disabled, tomatoes remain regular, unbreakable articulation links.
+    # Breakable detachment is opt-in. Full-plant contact/material tests keep
+    # tomatoes attached with unbreakable FixedJoints to avoid solver impulse
+    # spikes being interpreted as biological detachment.
     TOMATO_DETACHMENT_ENABLED = True
     # This is comfortably above the static weight of the generated tomatoes,
     # so gravity alone should not break the joint when detachment is enabled.
-    TOMATO_DETACHMENT_BREAK_FORCE_N = 6.0
+    TOMATO_DETACHMENT_BREAK_FORCE_N = 12.0
+    # Keep tomato bodies outside the articulation even when the FixedJoint is
+    # unbreakable, so tomato-tomato collision tests can run while articulation
+    # self-collisions remain disabled.
     TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION = True
     # When the fixed joint is excluded, keep tomatoes outside the articulation
-    # root and attach them as regular rigid bodies through the breakable joint.
+    # root and attach them as regular rigid bodies through the terminal joint.
     TOMATO_DETACHMENT_BODY_PARENT_PATH = "/World/TerminalBodies"
+    # Leave tomato-tomato contacts active for visual stability experiments.
+    # Set True to restore the previous behavior of filtering overlapping fruit
+    # pairs at initialization time.
+    FILTER_TERMINAL_BODY_PAIR_OVERLAPS = True
 
 
 # ==============================================================================

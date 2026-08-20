@@ -10,6 +10,7 @@ import math
 
 from pxr import Gf, UsdGeom, Vt
 
+from ..usd.materials import get_or_create_tomato_stem_material
 from .mesh import (
     _axis_color,
     _smoothstep,
@@ -54,6 +55,7 @@ def author_static_visual_axis(stage, axis: VisualAxisData) -> None:
     """Author the exact smooth tube as a static world-space mesh, with no UsdSkel."""
     UsdGeom.Xform.Define(stage, axis.visual_root_path)
     points, face_counts, face_indices, _, _ = build_axis_tube_data(axis)
+    material = get_or_create_tomato_stem_material(stage)
     author_plain_mesh(
         stage,
         f"{axis.visual_root_path}/StaticMesh",
@@ -61,6 +63,7 @@ def author_static_visual_axis(stage, axis: VisualAxisData) -> None:
         face_counts,
         face_indices,
         _axis_color(axis),
+        material=material,
     )
 
 
@@ -78,6 +81,7 @@ def author_rigid_visual_axis(stage, axis: VisualAxisData) -> None:
         for point in world_points
     ]
 
+    material = get_or_create_tomato_stem_material(stage)
     author_plain_mesh(
         stage,
         f"{axis.link_paths[0]}/VisualMesh",
@@ -85,6 +89,7 @@ def author_rigid_visual_axis(stage, axis: VisualAxisData) -> None:
         face_counts,
         face_indices,
         _axis_color(axis),
+        material=material,
     )
 
 
@@ -371,6 +376,7 @@ def author_segmented_visual_axis(
     """Author one organic rigid mesh per PhysX link, with no UsdSkel."""
     segment_count = 0
     tongue_count = 0
+    material = get_or_create_tomato_stem_material(stage)
 
     for link_index, link_path in enumerate(axis.link_paths):
         points, face_counts, face_indices, overlap = _build_segmented_link_mesh(
@@ -385,6 +391,7 @@ def author_segmented_visual_axis(
             face_counts,
             face_indices,
             _axis_color(axis),
+            material=material,
         )
         segment_count += 1
         if overlap > 0.0:

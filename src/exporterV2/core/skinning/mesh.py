@@ -7,6 +7,7 @@ from typing import Iterable, List
 from pxr import Gf, Sdf, UsdGeom, UsdShade, UsdSkel, Vt
 
 from ..tree_config import PlantColors
+from ..usd.materials import get_or_create_tomato_stem_material
 from .model import VisualAxisData
 from .schema import (
     ANIMATION_REL,
@@ -515,6 +516,8 @@ def author_visual_axis(stage, axis: VisualAxisData) -> None:
     mesh.CreateDisplayColorAttr().Set(Vt.Vec3fArray([
         Gf.Vec3f(*_axis_color(axis))
     ]))
+    stem_material = get_or_create_tomato_stem_material(stage)
+    UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(stem_material)
 
     binding = UsdSkel.BindingAPI.Apply(mesh.GetPrim())
     binding.CreateSkeletonRel().SetTargets([skeleton.GetPrim().GetPath()])
