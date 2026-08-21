@@ -1,0 +1,1 @@
+java -Xverify:none -jar /usr/share/GroIMP/core.jar --headless -a api
