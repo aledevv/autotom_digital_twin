@@ -1,11 +1,9 @@
-# GroIMP Inspector, Turtle Resolver, and Migration Validator
+# GroIMP Inspector, Turtle Resolver, Migration Validator, and Canonical Extractor
 
 The inspector reads the native GroIMP ProjectGraph before any USD- or
 PhysX-specific adaptation. The shared turtle resolver reconstructs full world
-frames from that snapshot. These are the completed first two migration
-milestones; the
-JSON report is diagnostic data and is **not** the future canonical
-`PlantState` format.
+frames from that snapshot. The inspection JSON remains diagnostic data and is
+distinct from the completed canonical `plant_state/1.0` format.
 
 ## Run
 
@@ -152,9 +150,37 @@ that cannot be isolated uniquely are reported as `ambiguous`.
 When live tests are not enabled, or the local GroIMP server cannot be reached,
 they skip with an explicit reason.
 
+## Canonical PlantState
+
+Phases E and F expose a single-plant, exporter-independent state and strict
+offline JSON replay:
+
+```bash
+uv run python -m groimp_bridge.extractor \
+  --project model/project_bridge.gsz \
+  --steps 80 \
+  --plant-id 1 \
+  --output /tmp/plant_state_day_80.json
+```
+
+```python
+from groimp_bridge import extract_plant_state, extract_project_state, extract_workbench_state
+from plant_state import load_plant_state, save_plant_state
+```
+
+`extract_project_state` owns an isolated workbench lifecycle.
+`extract_workbench_state` reads but never closes a caller-owned live workbench.
+The pure `extract_plant_state` adapter consumes an existing snapshot and turtle
+resolution. All three produce the same `PlantState` domain model.
+
+Plant selection uses the native subtree rather than `plant_number` alone. This
+excludes the zero-organ `PlantBase`/sphere marker present at day 80 while
+retaining the 251-node biological subtree and its already-resolved world
+placement. See `src/plant_state/README.md` for the canonical wire contract.
+
 ## Deliberate limitations
 
-Leaf-blade surface meshes remain in the OBJ artifacts, but Phase C validates
-their supporting axes rather than reverse-engineering the external leaflet
-asset. Renderer-cache offsets remain explicit. `PlantState`, canonical JSON,
-exporter migration, and Isaac Sim integration remain future phases.
+Leaf-blade surface meshes remain in the OBJ artifacts, but only their validated
+supporting axes are canonicalized. Renderer-cache offsets remain explicit and
+are not applied to `PlantState`. The legacy CSV adapter, exporter migrations,
+and Isaac Sim integration remain future phases.

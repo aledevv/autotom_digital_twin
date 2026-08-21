@@ -272,11 +272,72 @@ identical before and after, and no workbench remained open.
 Remaining limits are the renderer-cache translation recorded above, ambiguous
 geometric separation in overlapping subscenes, and validation of leaflet
 surface assets beyond their supporting axes. `groimp_inspection/1.0` remains
-unchanged. `PlantState`, canonical JSON, CSV compatibility adapter, exporter
-migration, and Isaac Sim are still pending.
+unchanged.
 
-**Next official task:** Phase E — build the canonical extractor and shared
-`PlantState` only from the now-validated native graph and geometry contracts.
+### Phase E — Build the canonical extractor: `COMPLETED`
+
+Implemented on 2026-08-21:
+
+* exporter-independent `plant_state` package with `PlantState`, native graph
+  nodes/edges, typed organ records, turtle operations, local/world poses,
+  canonical axis/sphere primitives, provenance, units, and diagnostics;
+* public `extract_plant_state(...)`, `extract_workbench_state(...)`, and
+  lifecycle-safe `extract_project_state(...)` APIs;
+* deterministic single-plant subtree selection based on biological descendants
+  rather than `plant_number` alone;
+* explicit exclusion of the zero-organ `PlantBase`/sphere marker observed at
+  day 80, while retaining the true plant's resolved world placement;
+* reuse of the Phase B resolver and Phase C RGG geometry reconstruction without
+  duplicated turtle or production logic;
+* strict validation for references, topology, cycles, parents, homogeneous
+  frames, local/world consistency, dimensions, organ arrays, and primitive
+  coverage.
+
+The canonical layer contains no GroIMP client, USD, PhysX, exporter, or Isaac
+Sim concepts. Native IDs are guaranteed only within one GroIMP workbench and
+that scope is recorded in metadata/diagnostics. `Internode` records retain both
+the declared biological length and the anchor-calibrated effective length.
+Leaves and fruit modules retain all validated supporting axes and fruit spheres;
+leaflet surface assets remain explicitly outside schema 1.0.
+
+### Phase F — JSON persistence: `COMPLETED`
+
+Implemented on 2026-08-21:
+
+* strict `plant_state/1.0` JSON schema and public `save_plant_state(...)`,
+  `load_plant_state(...)`, `validate_plant_state(...)`, and
+  `plant_states_equivalent(...)` APIs;
+* deterministic sorted serialization, final newline, `NaN`/infinity rejection,
+  exact schema-version handling, and rejection of unknown structural fields;
+* `uv run python -m groimp_bridge.extractor` CLI with explicit output path and
+  isolated source-project execution;
+* serverless JSON reload and exact round-trip coverage.
+
+Final validation results:
+
+```text
+Offline Phase A-F bridge suite: 45 passed
+Live Phase A-F bridge suite:    11 passed
+
+day 1:  26 canonical nodes, 25 edges, 3 Internode, 5 Leaf, 20 axes
+day 25: 152 canonical nodes, 151 edges, 15 Internode, 17 Leaf,
+        1 Truss, 1 Fruits, 130 axes, 1 fruit sphere
+day 80: 251 canonical nodes, 250 edges, 26 Internode, 27 Leaf,
+        9 Truss, 9 Fruits, 347 axes, 72 fruit spheres
+```
+
+All three live states passed native-frame/primitive equivalence and
+`GroIMP -> PlantState -> JSON -> PlantState` equality. The day-1 three known
+internode lengths remained unchanged. GSZ, model inputs, and existing outputs
+had identical SHA-256 manifests before and after live extraction; lifecycle
+contexts left no temporary workbench open. No Isaac Sim process was used.
+
+Remaining limits are leaflet surface assets, renderer-cache offsets retained
+only in Phase C diagnostics, and lack of cross-run identity guarantees for
+native GroIMP node IDs. ExporterV1/V2 and the legacy CSV path remain unchanged.
+
+**Next official task:** Phase G — implement the temporary legacy CSV adapter
+into `PlantState`, solely for backwards compatibility and regression replay.
 
 ---
 
@@ -746,7 +807,7 @@ Unknown or likely-bug differences require investigation.
 
 ---
 
-# 12. Phase E — Build the canonical extractor
+# 12. Phase E — Build the canonical extractor (`COMPLETED`)
 
 After the ground-truth tests succeed, implement a shared extraction package.
 
@@ -781,7 +842,7 @@ Do not place USD or PhysX concepts in the canonical extraction layer.
 
 ---
 
-# 13. Phase F — JSON persistence
+# 13. Phase F — JSON persistence (`COMPLETED`)
 
 Every successfully extracted state should optionally be serialized as something similar to:
 
@@ -1521,28 +1582,16 @@ This refactor is complete only when:
 
 Each phase must produce a small testable artifact.
 
-Phases A and B have now been completed. The next implementation task must
+Phases A through F have now been completed. The next implementation task must
 remain narrow:
 
 ```text
 NEXT TASK:
-Validate reconstructed organ geometry against GroIMP in Phase C.
+Implement the temporary legacy CSV adapter in Phase G.
 ```
 
-It should use the completed inspector and turtle resolver to compare:
-
-```text
-Internode start/end points.
-Leaf petiole and rachis landmarks.
-Branch attachment points.
-Fruit and truss component positions.
-Debug primitives or scene exports against GroIMP rendering.
-```
-
-Only after those geometric comparisons pass should the canonical JSON schema
-be finalized.
-
-The existing V1/V2 code should initially be treated as **reference material rather than code to rewrite**.
+It should map historical CSV rows into the existing `plant_state/1.0` domain
+model without weakening the native schema or modifying either exporter yet.
 
 ---
 

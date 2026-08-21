@@ -99,3 +99,11 @@ LIKELY_BUG
 
 Its status becomes `investigation_required` whenever an unknown or likely bug
 remains; explained legacy and physics adaptations are non-blocking.
+
+## Canonical PlantState
+
+`plant_state/1.0` is a separate domain schema, not a revision of any diagnostic
+report above. It retains a single selected plant subtree, typed organs, turtle
+operations, local/world poses, and canonical axis/sphere primitives. It can be
+loaded without GroIMP. The full contract and provenance rules are documented
+in `src/plant_state/README.md`.
