@@ -12,7 +12,12 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--usd", type=Path, required=True)
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--smoke-frames", type=int, default=10)
-    return parser.parse_args()
+    args, kit_args = parser.parse_known_args()
+    # ``--usd`` is also a native Kit flag. If it reaches SimulationApp, Kit
+    # opens the stage during bootstrap and this loader opens it a second time;
+    # in GUI mode that duplicate open can immediately end the app loop.
+    sys.argv = [sys.argv[0], *kit_args]
+    return args
 
 
 def main() -> int:
@@ -35,12 +40,20 @@ def main() -> int:
             return 1
         while context.is_stage_loading():
             app.update()
+        # Let Kit process the stage-open/window events before querying
+        # ``is_running``. Without this first rendered update Isaac Sim 4.5 can
+        # still report the pre-open stopped state and exit the GUI loop.
+        app.update()
         print(f"[OK] Isaac Sim opened static V1 stage: {usd_path}", flush=True)
         if args.headless:
             for _ in range(max(args.smoke_frames, 1)):
                 app.update()
         else:
-            while app.is_running():
+            # SimulationApp.is_running() also requires get_stage() to be
+            # non-null. Isaac Sim 4.5 briefly clears it while replacing the
+            # bootstrap stage, which used to terminate this GUI loop. Follow
+            # the actual Kit window lifecycle instead.
+            while app.app.is_running() and not app.is_exiting():
                 app.update()
         return 0
     finally:

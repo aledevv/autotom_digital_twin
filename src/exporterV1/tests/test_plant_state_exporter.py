@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import replace
 import json
+import sys
 
 import pytest
 from pxr import Usd
@@ -13,6 +14,7 @@ from exporterV1.adapter import build_v1_render_view
 from exporterV1.audit import audit_v1_stage, manifest_path_for
 from exporterV1.cli import main
 from exporterV1.usd_exporter import export_plant_usd
+from exporterV1.isaac_app import _arguments
 from groimp_bridge.extractor import extract_plant_state
 from groimp_bridge.tests.test_offline_extractor import _snapshot
 from groimp_bridge.turtle import resolve_turtle
@@ -157,3 +159,16 @@ def test_render_view_never_filters_zero_area_leaf(canonical_state):
     assert Counter(item.organ.organ_type for item in view.organs)["Leaf"] == 1
     assert view.diagnostics["zero_area_leaf_node_ids"] == [leaf.node_id]
     assert view.diagnostics["filtering_applied"] is False
+
+
+def test_isaac_arguments_are_removed_before_simulation_app(monkeypatch, tmp_path):
+    stage = tmp_path / "plant.usda"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["isaac_app.py", "--usd", str(stage), "--headless", "--/kit/test=true"],
+    )
+    args = _arguments()
+    assert args.usd == stage
+    assert args.headless is True
+    assert sys.argv == ["isaac_app.py", "--/kit/test=true"]
