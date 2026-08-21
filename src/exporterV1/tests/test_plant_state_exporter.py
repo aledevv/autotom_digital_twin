@@ -14,7 +14,7 @@ from exporterV1.adapter import build_v1_render_view
 from exporterV1.audit import audit_v1_stage, manifest_path_for
 from exporterV1.cli import main
 from exporterV1.usd_exporter import export_plant_usd
-from exporterV1.isaac_app import _arguments
+from exporterV1.isaac_app import _arguments, _open_stage_and_wait
 from groimp_bridge.extractor import extract_plant_state
 from groimp_bridge.tests.test_offline_extractor import _snapshot
 from groimp_bridge.turtle import resolve_turtle
@@ -172,3 +172,42 @@ def test_isaac_arguments_are_removed_before_simulation_app(monkeypatch, tmp_path
     assert args.usd == stage
     assert args.headless is True
     assert sys.argv == ["isaac_app.py", "--/kit/test=true"]
+
+
+def test_isaac_45_none_open_result_is_not_treated_as_failure(tmp_path):
+    destination = (tmp_path / "plant.usda").resolve()
+
+    class Layer:
+        realPath = str(destination)
+
+    class Stage:
+        def GetRootLayer(self):
+            return Layer()
+
+    class Context:
+        opened = None
+
+        def open_stage(self, path):
+            self.opened = path
+            return None
+
+        def get_stage(self):
+            return Stage()
+
+    class App:
+        updates = 0
+
+        def update(self):
+            self.updates += 1
+
+    loading = iter((True, False))
+    context, app = Context(), App()
+    opened = _open_stage_and_wait(
+        context,
+        app,
+        destination,
+        lambda: next(loading),
+    )
+    assert opened == destination
+    assert context.opened == str(destination)
+    assert app.updates == 2
