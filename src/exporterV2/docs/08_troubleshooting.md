@@ -38,4 +38,4 @@ Inspect `FilteredPairs` on the tomato body. Detachable tomatoes should filter co
 
 ## Demo Paths
 
-Visual and Isaac demo scripts now live under `src/exporterV2/demos/`. Root runner scripts are intentionally limited to `run_main.sh` and `run_mainV2.sh`.
+Visual and Isaac demo scripts now live under `src/exporterV2/demos/`. Root runner scripts are intentionally limited to `run_mainV1.sh` and `run_mainV2.sh`.

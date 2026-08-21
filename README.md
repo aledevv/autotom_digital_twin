@@ -137,7 +137,7 @@ rationale, terminal leaf junctions, and module ownership.
 │   └── gallery/                    # V2.2 screenshots used in the README
 ├── data/                           # GroIMP input data and preserved datasets
 ├── output/                         # Generated day outputs
-├── run_main.sh                     # Canonical static V1 + Isaac runner
+├── run_mainV1.sh                   # Canonical static V1 + Isaac runner
 ├── run_mainV2.sh                   # Active V2.2 runner
 └── src/
     ├── exporterV1/                 # Static baseline exporter
@@ -183,7 +183,7 @@ interactively:
 
 ```bash
 uv run python -m exporterV1 --day 25
-./run_main.sh --day 25
+./run_mainV1.sh --day 25 --isaacsim
 ```
 
 V1 reads `data/plant_states/plant_state_day_N.json`, never contacts GroIMP and
@@ -219,10 +219,10 @@ For the continuous UsdSkel reference mode:
 Diagnostic visual modes `static` and `rigid-single` are also available for
 isolating rendering/skinning behavior.
 
-Use V1 only for the legacy static baseline:
+Use V1 for the canonical static baseline:
 
 ```bash
-./run_main.sh
+./run_mainV1.sh --day 25 --isaacsim
 ```
 
 Experiment-specific runners live beside their experiments, for example

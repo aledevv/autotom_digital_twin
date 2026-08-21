@@ -31,12 +31,13 @@ uv run python -m exporterV1 \
 Open the generated static stage interactively in Isaac Sim:
 
 ```bash
-./run_main.sh --day 25
+./run_mainV1.sh --day 25 --isaacsim
 ```
 
-`run_main.sh` accepts `--plant-id`, `--input`, `--output`, `--generate-only`
-and `--headless`. Headless mode opens the stage for a short smoke test and
-then exits; GUI mode remains interactive until the Isaac Sim window closes.
+`run_mainV1.sh` generates only by default. Add `--isaacsim` to open the stage.
+It also accepts `--plant-id`, `--input`, `--output`, `--generate-only` and
+`--headless`. Headless mode requires `--isaacsim`, opens the stage for a short
+smoke test and exits; GUI mode remains interactive until the window closes.
 
 If the canonical JSON is missing, prepare it explicitly while GroIMP is
 available:

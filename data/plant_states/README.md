@@ -17,4 +17,4 @@ uv run python -m groimp_bridge.extractor \
 ```
 
 Once generated, the JSON contains everything ExporterV1 needs. Neither
-`python -m exporterV1` nor `run_main.sh` contacts GroIMP or falls back to CSV.
+`python -m exporterV1` nor `run_mainV1.sh` contacts GroIMP or falls back to CSV.

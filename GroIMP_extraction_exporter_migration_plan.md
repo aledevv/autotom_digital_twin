@@ -359,8 +359,9 @@ Implemented on 2026-08-21:
   a second visual with identical class, exact world pose and exact visual
   geometry records `autotom:geometryDuplicateOf` and does not duplicate the
   geometry. Near overlaps and intersections are never collapsed;
-* `uv run python -m exporterV1 --day N` serverless CLI and `run_main.sh` with
-  `--plant-id`, `--input`, `--output`, `--generate-only`, and `--headless`;
+* `uv run python -m exporterV1 --day N` serverless CLI and `run_mainV1.sh` with
+  `--isaacsim`, `--plant-id`, `--input`, `--output`, `--generate-only`, and
+  `--headless`;
 * static Isaac loader that stays interactive in GUI mode and performs a finite
   stage-open smoke test in headless mode.
 
@@ -404,7 +405,7 @@ RUN_GROIMP_TESTS=1 RUN_GROIMP_SLOW_TESTS=1 \
 uv run pytest src/groimp_bridge/tests src/exporterV1/tests -q
 # 60 passed
 
-./run_main.sh --day 1 --headless
+./run_mainV1.sh --day 1 --isaacsim --headless
 # static stage opened in Isaac Sim; exit code 0
 ```
 

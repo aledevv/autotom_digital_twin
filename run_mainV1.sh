@@ -8,15 +8,16 @@ DAY=""
 PLANT_ID="1"
 INPUT=""
 OUTPUT=""
-GENERATE_ONLY="false"
+START_ISAACSIM="false"
 HEADLESS="false"
 
 usage() {
-  echo "Usage: $0 --day N [--plant-id N] [--input PATH] [--output PATH] [--generate-only] [--headless]"
+  echo "Usage: $0 --day N [--isaacsim] [--plant-id N] [--input PATH] [--output PATH] [--headless]"
   echo
-  echo "Generate V1 from plant_state/1.0, then open the static stage in Isaac Sim."
-  echo "--generate-only generates USDA and its audit manifest without starting Isaac Sim."
-  echo "--headless starts Isaac Sim for a short stage-loading smoke test."
+  echo "Generate static V1 USDA from plant_state/1.0."
+  echo "--isaacsim opens the generated stage and remains interactive until Isaac Sim closes."
+  echo "--headless requires --isaacsim and performs a short stage-loading smoke test."
+  echo "--generate-only remains accepted as a compatibility no-op (generation is the default)."
 }
 
 while [[ $# -gt 0 ]]; do
@@ -41,8 +42,11 @@ while [[ $# -gt 0 ]]; do
       OUTPUT="$2"
       shift 2
       ;;
+    --isaacsim)
+      START_ISAACSIM="true"
+      shift
+      ;;
     --generate-only)
-      GENERATE_ONLY="true"
       shift
       ;;
     --headless)
@@ -68,6 +72,10 @@ if [[ -z "$DAY" ]]; then
 fi
 if [[ ! "$DAY" =~ ^[1-9][0-9]*$ ]] || [[ ! "$PLANT_ID" =~ ^[1-9][0-9]*$ ]]; then
   echo "--day and --plant-id must be positive integers" >&2
+  exit 2
+fi
+if [[ "$HEADLESS" == "true" && "$START_ISAACSIM" != "true" ]]; then
+  echo "--headless requires --isaacsim" >&2
   exit 2
 fi
 
@@ -98,7 +106,7 @@ GENERATOR=(uv run python -m exporterV1 --day "$DAY" --plant-id "$PLANT_ID" --inp
   "${GENERATOR[@]}"
 )
 
-if [[ "$GENERATE_ONLY" == "true" ]]; then
+if [[ "$START_ISAACSIM" != "true" ]]; then
   exit 0
 fi
 

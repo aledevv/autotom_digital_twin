@@ -42,7 +42,7 @@ Manual visual assets live in `src/exporterV2/demos/` and are not part of pytest 
 
 Root contains only:
 
-- `run_main.sh`
+- `run_mainV1.sh`
 - `run_mainV2.sh`
 
 Experiment-specific runners live beside their experiments, for example `src/experiments/cantilever_test/run_cantilever_test.sh` and `src/experiments/three_point_test/run_threepoint_test.sh`.
