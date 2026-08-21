@@ -133,6 +133,54 @@ class GroIMPClient:
         payload = request.read()
         return payload if isinstance(payload, dict) else {}
 
+    @staticmethod
+    def export_subscene_obj(workbench: Any, node_id: int) -> bytes:
+        """Export one interpreted GroIMP subscene as OBJ bytes.
+
+        GroIMP's endpoint returns a binary response even though OBJ itself is
+        text.  Keeping the payload in memory avoids source-project writes and
+        lets callers decide whether a diagnostic mesh should be persisted.
+        """
+
+        try:
+            request = workbench.exportSubScene("obj", int(node_id)).run()
+        except Exception as exc:
+            raise GroIMPConnectionError(
+                f"Failed while exporting OBJ subscene for node {node_id}: {exc}"
+            ) from exc
+        status = getattr(request.result, "status_code", None)
+        if status != 200:
+            raise GroIMPRequestError(
+                f"GroIMP OBJ subscene export for node {node_id} failed "
+                f"(HTTP {status}): {_response_excerpt(request.result)}"
+            )
+        payload = request.read()
+        if not isinstance(payload, (bytes, bytearray)):
+            raise GroIMPRequestError(
+                f"GroIMP OBJ subscene export for node {node_id} returned "
+                "a non-binary payload"
+            )
+        return bytes(payload)
+
+    @staticmethod
+    def export_scene_obj(workbench: Any) -> bytes:
+        """Export the full interpreted scene, also forcing renderer refresh."""
+
+        try:
+            request = workbench.export3d("obj").run()
+        except Exception as exc:
+            raise GroIMPConnectionError(f"Failed while exporting the OBJ scene: {exc}") from exc
+        status = getattr(request.result, "status_code", None)
+        if status != 200:
+            raise GroIMPRequestError(
+                f"GroIMP OBJ scene export failed (HTTP {status}): "
+                f"{_response_excerpt(request.result)}"
+            )
+        payload = request.read()
+        if not isinstance(payload, (bytes, bytearray)):
+            raise GroIMPRequestError("GroIMP OBJ scene export returned a non-binary payload")
+        return bytes(payload)
+
 
 def run_json_call(call: Any, *, operation: str) -> dict[str, Any]:
     """Execute one GroPy JSON call and normalize request errors."""

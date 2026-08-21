@@ -916,6 +916,7 @@ def parse_csv_to_branches(
     profile: dict = None,
     include_terminal_bodies: bool = False,
     save_json: bool = True,
+    csv_path: str | Path | None = None,
 ) -> Tuple[List[Dict], str]:
     """
     Complete pipeline: CSV → internodes + leaves → BRANCHES → JSON.
@@ -926,6 +927,8 @@ def parse_csv_to_branches(
         profile: Cultivar profile dict (default: None = load tomato default)
         include_terminal_bodies: If True, return terminal rigid body definitions
         save_json: If True, save the parsed configuration JSON
+        csv_path: Optional explicit CSV input. The legacy repository path is
+            retained when omitted.
     
     Returns:
         Tuple (branches_list, json_path) by default, or
@@ -968,8 +971,17 @@ def parse_csv_to_branches(
     script_dir = Path(__file__).parent
     # From adapters/groimp_csv/ → adapters/ → exporterV2/ → src/ → project_root
     project_root = script_dir.parent.parent.parent.parent
-    csv_path = (project_root / "data" / "simulation_output" / "dynamic_output" / 
-                "graphs" / f"graph_day_{day}.csv")
+    if csv_path is None:
+        csv_path = (
+            project_root
+            / "data"
+            / "simulation_output"
+            / "dynamic_output"
+            / "graphs"
+            / f"graph_day_{day}.csv"
+        )
+    else:
+        csv_path = Path(csv_path).expanduser().resolve()
     output_dir = project_root / "output"
     dataframe = _read_csv_frame(str(csv_path))
     

@@ -72,3 +72,30 @@ The Phase B `TurtleResolution` is deliberately not embedded into this report,
 so `groimp_inspection/1.0` remains the raw diagnostic boundary. Call
 `resolve_turtle(report.snapshot)` to obtain local-to-world matrices, incoming
 and outgoing node frames, endpoints, traversal order, and resolver diagnostics.
+
+## Phase C geometry report
+
+`groimp_geometry_validation/1.0` is separate from the raw inspection schema.
+It contains one check per selected reconstructed axis or sphere, with expected
+identity, measured OBJ geometry, absolute errors, and one of `passed`,
+`ambiguous`, `failed`, or `not_recoverable`. Diagnostics record the public
+tolerances, OBJ axis mapping, selected nodes, and translation-only
+renderer-cache offsets.
+
+## Phase D comparison report
+
+`groimp_migration_comparison/1.0` compares native biological organs, graph CSV,
+actual V1 USD primitives, and V2 branches/terminal bodies. It stores counts,
+deterministic semantic matches, parent topology, per-field maximum errors,
+world endpoint/orientation differences, and one classification per difference:
+
+```text
+EXPECTED_IMPROVEMENT
+EXPECTED_SIMPLIFICATION
+PHYSICS_ADAPTATION
+UNKNOWN_DIFFERENCE
+LIKELY_BUG
+```
+
+Its status becomes `investigation_required` whenever an unknown or likely bug
+remains; explained legacy and physics adaptations are non-blocking.

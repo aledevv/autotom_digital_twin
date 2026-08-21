@@ -183,13 +183,100 @@ SHA-256 hashes remained unchanged. `groimp_inspection/1.0` remains the raw
 diagnostic report: resolved matrices are returned separately by
 `resolve_turtle(...)` and are not embedded into that schema.
 
-Still intentionally open: rendered primitive/mesh comparison, detailed leaf
-and fruit component geometry, and end-to-end visual validation against GroIMP.
-`PlantState`, ExporterV1/V2, CSV adapters, and Isaac Sim remain unchanged. All
-phases after Phase B remain pending.
+### Phase C — Validate against GroIMP: `COMPLETED`
 
-**Next official task:** Phase C — validate reconstructed organ geometry and
-debug primitives against GroIMP's rendered scene.
+Implemented on 2026-08-21:
+
+* public `build_rendered_geometry(...)`, `validate_rendered_geometry(...)`,
+  `ReconstructedGeometry`, `AxisPrimitive`, `SpherePrimitive`, `ObjMesh`, and
+  `GeometryValidationReport` APIs;
+* exact RGG-production reconstruction for main/lateral internodes, petioles,
+  leaf rachides, left/right petiolules, truss rachides, pedicels, and fruit
+  spheres;
+* GroIMP OBJ subscene export, parser, and documented axis conversion
+  `(x,y,z) OBJ -> (x,z,y) GroIMP`;
+* spatial endpoint/radius matching that does not depend on absent OBJ object
+  names or shared face indexes;
+* deterministic debug OBJ containing starts, endpoints, local axes, and
+  parent-axis connections;
+* versioned `groimp_geometry_validation/1.0` report with checks, tolerances,
+  measurements, ambiguity reasons, and diagnostics.
+
+Declared tolerances are `1e-6` for anchor positions, `1e-5` for directions,
+and `max(1e-5, 1e-3 * dimension)` for rendered endpoints and dimensions.
+Controlled live cylinder/sphere fixtures passed. Real-plant results were:
+
+```text
+day 1:  9 passed, 0 ambiguous, 0 failed, 0 not-recoverable
+day 25: 11 passed, 1 overlap-ambiguous, 0 failed, 0 not-recoverable
+day 80: 32 passed, 0 ambiguous, 0 failed, 0 not-recoverable
+```
+
+The validation exposed a GroIMP cache boundary analogous to Phase B: a mature
+organ's ProjectGraph anchor can lead its rendered subscene by one update. The
+report preserves the raw offset and applies only that per-organ translation
+before validating local direction, length, radius, and endpoints; it never
+rotates or rescales the prediction. The largest observed offset was
+`7.704e-4` GroIMP units on the young day-25 fruit module. Dense subscenes can
+also contain an axis with indistinguishable overlapping shells; this is
+reported as `ambiguous`, never silently accepted as a match.
+
+### Phase D — Compare new extraction with the current CSV: `COMPLETED`
+
+Implemented on 2026-08-21:
+
+* public `compare_representations(...)`, `MigrationComparisonReport`, and
+  `validate_project(...)` APIs;
+* `uv run python -m groimp_bridge.migration_validation` CLI;
+* versioned `groimp_migration_comparison/1.0` JSON plus deterministic Markdown
+  summary;
+* one isolated run feeding native GroIMP data, graph CSV wire data, an actual
+  V1 USDA stage, and V2 `BRANCHES`/terminal bodies without Isaac Sim;
+* deterministic duplicate matching, organ counts, biological parent topology,
+  scalar/array length and radius fields, local angles, V1 world orientation and
+  endpoint errors, and V2 geometry/physics adaptations;
+* explicit `EXPECTED_IMPROVEMENT`, `EXPECTED_SIMPLIFICATION`,
+  `PHYSICS_ADAPTATION`, `UNKNOWN_DIFFERENCE`, and `LIKELY_BUG` classifications.
+
+The checked GSZ exposes `Dynamic_Model` but not the newer checkout helper
+`exportPlantGraph`. The validator first redirects `PATH_OUTPUT` under `/tmp`;
+when that helper is absent it projects the same live native snapshot into the
+legacy CSV wire shape and records
+`same_run_native_projection_for_legacy_gsz`. This validation-only projection
+is not the future Phase G compatibility adapter.
+
+Days 1, 25, and 80 all generated V1 USD and V2 configuration successfully.
+Native and CSV biological counts/topology matched, all compared fields stayed
+within tolerance, and the final reports contained zero `UNKNOWN_DIFFERENCE`
+and zero `LIKELY_BUG`. Expected differences document V1 world-Z heuristics and
+same-rank USD path collisions, CSV omission of world transforms, and V2
+averaging/clamping/resampling for physics.
+
+Validation commands and final results:
+
+```bash
+uv run pytest src/groimp_bridge/tests -m "not groimp" -q
+# 39 passed
+
+RUN_GROIMP_TESTS=1 RUN_GROIMP_SLOW_TESTS=1 \
+uv run pytest src/groimp_bridge/tests -m groimp -q
+# 8 passed
+```
+
+The day-1 acceptance retained 51 nodes, 50 edges, 3 internodes, 5 leaves, and
+the three known lengths. Day 80 retained 301 nodes, 300 edges, 26 internodes,
+27 leaves, 9 trusses, and 9 fruit modules. Live tests fingerprint the GSZ and
+all files under `model/input/` and `model/output/`; SHA-256 manifests were
+identical before and after, and no workbench remained open.
+
+Remaining limits are the renderer-cache translation recorded above, ambiguous
+geometric separation in overlapping subscenes, and validation of leaflet
+surface assets beyond their supporting axes. `groimp_inspection/1.0` remains
+unchanged. `PlantState`, canonical JSON, CSV compatibility adapter, exporter
+migration, and Isaac Sim are still pending.
+
+**Next official task:** Phase E — build the canonical extractor and shared
+`PlantState` only from the now-validated native graph and geometry contracts.
 
 ---
 

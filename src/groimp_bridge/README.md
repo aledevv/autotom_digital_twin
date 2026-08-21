@@ -1,4 +1,4 @@
-# GroIMP Inspector and Turtle Resolver
+# GroIMP Inspector, Turtle Resolver, and Migration Validator
 
 The inspector reads the native GroIMP ProjectGraph before any USD- or
 PhysX-specific adaptation. The shared turtle resolver reconstructs full world
@@ -115,12 +115,46 @@ The day-80 case currently validates 301 nodes, 300 edges, 121 branch edges,
 and all 285 nodes carrying native GroIMP anchors are compared within an
 absolute tolerance of `1e-6` for position and head direction.
 
+## Rendered geometry and legacy comparison
+
+Phases C and D add an end-to-end command that uses one isolated workbench and
+writes all diagnostics to a caller-selected directory:
+
+```bash
+uv run python -m groimp_bridge.migration_validation \
+  --project model/project_bridge.gsz \
+  --steps 25 \
+  --output-dir /tmp/groimp_migration_day_25
+```
+
+The directory contains the raw inspection, graph CSV, generated V1 USDA, V2
+branch configuration, GroIMP OBJ subscenes, both versioned JSON reports, a
+Markdown summary, and a line-based debug OBJ. No Isaac Sim process is used.
+
+`build_rendered_geometry(...)` expands the tomato RGG productions into
+internodes, petioles, leaf rachides, petiolules, truss rachides, pedicels, and
+fruit spheres. OBJ coordinates are converted from `(x,y,z)` to GroIMP world
+`(x,z,y)`. Because GroIMP emits triangle-local indexes and no useful object
+groups, matching uses world axis, endpoint, and radius.
+
+The live GSZ exposes `Dynamic_Model` but not the newer `exportPlantGraph`
+helper found in the source checkout. In that case the validator creates a
+same-state projection in the legacy CSV wire shape and labels it
+`same_run_native_projection_for_legacy_gsz`. This is a Phase D diagnostic, not
+the future Phase G compatibility adapter.
+
+For mature growing organs, ProjectGraph anchors can lead the rendered-scene
+cache by one update. Validation records the raw offset, then applies only that
+per-organ translation before testing local directions, lengths, endpoints,
+and radii. It never rotates or rescales the prediction. Overlapped components
+that cannot be isolated uniquely are reported as `ambiguous`.
+
 When live tests are not enabled, or the local GroIMP server cannot be reached,
 they skip with an explicit reason.
 
 ## Deliberate limitations
 
-The resolver establishes organ-level turtle anchors and internode endpoints. It
-does not yet validate rendered leaflets, fruit components, or meshes against a
-GroIMP scene export; that belongs to migration Phase C. `PlantState`, Exporter
-V1/V2, their CSV adapters, and Isaac Sim integration remain unchanged.
+Leaf-blade surface meshes remain in the OBJ artifacts, but Phase C validates
+their supporting axes rather than reverse-engineering the external leaflet
+asset. Renderer-cache offsets remain explicit. `PlantState`, canonical JSON,
+exporter migration, and Isaac Sim integration remain future phases.

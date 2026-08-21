@@ -112,6 +112,11 @@ class _FakeWorkbench:
         self.closed = True
         return _FakeCall({})
 
+    def exportSubScene(self, extension, nodeid):
+        assert extension == "obj"
+        assert nodeid == 42
+        return _FakeCall(b"v 0 0 0\n")
+
 
 class _FakeLink:
     def __init__(self, workbench):
@@ -135,6 +140,12 @@ def test_client_closes_workbench_when_consumer_raises():
 
     assert workbench.closed is True
     assert link.opened_path == "project.gsz"
+
+
+def test_client_exports_subscene_as_in_memory_bytes():
+    workbench = _FakeWorkbench()
+
+    assert GroIMPClient.export_subscene_obj(workbench, 42) == b"v 0 0 0\n"
 
 
 def test_isolated_project_copies_only_project_inputs_and_empty_outputs(tmp_path):
