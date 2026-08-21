@@ -338,9 +338,83 @@ native GroIMP node IDs. ExporterV1/V2 and the legacy CSV path remain unchanged.
 
 **Migration decision (2026-08-21):** Phase G is `SKIPPED BY DESIGN`. Historical
 CSV compatibility is not a product requirement; Git retains the working CSV
-pipeline for regression archaeology and rollback. The next official task is
-the combined Phase H+I migration and validation of ExporterV1 on
-`plant_state/1.0`.
+pipeline for regression archaeology and rollback. The exact checkpoint is
+commit `d7f5038` (`checkpoint: legacy CSV pipeline before PlantState
+migration`).
+
+### Phase H — ExporterV1 migration: `COMPLETED`
+
+Implemented on 2026-08-21:
+
+* canonical `PlantState -> V1-compatible rendering view -> V1 visuals` path;
+* removal of the legacy CSV loader, inferred CSV hierarchy, and CSV fallback
+  from normal ExporterV1 operation;
+* unique USD paths derived from canonical node IDs and a topology prim for
+  every canonical node, with parent ID, incoming edge kind and GroIMP node ID;
+* one organ prim per canonical organ; internode, compound-leaf and fruit-module
+  visuals retain the established V1 style;
+* `PlantBase`, `Truss` and `Meristem` remain explicit metadata/topology prims
+  without invented geometry;
+* conservative exact-overlap handling: all canonical organ prims remain, but
+  a second visual with identical class, exact world pose and exact visual
+  geometry records `autotom:geometryDuplicateOf` and does not duplicate the
+  geometry. Near overlaps and intersections are never collapsed;
+* `uv run python -m exporterV1 --day N` serverless CLI and `run_main.sh` with
+  `--plant-id`, `--input`, `--output`, `--generate-only`, and `--headless`;
+* static Isaac loader that stays interactive in GUI mode and performs a finite
+  stage-open smoke test in headless mode.
+
+Default serverless inputs are committed under `data/plant_states/` for days 1,
+25 and 80. The exporter does not contact GroIMP and fails before Isaac startup
+when the requested JSON is absent or its day/plant metadata do not match.
+
+### Phase I — V1 before/after validation: `COMPLETED`
+
+The deterministic `exporter_v1_manifest/1.0` sidecar audits PlantState organ
+counts, USD organ prims, expected/created visuals, topology parentage, node
+coverage, unique paths, non-visual organs and exact-overlap decisions.
+
+Real-plant results:
+
+```text
+day 1:  3 Internode, 5 Leaf; all counts passed
+day 25: 15 Internode, 17 Leaf, 1 Truss, 1 Fruits, 1 fruit sphere; all passed
+day 80: 26 Internode, 27 Leaf, 9 Truss, 9 Fruits, 72 fruit spheres; all passed
+
+path collisions:                  0
+missing supported organ prims:    0
+unexplained count differences:    0
+exact coincident visual pairs:    0 on days 1/25/80
+```
+
+Legacy/new V1 world bounding-box heights were `0.053735/0.053735 m` (day 1),
+`0.188952/0.183726 m` (day 25), and `0.296614/0.290814 m` (day 80). The mature
+height differences are approximately 2–3%; the new stage also preserves the
+GroIMP world placement instead of relocating the plant to the legacy origin.
+This comparison validates overall scale and placement, not graphical parity
+with GroIMP: leaf, truss and fruit styling intentionally remains V1.
+
+Validation commands and results:
+
+```bash
+uv run pytest src/groimp_bridge/tests src/exporterV1/tests -m "not groimp" -q
+# 49 passed, 11 deselected
+
+RUN_GROIMP_TESTS=1 RUN_GROIMP_SLOW_TESTS=1 \
+uv run pytest src/groimp_bridge/tests src/exporterV1/tests -q
+# 60 passed
+
+./run_main.sh --day 1 --headless
+# static stage opened in Isaac Sim; exit code 0
+```
+
+The live tests fingerprint the source project, inputs and original outputs;
+the model tree remained byte-for-byte unchanged and no source-model Git diff
+was produced. Workbench lifecycle tests passed. Phase J is the next official
+task. V2 must keep complete visual coverage while budgeting physical joints:
+up to 220 no filtering, 220–230 warning/explicit aggregation review, and above
+230 explicit filtering or merging with canonical organ references retained on
+every aggregate physical link.
 
 ---
 
@@ -927,6 +1001,9 @@ Once the new GroIMP extraction, JSON round-trip, V1 migration, and V2 migration 
 
 # 15. Phase H — ExporterV1 migration first
 
+**Status (2026-08-21): `COMPLETED`.** See the implementation-status section
+for APIs, count manifests, live results and the serverless workflow.
+
 Migrate V1 before V2.
 
 V1 is useful as the geometric reference implementation because it does not contain the full PhysX complexity of V2.
@@ -975,6 +1052,10 @@ CSV → infer plant → infer angles → static USD
 ---
 
 # 16. Phase I — V1 before/after validation
+
+**Status (2026-08-21): `COMPLETED`.** Days 1, 25 and 80 passed canonical organ,
+geometry and topology audits; the legacy/new scale comparison and Isaac smoke
+results are recorded above.
 
 For representative days, generate:
 
@@ -1025,6 +1106,8 @@ Document that distinction.
 ---
 
 # 17. Phase J — ExporterV2 migration
+
+**Status: `NEXT TASK`.**
 
 Only after V1 correctly reproduces the canonical plant should V2 be migrated.
 
@@ -1102,6 +1185,19 @@ dynamic branch count
 D6 joint count
 filtered/merged organ count
 ```
+
+The Phase J decision thresholds are:
+
+```text
+predicted articulations <= 220: no physical filtering
+predicted articulations 221-230: warning and explicit aggregation review
+predicted articulations > 230: explicit filtering or merging required
+```
+
+Visual geometry must still represent every canonical organ. Every filtered or
+merged physical link must retain the IDs of all canonical organs represented
+by that link. Exact coincident visual duplicates may share one visual only when
+the decision is recorded, matching the conservative V1 policy.
 
 If restoring every organ causes excessive physics complexity, use controlled simplification.
 
@@ -1592,17 +1688,19 @@ This refactor is complete only when:
 
 Each phase must produce a small testable artifact.
 
-Phases A through F have now been completed. Phase G was deliberately skipped;
-the next implementation task is:
+Phases A through F and H through I have now been completed. Phase G was
+deliberately skipped; the next implementation task is:
 
 ```text
 NEXT TASK:
-Migrate and validate ExporterV1 on canonical PlantState (Phase H+I).
+Migrate ExporterV2 to canonical PlantState with explicit visual completeness,
+physical aggregation provenance, and the 220/230 articulation budget (Phase J).
 ```
 
-The migration must preserve one visible V1 organ group per supported canonical
-organ, retain the current V1 visual style, and remove CSV-derived identity and
-parent inference from normal operation.
+V2 must preserve all canonical visual organs. Physical filtering or merging is
+forbidden at or below 220 predicted articulations, requires warning and review
+between 220 and 230, and is mandatory above 230. Every aggregate physical link
+must retain references to all represented canonical organ IDs.
 
 ---
 

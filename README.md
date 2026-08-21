@@ -15,9 +15,10 @@ reporting.
 
 The central research goal is to preserve the organ-level topology produced by
 the plant model while making the result usable in an interactive simulator:
-stems, leaves, trusses, pedicels, and tomatoes are reconstructed from CSV graph
-data, assigned USD geometry and materials, and optionally equipped with
-articulated PhysX dynamics.
+stems, leaves, trusses, pedicels, and tomatoes are assigned USD geometry and
+materials and optionally equipped with articulated PhysX dynamics. Static V1
+now consumes canonical `plant_state/1.0`; V2 remains on its CSV adapter until
+the planned Phase J migration.
 
 ## Visual Comparison
 
@@ -30,7 +31,7 @@ and fruits.
 
 | Exporter | Role | Main capabilities |
 | --- | --- | --- |
-| V1, `src/exporterV1` | Legacy baseline | Static USD reconstruction, colored geometry, simple inspection pipeline |
+| V1, `src/exporterV1` | Canonical static baseline | `plant_state/1.0`, complete organ/topology manifest, colored static geometry |
 | V2.2, `src/exporterV2` | Active pipeline | CSV-derived articulated plant, organic branch visuals, 3D compound leaves, physical trusses, detachable tomatoes, PBR organ materials, runtime PhysX settings, optimizer |
 
 ### Exporter V2.0 Demo
@@ -136,7 +137,7 @@ rationale, terminal leaf junctions, and module ownership.
 │   └── gallery/                    # V2.2 screenshots used in the README
 ├── data/                           # GroIMP input data and preserved datasets
 ├── output/                         # Generated day outputs
-├── run_main.sh                     # Legacy V1 runner
+├── run_main.sh                     # Canonical static V1 + Isaac runner
 ├── run_mainV2.sh                   # Active V2.2 runner
 └── src/
     ├── exporterV1/                 # Static baseline exporter
@@ -176,6 +177,18 @@ Exporter V2.2 is organized around reusable layers:
 | Runtime | Isaac Sim scene settings, GPU dynamics, solver iterations | Done |
 
 ## Running
+
+Generate canonical static V1 without Isaac Sim, or open the same stage
+interactively:
+
+```bash
+uv run python -m exporterV1 --day 25
+./run_main.sh --day 25
+```
+
+V1 reads `data/plant_states/plant_state_day_N.json`, never contacts GroIMP and
+has no CSV fallback. See `src/exporterV1/README.md` for custom paths, extraction
+of new snapshots, headless smoke tests and the completeness manifest.
 
 Use V2.2 for current work. The skinned branch backend and realtime segmented
 organic visuals are the current defaults:

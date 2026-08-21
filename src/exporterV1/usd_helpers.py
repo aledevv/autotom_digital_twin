@@ -2,14 +2,13 @@ import math
 import numpy as np
 from pxr import Usd, UsdGeom, UsdPhysics, Gf, Sdf
 
-from .models import LeafNode
 from .constants import (
     PHYLLOTAXIS, JOINT_MAX_ANGLE_DEG, JOINT_DAMPING
 )
 
 # Optional override for lateral leaflet insertion angle (JUST FOR NICER LOOK, NOT FOR PHYSICS OR KINEMATICS)
 # If set to a float (e.g., 50.0), this angle will be used for all lateral leaflets.
-# If set to None, the exact angle from the CSV ('leaf_inclination_segments') will be used.
+# If None, use the canonical PlantState petiolule-inclination values.
 OVERRIDE_LEAF_INCLINATION: float | None = 50.0
 
 
@@ -124,7 +123,7 @@ def _make_leaf(stage, leaf_group: str, node, tip_z: float, materials: dict):
     """
     import math
 
-    # If the CSV provides an explicit orientation (non-zero), use it directly.
+    # If PlantState provides an explicit orientation (non-zero), use it directly.
     # Otherwise fall back to cumulative phyllotaxis (rank * 137.5°) to replicate
     # GroIMP's turtle-based RH rotation that is not captured in the export.
     if abs(node.ccw_orientation) > 1e-3:
@@ -180,7 +179,7 @@ def _make_leaf(stage, leaf_group: str, node, tip_z: float, materials: dict):
     n = max(node.blades_nr, 1)
     pairs = n - 1
 
-    # Extract parsed arrays from CSV
+    # Extract canonical leaf arrays from the rendering view.
     area_array = node.leaf_area_m2blades
     seg_len_array = node.leaf_segments_length
     incl_array = node.leaf_inclination_segments
@@ -504,4 +503,3 @@ def _make_leaf_joint(stage, joint_path: str,
         drive.GetStiffnessAttr().Set(stiffness)
         drive.GetDampingAttr().Set(damping)
         drive.GetTargetPositionAttr().Set(0.0)
-

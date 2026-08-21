@@ -1,358 +1,333 @@
-import math
+"""Static V1 renderer consuming canonical :mod:`plant_state` data."""
+
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+from typing import Any
+
 import numpy as np
-from pxr import Usd, UsdGeom, UsdPhysics, Gf, Sdf
+from pxr import Sdf, Usd, UsdGeom
 
-from .models import (
-    PlantSnapshot, OrganNode, InternodeNode, RootNode, LeafNode, FruitsNode
-)
+from plant_state import FruitsProperties, PlantState
 
-from .constants import (
-    INTERNODE_TRUSS_LENGTH_M,
-    INTERNODE_TRUSS_DIAMETER_M,
-    ANGLE_AMONG_SUBSEQUENT_FRUITS_DEG,
-    FRUIT_PAIRING, ROOT_SPHERE_RADIUS,
-    PETIOLE_LENGTH_M,
-    TRUSS_LENGTH, TRUSS_RADIUS, PHYLLOTAXIS,
-    JOINT_STIFFNESS_BASE, JOINT_STIFFNESS_TIP,
-    JOINT_DAMPING, JOINT_MAX_ANGLE_DEG, STEM_DENSITY_KG_M3,
-    RACHIS_SEG, PEDICEL_LEN, PEDICEL_R, INITIAL_TILT,
-    ENABLE_STEM_PHYSICS, ENABLE_FRUIT_PHYSICS, FRUIT_DENSITY_KG_M3,
-    ENABLE_LEAF_PHYSICS, LEAF_MASS_KG, LEAF_JOINT_STIFFNESS, LEAF_JOINT_DAMPING
-)
-
+from .adapter import V1OrganView, build_v1_render_view, legacy_leaf_view
+from .audit import V1AuditError, audit_v1_stage, manifest_path_for, save_v1_manifest
+from .constants import ROOT_SPHERE_RADIUS
 from .usd_helpers import (
-    OVERRIDE_LEAF_INCLINATION,
-    _translate, _mat_to_gf, _set_transform,
-    _make_cylinder, _make_sphere, _set_leaf_mesh_geometry, _make_leaf,
-    _align_z_to, _blade_transform,
-    _make_material, _bind_material,
-    _apply_rigid_body, _make_stem_joint,
-    _apply_rigid_body_to_leaf, _make_leaf_joint
+    _bind_material,
+    _make_leaf,
+    _make_material,
+    _make_sphere,
+    _set_transform,
 )
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Main exporter
-# ─────────────────────────────────────────────────────────────────────────────
 
-def export_plant_usd(snapshot: PlantSnapshot, output_path: str) -> None:
+def _token(value: str) -> str:
+    sanitized = re.sub(r"[^A-Za-z0-9_]", "_", value)
+    if not sanitized or sanitized[0].isdigit():
+        sanitized = "id_" + sanitized
+    return sanitized
 
-    # ── Stage setup ──────────────────────────────────────────────────────────
-    stage = Usd.Stage.CreateNew(output_path)
-    UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)  # set axis z for height
-    UsdGeom.SetStageMetersPerUnit(stage, 1.0)  # set meters as length unit
 
-    plant_path = f"/Plant_{snapshot.plant_id}"
-    plant_prim = UsdGeom.Xform.Define(stage, plant_path).GetPrim()
-    stage.SetDefaultPrim(plant_prim)
-    UsdPhysics.ArticulationRootAPI.Apply(plant_prim)
+def _matrix(value: Any) -> np.ndarray:
+    matrix = np.asarray(value, dtype=np.float64)
+    if matrix.shape != (4, 4):
+        raise ValueError("V1 transforms must be 4x4")
+    return matrix
 
-    stem_path  = f"{plant_path}/Stem"
-    roots_path = f"{plant_path}/Roots"
-    UsdGeom.Xform.Define(stage, stem_path)
-    UsdGeom.Xform.Define(stage, roots_path)
-    
-    # ── Materials ────────────────────────────────────────────────────────────────
-    mats_path = f"{plant_path}/Materials"
-    UsdGeom.Xform.Define(stage, mats_path)
 
-    mat_stem         = _make_material(stage, f"{mats_path}/Stem",         (0.45, 0.30, 0.10))  # brown
-    mat_root         = _make_material(stage, f"{mats_path}/Root",         (0.55, 0.35, 0.15))  # dark brown
-    mat_leaf         = _make_material(stage, f"{mats_path}/Leaf",         (0.15, 0.55, 0.10))  # green
-    mat_pedicel      = _make_material(stage, f"{mats_path}/Pedicel",      (0.20, 0.50, 0.10))  # dark green
-    mat_fruit_ripe   = _make_material(stage, f"{mats_path}/FruitRipe",    (0.90, 0.17, 0.10))  # ripe tomato red (from GroIMP spectra)
-    mat_fruit_unripe = _make_material(stage, f"{mats_path}/FruitUnripe",  (0.45, 0.58, 0.25))  # unripe green-yellowish (from GroIMP spectra)
-    
-    materials = {
-        "stem":         mat_stem,
-        "root":         mat_root,
-        "leaf":         mat_leaf,
-        "pedicel":      mat_pedicel,
-        "fruit_ripe":   mat_fruit_ripe,
-        "fruit_unripe": mat_fruit_unripe,
+def _centered_axis_matrix(frame: Any, length: float) -> np.ndarray:
+    result = _matrix(frame).copy()
+    result[:3, 3] += result[:3, 2] * (float(length) / 2.0)
+    return result
+
+
+def _set_string(prim: Usd.Prim, name: str, value: str | None) -> None:
+    prim.CreateAttribute(name, Sdf.ValueTypeNames.String, custom=True).Set(
+        "" if value is None else str(value)
+    )
+
+
+def _tag_entity(
+    prim: Usd.Prim,
+    *,
+    entity_kind: str,
+    node_id: str | None = None,
+    organ_type: str | None = None,
+    geometry_role: str | None = None,
+) -> None:
+    _set_string(prim, "autotom:entityKind", entity_kind)
+    if node_id is not None:
+        _set_string(prim, "autotom:nodeId", node_id)
+    if organ_type is not None:
+        _set_string(prim, "autotom:organType", organ_type)
+    if geometry_role is not None:
+        _set_string(prim, "autotom:geometryRole", geometry_role)
+
+
+def _define_cylinder(
+    stage: Usd.Stage,
+    path: str,
+    *,
+    length: float,
+    radius: float,
+    frame: Any,
+    material: Usd.Prim,
+    node_id: str,
+    role: str,
+) -> UsdGeom.Cylinder:
+    cylinder = UsdGeom.Cylinder.Define(stage, path)
+    cylinder.GetHeightAttr().Set(float(length))
+    cylinder.GetRadiusAttr().Set(float(radius))
+    cylinder.GetAxisAttr().Set(UsdGeom.Tokens.z)
+    _set_transform(cylinder, _centered_axis_matrix(frame, length))
+    _bind_material(cylinder, material)
+    _tag_entity(
+        cylinder.GetPrim(), entity_kind="geometry", node_id=node_id, geometry_role=role
+    )
+    return cylinder
+
+
+def _materials(stage: Usd.Stage, plant_path: str) -> dict[str, Usd.Prim]:
+    path = f"{plant_path}/Materials"
+    UsdGeom.Scope.Define(stage, path)
+    return {
+        "stem": _make_material(stage, f"{path}/Stem", (0.45, 0.30, 0.10)),
+        "root": _make_material(stage, f"{path}/Root", (0.55, 0.35, 0.15)),
+        "leaf": _make_material(stage, f"{path}/Leaf", (0.15, 0.55, 0.10)),
+        "pedicel": _make_material(stage, f"{path}/Pedicel", (0.20, 0.50, 0.10)),
+        "fruit_ripe": _make_material(stage, f"{path}/FruitRipe", (0.90, 0.17, 0.10)),
+        "fruit_unripe": _make_material(
+            stage, f"{path}/FruitUnripe", (0.45, 0.58, 0.25)
+        ),
     }
 
-    # ── Separate organs ──────────────────────────────────────────────────────
-    root_node = next((n for n in snapshot.organs if isinstance(n, RootNode)), None)
-    
-    def get_base_z(n) -> float:
-        if n is None or not isinstance(n, InternodeNode): return 0.0
-        if hasattr(n, 'world_base_z'): return n.world_base_z
-        z = get_base_z(n.parent) + n.parent.length if (n.parent and isinstance(n.parent, InternodeNode)) else 0.0
-        n.world_base_z = z
-        return z
 
-    for n in snapshot.organs:
-        if isinstance(n, InternodeNode):
-            get_base_z(n)
+def _author_topology(stage: Usd.Stage, plant_path: str, state: PlantState) -> None:
+    root = f"{plant_path}/Topology"
+    UsdGeom.Scope.Define(stage, root)
+    operations = {
+        operation.node_id: operation for operation in state.turtle_operations
+    }
+    for node in sorted(state.nodes, key=lambda item: item.id):
+        prim = UsdGeom.Xform.Define(stage, f"{root}/{_token(node.id)}").GetPrim()
+        _tag_entity(prim, entity_kind="topology_node", node_id=node.id)
+        _set_string(prim, "autotom:sourceType", node.source_type)
+        _set_string(prim, "autotom:category", node.category)
+        _set_string(prim, "autotom:parentId", node.parent_id)
+        _set_string(prim, "autotom:incomingEdgeKind", node.incoming_edge_kind)
+        prim.CreateAttribute(
+            "autotom:groimpNodeId", Sdf.ValueTypeNames.Int64, custom=True
+        ).Set(node.groimp_node_id)
+        operation = operations.get(node.id)
+        if operation is not None:
+            _set_string(prim, "autotom:turtleOperation", operation.operation)
+            _set_string(
+                prim,
+                "autotom:turtleParameters",
+                json.dumps(
+                    operation.parameters,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    allow_nan=False,
+                ),
+            )
+            _set_string(prim, "autotom:turtleProvenance", operation.provenance)
 
-    internodes = sorted(
-        [n for n in snapshot.organs if isinstance(n, InternodeNode)],
-        key=lambda n: (n.key.order, n.key.rank)
+
+def _organ_group(
+    stage: Usd.Stage, geometry_root: str, view: V1OrganView
+) -> tuple[str, UsdGeom.Xform]:
+    organ_type = view.organ.organ_type
+    path = f"{geometry_root}/{organ_type}/{_token(view.node.id)}"
+    UsdGeom.Scope.Define(stage, f"{geometry_root}/{organ_type}")
+    group = UsdGeom.Xform.Define(stage, path)
+    _set_transform(group, _matrix(view.node.pose.incoming_world))
+    prim = group.GetPrim()
+    _tag_entity(
+        prim,
+        entity_kind="organ",
+        node_id=view.node.id,
+        organ_type=organ_type,
+    )
+    _set_string(prim, "autotom:parentId", view.node.parent_id)
+    _set_string(prim, "autotom:incomingEdgeKind", view.node.incoming_edge_kind)
+    if view.duplicate_of is not None:
+        _set_string(prim, "autotom:geometryDuplicateOf", view.duplicate_of)
+    topology_path = f"{geometry_root.rsplit('/', 1)[0]}/Topology/{_token(view.node.id)}"
+    prim.CreateRelationship("autotom:topologyNode", custom=True).SetTargets(
+        [Sdf.Path(topology_path)]
+    )
+    return path, group
+
+
+def _render_internode(
+    stage: Usd.Stage,
+    group_path: str,
+    view: V1OrganView,
+    materials: dict[str, Usd.Prim],
+) -> None:
+    axes = [axis for axis in view.axes if axis.role == "internode"]
+    if len(axes) != 1:
+        raise V1AuditError(
+            f"Internode {view.node.id} requires exactly one canonical axis, found {len(axes)}"
+        )
+    axis = axes[0]
+    _define_cylinder(
+        stage,
+        f"{group_path}/Internode",
+        length=axis.length,
+        radius=axis.radius,
+        frame=axis.local_frame,
+        material=materials["stem"],
+        node_id=view.node.id,
+        role="internode",
     )
 
-    print(f"\n{'='*50}")
-    print(f"  Plant {snapshot.plant_id}  |  Day {snapshot.day}")
-    print(f"  Internodes found: {len(internodes)}")
-    print(f"{'='*50}\n")
 
-    # ── Root sphere ───────────────────────────────────────────────────────────
-    # Placed just below z=0 so it sits at ground level
-    if root_node:
-        print("[ROOT]")
-        sph = _make_sphere(
+def _render_leaf(
+    stage: Usd.Stage,
+    group_path: str,
+    view: V1OrganView,
+    materials: dict[str, Usd.Prim],
+) -> None:
+    visuals = UsdGeom.Scope.Define(stage, f"{group_path}/Visuals").GetPrim()
+    _tag_entity(
+        visuals,
+        entity_kind="geometry",
+        node_id=view.node.id,
+        geometry_role="leaf_group",
+    )
+    _make_leaf(stage, f"{group_path}/Visuals", legacy_leaf_view(view), 0.0, materials)
+
+
+def _fruit_index(primitive_id: str) -> int | None:
+    match = re.search(r":fruit:(\d+)$", primitive_id)
+    return None if match is None else int(match.group(1))
+
+
+def _render_fruits(
+    stage: Usd.Stage,
+    group_path: str,
+    view: V1OrganView,
+    materials: dict[str, Usd.Prim],
+) -> None:
+    visuals = UsdGeom.Scope.Define(stage, f"{group_path}/Visuals").GetPrim()
+    _tag_entity(
+        visuals,
+        entity_kind="geometry",
+        node_id=view.node.id,
+        geometry_role="fruit_group",
+    )
+    for axis in view.axes:
+        _define_cylinder(
             stage,
-            path=f"{roots_path}/Root",
-            radius=ROOT_SPHERE_RADIUS,
-            cx=0.0, cy=0.0, cz=-ROOT_SPHERE_RADIUS,
+            f"{group_path}/{_token(axis.id)}",
+            length=axis.length,
+            radius=axis.radius,
+            frame=axis.local_frame,
+            material=materials["pedicel"],
+            node_id=view.node.id,
+            role=axis.role,
         )
-        
-        _bind_material(sph, materials["root"])
 
-    # ── Internode hierarchical rendering ──────────────────────────────────────
-    max_z = 0.0
-    for node in internodes:
-        L = node.length
-        R = node.width_m / 2.0
-        rank = node.key.rank
-        order = node.key.order
-        base_z = getattr(node, 'world_base_z', 0.0)
-        max_z = max(max_z, base_z + L)
-
-        print(f"\n[INTERNODE order={order} rank={rank}]")
-        cyl = _make_cylinder(
+    properties = view.organ.properties
+    if not isinstance(properties, FruitsProperties):
+        raise TypeError("Fruits organ has incompatible canonical properties")
+    ages = properties.fruit_degree_days or ()
+    for sphere in view.spheres:
+        index = _fruit_index(sphere.id)
+        age = ages[index] if index is not None and index < len(ages) else 0.0
+        material = (
+            materials["fruit_ripe"]
+            if age >= properties.ripening_degree_days
+            else materials["fruit_unripe"]
+        )
+        primitive = _make_sphere(
             stage,
-            path=f"{stem_path}/Internode_o{order}_r{rank}",
-            height=L,
-            radius=R,
-            base_z=base_z,
+            f"{group_path}/{_token(sphere.id)}",
+            sphere.radius,
+            *sphere.local_center,
         )
-        _bind_material(cyl, materials["stem"])
-        UsdPhysics.CollisionAPI.Apply(cyl.GetPrim())
+        _bind_material(primitive, material)
+        _tag_entity(
+            primitive.GetPrim(),
+            entity_kind="geometry",
+            node_id=view.node.id,
+            geometry_role="fruit",
+        )
 
 
-    # ── Physics: stem joint chain ─────────────────────────────────────────────
-    # Toggle: ENABLE_STEM_PHYSICS in constants.py
-    if ENABLE_STEM_PHYSICS:
-        joints_path = f"{plant_path}/Joints"
-        UsdGeom.Xform.Define(stage, joints_path)
-
-        # Anchor rank-0 to ground
-        if internodes:
-            anchor_path = f"{stem_path}/Internode_o{internodes[0].key.order}_r{internodes[0].key.rank}"
-            fixed = UsdPhysics.FixedJoint.Define(stage, f"{joints_path}/GroundAnchor")
-            fixed.GetBody1Rel().SetTargets([Sdf.Path(anchor_path)])
-
-        n_ranks = len(internodes)
-
-        for i, node in enumerate(internodes):
-            L = node.length
-            R = node.width_m / 2.0
-            path = f"{stem_path}/Internode_o{node.key.order}_r{node.key.rank}"
-
-            # Mass: cylinder volume * density
-            mass = math.pi * R**2 * L * STEM_DENSITY_KG_M3
-            _apply_rigid_body(stage, path, mass)
-
-            # Stiffness linearly decreases from bottom to the top
-            t = i / max(n_ranks - 1, 1)
-            stiffness = JOINT_STIFFNESS_BASE + t * (JOINT_STIFFNESS_TIP - JOINT_STIFFNESS_BASE)
-
-            # Joint with parent
-            if node.parent and isinstance(node.parent, InternodeNode):
-                prev_path = f"{stem_path}/Internode_o{node.parent.key.order}_r{node.parent.key.rank}"
-                _make_stem_joint(
-                    stage,
-                    joint_path=f"{joints_path}/Joint_o{node.key.order}_r{node.key.rank}",
-                    body0_path=prev_path,
-                    body1_path=path,
-                    pivot0_z=node.parent.length / 2.0,
-                    pivot1_z=-node.length / 2.0,
-                    stiffness=stiffness,
-                )
-        
-        
-
-    # ── Leaves ───────────────────────────────────────────────────────────────
-    leaves = [n for n in snapshot.organs if isinstance(n, LeafNode)]
-
-    leaves_path = f"{plant_path}/Leaves"
-    UsdGeom.Xform.Define(stage, leaves_path)
-
-    for node in leaves:
-        if node.parent and isinstance(node.parent, InternodeNode):
-            tip_z = getattr(node.parent, 'world_base_z', 0.0) + node.parent.length
-        else:
-            tip_z = 0.0
-
-        leaf_id = f"o{node.key.order}_r{node.key.rank}_i{node.key.organ_index}"
-        leaf_group = f"{leaves_path}/Leaf_{leaf_id}"
-        UsdGeom.Xform.Define(stage, leaf_group)
-
-        print(f"\n[LEAF order={node.key.order} rank={node.key.rank} idx={node.key.organ_index}] "
-                f"attaches at z={tip_z:.4f}m")
-        _make_leaf(stage, leaf_group, node, tip_z, materials)
-        
-        if ENABLE_LEAF_PHYSICS:
-            _apply_rigid_body_to_leaf(stage, leaf_group, LEAF_MASS_KG)
-            
-            # Disable collisions between leaf and parent internode to prevent explosion
-            if node.parent and isinstance(node.parent, InternodeNode):
-                parent_path = f"{stem_path}/Internode_o{node.parent.key.order}_r{node.parent.key.rank}"
-                filtered_pairs = UsdPhysics.FilteredPairsAPI.Apply(stage.GetPrimAtPath(leaf_group))
-                filtered_pairs.GetFilteredPairsRel().AddTarget(Sdf.Path(parent_path))
-
-                _make_leaf_joint(
-                    stage,
-                    joint_path=f"{plant_path}/Joints/Joint_Leaf_{leaf_id}",
-                    body0_path=parent_path,
-                    body1_path=leaf_group,
-                    pivot0_z=node.parent.length / 2.0,
-                    pivot1_world=Gf.Vec3f(0.0, 0.0, tip_z),
-                    stiffness=LEAF_JOINT_STIFFNESS,
-                    damping=LEAF_JOINT_DAMPING
-                )
-        
-        
-    # ── Fruits ───────────────────────────────────────────────────────────────────
-    # Replicate GroIMP truss structure:
-    #   - A main rachis made of INTERNODETRUSSLENGTH segments, tilting by
-    #     internodeTrussAngle (9°) between each fruit.
-    #   - Lateral pedicels (PETIOLELENGTH) branching off alternately (RU ±90°)
-    #     from each rachis node, with a fruit sphere at the tip.
-    #   - The last fruit sits at the terminal end of the rachis.
-
-    trusses_path = f"{plant_path}/Trusses"
-    UsdGeom.Xform.Define(stage, trusses_path)
-
-    fruits_nodes = sorted(
-        [n for n in snapshot.organs if isinstance(n, FruitsNode)],
-        key=lambda n: n.key.rank
+def _render_root(
+    stage: Usd.Stage,
+    group_path: str,
+    view: V1OrganView,
+    materials: dict[str, Usd.Prim],
+) -> None:
+    sphere = _make_sphere(
+        stage,
+        f"{group_path}/RootMarker",
+        ROOT_SPHERE_RADIUS,
+        0.0,
+        0.0,
+        -ROOT_SPHERE_RADIUS,
+    )
+    _bind_material(sphere, materials["root"])
+    _tag_entity(
+        sphere.GetPrim(),
+        entity_kind="geometry",
+        node_id=view.node.id,
+        geometry_role="root_marker",
     )
 
-    for node in fruits_nodes:
-        if node.parent and isinstance(node.parent, InternodeNode):
-            attach_z = getattr(node.parent, 'world_base_z', 0.0) + node.parent.length
-        else:
-            attach_z = 0.0
 
-        truss_az = math.radians((node.key.rank * PHYLLOTAXIS) % 360)
-        bend_per_fruit = node.truss_angle   # 9° per segment
+def export_plant_usd(state: PlantState, output_path: str | Path) -> Path:
+    """Render one canonical PlantState as a complete static V1 USDA stage."""
 
-        radii = [r for r in node.fruit_radii if r > 1e-5][:node.fruit_nr]
-        n_fruits = len(radii)
-        if n_fruits == 0:
+    view = build_v1_render_view(state)
+    destination = Path(output_path).expanduser().resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    stage = Usd.Stage.CreateNew(str(destination))
+    UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+
+    plant_path = f"/Plant_{state.metadata.plant_id}"
+    plant = UsdGeom.Xform.Define(stage, plant_path).GetPrim()
+    stage.SetDefaultPrim(plant)
+    _set_string(plant, "autotom:plantStateSchema", state.schema_version)
+    _set_string(plant, "autotom:renderer", "exporterV1/plant_state")
+    plant.CreateAttribute("autotom:plantId", Sdf.ValueTypeNames.Int, custom=True).Set(
+        state.metadata.plant_id
+    )
+    if state.metadata.simulation_time is not None:
+        plant.CreateAttribute(
+            "autotom:simulationTime", Sdf.ValueTypeNames.Double, custom=True
+        ).Set(float(state.metadata.simulation_time))
+
+    materials = _materials(stage, plant_path)
+    _author_topology(stage, plant_path, state)
+    geometry_root = f"{plant_path}/Geometry"
+    UsdGeom.Scope.Define(stage, geometry_root)
+
+    for organ_view in view.organs:
+        group_path, _ = _organ_group(stage, geometry_root, organ_view)
+        if not organ_view.render_geometry:
             continue
+        organ_type = organ_view.organ.organ_type
+        if organ_type == "Internode":
+            _render_internode(stage, group_path, organ_view, materials)
+        elif organ_type == "Leaf":
+            _render_leaf(stage, group_path, organ_view, materials)
+        elif organ_type == "Fruits":
+            _render_fruits(stage, group_path, organ_view, materials)
+        elif organ_type == "Root":
+            _render_root(stage, group_path, organ_view, materials)
 
-        truss_group = f"{trusses_path}/Truss_r{node.key.rank}_i{node.key.organ_index}"
-        UsdGeom.Xform.Define(stage, truss_group)
-
-        print(f"\n[TRUSS rank={node.key.rank}] {n_fruits} fruits, attach_z={attach_z:.4f}m")
-
-        # Current tip of the rachis — starts at attachment point on stem
-        # Direction: initially tilted INITIAL_TILT° from Z towards the azimuth
-        tilt_from_z = math.radians(INITIAL_TILT)
-        # Rachis direction vector (in world coords)
-        rach_dx = math.sin(tilt_from_z) * math.cos(truss_az)
-        rach_dy = math.sin(tilt_from_z) * math.sin(truss_az)
-        rach_dz = math.cos(tilt_from_z)
-
-        cur_x, cur_y, cur_z = 0.0, 0.0, attach_z
-
-        # Lateral direction for pedicels: perpendicular to rachis in the
-        # horizontal plane. We alternate sign for RU(±90).
-        lat_dx = -math.sin(truss_az)
-        lat_dy =  math.cos(truss_az)
-        lat_dz = 0.0
-
-        seg_idx = 0
-
-        for fi in range(n_fruits):
-            r = radii[fi]
-            is_last = (fi == n_fruits - 1)
-
-            if fi == 0:
-                # First segment: rachis from attachment point
-                seg_len = RACHIS_SEG
-            elif is_last:
-                # Terminal fruit: no rachis segment, just a pedicel from tip
-                seg_len = 0.0
-            else:
-                # Intermediate: rachis continues with a bend
-                # Apply cumulative bend (RL in GroIMP = tilt further from Z)
-                tilt_from_z += math.radians(bend_per_fruit)
-                rach_dx = math.sin(tilt_from_z) * math.cos(truss_az)
-                rach_dy = math.sin(tilt_from_z) * math.sin(truss_az)
-                rach_dz = math.cos(tilt_from_z)
-                seg_len = RACHIS_SEG
-
-            # Draw rachis segment (if any)
-            if seg_len > 0:
-                seg_cx = cur_x + rach_dx * seg_len / 2.0
-                seg_cy = cur_y + rach_dy * seg_len / 2.0
-                seg_cz = cur_z + rach_dz * seg_len / 2.0
-                seg_mat = _align_z_to(rach_dx, rach_dy, rach_dz, seg_cx, seg_cy, seg_cz)
-
-                seg_prim = UsdGeom.Cylinder.Define(
-                    stage, f"{truss_group}/Rachis_{seg_idx}")
-                seg_prim.GetHeightAttr().Set(seg_len)
-                seg_prim.GetRadiusAttr().Set(PEDICEL_R)
-                seg_prim.GetAxisAttr().Set(UsdGeom.Tokens.z)
-                _set_transform(seg_prim, seg_mat)
-                _bind_material(seg_prim, materials["pedicel"])
-                seg_idx += 1
-
-                # Advance tip
-                cur_x += rach_dx * seg_len
-                cur_y += rach_dy * seg_len
-                cur_z += rach_dz * seg_len
-
-            # Pedicel branch to the fruit
-            if is_last and n_fruits > 1:
-                # Terminal fruit: pedicel continues in rachis direction
-                ped_dx, ped_dy, ped_dz = rach_dx, rach_dy, rach_dz
-            else:
-                # Lateral pedicel: alternate sides (RU ±90°)
-                sign = -1.0 if (fi % 2 == 0) else 1.0
-                ped_dx = sign * lat_dx
-                ped_dy = sign * lat_dy
-                ped_dz = sign * lat_dz
-
-            ped_cx = cur_x + ped_dx * PEDICEL_LEN / 2.0
-            ped_cy = cur_y + ped_dy * PEDICEL_LEN / 2.0
-            ped_cz = cur_z + ped_dz * PEDICEL_LEN / 2.0
-            ped_mat = _align_z_to(ped_dx, ped_dy, ped_dz, ped_cx, ped_cy, ped_cz)
-
-            ped_prim = UsdGeom.Cylinder.Define(
-                stage, f"{truss_group}/Pedicel_{fi}")
-            ped_prim.GetHeightAttr().Set(PEDICEL_LEN)
-            ped_prim.GetRadiusAttr().Set(PEDICEL_R * 0.8)
-            ped_prim.GetAxisAttr().Set(UsdGeom.Tokens.z)
-            _set_transform(ped_prim, ped_mat)
-            _bind_material(ped_prim, materials["pedicel"])
-
-            # Fruit sphere at the tip of the pedicel
-            fx = cur_x + ped_dx * (PEDICEL_LEN + r)
-            fy = cur_y + ped_dy * (PEDICEL_LEN + r)
-            fz = cur_z + ped_dz * (PEDICEL_LEN + r)
-
-            sph = _make_sphere(stage, f"{truss_group}/Fruit_{fi}", r, fx, fy, fz)
-
-            # Ripe vs unripe coloring based on fruit age (GroIMP logic)
-            age = node.fruit_age_dd[fi] if fi < len(node.fruit_age_dd) else 0.0
-            is_ripe = age >= node.ripening_dd
-            fruit_mat_key = "fruit_ripe" if is_ripe else "fruit_unripe"
-            _bind_material(sph, materials[fruit_mat_key])
-
-            # Physics: fruit collider (toggle: ENABLE_FRUIT_PHYSICS in constants.py)
-            if ENABLE_FRUIT_PHYSICS:
-                fruit_mass = (4.0/3.0) * math.pi * r**3 * FRUIT_DENSITY_KG_M3
-                _apply_rigid_body(stage, f"{truss_group}/Fruit_{fi}", fruit_mass, kinematic=True)
-
-            state = "ripe" if is_ripe else "unripe"
-            print(f"  [Fruit {fi}] r={r:.4f}m {state} (age={age:.0f}/{node.ripening_dd:.0f}dd) at ({fx:.4f},{fy:.4f},{fz:.4f})")
-
-    print(f"\n  Max stem height: {max_z:.6f} m\n")
-
-    # ── Save ─────────────────────────────────────────────────────────────────
     stage.GetRootLayer().Save()
-    print(f"[USD] Saved → {output_path}")
+    manifest = audit_v1_stage(state, destination)
+    save_v1_manifest(manifest, manifest_path_for(destination))
+    if manifest.errors:
+        raise V1AuditError("; ".join(manifest.errors))
+    return destination

@@ -1,59 +1,67 @@
-# exporterV1 - Legacy Plant Model Exporter
+# ExporterV1 — static PlantState renderer
 
-CSV-based plant model exporter for tomato plant simulations from GroIMP.
+ExporterV1 consumes only canonical `plant_state/1.0` JSON. It preserves the
+existing V1 visual language for stems, compound leaves, trusses and fruits,
+while obtaining identity, placement and parentage from the canonical graph.
+It never contacts GroIMP and has no CSV fallback.
 
-## Overview
+Generate a stage without Isaac Sim:
 
-This is the legacy exporter (formerly `plant_model/`) that generates USD plant models from CSV data exported by GroIMP simulations. It creates detailed plant structures including:
-
-- **Internodes**: Cylindrical stem segments
-- **Leaves**: Compound leaves with petioles, rachis, and leaflet blades
-- **Fruits**: Fruit trusses with individual fruits and pedicels
-- **Roots**: Root system visualization
-
-## Status
-
-**Stable/Legacy** - This exporter is preserved for backward compatibility with existing GroIMP-based workflows. For new tree-based models, use `exporterV2`.
-
-## Main Functions
-
-### `load_snapshot(csv_path, day, plant_id)`
-
-Load a plant snapshot from CSV data.
-
-```python
-from exporterV1 import load_snapshot
-
-snapshot = load_snapshot("plant_data.csv", day=10, plant_id=1)
+```bash
+uv run python -m exporterV1 --day 25
 ```
 
-### `export_plant_usd(snapshot, output_path)`
+The default input and output are:
 
-Export a plant snapshot to USD format.
-
-```python
-from exporterV1 import export_plant_usd, load_snapshot
-
-snapshot = load_snapshot("plant_data.csv", day=10, plant_id=1)
-export_plant_usd(snapshot, "plant_model.usda")
+```text
+data/plant_states/plant_state_day_25.json
+data/usd_models/tree_v1_day_25.usda
+data/usd_models/tree_v1_day_25.manifest.json
 ```
 
-## Module Structure
+Paths and plant identity can be overridden:
 
-- `loader.py` - CSV data loading and hierarchy construction
-- `models.py` - Data structures (OrganNode, PlantSnapshot, etc.)
-- `constants.py` - Physical and geometric parameters
-- `usd_exporter.py` - USD generation with physics
-- `usd_helpers.py` - USD primitive and transform helpers
-- `main.py` - Entry point for standalone usage
-- `debug_viz.py` - Visualization utilities
-- `graph_export.py` - Graph export utilities
+```bash
+uv run python -m exporterV1 \
+  --day 25 --plant-id 1 \
+  --input /tmp/plant.json \
+  --output /tmp/plant.usda
+```
 
-## Dependencies
+Open the generated static stage interactively in Isaac Sim:
 
-Requires the following from GroIMP CSV export:
-- Organ hierarchy (parent_rank, parent_organ_class)
-- Geometric parameters (length, width, area)
-- Physiological state (age_dd, dry_biomass_mg)
-- Leaf compound structure (segments, blades, inclination)
-- Fruit data (radii, ripening state)
+```bash
+./run_main.sh --day 25
+```
+
+`run_main.sh` accepts `--plant-id`, `--input`, `--output`, `--generate-only`
+and `--headless`. Headless mode opens the stage for a short smoke test and
+then exits; GUI mode remains interactive until the Isaac Sim window closes.
+
+If the canonical JSON is missing, prepare it explicitly while GroIMP is
+available:
+
+```bash
+uv run python -m groimp_bridge.extractor \
+  --project model/project_bridge.gsz \
+  --steps 25 --plant-id 1 \
+  --output data/plant_states/plant_state_day_25.json
+```
+
+## Completeness contract
+
+Every canonical organ receives a uniquely named USD organ prim based on its
+node ID. Every canonical node also receives a topology prim carrying its
+parent node and incoming edge kind. Internodes, leaves and `Fruits` modules
+receive their normal V1 visuals. `Truss`, `Meristem` and `PlantBase` remain
+visible in metadata/topology but receive no invented geometry.
+
+Each export writes an `exporter_v1_manifest/1.0` sidecar. The manifest checks
+canonical versus USD organ counts, expected versus created geometry, topology
+parentage, node coverage and path uniqueness. V1 never filters canonical organ
+or topology prims. If two visible organs have exactly the same type, world pose
+and visual geometry, only the duplicate visual geometry is suppressed; the
+second organ prim remains and records `autotom:geometryDuplicateOf`. Near
+overlaps and intersections are never collapsed.
+
+The checkpoint commit `d7f5038` is the last working legacy CSV pipeline.

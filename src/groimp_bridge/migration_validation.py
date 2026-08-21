@@ -6,6 +6,7 @@ import argparse
 import csv
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import hashlib
 import json
 import io
 from pathlib import Path
@@ -29,6 +30,7 @@ from .geometry import (
     save_geometry_report,
     validate_rendered_geometry,
 )
+from .extractor import extract_plant_state
 from .inspector import (
     DEFAULT_API_URL,
     DEFAULT_FUNCTION,
@@ -277,6 +279,19 @@ def validate_project(
             snapshot = inspect_workbench(workbench)
             turtle = resolve_turtle(snapshot)
             geometry = build_rendered_geometry(snapshot, turtle, strict=True)
+            plant_state = extract_plant_state(
+                snapshot,
+                turtle,
+                plant_id=plant_id,
+                metadata={
+                    "simulation_time": simulation_time,
+                    "source_model": source_project.name,
+                    "source_project_sha256": hashlib.sha256(
+                        source_project.read_bytes()
+                    ).hexdigest(),
+                },
+                strict=True,
+            )
             selected_ids = _representative_node_ids(snapshot, turtle, geometry)
             meshes: dict[int, ObjMesh] = {}
             groimp_obj_bytes: dict[int, bytes] = {}
@@ -293,11 +308,9 @@ def validate_project(
         csv_bytes = csv_path.read_bytes()
 
         v1_path = runtime_root / f"legacy_v1_day_{int(simulation_time)}.usda"
-        from exporterV1.loader import load_snapshot
         from exporterV1.usd_exporter import export_plant_usd
 
-        v1_snapshot = load_snapshot(csv_path, int(simulation_time), plant_id)
-        export_plant_usd(v1_snapshot, str(v1_path))
+        export_plant_usd(plant_state, v1_path)
         v1_usd_bytes = v1_path.read_bytes()
 
         from exporterV2.adapters.groimp_csv.parser import parse_csv_to_branches

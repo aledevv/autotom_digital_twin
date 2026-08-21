@@ -247,6 +247,10 @@ def _extract_v1_geometry(usd_path: str | Path | None) -> list[dict[str, Any]]:
     cache = UsdGeom.XformCache()
     result: list[dict[str, Any]] = []
     for prim in stage.Traverse():
+        node_attribute = prim.GetAttribute("autotom:nodeId")
+        role_attribute = prim.GetAttribute("autotom:geometryRole")
+        node_id = node_attribute.Get() if node_attribute else None
+        geometry_role = role_attribute.Get() if role_attribute else None
         if prim.IsA(UsdGeom.Cylinder):
             cylinder = UsdGeom.Cylinder(prim)
             height = float(cylinder.GetHeightAttr().Get())
@@ -262,6 +266,8 @@ def _extract_v1_geometry(usd_path: str | Path | None) -> list[dict[str, Any]]:
                     "end": tuple(float(v) for v in end),
                     "length": height,
                     "radius": radius,
+                    "node_id": node_id,
+                    "geometry_role": geometry_role,
                 }
             )
         elif prim.IsA(UsdGeom.Sphere):
@@ -274,6 +280,8 @@ def _extract_v1_geometry(usd_path: str | Path | None) -> list[dict[str, Any]]:
                     "kind": "sphere",
                     "center": tuple(float(v) for v in center),
                     "radius": float(sphere.GetRadiusAttr().Get()),
+                    "node_id": node_id,
+                    "geometry_role": geometry_role,
                 }
             )
     return sorted(result, key=lambda item: item["path"])
@@ -410,6 +418,7 @@ def compare_representations(
     native_internode_nodes = [
         node for node in nodes if _simple_type(node) == "Internode"
     ]
+    native_by_id = {str(node.id): node for node in native_internode_nodes}
     native_internodes = {
         (int(node.attributes["order"]), int(node.attributes["rank"])): node
         for node in native_internode_nodes
@@ -417,10 +426,13 @@ def compare_representations(
     internode_pattern = re.compile(r"Internode_o(-?\d+)_r(-?\d+)$")
     for primitive in v1_geometry:
         match = internode_pattern.search(primitive["path"])
-        if not match or primitive["kind"] != "axis":
+        if primitive["kind"] != "axis":
             continue
-        key = (int(match.group(1)), int(match.group(2)))
-        node = native_internodes.get(key)
+        tagged_node_id = str(primitive.get("node_id") or "").removeprefix("node:")
+        node = native_by_id.get(tagged_node_id)
+        if node is None and match:
+            key = (int(match.group(1)), int(match.group(2)))
+            node = native_internodes.get(key)
         if node is None or node.id not in turtle_resolution.poses:
             continue
         pose = turtle_resolution.poses[node.id]
@@ -452,7 +464,11 @@ def compare_representations(
             )
 
     v1_internode_count = sum(
-        item["kind"] == "axis" and bool(internode_pattern.search(item["path"]))
+        item["kind"] == "axis"
+        and (
+            item.get("geometry_role") == "internode"
+            or bool(internode_pattern.search(item["path"]))
+        )
         for item in v1_geometry
     )
     if v1_geometry and v1_internode_count < len(native_internode_nodes):
@@ -465,7 +481,7 @@ def compare_representations(
                 observed=v1_internode_count,
                 absolute_error=float(len(native_internode_nodes) - v1_internode_count),
                 classification="EXPECTED_IMPROVEMENT",
-                rationale="V1 USD prim paths omit organ_index, so same-rank lateral internodes overwrite each other",
+                rationale="V1 USD is missing one or more native internode organ groups",
             )
         )
 

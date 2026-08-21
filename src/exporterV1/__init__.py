@@ -1,22 +1,17 @@
-"""
-exporterV1 - Legacy Plant Model Exporter
+"""Static V1 renderer for canonical ``plant_state/1.0`` documents."""
 
-CSV-based plant model exporter using data from GroIMP simulations.
-Supports complex plant structures with internodes, leaves, fruits, and roots.
-
-Main components:
-- loader: Load plant snapshots from CSV files
-- usd_exporter: Export plant models to USD format for Isaac Sim
-- models: Data structures for plant organs
-- constants: Physical and geometric parameters
-"""
-
-from .loader import load_snapshot
+from .adapter import V1RenderView, V1TopologyError, build_v1_render_view
+from .audit import V1AuditError, V1ExportManifest, audit_v1_stage
 from .usd_exporter import export_plant_usd
 
 __all__ = [
-    'load_snapshot',
-    'export_plant_usd',
+    "V1AuditError",
+    "V1ExportManifest",
+    "V1RenderView",
+    "V1TopologyError",
+    "audit_v1_stage",
+    "build_v1_render_view",
+    "export_plant_usd",
 ]
 
-__version__ = '1.0.0'
+__version__ = "2.0.0"

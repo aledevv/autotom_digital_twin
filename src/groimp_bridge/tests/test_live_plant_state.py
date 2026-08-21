@@ -16,6 +16,8 @@ from groimp_bridge.geometry import build_rendered_geometry
 from groimp_bridge.inspector import inspect_project
 from groimp_bridge.turtle import resolve_turtle
 from plant_state import load_plant_state, plant_states_equivalent, save_plant_state
+from exporterV1.audit import audit_v1_stage
+from exporterV1.usd_exporter import export_plant_usd
 
 
 pytestmark = pytest.mark.groimp
@@ -89,6 +91,17 @@ def _assert_round_trip(state, tmp_path: Path, day: int) -> None:
     assert plant_states_equivalent(loaded, state)
 
 
+def _assert_v1_export(state, tmp_path: Path, day: int) -> None:
+    path = export_plant_usd(state, tmp_path / f"tree_v1_day_{day}.usda")
+    manifest = audit_v1_stage(state, path)
+    assert manifest.errors == ()
+    assert manifest.metadata["status"] == "passed"
+    assert manifest.diagnostics["filtering_applied"] is False
+    assert manifest.usd_organ_prims == manifest.plant_state_organs
+    assert manifest.expected_geometry == manifest.created_geometry
+    assert manifest.topology["usd_parent_links"] == len(state.edges)
+
+
 def test_live_day_1_canonical_state_round_trip_and_source_unchanged(tmp_path):
     _require_live_tests()
     before = _source_hashes()
@@ -111,6 +124,7 @@ def test_live_day_1_canonical_state_round_trip_and_source_unchanged(tmp_path):
     assert all(organ.properties.effective_length_source == "groimp_anchor_calibrated" for organ in internodes)
     _assert_source_equivalence(report, resolution, state)
     _assert_round_trip(state, tmp_path, 1)
+    _assert_v1_export(state, tmp_path, 1)
 
 
 @pytest.mark.slow
@@ -131,6 +145,7 @@ def test_live_day_25_canonical_state_covers_branches_and_reproductive_organs(tmp
     assert state.spheres
     _assert_source_equivalence(report, resolution, state)
     _assert_round_trip(state, tmp_path, 25)
+    _assert_v1_export(state, tmp_path, 25)
 
 
 @pytest.mark.slow
@@ -154,3 +169,4 @@ def test_live_day_80_excludes_marker_and_preserves_full_mature_plant(tmp_path):
     assert state.diagnostics["leaf_surface_assets_canonicalized"] is False
     _assert_source_equivalence(report, resolution, state)
     _assert_round_trip(state, tmp_path, 80)
+    _assert_v1_export(state, tmp_path, 80)

@@ -1,0 +1,1053 @@
+#usda 1.0
+(
+    defaultPrim = "Plant_1"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "Plant_1"
+{
+    custom int autotom:plantId = 1
+    custom string autotom:plantStateSchema = "plant_state/1.0"
+    custom string autotom:renderer = "exporterV1/plant_state"
+    custom double autotom:simulationTime = 1
+
+    def Scope "Materials"
+    {
+        def Material "Stem"
+        {
+            token outputs:surface.connect = </Plant_1/Materials/Stem/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.45, 0.3, 0.1)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+        }
+
+        def Material "Root"
+        {
+            token outputs:surface.connect = </Plant_1/Materials/Root/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.55, 0.35, 0.15)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+        }
+
+        def Material "Leaf"
+        {
+            token outputs:surface.connect = </Plant_1/Materials/Leaf/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.15, 0.55, 0.1)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+        }
+
+        def Material "Pedicel"
+        {
+            token outputs:surface.connect = </Plant_1/Materials/Pedicel/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.2, 0.5, 0.1)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+        }
+
+        def Material "FruitRipe"
+        {
+            token outputs:surface.connect = </Plant_1/Materials/FruitRipe/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.9, 0.17, 0.1)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+        }
+
+        def Material "FruitUnripe"
+        {
+            token outputs:surface.connect = </Plant_1/Materials/FruitUnripe/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.45, 0.58, 0.25)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+        }
+    }
+
+    def Scope "Topology"
+    {
+        def Xform "node_421073"
+        {
+            custom string autotom:category = "plant_base"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421073
+            custom string autotom:incomingEdgeKind = ""
+            custom string autotom:nodeId = "node:421073"
+            custom string autotom:parentId = ""
+            custom string autotom:sourceType = "plant_level.PlantBase"
+        }
+
+        def Xform "node_421074"
+        {
+            custom string autotom:category = "turtle"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421074
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421074"
+            custom string autotom:parentId = "node:421073"
+            custom string autotom:sourceType = "de.grogra.turtle.RH"
+            custom string autotom:turtleOperation = "RH"
+            custom string autotom:turtleParameters = '{"angle":0.0}'
+            custom string autotom:turtleProvenance = "groimp_api"
+        }
+
+        def Xform "node_421088"
+        {
+            custom string autotom:category = "turtle"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421088
+            custom string autotom:incomingEdgeKind = "branch"
+            custom string autotom:nodeId = "node:421088"
+            custom string autotom:parentId = "node:421074"
+            custom string autotom:sourceType = "de.grogra.turtle.Translate"
+            custom string autotom:turtleOperation = "Translate"
+            custom string autotom:turtleParameters = '{"x":0.0,"y":0.0,"z":0.0}'
+            custom string autotom:turtleProvenance = "groimp_api"
+        }
+
+        def Xform "node_421089"
+        {
+            custom string autotom:category = "organ"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421089
+            custom string autotom:incomingEdgeKind = "branch"
+            custom string autotom:nodeId = "node:421089"
+            custom string autotom:parentId = "node:421088"
+            custom string autotom:sourceType = "organs.Root"
+        }
+
+        def Xform "node_421090"
+        {
+            custom string autotom:category = "turtle"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421090
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421090"
+            custom string autotom:parentId = "node:421088"
+            custom string autotom:sourceType = "de.grogra.turtle.RH"
+            custom string autotom:turtleOperation = "RH"
+            custom string autotom:turtleParameters = '{"angle":0.0}'
+            custom string autotom:turtleProvenance = "groimp_api"
+        }
+
+        def Xform "node_421091"
+        {
+            custom string autotom:category = "turtle"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421091
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421091"
+            custom string autotom:parentId = "node:421090"
+            custom string autotom:sourceType = "de.grogra.turtle.RL"
+            custom string autotom:turtleOperation = "RL"
+            custom string autotom:turtleParameters = '{"angle":0.0}'
+            custom string autotom:turtleProvenance = "groimp_api"
+        }
+
+        def Xform "node_421092"
+        {
+            custom string autotom:category = "organ"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421092
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421092"
+            custom string autotom:parentId = "node:421091"
+            custom string autotom:sourceType = "organs.Internode"
+        }
+
+        def Xform "node_421093"
+        {
+            custom string autotom:category = "turtle"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421093
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421093"
+            custom string autotom:parentId = "node:421092"
+            custom string autotom:sourceType = "de.grogra.turtle.RL"
+            custom string autotom:turtleOperation = "RL"
+            custom string autotom:turtleParameters = '{"angle":-0.0}'
+            custom string autotom:turtleProvenance = "groimp_api"
+        }
+
+        def Xform "node_421094"
+        {
+            custom string autotom:category = "turtle"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421094
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421094"
+            custom string autotom:parentId = "node:421093"
+            custom string autotom:sourceType = "de.grogra.turtle.RH"
+            custom string autotom:turtleOperation = "RH"
+            custom string autotom:turtleParameters = '{"angle":-0.0}'
+            custom string autotom:turtleProvenance = "groimp_api"
+        }
+
+        def Xform "node_421095"
+        {
+            custom string autotom:category = "organ"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421095
+            custom string autotom:incomingEdgeKind = "branch"
+            custom string autotom:nodeId = "node:421095"
+            custom string autotom:parentId = "node:421094"
+            custom string autotom:sourceType = "organs.Leaf"
+        }
+
+        def Xform "node_421096"
+        {
+            custom string autotom:category = "organ"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421096
+            custom string autotom:incomingEdgeKind = "branch"
+            custom string autotom:nodeId = "node:421096"
+            custom string autotom:parentId = "node:421094"
+            custom string autotom:sourceType = "organs.Leaf"
+        }
+
+        def Xform "node_421097"
+        {
+            custom string autotom:category = "turtle"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421097
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421097"
+            custom string autotom:parentId = "node:421094"
+            custom string autotom:sourceType = "de.grogra.turtle.RH"
+            custom string autotom:turtleOperation = "RH"
+            custom string autotom:turtleParameters = '{"angle":0.0}'
+            custom string autotom:turtleProvenance = "groimp_api"
+        }
+
+        def Xform "node_421098"
+        {
+            custom string autotom:category = "turtle"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421098
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421098"
+            custom string autotom:parentId = "node:421097"
+            custom string autotom:sourceType = "de.grogra.turtle.RL"
+            custom string autotom:turtleOperation = "RL"
+            custom string autotom:turtleParameters = '{"angle":0.0}'
+            custom string autotom:turtleProvenance = "groimp_api"
+        }
+
+        def Xform "node_421099"
+        {
+            custom string autotom:category = "organ"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421099
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421099"
+            custom string autotom:parentId = "node:421098"
+            custom string autotom:sourceType = "organs.Internode"
+        }
+
+        def Xform "node_421100"
+        {
+            custom string autotom:category = "turtle"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421100
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421100"
+            custom string autotom:parentId = "node:421099"
+            custom string autotom:sourceType = "de.grogra.turtle.RL"
+            custom string autotom:turtleOperation = "RL"
+            custom string autotom:turtleParameters = '{"angle":-0.0}'
+            custom string autotom:turtleProvenance = "groimp_api"
+        }
+
+        def Xform "node_421101"
+        {
+            custom string autotom:category = "turtle"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421101
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421101"
+            custom string autotom:parentId = "node:421100"
+            custom string autotom:sourceType = "de.grogra.turtle.RH"
+            custom string autotom:turtleOperation = "RH"
+            custom string autotom:turtleParameters = '{"angle":-0.0}'
+            custom string autotom:turtleProvenance = "groimp_api"
+        }
+
+        def Xform "node_421102"
+        {
+            custom string autotom:category = "organ"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421102
+            custom string autotom:incomingEdgeKind = "branch"
+            custom string autotom:nodeId = "node:421102"
+            custom string autotom:parentId = "node:421101"
+            custom string autotom:sourceType = "organs.Leaf"
+        }
+
+        def Xform "node_421103"
+        {
+            custom string autotom:category = "organ"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421103
+            custom string autotom:incomingEdgeKind = "branch"
+            custom string autotom:nodeId = "node:421103"
+            custom string autotom:parentId = "node:421101"
+            custom string autotom:sourceType = "organs.Leaf"
+        }
+
+        def Xform "node_421104"
+        {
+            custom string autotom:category = "organ"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421104
+            custom string autotom:incomingEdgeKind = "branch"
+            custom string autotom:nodeId = "node:421104"
+            custom string autotom:parentId = "node:421101"
+            custom string autotom:sourceType = "organs.Meristem"
+        }
+
+        def Xform "node_421105"
+        {
+            custom string autotom:category = "turtle"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421105
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421105"
+            custom string autotom:parentId = "node:421101"
+            custom string autotom:sourceType = "de.grogra.turtle.RH"
+            custom string autotom:turtleOperation = "RH"
+            custom string autotom:turtleParameters = '{"angle":0.0}'
+            custom string autotom:turtleProvenance = "groimp_api"
+        }
+
+        def Xform "node_421106"
+        {
+            custom string autotom:category = "turtle"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421106
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421106"
+            custom string autotom:parentId = "node:421105"
+            custom string autotom:sourceType = "de.grogra.turtle.RL"
+            custom string autotom:turtleOperation = "RL"
+            custom string autotom:turtleParameters = '{"angle":0.0}'
+            custom string autotom:turtleProvenance = "groimp_api"
+        }
+
+        def Xform "node_421107"
+        {
+            custom string autotom:category = "organ"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421107
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421107"
+            custom string autotom:parentId = "node:421106"
+            custom string autotom:sourceType = "organs.Internode"
+        }
+
+        def Xform "node_421108"
+        {
+            custom string autotom:category = "turtle"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421108
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421108"
+            custom string autotom:parentId = "node:421107"
+            custom string autotom:sourceType = "de.grogra.turtle.RL"
+            custom string autotom:turtleOperation = "RL"
+            custom string autotom:turtleParameters = '{"angle":-0.0}'
+            custom string autotom:turtleProvenance = "groimp_api"
+        }
+
+        def Xform "node_421109"
+        {
+            custom string autotom:category = "turtle"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421109
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421109"
+            custom string autotom:parentId = "node:421108"
+            custom string autotom:sourceType = "de.grogra.turtle.RH"
+            custom string autotom:turtleOperation = "RH"
+            custom string autotom:turtleParameters = '{"angle":-0.0}'
+            custom string autotom:turtleProvenance = "groimp_api"
+        }
+
+        def Xform "node_421110"
+        {
+            custom string autotom:category = "organ"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421110
+            custom string autotom:incomingEdgeKind = "branch"
+            custom string autotom:nodeId = "node:421110"
+            custom string autotom:parentId = "node:421109"
+            custom string autotom:sourceType = "organs.Leaf"
+        }
+
+        def Xform "node_421111"
+        {
+            custom string autotom:category = "organ"
+            custom string autotom:entityKind = "topology_node"
+            custom int64 autotom:groimpNodeId = 421111
+            custom string autotom:incomingEdgeKind = "successor"
+            custom string autotom:nodeId = "node:421111"
+            custom string autotom:parentId = "node:421109"
+            custom string autotom:sourceType = "organs.Meristem"
+        }
+    }
+
+    def Scope "Geometry"
+    {
+        def Scope "PlantBase"
+        {
+            def Xform "node_421073"
+            {
+                custom string autotom:entityKind = "organ"
+                custom string autotom:incomingEdgeKind = ""
+                custom string autotom:nodeId = "node:421073"
+                custom string autotom:organType = "PlantBase"
+                custom string autotom:parentId = ""
+                custom rel autotom:topologyNode = </Plant_1/Topology/node_421073>
+                matrix4d xformOp:transform = ( (-0.11929817487085284, -0.9928584720253353, 0, 0), (0.9928584720253353, -0.11929817487085284, 0, 0), (0, 0, 1, 0), (0.6, 0.6, 0.065, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+        }
+
+        def Scope "Root"
+        {
+            def Xform "node_421089"
+            {
+                custom string autotom:entityKind = "organ"
+                custom string autotom:incomingEdgeKind = "branch"
+                custom string autotom:nodeId = "node:421089"
+                custom string autotom:organType = "Root"
+                custom string autotom:parentId = "node:421088"
+                custom rel autotom:topologyNode = </Plant_1/Topology/node_421089>
+                matrix4d xformOp:transform = ( (-0.11929817487085284, -0.9928584720253353, 0, 0), (0.9928584720253353, -0.11929817487085284, 0, 0), (0, 0, 1, 0), (0.6, 0.6, 0.065, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+
+                def Sphere "RootMarker"
+                {
+                    custom string autotom:entityKind = "geometry"
+                    custom string autotom:geometryRole = "root_marker"
+                    custom string autotom:nodeId = "node:421089"
+                    rel material:binding = </Plant_1/Materials/Root>
+                    double radius = 0.005
+                    matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, -0.005, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+            }
+        }
+
+        def Scope "Internode"
+        {
+            def Xform "node_421092"
+            {
+                custom string autotom:entityKind = "organ"
+                custom string autotom:incomingEdgeKind = "successor"
+                custom string autotom:nodeId = "node:421092"
+                custom string autotom:organType = "Internode"
+                custom string autotom:parentId = "node:421091"
+                custom rel autotom:topologyNode = </Plant_1/Topology/node_421092>
+                matrix4d xformOp:transform = ( (-0.11929817487085284, -0.9928584720253353, 0, 0), (0.9928584720253353, -0.11929817487085284, 0, 0), (0, 0, 1, 0), (0.6, 0.6, 0.065, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+
+                def Cylinder "Internode"
+                {
+                    custom string autotom:entityKind = "geometry"
+                    custom string autotom:geometryRole = "internode"
+                    custom string autotom:nodeId = "node:421092"
+                    uniform token axis = "Z"
+                    double height = 0.008802679367363453
+                    rel material:binding = </Plant_1/Materials/Stem>
+                    double radius = 0.003142739275675516
+                    matrix4d xformOp:transform = ( (0.9999999999999999, -1.9336998034810206e-17, 0, 0), (-1.8269155746369045e-17, 1, 0, 0), (0, 0, 1, 0), (0, -1.1102230246251565e-16, 0.0044013396836817265, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+            }
+
+            def Xform "node_421099"
+            {
+                custom string autotom:entityKind = "organ"
+                custom string autotom:incomingEdgeKind = "successor"
+                custom string autotom:nodeId = "node:421099"
+                custom string autotom:organType = "Internode"
+                custom string autotom:parentId = "node:421098"
+                custom rel autotom:topologyNode = </Plant_1/Topology/node_421099>
+                matrix4d xformOp:transform = ( (-0.11929817487085284, -0.9928584720253353, 0, 0), (0.9928584720253353, -0.11929817487085284, 0, 0), (0, 0, 1, 0), (0.6, 0.6, 0.07380267936736346, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+
+                def Cylinder "Internode"
+                {
+                    custom string autotom:entityKind = "geometry"
+                    custom string autotom:geometryRole = "internode"
+                    custom string autotom:nodeId = "node:421099"
+                    uniform token axis = "Z"
+                    double height = 0.00883613619953394
+                    rel material:binding = </Plant_1/Materials/Stem>
+                    double radius = 0.0031483286359131534
+                    matrix4d xformOp:transform = ( (0.9999999999999999, -1.9336998034810206e-17, 0, 0), (-1.8269155746369045e-17, 1, 0, 0), (0, 0, 1, 0), (0, -1.1102230246251565e-16, 0.00441806809976697, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+            }
+
+            def Xform "node_421107"
+            {
+                custom string autotom:entityKind = "organ"
+                custom string autotom:incomingEdgeKind = "successor"
+                custom string autotom:nodeId = "node:421107"
+                custom string autotom:organType = "Internode"
+                custom string autotom:parentId = "node:421106"
+                custom rel autotom:topologyNode = </Plant_1/Topology/node_421107>
+                matrix4d xformOp:transform = ( (-0.11929817487085284, -0.9928584720253353, 0, 0), (0.9928584720253353, -0.11929817487085284, 0, 0), (0, 0, 1, 0), (0.6, 0.6, 0.0826388155668974, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+
+                def Cylinder "Internode"
+                {
+                    custom string autotom:entityKind = "geometry"
+                    custom string autotom:geometryRole = "internode"
+                    custom string autotom:nodeId = "node:421107"
+                    uniform token axis = "Z"
+                    double height = 0.006407313048839569
+                    rel material:binding = </Plant_1/Materials/Stem>
+                    double radius = 0.0027083007958401658
+                    matrix4d xformOp:transform = ( (0.9999999999999999, -1.9336998034810206e-17, 0, 0), (-1.8269155746369045e-17, 1, 0, 0), (0, 0, 1, 0), (0, -1.1102230246251565e-16, 0.0032036565244197845, 1) )
+                    uniform token[] xformOpOrder = ["xformOp:transform"]
+                }
+            }
+        }
+
+        def Scope "Leaf"
+        {
+            def Xform "node_421095"
+            {
+                custom string autotom:entityKind = "organ"
+                custom string autotom:incomingEdgeKind = "branch"
+                custom string autotom:nodeId = "node:421095"
+                custom string autotom:organType = "Leaf"
+                custom string autotom:parentId = "node:421094"
+                custom rel autotom:topologyNode = </Plant_1/Topology/node_421095>
+                matrix4d xformOp:transform = ( (-0.11929817487085284, -0.9928584720253353, 0, 0), (0.9928584720253353, -0.11929817487085284, 0, 0), (0, 0, 1, 0), (0.6, 0.6, 0.07380267936736346, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+
+                def Scope "Visuals"
+                {
+                    custom string autotom:entityKind = "geometry"
+                    custom string autotom:geometryRole = "leaf_group"
+                    custom string autotom:nodeId = "node:421095"
+
+                    def Cylinder "Petiole"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.0140959285
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.0013708973
+                        matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0, 0, 1, 0), (-1, 1.2246467991473532e-16, 0, 0), (-0.00704796425, 8.631266859267476e-19, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Rachis"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.0001
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.0008225383799999999
+                        matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0, 0, 1, 0), (-1, 1.2246467991473532e-16, 0, 0), (-0.0141459285, 1.732376605849232e-18, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Petiolule_term"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.01
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.00054835892
+                        matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0, 0, 1, 0), (-1, 1.2246467991473532e-16, 0, 0), (-0.0191959285, 2.3508232394186455e-18, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Mesh "Blade_0"
+                    {
+                        int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                        int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        point3f[] points = [(0, 0, 0), (0.001977589, 0.0018723512, 0), (0.0034952338, 0.0037447023, 0), (0.004359164, 0.0056170537, 0), (0.004493643, 0.0074894046, 0), (0.0039440054, 0.009361756, 0), (0.0028597368, 0.011234107, 0), (0.0014616962, 0.013106458, 0), (0, 0.014978809, 0), (-0.0014616962, 0.013106458, 0), (-0.0028597368, 0.011234107, 0), (-0.0039440054, 0.009361756, 0), (-0.004493643, 0.0074894046, 0), (-0.004359164, 0.0056170537, 0), (-0.0034952338, 0.0037447023, 0), (-0.001977589, 0.0018723512, 0)]
+                        uniform token subdivisionScheme = "none"
+                        matrix4d xformOp:transform = ( (1.2246467991473532e-16, 1, -0, 0), (-1, 1.2246467991473532e-16, 0, 0), (0, 0, 1, 0), (-0.024195928499999998, 2.963146638992322e-18, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+                }
+            }
+
+            def Xform "node_421096"
+            {
+                custom string autotom:entityKind = "organ"
+                custom string autotom:incomingEdgeKind = "branch"
+                custom string autotom:nodeId = "node:421096"
+                custom string autotom:organType = "Leaf"
+                custom string autotom:parentId = "node:421094"
+                custom rel autotom:topologyNode = </Plant_1/Topology/node_421096>
+                matrix4d xformOp:transform = ( (-0.11929817487085284, -0.9928584720253353, 0, 0), (0.9928584720253353, -0.11929817487085284, 0, 0), (0, 0, 1, 0), (0.6, 0.6, 0.07380267936736346, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+
+                def Scope "Visuals"
+                {
+                    custom string autotom:entityKind = "geometry"
+                    custom string autotom:geometryRole = "leaf_group"
+                    custom string autotom:nodeId = "node:421096"
+
+                    def Cylinder "Petiole"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.0140959285
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.0013708973
+                        matrix4d xformOp:transform = ( (0, 1, 0, 0), (0, 0, 1, 0), (1, 0, 0, 0), (0.00704796425, 0, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Rachis"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.0001
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.0008225383799999999
+                        matrix4d xformOp:transform = ( (0, 1, 0, 0), (0, 0, 1, 0), (1, 0, 0, 0), (0.0141459285, 0, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Petiolule_term"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.01
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.00054835892
+                        matrix4d xformOp:transform = ( (0, 1, 0, 0), (0, 0, 1, 0), (1, 0, 0, 0), (0.0191959285, 0, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Mesh "Blade_0"
+                    {
+                        int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                        int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        point3f[] points = [(0, 0, 0), (0.001977589, 0.0018723512, 0), (0.0034952338, 0.0037447023, 0), (0.004359164, 0.0056170537, 0), (0.004493643, 0.0074894046, 0), (0.0039440054, 0.009361756, 0), (0.0028597368, 0.011234107, 0), (0.0014616962, 0.013106458, 0), (0, 0.014978809, 0), (-0.0014616962, 0.013106458, 0), (-0.0028597368, 0.011234107, 0), (-0.0039440054, 0.009361756, 0), (-0.004493643, 0.0074894046, 0), (-0.004359164, 0.0056170537, 0), (-0.0034952338, 0.0037447023, 0), (-0.001977589, 0.0018723512, 0)]
+                        uniform token subdivisionScheme = "none"
+                        matrix4d xformOp:transform = ( (0, -1, 0, 0), (1, 0, 0, 0), (-0, 0, 1, 0), (0.024195928499999998, 0, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+                }
+            }
+
+            def Xform "node_421102"
+            {
+                custom string autotom:entityKind = "organ"
+                custom string autotom:incomingEdgeKind = "branch"
+                custom string autotom:nodeId = "node:421102"
+                custom string autotom:organType = "Leaf"
+                custom string autotom:parentId = "node:421101"
+                custom rel autotom:topologyNode = </Plant_1/Topology/node_421102>
+                matrix4d xformOp:transform = ( (-0.11929817487085284, -0.9928584720253353, 0, 0), (0.9928584720253353, -0.11929817487085284, 0, 0), (0, 0, 1, 0), (0.6, 0.6, 0.0826388155668974, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+
+                def Scope "Visuals"
+                {
+                    custom string autotom:entityKind = "geometry"
+                    custom string autotom:geometryRole = "leaf_group"
+                    custom string autotom:nodeId = "node:421102"
+
+                    def Cylinder "Petiole"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.020808673
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.00187457165
+                        matrix4d xformOp:transform = ( (-1, 6.123233995736766e-17, 0, 0), (0, -0, 1, 0), (6.123233995736766e-17, 1, 0, 0), (6.370818695988488e-19, 0.0104043365, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Rachis"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.0276516
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.00112474299
+                        matrix4d xformOp:transform = ( (-1, 6.123233995736766e-17, 0, 0), (0, -0, 1, 0), (6.123233995736766e-17, 1, 0, 0), (2.1207498249802713e-18, 0.034634473, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Petiolule_0"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.01
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.0007498286600000001
+                        matrix4d xformOp:transform = ( (-0.6427876096865394, -0.766044443118978, 0, 0), (0, 0, 1, 0), (-0.766044443118978, 0.6427876096865394, 0, 0), (-0.003830222215594889, 0.024022611048432698, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Mesh "Blade_0"
+                    {
+                        int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                        int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        point3f[] points = [(0, 0, 0), (0.0019774013, 0.0018721734, 0), (0.0034949018, 0.0037443468, 0), (0.00435875, 0.00561652, 0), (0.004493216, 0.0074886936, 0), (0.003943631, 0.009360867, 0), (0.002859465, 0.01123304, 0), (0.0014615575, 0.013105214, 0), (0, 0.014977387, 0), (-0.0014615575, 0.013105214, 0), (-0.002859465, 0.01123304, 0), (-0.003943631, 0.009360867, 0), (-0.004493216, 0.0074886936, 0), (-0.00435875, 0.00561652, 0), (-0.0034949018, 0.0037443468, 0), (-0.0019774013, 0.0018721734, 0)]
+                        uniform token subdivisionScheme = "none"
+                        matrix4d xformOp:transform = ( (0.6427876096865394, 0.766044443118978, -0, 0), (-0.766044443118978, 0.6427876096865394, 0, 0), (0, 0, 1, 0), (-0.00766044443118978, 0.027236549096865393, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Petiolule_1"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.01
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.0007498286600000001
+                        matrix4d xformOp:transform = ( (-0.6427876096865394, 0.766044443118978, 0, 0), (0, -0, 1, 0), (0.766044443118978, 0.6427876096865394, 0, 0), (0.0038302222155948916, 0.024022611048432698, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Mesh "Blade_1"
+                    {
+                        int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                        int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        point3f[] points = [(0, 0, 0), (0.0019774013, 0.0018721734, 0), (0.0034949018, 0.0037443468, 0), (0.00435875, 0.00561652, 0), (0.004493216, 0.0074886936, 0), (0.003943631, 0.009360867, 0), (0.002859465, 0.01123304, 0), (0.0014615575, 0.013105214, 0), (0, 0.014977387, 0), (-0.0014615575, 0.013105214, 0), (-0.002859465, 0.01123304, 0), (-0.003943631, 0.009360867, 0), (-0.004493216, 0.0074886936, 0), (-0.00435875, 0.00561652, 0), (-0.0034949018, 0.0037443468, 0), (-0.0019774013, 0.0018721734, 0)]
+                        uniform token subdivisionScheme = "none"
+                        matrix4d xformOp:transform = ( (0.6427876096865394, -0.766044443118978, 0, 0), (0.766044443118978, 0.6427876096865394, 0, 0), (-0, 0, 1, 0), (0.0076604444311897816, 0.027236549096865393, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Petiolule_term"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.01
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.0007498286600000001
+                        matrix4d xformOp:transform = ( (-1, 6.123233995736766e-17, 0, 0), (0, -0, 1, 0), (6.123233995736766e-17, 1, 0, 0), (3.273497610549684e-18, 0.053460272999999996, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Mesh "Blade_2"
+                    {
+                        int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                        int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        point3f[] points = [(0, 0, 0), (0.0020071382, 0.0019003279, 0), (0.0035474596, 0.0038006557, 0), (0.0044242986, 0.0057009836, 0), (0.0045607868, 0.0076013114, 0), (0.0040029367, 0.00950164, 0), (0.002902467, 0.011401967, 0), (0.0014835369, 0.0133022955, 0), (0, 0.015202623, 0), (-0.0014835369, 0.0133022955, 0), (-0.002902467, 0.011401967, 0), (-0.0040029367, 0.00950164, 0), (-0.0045607868, 0.0076013114, 0), (-0.0044242986, 0.0057009836, 0), (-0.0035474596, 0.0038006557, 0), (-0.0020071382, 0.0019003279, 0)]
+                        uniform token subdivisionScheme = "none"
+                        matrix4d xformOp:transform = ( (1, -6.123233995736766e-17, 0, 0), (6.123233995736766e-17, 1, 0, 0), (-0, 0, 1, 0), (3.579659310336522e-18, 0.058460273, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+                }
+            }
+
+            def Xform "node_421103"
+            {
+                custom string autotom:entityKind = "organ"
+                custom string autotom:incomingEdgeKind = "branch"
+                custom string autotom:nodeId = "node:421103"
+                custom string autotom:organType = "Leaf"
+                custom string autotom:parentId = "node:421101"
+                custom rel autotom:topologyNode = </Plant_1/Topology/node_421103>
+                matrix4d xformOp:transform = ( (-0.11929817487085284, -0.9928584720253353, 0, 0), (0.9928584720253353, -0.11929817487085284, 0, 0), (0, 0, 1, 0), (0.6, 0.6, 0.0826388155668974, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+
+                def Scope "Visuals"
+                {
+                    custom string autotom:entityKind = "geometry"
+                    custom string autotom:geometryRole = "leaf_group"
+                    custom string autotom:nodeId = "node:421103"
+
+                    def Cylinder "Petiole"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.020808673
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.00187457165
+                        matrix4d xformOp:transform = ( (1, -1.8369701987210297e-16, 0, 0), (0, 0, 1, 0), (-1.8369701987210297e-16, -1, 0, 0), (-1.9112456087965464e-18, -0.0104043365, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Rachis"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.0276516
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.00112474299
+                        matrix4d xformOp:transform = ( (1, -1.8369701987210297e-16, 0, 0), (0, 0, 1, 0), (-1.8369701987210297e-16, -1, 0, 0), (-6.362249474940814e-18, -0.034634473, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Petiolule_0"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.01
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.0007498286600000001
+                        matrix4d xformOp:transform = ( (0.6427876096865395, 0.7660444431189779, -0, 0), (0, 0, 1, 0), (0.7660444431189779, -0.6427876096865395, 0, 0), (0.0038302222155948856, -0.024022611048432698, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Mesh "Blade_0"
+                    {
+                        int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                        int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        point3f[] points = [(0, 0, 0), (0.0019774013, 0.0018721734, 0), (0.0034949018, 0.0037443468, 0), (0.00435875, 0.00561652, 0), (0.004493216, 0.0074886936, 0), (0.003943631, 0.009360867, 0), (0.002859465, 0.01123304, 0), (0.0014615575, 0.013105214, 0), (0, 0.014977387, 0), (-0.0014615575, 0.013105214, 0), (-0.002859465, 0.01123304, 0), (-0.003943631, 0.009360867, 0), (-0.004493216, 0.0074886936, 0), (-0.00435875, 0.00561652, 0), (-0.0034949018, 0.0037443468, 0), (-0.0019774013, 0.0018721734, 0)]
+                        uniform token subdivisionScheme = "none"
+                        matrix4d xformOp:transform = ( (-0.6427876096865395, -0.7660444431189779, 0, 0), (0.7660444431189779, -0.6427876096865395, 0, 0), (0, 0, 1, 0), (0.0076604444311897755, -0.027236549096865396, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Petiolule_1"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.01
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.0007498286600000001
+                        matrix4d xformOp:transform = ( (0.6427876096865393, -0.7660444431189781, 0, 0), (0, 0, 1, 0), (-0.7660444431189781, -0.6427876096865393, 0, 0), (-0.0038302222155948947, -0.024022611048432695, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Mesh "Blade_1"
+                    {
+                        int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                        int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        point3f[] points = [(0, 0, 0), (0.0019774013, 0.0018721734, 0), (0.0034949018, 0.0037443468, 0), (0.00435875, 0.00561652, 0), (0.004493216, 0.0074886936, 0), (0.003943631, 0.009360867, 0), (0.002859465, 0.01123304, 0), (0.0014615575, 0.013105214, 0), (0, 0.014977387, 0), (-0.0014615575, 0.013105214, 0), (-0.002859465, 0.01123304, 0), (-0.003943631, 0.009360867, 0), (-0.004493216, 0.0074886936, 0), (-0.00435875, 0.00561652, 0), (-0.0034949018, 0.0037443468, 0), (-0.0019774013, 0.0018721734, 0)]
+                        uniform token subdivisionScheme = "none"
+                        matrix4d xformOp:transform = ( (-0.6427876096865393, 0.7660444431189781, 0, 0), (-0.7660444431189781, -0.6427876096865393, 0, 0), (0, 0, 1, 0), (-0.007660444431189785, -0.027236549096865393, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Petiolule_term"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.01
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.0007498286600000001
+                        matrix4d xformOp:transform = ( (1, -1.8369701987210297e-16, 0, 0), (0, 0, 1, 0), (-1.8369701987210297e-16, -1, 0, 0), (-9.820492831649049e-18, -0.053460272999999996, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Mesh "Blade_2"
+                    {
+                        int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                        int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        point3f[] points = [(0, 0, 0), (0.0020071382, 0.0019003279, 0), (0.0035474596, 0.0038006557, 0), (0.0044242986, 0.0057009836, 0), (0.0045607868, 0.0076013114, 0), (0.0040029367, 0.00950164, 0), (0.002902467, 0.011401967, 0), (0.0014835369, 0.0133022955, 0), (0, 0.015202623, 0), (-0.0014835369, 0.0133022955, 0), (-0.002902467, 0.011401967, 0), (-0.0040029367, 0.00950164, 0), (-0.0045607868, 0.0076013114, 0), (-0.0044242986, 0.0057009836, 0), (-0.0035474596, 0.0038006557, 0), (-0.0020071382, 0.0019003279, 0)]
+                        uniform token subdivisionScheme = "none"
+                        matrix4d xformOp:transform = ( (-1, 1.8369701987210297e-16, 0, 0), (-1.8369701987210297e-16, -1, 0, 0), (0, 0, 1, 0), (-1.0738977931009565e-17, -0.058460273, 0, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+                }
+            }
+
+            def Xform "node_421110"
+            {
+                custom string autotom:entityKind = "organ"
+                custom string autotom:incomingEdgeKind = "branch"
+                custom string autotom:nodeId = "node:421110"
+                custom string autotom:organType = "Leaf"
+                custom string autotom:parentId = "node:421109"
+                custom rel autotom:topologyNode = </Plant_1/Topology/node_421110>
+                matrix4d xformOp:transform = ( (-0.11929817487085284, -0.9928584720253353, 0, 0), (0.9928584720253353, -0.11929817487085284, 0, 0), (0, 0, 1, 0), (0.6, 0.6, 0.08904612861573696, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+
+                def Scope "Visuals"
+                {
+                    custom string autotom:entityKind = "geometry"
+                    custom string autotom:geometryRole = "leaf_group"
+                    custom string autotom:nodeId = "node:421110"
+
+                    def Cylinder "Petiole"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.0136242965
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.0013339233
+                        matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0.3420201433256687, -4.188538737676992e-17, 0.9396926207859084, 0), (-0.9396926207859084, 1.1507915602278503e-16, 0.3420201433256687, 0), (-0.00640132544222464, 7.83936271312092e-19, 0.0023298919208207033, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Rachis"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.0301228146
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.00080035398
+                        matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0.3420201433256687, -4.188538737676992e-17, 0.9396926207859084, 0), (-0.9396926207859084, 1.1507915602278503e-16, 0.3420201433256687, 0), (-0.026955744182910295, 3.301126583223597e-18, 0.00981108852507368, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Petiolule_0"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.01
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.00053356932
+                        matrix4d xformOp:transform = ( (0.7852561107532648, -0.6191710914800983, 0, 0), (0.1361224799638779, 0.17263565866262628, 0.9755345200486781, 0), (-0.6040227735550538, -0.7660444431189779, 0.2198463103929542, 0), (-0.01582276475222455, -0.0038302222155948877, 0.005759015393606177, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Mesh "Blade_0"
+                    {
+                        int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                        int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        point3f[] points = [(0, 0, 0), (0.00050421926, 0.00047738713, 0), (0.0008911681, 0.00095477427, 0), (0.0011114414, 0.0014321613, 0), (0.0011457291, 0.0019095485, 0), (0.0010055898, 0.0023869355, 0), (0.0007291375, 0.0028643226, 0), (0.0003726838, 0.00334171, 0), (0, 0.003819097, 0), (-0.0003726838, 0.00334171, 0), (-0.0007291375, 0.0028643226, 0), (-0.0010055898, 0.0023869355, 0), (-0.0011457291, 0.0019095485, 0), (-0.0011114414, 0.0014321613, 0), (-0.0008911681, 0.00095477427, 0), (-0.00050421926, 0.00047738713, 0)]
+                        uniform token subdivisionScheme = "none"
+                        matrix4d xformOp:transform = ( (-0.7852561107532648, 0.6191710914800983, 0, 0), (-0.6040227735550538, -0.7660444431189779, 0.2198463103929542, 0), (0.1361224799638779, 0.17263565866262628, 0.9755345200486781, 0), (-0.01884287861999982, -0.007660444431189777, 0.006858246945570948, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Petiolule_1"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.01
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.00053356932
+                        matrix4d xformOp:transform = ( (-0.7852561107532651, -0.6191710914800981, 0, 0), (0.13612247996387788, -0.1726356586626263, 0.9755345200486782, 0), (-0.6040227735550536, 0.7660444431189781, 0.2198463103929542, 0), (-0.01582276475222455, 0.0038302222155948925, 0.005759015393606177, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Mesh "Blade_1"
+                    {
+                        int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                        int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        point3f[] points = [(0, 0, 0), (0.00050421926, 0.00047738713, 0), (0.0008911681, 0.00095477427, 0), (0.0011114414, 0.0014321613, 0), (0.0011457291, 0.0019095485, 0), (0.0010055898, 0.0023869355, 0), (0.0007291375, 0.0028643226, 0), (0.0003726838, 0.00334171, 0), (0, 0.003819097, 0), (-0.0003726838, 0.00334171, 0), (-0.0007291375, 0.0028643226, 0), (-0.0010055898, 0.0023869355, 0), (-0.0011457291, 0.0019095485, 0), (-0.0011114414, 0.0014321613, 0), (-0.0008911681, 0.00095477427, 0), (-0.00050421926, 0.00047738713, 0)]
+                        uniform token subdivisionScheme = "none"
+                        matrix4d xformOp:transform = ( (0.7852561107532651, 0.6191710914800981, -0, 0), (-0.6040227735550536, 0.7660444431189781, 0.2198463103929542, 0), (0.13612247996387788, -0.1726356586626263, 0.9755345200486782, 0), (-0.018842878619999816, 0.007660444431189783, 0.006858246945570948, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Petiolule_2"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.01
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.00053356932
+                        matrix4d xformOp:transform = ( (0.7852561107532648, -0.6191710914800983, 0, 0), (0.1361224799638779, 0.17263565866262628, 0.9755345200486781, 0), (-0.6040227735550538, -0.7660444431189779, 0.2198463103929542, 0), (-0.027726326664185768, -0.0038302222155948864, 0.010091557611304947, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Mesh "Blade_2"
+                    {
+                        int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                        int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        point3f[] points = [(0, 0, 0), (0.00050421926, 0.00047738713, 0), (0.0008911681, 0.00095477427, 0), (0.0011114414, 0.0014321613, 0), (0.0011457291, 0.0019095485, 0), (0.0010055898, 0.0023869355, 0), (0.0007291375, 0.0028643226, 0), (0.0003726838, 0.00334171, 0), (0, 0.003819097, 0), (-0.0003726838, 0.00334171, 0), (-0.0007291375, 0.0028643226, 0), (-0.0010055898, 0.0023869355, 0), (-0.0011457291, 0.0019095485, 0), (-0.0011114414, 0.0014321613, 0), (-0.0008911681, 0.00095477427, 0), (-0.00050421926, 0.00047738713, 0)]
+                        uniform token subdivisionScheme = "none"
+                        matrix4d xformOp:transform = ( (-0.7852561107532648, 0.6191710914800983, 0, 0), (-0.6040227735550538, -0.7660444431189779, 0.2198463103929542, 0), (0.1361224799638779, 0.17263565866262628, 0.9755345200486781, 0), (-0.030746440531961038, -0.007660444431189776, 0.011190789163269717, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Petiolule_3"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.01
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.00053356932
+                        matrix4d xformOp:transform = ( (-0.7852561107532651, -0.6191710914800981, 0, 0), (0.13612247996387788, -0.1726356586626263, 0.9755345200486782, 0), (-0.6040227735550536, 0.7660444431189781, 0.2198463103929542, 0), (-0.027726326664185768, 0.003830222215594894, 0.010091557611304947, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Mesh "Blade_3"
+                    {
+                        int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                        int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        point3f[] points = [(0, 0, 0), (0.00050421926, 0.00047738713, 0), (0.0008911681, 0.00095477427, 0), (0.0011114414, 0.0014321613, 0), (0.0011457291, 0.0019095485, 0), (0.0010055898, 0.0023869355, 0), (0.0007291375, 0.0028643226, 0), (0.0003726838, 0.00334171, 0), (0, 0.003819097, 0), (-0.0003726838, 0.00334171, 0), (-0.0007291375, 0.0028643226, 0), (-0.0010055898, 0.0023869355, 0), (-0.0011457291, 0.0019095485, 0), (-0.0011114414, 0.0014321613, 0), (-0.0008911681, 0.00095477427, 0), (-0.00050421926, 0.00047738713, 0)]
+                        uniform token subdivisionScheme = "none"
+                        matrix4d xformOp:transform = ( (0.7852561107532651, 0.6191710914800981, -0, 0), (-0.6040227735550536, 0.7660444431189781, 0.2198463103929542, 0), (0.13612247996387788, -0.1726356586626263, 0.9755345200486782, 0), (-0.030746440531961034, 0.007660444431189784, 0.011190789163269717, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Cylinder "Petiolule_term"
+                    {
+                        uniform token axis = "Z"
+                        double height = 0.01
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        double radius = 0.00053356932
+                        matrix4d xformOp:transform = ( (-1.2246467991473532e-16, -1, 0, 0), (0.3420201433256687, -4.188538737676992e-17, 0.9396926207859084, 0), (-0.9396926207859084, 1.1507915602278503e-16, 0.3420201433256687, 0), (-0.045807300585300845, 5.6097764039369354e-18, 0.016672493925134296, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+
+                    def Mesh "Blade_4"
+                    {
+                        int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+                        int[] faceVertexIndices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 9, 0, 9, 10, 0, 10, 11, 0, 11, 12, 0, 12, 13, 0, 13, 14, 0, 14, 15]
+                        rel material:binding = </Plant_1/Materials/Leaf>
+                        point3f[] points = [(0, 0, 0), (0.00050421926, 0.00047738713, 0), (0.0008911681, 0.00095477427, 0), (0.0011114414, 0.0014321613, 0), (0.0011457291, 0.0019095485, 0), (0.0010055898, 0.0023869355, 0), (0.0007291375, 0.0028643226, 0), (0.0003726838, 0.00334171, 0), (0, 0.003819097, 0), (-0.0003726838, 0.00334171, 0), (-0.0007291375, 0.0028643226, 0), (-0.0010055898, 0.0023869355, 0), (-0.0011457291, 0.0019095485, 0), (-0.0011114414, 0.0014321613, 0), (-0.0008911681, 0.00095477427, 0), (-0.00050421926, 0.00047738713, 0)]
+                        uniform token subdivisionScheme = "none"
+                        matrix4d xformOp:transform = ( (1.2246467991473532e-16, 1, -0, 0), (-0.9396926207859084, 1.1507915602278503e-16, 0.3420201433256687, 0), (0.3420201433256687, -4.188538737676992e-17, 0.9396926207859084, 0), (-0.05050576368923039, 6.185172184050861e-18, 0.01838259464176264, 1) )
+                        uniform token[] xformOpOrder = ["xformOp:transform"]
+                    }
+                }
+            }
+        }
+
+        def Scope "Meristem"
+        {
+            def Xform "node_421104"
+            {
+                custom string autotom:entityKind = "organ"
+                custom string autotom:incomingEdgeKind = "branch"
+                custom string autotom:nodeId = "node:421104"
+                custom string autotom:organType = "Meristem"
+                custom string autotom:parentId = "node:421101"
+                custom rel autotom:topologyNode = </Plant_1/Topology/node_421104>
+                matrix4d xformOp:transform = ( (-0.11929817487085284, -0.9928584720253353, 0, 0), (0.9928584720253353, -0.11929817487085284, 0, 0), (0, 0, 1, 0), (0.6, 0.6, 0.0826388155668974, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+
+            def Xform "node_421111"
+            {
+                custom string autotom:entityKind = "organ"
+                custom string autotom:incomingEdgeKind = "successor"
+                custom string autotom:nodeId = "node:421111"
+                custom string autotom:organType = "Meristem"
+                custom string autotom:parentId = "node:421109"
+                custom rel autotom:topologyNode = </Plant_1/Topology/node_421111>
+                matrix4d xformOp:transform = ( (-0.11929817487085284, -0.9928584720253353, 0, 0), (0.9928584720253353, -0.11929817487085284, 0, 0), (0, 0, 1, 0), (0.6, 0.6, 0.08904612861573696, 1) )
+                uniform token[] xformOpOrder = ["xformOp:transform"]
+            }
+        }
+    }
+}
+
