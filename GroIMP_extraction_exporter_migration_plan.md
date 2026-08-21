@@ -390,10 +390,12 @@ exact coincident visual pairs:    0 on days 1/25/80
 
 Legacy/new V1 world bounding-box heights were `0.053735/0.053735 m` (day 1),
 `0.188952/0.183726 m` (day 25), and `0.296614/0.290814 m` (day 80). The mature
-height differences are approximately 2–3%; the new stage also preserves the
-GroIMP world placement instead of relocating the plant to the legacy origin.
-This comparison validates overall scale and placement, not graphical parity
-with GroIMP: leaf, truss and fruit styling intentionally remains V1.
+height differences are approximately 2–3%. ExporterV1 rebases `PlantBase` to
+the stage origin for convenient static inspection and stores the original
+GroIMP offset as `autotom:sourceWorldOrigin`; the canonical PlantState retains
+the original world placement. This comparison validates overall scale, not
+graphical parity with GroIMP: leaf, truss and fruit styling intentionally
+remains V1.
 
 Validation commands and results:
 

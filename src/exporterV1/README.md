@@ -57,6 +57,10 @@ parent node and incoming edge kind. Internodes, leaves and `Fruits` modules
 receive their normal V1 visuals. `Truss`, `Meristem` and `PlantBase` remain
 visible in metadata/topology but receive no invented geometry.
 
+The static stage rebases the canonical `PlantBase` to `(0, 0, 0)`. The original
+GroIMP world offset is preserved on `/Plant_N` as
+`autotom:sourceWorldOrigin`; the input PlantState is never modified.
+
 Each export writes an `exporter_v1_manifest/1.0` sidecar. The manifest checks
 canonical versus USD organ counts, expected versus created geometry, topology
 parentage, node coverage and path uniqueness. V1 never filters canonical organ

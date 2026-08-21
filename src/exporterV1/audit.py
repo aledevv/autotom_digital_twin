@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from pxr import Usd
+from pxr import Usd, UsdGeom
 
 from plant_state import PlantState
 
@@ -60,6 +60,7 @@ def audit_v1_stage(state: PlantState, usd_path: str | Path) -> V1ExportManifest:
     topology_node_ids: set[str] = set()
     topology_parentage: dict[str, tuple[str | None, str | None]] = {}
     rendered_node_ids: set[str] = set()
+    plant_base_prim = None
     paths: list[str] = []
     for prim in stage.Traverse():
         paths.append(str(prim.GetPath()))
@@ -78,6 +79,8 @@ def audit_v1_stage(state: PlantState, usd_path: str | Path) -> V1ExportManifest:
             node_id = _attribute(prim, "autotom:nodeId")
             if organ_type:
                 usd_organs[str(organ_type)] += 1
+                if organ_type == "PlantBase":
+                    plant_base_prim = prim
             if node_id:
                 rendered_node_ids.add(str(node_id))
         elif entity_kind == "geometry":
@@ -140,6 +143,23 @@ def audit_v1_stage(state: PlantState, usd_path: str | Path) -> V1ExportManifest:
     if len(paths) != len(set(paths)):
         errors.append("USD traversal contains duplicate paths")
 
+    plant_prim = stage.GetDefaultPrim()
+    origin_policy = _attribute(plant_prim, "autotom:originPolicy")
+    source_world_origin = _attribute(plant_prim, "autotom:sourceWorldOrigin")
+    plant_base_world_position = None
+    if plant_base_prim is None:
+        errors.append("USD stage has no PlantBase organ prim")
+    else:
+        translation = UsdGeom.XformCache().GetLocalToWorldTransform(
+            plant_base_prim
+        ).ExtractTranslation()
+        plant_base_world_position = [float(value) for value in translation]
+        if any(abs(value) > 1e-12 for value in plant_base_world_position):
+            errors.append(
+                "PlantBase is not at the stage origin: "
+                f"position={plant_base_world_position}"
+            )
+
     non_visual = {
         key: organ_counts.get(key, 0)
         for key in ("PlantBase", "Truss", "Meristem")
@@ -152,6 +172,12 @@ def audit_v1_stage(state: PlantState, usd_path: str | Path) -> V1ExportManifest:
             "plant_id": state.metadata.plant_id,
             "simulation_time": state.metadata.simulation_time,
             "plant_state_schema": state.schema_version,
+            "origin_policy": origin_policy,
+            "source_world_origin": (
+                [float(value) for value in source_world_origin]
+                if source_world_origin is not None
+                else None
+            ),
         },
         plant_state_organs=dict(sorted(organ_counts.items())),
         usd_organ_prims=dict(sorted(usd_organs.items())),
@@ -167,6 +193,7 @@ def audit_v1_stage(state: PlantState, usd_path: str | Path) -> V1ExportManifest:
         diagnostics={
             **render_view.diagnostics,
             "path_count": len(paths),
+            "plant_base_world_position": plant_base_world_position,
         },
         errors=tuple(errors),
     )

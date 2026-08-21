@@ -5,10 +5,11 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import replace
 import json
+from pathlib import Path
 import sys
 
 import pytest
-from pxr import Usd
+from pxr import Usd, UsdGeom
 
 from exporterV1.adapter import build_v1_render_view
 from exporterV1.audit import audit_v1_stage, manifest_path_for
@@ -18,7 +19,7 @@ from exporterV1.isaac_app import _arguments, _open_stage_and_wait
 from groimp_bridge.extractor import extract_plant_state
 from groimp_bridge.tests.test_offline_extractor import _snapshot
 from groimp_bridge.turtle import resolve_turtle
-from plant_state import save_plant_state
+from plant_state import load_plant_state, save_plant_state
 
 
 @pytest.fixture
@@ -211,3 +212,31 @@ def test_isaac_45_none_open_result_is_not_treated_as_failure(tmp_path):
     assert opened == destination
     assert context.opened == str(destination)
     assert app.updates == 2
+
+
+def test_real_groimp_world_offset_is_rebased_to_stage_origin(tmp_path):
+    project_root = Path(__file__).resolve().parents[3]
+    state = load_plant_state(
+        project_root / "data" / "plant_states" / "plant_state_day_1.json"
+    )
+    root_node = next(node for node in state.nodes if node.id == state.root_node_id)
+    assert root_node.pose.world_start != (0.0, 0.0, 0.0)
+    destination = export_plant_usd(state, tmp_path / "rebased.usda")
+    stage = Usd.Stage.Open(str(destination))
+    plant = stage.GetDefaultPrim()
+    assert plant.GetAttribute("autotom:originPolicy").Get() == (
+        "plant_base_at_stage_origin"
+    )
+    assert tuple(plant.GetAttribute("autotom:sourceWorldOrigin").Get()) == pytest.approx(
+        root_node.pose.world_start
+    )
+    plant_base = next(
+        prim
+        for prim in stage.Traverse()
+        if prim.GetAttribute("autotom:entityKind").Get() == "organ"
+        and prim.GetAttribute("autotom:organType").Get() == "PlantBase"
+    )
+    translation = UsdGeom.XformCache().GetLocalToWorldTransform(
+        plant_base
+    ).ExtractTranslation()
+    assert tuple(translation) == pytest.approx((0.0, 0.0, 0.0), abs=1e-12)

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from pxr import Sdf, Usd, UsdGeom
+from pxr import Gf, Sdf, Usd, UsdGeom
 
 from plant_state import FruitsProperties, PlantState
 
@@ -296,8 +296,17 @@ def export_plant_usd(state: PlantState, output_path: str | Path) -> Path:
     plant_path = f"/Plant_{state.metadata.plant_id}"
     plant = UsdGeom.Xform.Define(stage, plant_path).GetPrim()
     stage.SetDefaultPrim(plant)
+    root_node = next(node for node in state.nodes if node.id == state.root_node_id)
+    source_origin = np.asarray(root_node.pose.world_start, dtype=np.float64)
+    rebase = np.eye(4, dtype=np.float64)
+    rebase[:3, 3] = -source_origin
+    _set_transform(plant, rebase)
     _set_string(plant, "autotom:plantStateSchema", state.schema_version)
     _set_string(plant, "autotom:renderer", "exporterV1/plant_state")
+    _set_string(plant, "autotom:originPolicy", "plant_base_at_stage_origin")
+    plant.CreateAttribute(
+        "autotom:sourceWorldOrigin", Sdf.ValueTypeNames.Double3, custom=True
+    ).Set(Gf.Vec3d(*source_origin))
     plant.CreateAttribute("autotom:plantId", Sdf.ValueTypeNames.Int, custom=True).Set(
         state.metadata.plant_id
     )
