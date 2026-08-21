@@ -336,8 +336,11 @@ Remaining limits are leaflet surface assets, renderer-cache offsets retained
 only in Phase C diagnostics, and lack of cross-run identity guarantees for
 native GroIMP node IDs. ExporterV1/V2 and the legacy CSV path remain unchanged.
 
-**Next official task:** Phase G — implement the temporary legacy CSV adapter
-into `PlantState`, solely for backwards compatibility and regression replay.
+**Migration decision (2026-08-21):** Phase G is `SKIPPED BY DESIGN`. Historical
+CSV compatibility is not a product requirement; Git retains the working CSV
+pipeline for regression archaeology and rollback. The next official task is
+the combined Phase H+I migration and validation of ExporterV1 on
+`plant_state/1.0`.
 
 ---
 
@@ -892,6 +895,13 @@ assert_equivalent(state_a, state_b)
 ---
 
 # 14. Phase G — Temporary legacy CSV adapter
+
+**Status (2026-08-21): `SKIPPED BY DESIGN`.**
+
+The repository checkpoint named `checkpoint: legacy CSV pipeline before
+PlantState migration` preserves the still-working CSV implementation. No
+`LegacyCsvAdapter` will be added: normal operation moves directly to canonical
+PlantState JSON, while historical behavior remains recoverable from Git.
 
 Do not delete the CSV pipeline immediately.
 
@@ -1582,16 +1592,17 @@ This refactor is complete only when:
 
 Each phase must produce a small testable artifact.
 
-Phases A through F have now been completed. The next implementation task must
-remain narrow:
+Phases A through F have now been completed. Phase G was deliberately skipped;
+the next implementation task is:
 
 ```text
 NEXT TASK:
-Implement the temporary legacy CSV adapter in Phase G.
+Migrate and validate ExporterV1 on canonical PlantState (Phase H+I).
 ```
 
-It should map historical CSV rows into the existing `plant_state/1.0` domain
-model without weakening the native schema or modifying either exporter yet.
+The migration must preserve one visible V1 organ group per supported canonical
+organ, retain the current V1 visual style, and remove CSV-derived identity and
+parent inference from normal operation.
 
 ---
 
