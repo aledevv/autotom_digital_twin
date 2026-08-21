@@ -575,6 +575,7 @@ def extract_project_state(
     api_url: str = DEFAULT_API_URL,
     function_name: str = DEFAULT_FUNCTION,
     strict: bool = True,
+    model_duration_days: int | None = None,
 ) -> PlantState:
     """Extract from a lifecycle-safe isolated project run."""
 
@@ -584,6 +585,7 @@ def extract_project_state(
         api_url=api_url,
         steps=steps,
         function_name=function_name,
+        model_duration_days=model_duration_days,
     )
     resolution = resolve_turtle(report.snapshot, strict=strict)
     return extract_plant_state(
@@ -622,6 +624,14 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--plant-id", type=_positive_int, default=1)
     parser.add_argument("--api-url", default=DEFAULT_API_URL)
     parser.add_argument("--function", dest="function_name", default=DEFAULT_FUNCTION)
+    parser.add_argument(
+        "--model-duration-days",
+        type=_positive_int,
+        help=(
+            "Override DURATION_DAYS only inside the isolated temporary workbench; "
+            "useful for validation beyond the model's default harvest day"
+        ),
+    )
     parser.add_argument("--output", type=Path, required=True)
     return parser
 
@@ -635,6 +645,7 @@ def main(argv: list[str] | None = None) -> int:
             plant_id=args.plant_id,
             api_url=args.api_url,
             function_name=args.function_name,
+            model_duration_days=args.model_duration_days,
         )
         destination = save_plant_state(state, args.output)
     except (

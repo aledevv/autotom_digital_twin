@@ -6,11 +6,9 @@ Generates tree USD and loads it in Isaac Sim in one step.
 Run with static config:
     ~/isaacsim/python.sh src/exporterV2/main.py
 
-Run with CSV data:
-    ~/isaacsim/python.sh src/exporterV2/main.py --day 1
-
 Or use wrapper script:
-    ./run_mainV2.sh [--day N]
+    ./run_mainV2.sh                 # static BRANCHES demo
+    ./run_mainV2.sh --day 25        # canonical PlantState workflow
 """
 
 import os
@@ -19,8 +17,6 @@ import argparse
 
 # Parse arguments BEFORE initializing SimulationApp
 parser = argparse.ArgumentParser(description="exporterV2 Tree Loader")
-parser.add_argument("--day", type=int, help="Load plant from CSV for specified day")
-parser.add_argument("--plant-id", type=int, default=1, help="Plant ID (default: 1)")
 parser.add_argument("--optimize", action="store_true", help="Apply joint-budget optimization")
 parser.add_argument(
     "--branch-backend",
@@ -82,24 +78,13 @@ def main():
     print("  exporterV2 - Tree Model Generator & Loader")
     print("=" * 80)
 
-    # Determine configuration source and USD path
-    if args.day is not None:
-        from exporterV2.adapters.groimp_csv import parse_csv_to_branches
-        print(f"\n[CONFIG] Loading plant from CSV (day {args.day}, plant_id {args.plant_id})")
-        branches, terminal_bodies, json_path = parse_csv_to_branches(
-            args.day,
-            args.plant_id,
-            include_terminal_bodies=True,
-        )
-        print(f"[CONFIG] Configuration saved: {json_path}")
-
-        base_path = get_output_usd_path()
-        usd_path = base_path.replace("tree_v2.usda", f"tree_v2_day_{args.day}.usda")
-    else:
-        print("\n[CONFIG] Using static configuration from tree_config.py")
-        branches = BRANCHES
-        terminal_bodies = []
-        usd_path = get_output_usd_path()
+    # This entry point intentionally remains only the BRANCHES demo. Day-based
+    # generation is canonical and is orchestrated by run_mainV2.sh; there is no
+    # CSV fallback in the V2 user workflow.
+    print("\n[CONFIG] Using static configuration from tree_config.py")
+    branches = BRANCHES
+    terminal_bodies = []
+    usd_path = get_output_usd_path()
 
     branches, resolution_changes = limit_branch_resolution(branches)
     print(

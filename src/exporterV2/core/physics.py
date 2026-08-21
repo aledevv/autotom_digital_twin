@@ -4,9 +4,34 @@ physics.py - PhysX Configuration
 Shared PhysX scene and articulation settings for Isaac Sim simulations.
 """
 
-from pxr import UsdPhysics, PhysxSchema, Gf
+from pxr import UsdPhysics, Gf, Sdf
+
+try:  # OpenUSD wheels do not ship NVIDIA's schema plugin.
+    from pxr import PhysxSchema
+except ImportError:  # pragma: no cover - exercised by the serverless exporter
+    PhysxSchema = None
 
 from .tree_config import PhysicsRuntimeConfig
+
+
+def _apply_schema_token(prim, token: str) -> None:
+    """Author an applied PhysX schema token without requiring Isaac Sim."""
+
+    schemas = list(prim.GetAppliedSchemas())
+    if token in schemas:
+        return
+    # Standard OpenUSD APIs are commonly stored as explicit list items. Mixing
+    # a prepended unknown NVIDIA token into that operation can discard them
+    # when another standard API is applied later. Preserve the complete
+    # resolved list explicitly.
+    prim.SetMetadata(
+        "apiSchemas",
+        Sdf.TokenListOp.CreateExplicit([*schemas, token]),
+    )
+
+
+def _attribute(prim, name: str, value_type, value) -> None:
+    prim.CreateAttribute(name, value_type).Set(value)
 
 
 def apply_physx_scene_settings(
@@ -31,13 +56,23 @@ def apply_physx_scene_settings(
     usd_scene.CreateGravityDirectionAttr().Set(Gf.Vec3f(0.0, 0.0, -1.0))
     usd_scene.CreateGravityMagnitudeAttr().Set(9.81)
 
-    physx = PhysxSchema.PhysxSceneAPI.Apply(usd_scene.GetPrim())
-    physx.CreateSolverTypeAttr().Set("TGS")
-    physx.CreateTimeStepsPerSecondAttr().Set(int(physics_hz))
-    physx.CreateEnableCCDAttr().Set(True)
-    physx.CreateEnableStabilizationAttr().Set(True)
-    physx.CreateEnableGPUDynamicsAttr().Set(enable_gpu_dynamics)
-    physx.CreateBroadphaseTypeAttr().Set("MBP")
+    if PhysxSchema is not None:
+        physx = PhysxSchema.PhysxSceneAPI.Apply(usd_scene.GetPrim())
+        physx.CreateSolverTypeAttr().Set("TGS")
+        physx.CreateTimeStepsPerSecondAttr().Set(int(physics_hz))
+        physx.CreateEnableCCDAttr().Set(True)
+        physx.CreateEnableStabilizationAttr().Set(True)
+        physx.CreateEnableGPUDynamicsAttr().Set(enable_gpu_dynamics)
+        physx.CreateBroadphaseTypeAttr().Set("MBP")
+    else:
+        prim = usd_scene.GetPrim()
+        _apply_schema_token(prim, "PhysxSceneAPI")
+        _attribute(prim, "physxScene:solverType", Sdf.ValueTypeNames.Token, "TGS")
+        _attribute(prim, "physxScene:timeStepsPerSecond", Sdf.ValueTypeNames.Int, int(physics_hz))
+        _attribute(prim, "physxScene:enableCCD", Sdf.ValueTypeNames.Bool, True)
+        _attribute(prim, "physxScene:enableStabilization", Sdf.ValueTypeNames.Bool, True)
+        _attribute(prim, "physxScene:enableGPUDynamics", Sdf.ValueTypeNames.Bool, bool(enable_gpu_dynamics))
+        _attribute(prim, "physxScene:broadphaseType", Sdf.ValueTypeNames.Token, "MBP")
 
 
 def apply_physx_articulation_settings(
@@ -61,11 +96,18 @@ def apply_physx_articulation_settings(
     if not 1 <= solver_velocity_iterations <= 255:
         raise ValueError("solver_velocity_iterations must be in [1, 255]")
     prim = stage.GetPrimAtPath(stem_path)
-    art = PhysxSchema.PhysxArticulationAPI.Apply(prim)
-    art.CreateSolverPositionIterationCountAttr().Set(solver_position_iterations)
-    art.CreateSolverVelocityIterationCountAttr().Set(solver_velocity_iterations)
-    art.CreateEnabledSelfCollisionsAttr().Set(False)
-    art.CreateSleepThresholdAttr().Set(0.0)
+    if PhysxSchema is not None:
+        art = PhysxSchema.PhysxArticulationAPI.Apply(prim)
+        art.CreateSolverPositionIterationCountAttr().Set(solver_position_iterations)
+        art.CreateSolverVelocityIterationCountAttr().Set(solver_velocity_iterations)
+        art.CreateEnabledSelfCollisionsAttr().Set(False)
+        art.CreateSleepThresholdAttr().Set(0.0)
+    else:
+        _apply_schema_token(prim, "PhysxArticulationAPI")
+        _attribute(prim, "physxArticulation:solverPositionIterationCount", Sdf.ValueTypeNames.Int, solver_position_iterations)
+        _attribute(prim, "physxArticulation:solverVelocityIterationCount", Sdf.ValueTypeNames.Int, solver_velocity_iterations)
+        _attribute(prim, "physxArticulation:enabledSelfCollisions", Sdf.ValueTypeNames.Bool, False)
+        _attribute(prim, "physxArticulation:sleepThreshold", Sdf.ValueTypeNames.Float, 0.0)
 
 
 def apply_physx_rigid_body_solver_settings(
@@ -92,12 +134,17 @@ def apply_physx_rigid_body_solver_settings(
     if not prim or not prim.IsValid():
         raise ValueError(f"Rigid body prim does not exist: {body_path}")
 
-    rigid_body = PhysxSchema.PhysxRigidBodyAPI(prim)
-    if not rigid_body:
-        rigid_body = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
-    rigid_body.CreateSolverPositionIterationCountAttr().Set(
-        solver_position_iterations
-    )
-    rigid_body.CreateSolverVelocityIterationCountAttr().Set(
-        solver_velocity_iterations
-    )
+    if PhysxSchema is not None:
+        rigid_body = PhysxSchema.PhysxRigidBodyAPI(prim)
+        if not rigid_body:
+            rigid_body = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
+        rigid_body.CreateSolverPositionIterationCountAttr().Set(
+            solver_position_iterations
+        )
+        rigid_body.CreateSolverVelocityIterationCountAttr().Set(
+            solver_velocity_iterations
+        )
+    else:
+        _apply_schema_token(prim, "PhysxRigidBodyAPI")
+        _attribute(prim, "physxRigidBody:solverPositionIterationCount", Sdf.ValueTypeNames.Int, solver_position_iterations)
+        _attribute(prim, "physxRigidBody:solverVelocityIterationCount", Sdf.ValueTypeNames.Int, solver_velocity_iterations)

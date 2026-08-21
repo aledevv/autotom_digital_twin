@@ -419,6 +419,29 @@ up to 220 no filtering, 220–230 warning/explicit aggregation review, and above
 230 explicit filtering or merging with canonical organ references retained on
 every aggregate physical link.
 
+### Phase J — ExporterV2 migration: `IN PROGRESS — FLEXIBLE VALIDATION BLOCKED`
+
+Checkpoint recorded on 2026-08-21. The canonical day-based V2 adapter,
+serverless CLI, launcher, complete visual mapping, 220/230 budget policy,
+finite-shape collision planning, source/authored pose provenance, OpenUSD
+authoring and `exporter_v2_manifest/1.0` are implemented. Inputs for days 1,
+25, 80 and the newly extracted day 160 produce 20/130/347/347 visual axes;
+days 80 and 160 produce 72 fruits and 216 physical axes (215 D6), so no
+physical aggregation is required by the budget.
+
+Isaac Sim passed 5-second day-25 locked/flexible runs and the scalable
+kinematic locked baseline at day 80. The dynamic flexible day-80 articulation
+diverges before one simulated second at 480 Hz, and also at 960 Hz with
+stiffness scales 1x, 2x and 4x (damping scaled by the square root). Phase J is
+therefore deliberately **not** marked completed. The safe user default remains
+`locked` until the flexible blocker is resolved.
+
+The exact diagnostic sequence, completed results, day-160 extension and
+remaining acceptance checks are in
+`docs/PHASE_J_HANDOFF_2026-08-21.md`. The next official task is to resolve this
+Phase-J flexible articulation blocker; the live in-memory bridge remains out
+of scope until Phase J passes.
+
 ---
 
 # 2. Why this refactor is necessary
@@ -1110,7 +1133,11 @@ Document that distinction.
 
 # 17. Phase J — ExporterV2 migration
 
-**Status: `NEXT TASK`.**
+**Status (2026-08-21): `IN PROGRESS — FLEXIBLE VALIDATION BLOCKED`.**
+
+Canonical generation and collision/manifest authoring are implemented. Do not
+mark this phase complete until the mature flexible articulation and day-160
+extension pass the checks listed in `docs/PHASE_J_HANDOFF_2026-08-21.md`.
 
 Only after V1 correctly reproduces the canonical plant should V2 be migrated.
 
@@ -1692,12 +1719,13 @@ This refactor is complete only when:
 Each phase must produce a small testable artifact.
 
 Phases A through F and H through I have now been completed. Phase G was
-deliberately skipped; the next implementation task is:
+deliberately skipped. Phase J is implemented but its flexible mature-plant
+validation is blocked; the next implementation task is:
 
 ```text
 NEXT TASK:
-Migrate ExporterV2 to canonical PlantState with explicit visual completeness,
-physical aggregation provenance, and the 220/230 articulation budget (Phase J).
+Resolve the Phase-J flexible day-80/day-160 articulation instability, complete
+the mandatory Isaac stress matrix, and only then close Phase J.
 ```
 
 V2 must preserve all canonical visual organs. Physical filtering or merging is

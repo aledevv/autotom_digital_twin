@@ -20,6 +20,22 @@ from .runtime import isolated_project
 DEFAULT_API_URL = "http://localhost:58081/api/"
 DEFAULT_FUNCTION = "Dynamic_Model"
 DAY_PATTERN = re.compile(r"\bday\s+is\s+(-?\d+(?:\.\d+)?)", re.IGNORECASE)
+DURATION_PATTERN = re.compile(
+    r"(static\s+int\s+DURATION_DAYS\s*=\s*)\d+(\s*;)"
+)
+
+
+def override_model_duration(source: str, duration_days: int) -> str:
+    """Change the model horizon in an in-memory RGG source exactly once."""
+
+    if duration_days < 1:
+        raise ValueError("duration_days must be positive")
+    updated, replacements = DURATION_PATTERN.subn(
+        rf"\g<1>{duration_days}\g<2>", source, count=1
+    )
+    if replacements != 1:
+        raise ValueError("could not locate DURATION_DAYS in parameters.rgg")
+    return updated
 
 
 def _sanitized_url(url: str) -> str:
@@ -60,11 +76,14 @@ def inspect_project(
     api_url: str = DEFAULT_API_URL,
     steps: int = 1,
     function_name: str = DEFAULT_FUNCTION,
+    model_duration_days: int | None = None,
 ) -> InspectionReport:
     """Run and inspect a GSZ project without writing into its source directory."""
 
     if steps < 0:
         raise ValueError("steps must be zero or greater")
+    if model_duration_days is not None and model_duration_days < steps:
+        raise ValueError("model_duration_days must be at least the requested steps")
 
     source_project = Path(project_path).expanduser().resolve()
     step_results: list[StepResult] = []
@@ -72,6 +91,12 @@ def inspect_project(
 
     with isolated_project(source_project) as runtime_project:
         with client.open_project(str(runtime_project)) as workbench:
+            if model_duration_days is not None:
+                parameters_path = source_project.parent / "param" / "parameters.rgg"
+                source = parameters_path.read_text(encoding="utf-8")
+                updated = override_model_duration(source, model_duration_days)
+                client.update_source(workbench, "param/parameters.rgg", updated)
+                client.compile(workbench)
             for step_number in range(1, steps + 1):
                 payload = client.run_function(workbench, function_name)
                 step_results.append(
@@ -100,6 +125,7 @@ def inspect_project(
         "steps_requested": steps,
         "steps_completed": len(step_results),
         "simulation_time": simulation_time,
+        "isolated_model_duration_days": model_duration_days,
         "captured_at_utc": datetime.now(timezone.utc).isoformat(),
     }
     return InspectionReport(

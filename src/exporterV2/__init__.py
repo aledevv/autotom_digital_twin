@@ -30,6 +30,12 @@ def __getattr__(name):
     elif name == "apply_physx_scene_settings":
         from .core.physics import apply_physx_scene_settings
         return apply_physx_scene_settings
+    elif name == "build_v2_authoring_plan":
+        from .plant_state_adapter import build_v2_authoring_plan
+        return build_v2_authoring_plan
+    elif name == "export_plant_state_v2":
+        from .plant_state_usd import export_plant_state_v2
+        return export_plant_state_v2
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 __all__ = [
@@ -42,6 +48,8 @@ __all__ = [
     "print_tree_summary",
     "validate_branches",
     "apply_physx_scene_settings",
+    "build_v2_authoring_plan",
+    "export_plant_state_v2",
 ]
 
 __version__ = "2.2.0"
