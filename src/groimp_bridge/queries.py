@@ -99,6 +99,7 @@ TYPE_FIELDS: dict[str, tuple[FieldSpec, ...]] = {
     "de.grogra.turtle.RH": (FieldSpec("angle", "float"),),
     "de.grogra.turtle.RL": (FieldSpec("angle", "float"),),
     "de.grogra.turtle.RU": (FieldSpec("angle", "float"),),
+    "de.grogra.turtle.RG": (),
     "de.grogra.turtle.Translate": (
         FieldSpec("translateX", "float"),
         FieldSpec("translateY", "float"),

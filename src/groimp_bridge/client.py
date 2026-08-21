@@ -37,6 +37,35 @@ class GroIMPClient:
         self._link = gro_link_factory(self.api_url)
 
     @contextmanager
+    def create_project(
+        self,
+        *,
+        template: str = "newRGG",
+        name: str | None = None,
+    ) -> Iterator[Any]:
+        """Create a disposable workbench and always close it on exit."""
+
+        workbench = None
+        try:
+            try:
+                request = self._link.createWB(template=template, name=name).run()
+            except Exception as exc:
+                raise GroIMPConnectionError(
+                    f"Cannot create GroIMP template {template!r} at {self.api_url}: {exc}"
+                ) from exc
+
+            status = getattr(request.result, "status_code", None)
+            if status != 200:
+                raise GroIMPRequestError(
+                    f"GroIMP could not create template {template!r} (HTTP {status}): "
+                    f"{_response_excerpt(request.result)}"
+                )
+            workbench = request.read()
+            yield workbench
+        finally:
+            self._close_workbench(workbench)
+
+    @contextmanager
     def open_project(self, project_path: str) -> Iterator[Any]:
         """Open a project and always close its workbench before returning."""
 
@@ -58,13 +87,32 @@ class GroIMPClient:
             workbench = request.read()
             yield workbench
         finally:
-            if workbench is not None:
-                try:
-                    workbench.close().run()
-                except Exception:
-                    # Never mask the extraction error. A successful extraction can still
-                    # report cleanup failure through the server logs.
-                    pass
+            self._close_workbench(workbench)
+
+    @staticmethod
+    def _close_workbench(workbench: Any | None) -> None:
+        if workbench is None:
+            return
+        try:
+            workbench.close().run()
+        except Exception:
+            # Never mask the extraction error with a secondary cleanup failure.
+            pass
+
+    @staticmethod
+    def update_source(workbench: Any, name: str, content: str) -> dict[str, Any]:
+        """Replace one source file in an open workbench."""
+
+        return run_json_call(
+            workbench.updateFile(name, content),
+            operation=f"source update {name}",
+        )
+
+    @staticmethod
+    def compile(workbench: Any) -> dict[str, Any]:
+        """Compile an open GroIMP workbench and validate the response."""
+
+        return run_json_call(workbench.compile(), operation="project compilation")
 
     @staticmethod
     def run_function(workbench: Any, function_name: str) -> dict[str, Any]:

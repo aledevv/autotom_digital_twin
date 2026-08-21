@@ -1,0 +1,52 @@
+module Probe(int marker) extends Sphere(0.005);
+module FrameProbe(int frameId, int axisId) extends Sphere(0.003);
+module Internode(super.length) extends M ==> Cylinder(length, 0.005);
+module Leaf extends Null ==> [RL(-90) Cylinder(0.25, 0.002)];
+
+protected void init ()
+[
+    Axiom ==>
+        Probe(0)
+
+        // One and two consecutive Internode modules.
+        [Internode(2) Probe(1)]
+        [Internode(2) Internode(3) Probe(2)]
+
+        // Individual rotations, composition order, and local translation.
+        [RU(90) Probe(3)]
+        [RL(90) Probe(4)]
+        [RH(90) RU(90) Probe(5)]
+        [RU(90) RH(90) Probe(6)]
+        [RH(90) Translate(1, 2, 3) Probe(7)]
+        [RU(90) Translate(1, 2, 3) Probe(8)]
+        [RL(90) Translate(1, 2, 3) Probe(9)]
+
+        // Nested scopes: inner and outer branches must restore their parent frame.
+        [RU(90) Probe(10)
+            [RL(-90) Internode(4) Probe(11)]
+            Probe(12)
+        ]
+        Probe(13)
+
+        // Main stem with a leaf and a lateral branch.
+        [Internode(1) Probe(14)
+            [RL(-90) Leaf Probe(15)]
+            [RH(90) RU(45) Internode(2) Probe(16)]
+            Internode(1) Probe(17)
+        ]
+
+        // Three-axis probes expose a complete frame after a compound rotation.
+        [RH(37) RU(-23) RL(11) Probe(18)
+            [RU(90) FrameProbe(1, 0)]
+            [RL(-90) FrameProbe(1, 1)]
+            [FrameProbe(1, 2)]
+        ]
+
+        // RG is used by the real lateral-leaf rule and aligns head to gravity.
+        [RU(90) RH(37) Probe(19) RG Probe(20)
+            [RU(90) FrameProbe(2, 0)]
+            [RL(-90) FrameProbe(2, 1)]
+            [FrameProbe(2, 2)]
+        ]
+        [Probe(21) RG Probe(22)];
+]

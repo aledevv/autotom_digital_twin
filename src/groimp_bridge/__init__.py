@@ -11,6 +11,13 @@ from .models import (
     StepResult,
     WorldAnchor,
 )
+from .turtle import (
+    ResolvedNodePose,
+    TurtleFrame,
+    TurtleResolution,
+    TurtleResolutionError,
+    resolve_turtle,
+)
 
 
 def inspect_project(
@@ -45,7 +52,12 @@ __all__ = [
     "GroIMPGraphSnapshot",
     "InspectionReport",
     "StepResult",
+    "ResolvedNodePose",
+    "TurtleFrame",
+    "TurtleResolution",
+    "TurtleResolutionError",
     "WorldAnchor",
     "inspect_project",
     "inspect_workbench",
+    "resolve_turtle",
 ]

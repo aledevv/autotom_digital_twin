@@ -67,3 +67,8 @@ Every code is retained in `raw_code`; unrecognized codes use `kind: "unknown"`.
 Nullable GroIMP arrays are serialized as JSON `null`, distinct from initialized
 empty arrays (`[]`). Nodes not covered by the enrichment registry still appear
 with empty `attributes` and are listed under `unenriched_node_types`.
+
+The Phase B `TurtleResolution` is deliberately not embedded into this report,
+so `groimp_inspection/1.0` remains the raw diagnostic boundary. Call
+`resolve_turtle(report.snapshot)` to obtain local-to-world matrices, incoming
+and outgoing node frames, endpoints, traversal order, and resolver diagnostics.

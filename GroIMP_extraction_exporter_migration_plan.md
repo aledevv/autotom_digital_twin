@@ -86,12 +86,110 @@ uv run pytest src/groimp_bridge/tests/test_live_inspector.py \
   -m "groimp and slow" -q
 ```
 
-Still intentionally open: local transform matrices, the shared turtle resolver,
-push/pop resolution, and endpoint validation. All phases after Phase A remain
-pending.
+At the end of Phase A, local transform matrices, the shared turtle resolver,
+push/pop resolution, and endpoint validation were intentionally left open.
+Those items are completed by Phase B below.
 
-**Next official task:** Phase B — controlled `RH`/`RL`/`RU`/`Translate` and
-branch push/pop experiments, followed by the tested turtle resolver.
+### Phase B — GroIMP Turtle Resolver: `COMPLETED`
+
+Implemented under `src/groimp_bridge/`:
+
+* public `TurtleFrame`, `ResolvedNodePose`, `TurtleResolution`,
+  `TurtleResolutionError`, and `resolve_turtle(...)` API;
+* lifecycle-safe disposable `newRGG` workbenches with source update,
+  compilation, and guaranteed cleanup;
+* source-controlled live fixtures for one/two internodes, `RH`, `RL`, `RU`,
+  `RG`, local `Translate`, nested branch scopes, organ expansion, a leaf, and a
+  lateral branch;
+* deterministic local-to-world 4x4 frames, incoming/outgoing node poses,
+  internode endpoints, traversal order, and explicit topology diagnostics;
+* strict rejection of cycles, missing structural nodes, and multiple
+  structural parents, while unknown nodes and edge codes remain diagnostic.
+
+The controlled GroIMP oracle established these conventions:
+
+```text
+column vectors; local-to-world matrices
+column 0 = local X / left
+column 1 = local Y / up
+column 2 = local Z / head
+column 3 = world position
+composition = world @ local
+angles = degrees
+RH = right-handed rotation around local head
+RL = right-handed rotation around local left
+RU = right-handed rotation around local up
+Translate = displacement along the current local axes
+RG = minimal alignment of head to world negative Z
+```
+
+Successor and branch children inherit the same parent outgoing frame. Branches
+are resolved independently; therefore nested `[...]` scopes restore the parent
+state without relying on ProjectGraph iteration order. An `Internode` advances
+along local head because the model's `Organ` inherits from turtle `M`.
+
+The mature live model exposed an important cache boundary: after
+`calcDimensions()`, the public biological `Internode.length` may already hold
+the new value while GroIMP's rendered M-step still uses the preceding effective
+advance. When native anchors are present, the resolver therefore calibrates the
+effective axial step from the internode and successor anchors and reports the
+largest declared/effective difference. Snapshot fixtures without anchors use
+the declared `length` fallback.
+
+Validation completed:
+
+```text
+Offline Phase A+B suite: 32 passed
+Controlled live turtle fixture: 1 passed
+Live GroIMP day-1 resolver validation: 1 passed
+Live GroIMP day-25 resolver validation: 1 passed
+Live GroIMP day-80 mature-plant validation: 1 passed
+Combined live-enabled bridge suite: 36 passed
+Open temporary workbenches after tests: 0
+```
+
+The day-80 validation covered 301 nodes, 300 edges, and 121 branch edges,
+including 26 internodes, 27 leaves, 9 trusses, 9 fruit modules, and 16 `RG`
+operations. The resolver reached all 301 nodes and compared all 285 enriched
+world anchors. Maximum observed errors were `4.04e-08` for position and
+`1.22e-07` for head direction, below the declared `1e-6` live tolerance. No
+unknown edge codes were present.
+
+Commands:
+
+```bash
+uv run pytest src/groimp_bridge/tests -q
+
+RUN_GROIMP_TESTS=1 \
+uv run pytest src/groimp_bridge/tests/test_live_turtle_fixture.py -q
+
+RUN_GROIMP_TESTS=1 \
+uv run pytest src/groimp_bridge/tests/test_live_inspector.py \
+  -m "groimp and not slow" -q
+
+RUN_GROIMP_TESTS=1 RUN_GROIMP_SLOW_TESTS=1 \
+uv run pytest src/groimp_bridge/tests/test_live_inspector.py \
+  -m "groimp and slow" -q
+
+RUN_GROIMP_TESTS=1 RUN_GROIMP_SLOW_TESTS=1 \
+uv run pytest \
+  src/groimp_bridge/tests/test_live_inspector.py::test_live_day_80_resolves_the_full_mature_plant_without_source_changes \
+  -q
+```
+
+The day-1 live test fingerprints the source GSZ and every file under
+`model/input/` and `model/output/` before and after isolated inspection; all
+SHA-256 hashes remained unchanged. `groimp_inspection/1.0` remains the raw
+diagnostic report: resolved matrices are returned separately by
+`resolve_turtle(...)` and are not embedded into that schema.
+
+Still intentionally open: rendered primitive/mesh comparison, detailed leaf
+and fruit component geometry, and end-to-end visual validation against GroIMP.
+`PlantState`, ExporterV1/V2, CSV adapters, and Isaac Sim remain unchanged. All
+phases after Phase B remain pending.
+
+**Next official task:** Phase C — validate reconstructed organ geometry and
+debug primitives against GroIMP's rendered scene.
 
 ---
 
@@ -1336,24 +1434,26 @@ This refactor is complete only when:
 
 Each phase must produce a small testable artifact.
 
-Phase A has now been completed. The next implementation task must remain narrow:
+Phases A and B have now been completed. The next implementation task must
+remain narrow:
 
 ```text
 NEXT TASK:
-Build the controlled turtle-semantics fixtures for Phase B.
+Validate reconstructed organ geometry against GroIMP in Phase C.
 ```
 
-It should use the completed inspector to establish:
+It should use the completed inspector and turtle resolver to compare:
 
 ```text
-Exact multiplication/order convention.
-Exact local coordinate axes and signs.
-RH/RL/RU and Translate behavior.
-Branch push/pop behavior.
-Agreement between the resolver and GroIMP location/direction ground truth.
+Internode start/end points.
+Leaf petiole and rachis landmarks.
+Branch attachment points.
+Fruit and truss component positions.
+Debug primitives or scene exports against GroIMP rendering.
 ```
 
-Only after those questions are answered should the canonical JSON schema be finalized.
+Only after those geometric comparisons pass should the canonical JSON schema
+be finalized.
 
 The existing V1/V2 code should initially be treated as **reference material rather than code to rewrite**.
 
