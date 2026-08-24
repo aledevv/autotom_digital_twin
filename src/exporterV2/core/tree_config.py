@@ -600,6 +600,42 @@ def validate_branches(branches: list, skip_limit_check: bool = False) -> None:
                     f"Expected a positive value."
                 )
 
+        link_specs = b.get("link_specs")
+        if link_specs is not None:
+            if not isinstance(link_specs, list) or len(link_specs) != b["n_links"]:
+                raise ValueError(
+                    f"[tree_config] Branch '{b['id']}' link_specs must contain "
+                    f"exactly n_links={b['n_links']} entries."
+                )
+            spec_ids = [spec.get("id") for spec in link_specs]
+            if any(not isinstance(value, str) or not value for value in spec_ids):
+                raise ValueError(
+                    f"[tree_config] Branch '{b['id']}' link_specs require non-empty ids."
+                )
+            if len(set(spec_ids)) != len(spec_ids):
+                raise ValueError(
+                    f"[tree_config] Branch '{b['id']}' has duplicate link_spec ids."
+                )
+            pose_flags = [spec.get("rest_frame") is not None for spec in link_specs]
+            if any(pose_flags) and not all(pose_flags):
+                raise ValueError(
+                    f"[tree_config] Branch '{b['id']}' cannot mix explicit and legacy link poses."
+                )
+            for index, spec in enumerate(link_specs):
+                if float(spec.get("length", 0.0)) <= 0.0:
+                    raise ValueError(
+                        f"[tree_config] Branch '{b['id']}' link_spec {index} has invalid length."
+                    )
+                if float(spec.get("radius", 0.0)) <= 0.0:
+                    raise ValueError(
+                        f"[tree_config] Branch '{b['id']}' link_spec {index} has invalid radius."
+                    )
+                frame = spec.get("rest_frame")
+                if frame is not None:
+                    _validate_link_rest_frame(b["id"], index, frame)
+            if all(pose_flags):
+                _validate_explicit_link_continuity(b["id"], link_specs)
+
         if b.get("parent") is None:
             continue  # Root branch - skip parent checks
 
@@ -640,6 +676,63 @@ def validate_branches(branches: list, skip_limit_check: bool = False) -> None:
             f"[tree_config] D6 joint count {total} exceeds PhysX articulation budget of {MAX_N_JOINTS}. "
             f"Run the optimizer or reduce D6 branches."
         )
+
+
+def _validate_link_rest_frame(branch_id: str, index: int, frame) -> None:
+    if (
+        not isinstance(frame, (list, tuple))
+        or len(frame) != 4
+        or any(not isinstance(row, (list, tuple)) or len(row) != 4 for row in frame)
+    ):
+        raise ValueError(
+            f"[tree_config] Branch '{branch_id}' link_spec {index} rest_frame must be 4x4."
+        )
+    values = [float(value) for row in frame for value in row]
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError(
+            f"[tree_config] Branch '{branch_id}' link_spec {index} rest_frame must be finite."
+        )
+    if any(abs(float(frame[3][column])) > 1e-9 for column in range(3)) or not math.isclose(
+        float(frame[3][3]), 1.0, abs_tol=1e-9
+    ):
+        raise ValueError(
+            f"[tree_config] Branch '{branch_id}' link_spec {index} rest_frame is not homogeneous."
+        )
+    columns = [
+        [float(frame[row][column]) for row in range(3)]
+        for column in range(3)
+    ]
+    for column in columns:
+        norm = math.sqrt(sum(value * value for value in column))
+        if not math.isclose(norm, 1.0, abs_tol=1e-7):
+            raise ValueError(
+                f"[tree_config] Branch '{branch_id}' link_spec {index} rotation is not orthonormal."
+            )
+    for left in range(3):
+        for right in range(left + 1, 3):
+            dot = sum(a * b for a, b in zip(columns[left], columns[right]))
+            if abs(dot) > 1e-7:
+                raise ValueError(
+                    f"[tree_config] Branch '{branch_id}' link_spec {index} rotation is not orthonormal."
+                )
+
+
+def _validate_explicit_link_continuity(branch_id: str, specs: list) -> None:
+    tolerance = 1e-6
+    for index, (previous, current) in enumerate(zip(specs, specs[1:]), start=1):
+        frame = previous["rest_frame"]
+        length = float(previous["length"])
+        expected = [
+            float(frame[row][3]) + float(frame[row][2]) * length
+            for row in range(3)
+        ]
+        actual = [float(current["rest_frame"][row][3]) for row in range(3)]
+        error = math.sqrt(sum((a - b) ** 2 for a, b in zip(expected, actual)))
+        if error > tolerance:
+            raise ValueError(
+                f"[tree_config] Branch '{branch_id}' link_specs {index - 1}->{index} "
+                f"are discontinuous by {error:.6g}m."
+            )
 
 
 # ==============================================================================

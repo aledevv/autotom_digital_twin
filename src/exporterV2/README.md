@@ -18,6 +18,37 @@ exporterV2/
 
 ## Quick Start
 
+### Canonical stem checkpoint
+
+The incremental Phase-J migration routes the main stem through the original
+V2 segmented backend:
+
+```bash
+uv run python -m exporterV2 --day 10 --debug-profile stem \
+  --pose-mode canonical --generate-only
+
+./run_mainV2.sh --day 10 --debug-profile stem --pose-mode canonical
+```
+
+For day-to-day testing, the shorter wrapper exposes the organ checkpoint
+explicitly:
+
+```bash
+./run_debugV2.sh --day 10 --organ stem
+./run_debugV2.sh --day 50 --organ stem --headless --duration 1
+./run_debugV2.sh --day 25 --organ stem --generate-only
+```
+
+At this checkpoint `stem` is the only accepted organ. Unsupported values fail
+before generating or opening a stage; they will be enabled incrementally as
+their adapters are migrated.
+
+`canonical` uses the rebased GroIMP frame, length and radius of each
+internode. `legacy` retains those per-link dimensions but lets V2 construct the
+old procedural vertical rest pose. Both modes use segmented organic meshes,
+not visual cylinders. The stem is fixed by design; interactive leaf tests
+start with the later `leaf-supports` checkpoint.
+
 ### CSV Mode (with groIMP data)
 ```bash
 ./run_mainV2.sh --day 100

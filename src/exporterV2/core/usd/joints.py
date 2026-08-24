@@ -112,10 +112,21 @@ def configure_revolute_drive(joint, stiff: float, damp: float) -> None:
     drive.CreateTargetPositionAttr().Set(0.0)
 
 
-def anchor_link_to_world(stage, link_path: str) -> None:
+def anchor_link_to_world(
+    stage,
+    link_path: str,
+    world_position: Gf.Vec3f = None,
+    world_orientation: Gf.Quatf = None,
+) -> None:
     """Anchor root link to world with a FixedJoint."""
     joint = UsdPhysics.FixedJoint.Define(stage, f"{link_path}/RootFixedJoint")
     joint.CreateBody1Rel().SetTargets([Sdf.Path(link_path)])
+    if world_position is not None:
+        joint.CreateLocalPos0Attr().Set(world_position)
+        joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+    if world_orientation is not None:
+        joint.CreateLocalRot0Attr().Set(world_orientation)
+        joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
 
 
 def create_internal_joint(
@@ -153,6 +164,37 @@ def create_internal_joint(
     )
     
     # Filter collision between parent and child
+    add_collision_filter(stage, child_path, parent_path)
+
+
+def create_internal_joint_at_rest(
+    stage,
+    parent_path: str,
+    child_path: str,
+    joint_name: str,
+    parent_local_pos: Gf.Vec3f,
+    parent_local_rot: Gf.Quatf,
+    stiff: float,
+    damp: float,
+    bend_axes=("rotX", "rotY"),
+    bend_limit_deg: float = None,
+) -> None:
+    """D6 internal joint preserving an explicit parent-to-child rest frame."""
+
+    joint = UsdPhysics.Joint.Define(stage, f"{child_path}/{joint_name}")
+    joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_path)])
+    joint.CreateBody1Rel().SetTargets([Sdf.Path(child_path)])
+    joint.CreateLocalPos0Attr().Set(parent_local_pos)
+    joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+    joint.CreateLocalRot0Attr().Set(parent_local_rot)
+    joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+    configure_joint_drives(
+        joint,
+        stiff,
+        damp,
+        bend_axes=bend_axes,
+        bend_limit_deg=bend_limit_deg,
+    )
     add_collision_filter(stage, child_path, parent_path)
 
 
@@ -264,6 +306,26 @@ def create_internal_joint_locked(
     joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
     joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
     
+    add_collision_filter(stage, child_path, parent_path)
+
+
+def create_internal_joint_locked_at_rest(
+    stage,
+    parent_path: str,
+    child_path: str,
+    joint_name: str,
+    parent_local_pos: Gf.Vec3f,
+    parent_local_rot: Gf.Quatf,
+) -> None:
+    """Fixed internal joint whose rest frame is explicit in the parent body."""
+
+    joint = UsdPhysics.FixedJoint.Define(stage, f"{child_path}/{joint_name}")
+    joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_path)])
+    joint.CreateBody1Rel().SetTargets([Sdf.Path(child_path)])
+    joint.CreateLocalPos0Attr().Set(parent_local_pos)
+    joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+    joint.CreateLocalRot0Attr().Set(parent_local_rot)
+    joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
     add_collision_filter(stage, child_path, parent_path)
 
 

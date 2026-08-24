@@ -64,6 +64,12 @@ class BranchData:
     axis: Gf.Vec3d
     orientation: Gf.Quatf
     link_bases: List[Gf.Vec3d]
+    link_orientations: List[Gf.Quatf]
+    link_lengths: List[float]
+    link_radii: List[float]
+    link_collider_radii: List[float]
+    link_masses: List[float]
+    link_metadata: List[Dict[str, Any]]
     link_paths: List[str]
     physics_root_path: str
     visual_root_path: str
@@ -82,10 +88,11 @@ class BranchData:
     attachment_local_rot0: Optional[Gf.Quatf] = None
     centered_terminal: bool = False
     centered_terminal_host: bool = False
+    explicit_link_poses: bool = False
 
     @property
     def total_length(self) -> float:
-        return self.n_links * self.link_height
+        return sum(self.link_lengths)
 
     def as_registry_entry(self):
         """Return the tuple consumed by the legacy truss/terminal builders."""

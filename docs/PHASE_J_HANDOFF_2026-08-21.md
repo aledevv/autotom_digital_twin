@@ -7,6 +7,34 @@ but it is **not completed**. The mature flexible articulation fails the
 mandatory Isaac Sim stability test, so the migration plan must not mark Phase
 J as `COMPLETED` yet.
 
+## 2026-08-24 conservative rebuild checkpoint
+
+The current debugging path no longer treats the direct PlantState USD author
+as the reference physics implementation. The migration is being repeated one
+organ group at a time through the established V2 `BRANCHES -> build_stage()`
+backend. The first implemented gate is `--debug-profile stem`.
+
+The stem adapter emits one historical `trunk` branch with optional per-link
+`link_specs`. Canonical mode preserves each GroIMP internode frame, length and
+radius; legacy mode omits the frames. Both modes retain the segmented organic
+mesh technique—there is no cylinder fallback. Day 10 currently audits as:
+
+```text
+5 main-stem internodes
+5 rigid bodies
+5 FixedJoints (root included)
+10 invisible capsule colliders
+5 OrganicVisual meshes
+0 D6 joints
+0 visual cylinders
+```
+
+The one-second headless Isaac run at 480 Hz passed with five finite bodies,
+zero displacement, zero root/endpoint drift, no NaN/Inf and no PhysX error.
+The remaining immediate gate is a GUI review of the same USD. The stem is
+intentionally fixed and is not an interaction test; Shift+drag begins with the
+later `leaf-supports` checkpoint.
+
 ## Implemented in this checkpoint
 
 - Canonical `PlantState -> complete V2 visual view -> physical plan ->

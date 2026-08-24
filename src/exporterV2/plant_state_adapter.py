@@ -24,6 +24,15 @@ PHYSICAL_AXIS_ROLES = frozenset(
 VISUAL_ONLY_AXIS_ROLES = frozenset(
     {"petiolule_left", "petiolule_right", "rachis_terminal"}
 )
+DEBUG_PROFILES = (
+    "full",
+    "stem",
+    "leaf-supports",
+    "leaves",
+    "laterals",
+    "truss-supports",
+    "fruit-visual",
+)
 JOINT_TARGET = 220
 JOINT_WARNING_MAX = 230
 CANONICAL_SCALE = 2.0
@@ -35,6 +44,7 @@ COLLIDER_RADIUS_SCALE = 0.90
 COLLIDER_LENGTH_SCALE = 0.92
 MIN_COLLIDER_RADIUS_WORLD = 0.002
 _GEOMETRY_TOLERANCE = 1e-8
+_MIN_RENDERABLE_DIMENSION = 1e-12
 
 
 class V2PlantStateError(ValueError):
@@ -153,6 +163,11 @@ class V2AuthoringPlan:
     source_origin: tuple[float, float, float]
     scale: float
     physics_preset: str
+    debug_profile: str
+    colliders_enabled: bool
+    drives_enabled: bool
+    articulation_enabled: bool
+    terminal_bodies_physical: bool
     visual_axes: tuple[V2VisualAxis, ...]
     visual_spheres: tuple[V2VisualSphere, ...]
     physical_links: tuple[V2PhysicalLink, ...]
@@ -167,6 +182,93 @@ class V2AuthoringPlan:
             link.joint_type == "d6" and link.parent_id is not None
             for link in self.physical_links
         )
+
+
+def _organ_order(organ_by_node: dict[str, Any], node_id: str) -> int:
+    organ = organ_by_node[node_id]
+    return int(organ.common.order or 0)
+
+
+def _profile_geometry(
+    state: PlantState,
+    profile: str,
+) -> tuple[list[AxisGeometry], list[AxisGeometry], list[SphereGeometry], bool]:
+    """Select a dependency-closed diagnostic rendering/physics subset.
+
+    The canonical state is never filtered. This function only determines
+    which primitives are authored into one diagnostic USD stage.
+    """
+
+    if profile not in DEBUG_PROFILES:
+        raise V2PlantStateError(
+            f"debug_profile must be one of {DEBUG_PROFILES}, got {profile!r}"
+        )
+    organ_by_node = {organ.node_id: organ for organ in state.organs}
+
+    def main_axis(axis: AxisGeometry) -> bool:
+        return _organ_order(organ_by_node, axis.owner_node_id) == 0
+
+    if profile == "full":
+        return (
+            list(state.axes),
+            [
+                axis
+                for axis in state.axes
+                if axis.role in PHYSICAL_AXIS_ROLES and not _axis_is_degenerate(axis)
+            ],
+            list(state.spheres),
+            True,
+        )
+
+    include_leaf_supports = profile in {
+        "leaf-supports",
+        "leaves",
+        "laterals",
+        "truss-supports",
+        "fruit-visual",
+    }
+    include_leaf_surfaces = profile in {
+        "leaves", "laterals", "truss-supports", "fruit-visual"
+    }
+    include_laterals = profile in {"laterals", "truss-supports", "fruit-visual"}
+    include_trusses = profile in {"truss-supports", "fruit-visual"}
+
+    physical: list[AxisGeometry] = []
+    visual: list[AxisGeometry] = []
+    for axis in state.axes:
+        order_is_main = main_axis(axis)
+        selected_physical = (
+            (axis.role == "internode" and (order_is_main or include_laterals))
+            or (
+                axis.role in {"petiole", "leaf_rachis"}
+                and include_leaf_supports
+                and (order_is_main or include_laterals)
+            )
+            or (axis.role in {"truss_rachis", "pedicel"} and include_trusses)
+        )
+        selected_visual_only = (
+            axis.role in VISUAL_ONLY_AXIS_ROLES
+            and include_leaf_surfaces
+            and (order_is_main or include_laterals)
+        )
+        if selected_physical:
+            if not _axis_is_degenerate(axis):
+                physical.append(axis)
+            visual.append(axis)
+        elif selected_visual_only:
+            visual.append(axis)
+
+    if not physical:
+        raise V2PlantStateError(f"debug profile {profile!r} has no physical root")
+    spheres = list(state.spheres) if profile == "fruit-visual" else []
+    return visual, physical, spheres, False
+
+
+def _axis_is_degenerate(axis: AxisGeometry) -> bool:
+    return (
+        axis.length <= _MIN_RENDERABLE_DIMENSION
+        or axis.radius <= _MIN_RENDERABLE_DIMENSION
+    )
 
 
 def _pose_for_axis(
@@ -348,6 +450,8 @@ def _physical_parent_ids(state: PlantState, axes: list[AxisGeometry]) -> dict[st
             role_priority = _ROLE_PARENT_PRIORITY.get(child.role, {}).get(
                 candidate.role, 9
             )
+            if role_priority >= 9:
+                continue
             endpoint_priority = 0 if abs(1.0 - fraction) <= 1e-7 else 1
             candidates.append(
                 (
@@ -998,6 +1102,10 @@ def build_v2_authoring_plan(
     physics_preset: str = "flexible",
     allow_near_budget: bool = False,
     optimize: bool = False,
+    debug_profile: str = "full",
+    colliders_enabled: bool = True,
+    drives_enabled: bool = True,
+    articulation_enabled: bool = True,
 ) -> V2AuthoringPlan:
     """Build a deterministic, collision-adapted V2 plan from PlantState."""
 
@@ -1006,11 +1114,21 @@ def build_v2_authoring_plan(
         raise V2PlantStateError(
             f"physics_preset must be 'locked' or 'flexible', got {physics_preset!r}"
         )
+    if debug_profile == "full" and not all(
+        (colliders_enabled, drives_enabled, articulation_enabled)
+    ):
+        raise V2PlantStateError(
+            "diagnostic physics switches require a non-full --debug-profile"
+        )
+    if physics_preset == "locked" and not drives_enabled:
+        raise V2PlantStateError("--debug-no-drives is only meaningful in flexible mode")
     nodes = {node.id: node for node in state.nodes}
     if state.root_node_id not in nodes:
         raise V2PlantStateError(f"missing root node {state.root_node_id}")
     origin = np.asarray(nodes[state.root_node_id].pose.world_start, dtype=np.float64)
-    physical_axes = [axis for axis in state.axes if axis.role in PHYSICAL_AXIS_ROLES]
+    selected_visual_axes, physical_axes, selected_spheres, terminal_bodies_physical = (
+        _profile_geometry(state, debug_profile)
+    )
     unsupported = sorted(
         {axis.role for axis in state.axes}
         - PHYSICAL_AXIS_ROLES
@@ -1026,7 +1144,14 @@ def build_v2_authoring_plan(
         pose = _pose_for_axis(axis, origin, CANONICAL_SCALE)
         source_pose_by_axis[axis.id] = pose
         organ = organ_by_node[axis.owner_node_id]
-        joint_type = "fixed" if physics_preset == "locked" else "d6"
+        # Structural axes preserve the complete GroIMP rest pose.  Flexible
+        # means flexible leaf/truss supports, not a compliant trunk: all
+        # internodes (main stem and laterals) are fixed exactly as requested.
+        joint_type = (
+            "fixed"
+            if physics_preset == "locked" or axis.role == "internode"
+            else "d6"
+        )
         links.append(
             V2PhysicalLink(
                 id=axis.id,
@@ -1046,41 +1171,33 @@ def build_v2_authoring_plan(
                 canonical_primitive_ids=(axis.id,),
             )
         )
-    raw_dynamic_count = (
-        sum(link.parent_id is not None for link in links)
-        if physics_preset == "flexible"
-        else 0
+    raw_dynamic_count = sum(
+        link.joint_type == "d6" and link.parent_id is not None for link in links
     )
     validate_joint_budget(
         raw_dynamic_count,
         allow_near_budget=allow_near_budget,
         optimize=optimize,
     )
-    # Canonical days 1/25/80 are already within budget.  For future larger
-    # plants, deterministic fixed-joint aggregation preserves every visual.
+    # A disabled FixedJoint between two dynamic bodies is not aggregation: it
+    # creates a disconnected island. Refuse that unsafe legacy placeholder
+    # until real body merging is implemented.
     aggregated: list[str] = []
     if optimize and raw_dynamic_count > JOINT_TARGET:
-        priority = {"pedicel": 0, "truss_rachis": 1, "leaf_rachis": 2, "petiole": 3}
-        for index in sorted(
-            range(len(links)),
-            key=lambda value: (priority.get(links[value].role, 9), links[value].id),
-        ):
-            if sum(
-                link.joint_type == "d6" and link.parent_id is not None
-                for link in links
-            ) <= JOINT_TARGET:
-                break
-            if links[index].parent_id is None:
-                continue
-            links[index] = replace(links[index], joint_type="fixed")
-            aggregated.append(links[index].id)
-    links, intentional, unresolved, adjustments = _adapt_collisions(links)
+        raise V2PlantStateError(
+            "flexible optimization would create disabled FixedJoints instead of a "
+            "real merged body; explicit physical merging is required before export"
+        )
+    if colliders_enabled:
+        links, intentional, unresolved, adjustments = _adapt_collisions(links)
+    else:
+        intentional, unresolved, adjustments = [], [], []
     link_by_id = {link.id: link for link in links}
 
     first_axis_signature: dict[str, str] = {}
     visual_axes = []
     duplicates: dict[str, str] = {}
-    for axis in state.axes:
+    for axis in selected_visual_axes:
         source = _pose_for_axis(axis, origin, CANONICAL_SCALE)
         host_id = _host_for_visual_axis(axis, physical_axes, parent_ids)
         authored = _map_pose_through_host(
@@ -1090,8 +1207,9 @@ def build_v2_authoring_plan(
             axis, nodes[axis.owner_node_id], organ_by_node[axis.owner_node_id]
         )
         original = first_axis_signature.setdefault(signature, axis.id)
-        render = original == axis.id
-        if not render:
+        is_duplicate = original != axis.id
+        render = not is_duplicate and not _axis_is_degenerate(axis)
+        if is_duplicate:
             duplicates[axis.id] = original
         visual_axes.append(
             V2VisualAxis(
@@ -1104,13 +1222,13 @@ def build_v2_authoring_plan(
                 radius=float(axis.radius * CANONICAL_SCALE),
                 host_link_id=host_id,
                 render_geometry=render,
-                duplicate_of=None if render else original,
+                duplicate_of=original if is_duplicate else None,
             )
         )
 
     first_sphere_signature: dict[str, str] = {}
     visual_spheres = []
-    for sphere in state.spheres:
+    for sphere in selected_spheres:
         source_center = tuple(
             float(value)
             for value in (np.asarray(sphere.world_center) - origin) * CANONICAL_SCALE
@@ -1151,32 +1269,51 @@ def build_v2_authoring_plan(
     # Fruit spheres are separate rigid bodies.  Apply the same bounded
     # azimuth/tilt/shift policy to their support subtree, then filter only the
     # pairs that cannot be separated within the declared limits.
-    (
-        links,
-        visual_axes,
-        visual_spheres,
-        terminal_intentional,
-        terminal_unresolved,
-        terminal_adjustments,
-    ) = _adapt_terminal_collisions(
-        links, visual_axes, visual_spheres, source_pose_by_axis
-    )
-    link_intentional, newly_active_links = _active_link_overlaps(links)
-    existing_pairs = {
-        frozenset((record.body_a, record.body_b)) for record in unresolved
-    }
-    unresolved.extend(
-        replace(record, reason=f"{record.reason}; introduced by terminal correction")
-        for record in newly_active_links
-        if frozenset((record.body_a, record.body_b)) not in existing_pairs
-    )
-    intentional = [*link_intentional, *terminal_intentional]
-    unresolved.extend(terminal_unresolved)
-    adjustments.extend(terminal_adjustments)
+    if colliders_enabled and terminal_bodies_physical:
+        (
+            links,
+            visual_axes,
+            visual_spheres,
+            terminal_intentional,
+            terminal_unresolved,
+            terminal_adjustments,
+        ) = _adapt_terminal_collisions(
+            links, visual_axes, visual_spheres, source_pose_by_axis
+        )
+        link_intentional, newly_active_links = _active_link_overlaps(links)
+        existing_pairs = {
+            frozenset((record.body_a, record.body_b)) for record in unresolved
+        }
+        unresolved.extend(
+            replace(record, reason=f"{record.reason}; introduced by terminal correction")
+            for record in newly_active_links
+            if frozenset((record.body_a, record.body_b)) not in existing_pairs
+        )
+        intentional = [*link_intentional, *terminal_intentional]
+        unresolved.extend(terminal_unresolved)
+        adjustments.extend(terminal_adjustments)
 
     diagnostics = {
         "canonical_axis_count": len(state.axes),
         "canonical_sphere_count": len(state.spheres),
+        "debug_profile": debug_profile,
+        "selected_axis_ids": sorted(axis.id for axis in selected_visual_axes),
+        "omitted_axis_ids": sorted(
+            {axis.id for axis in state.axes}
+            - {axis.id for axis in selected_visual_axes}
+        ),
+        "selected_sphere_ids": sorted(sphere.id for sphere in selected_spheres),
+        "omitted_sphere_ids": sorted(
+            {sphere.id for sphere in state.spheres}
+            - {sphere.id for sphere in selected_spheres}
+        ),
+        "colliders_enabled": colliders_enabled,
+        "drives_enabled": drives_enabled,
+        "articulation_enabled": articulation_enabled,
+        "terminal_bodies_physical": terminal_bodies_physical,
+        "degenerate_axis_ids": sorted(
+            axis.id for axis in selected_visual_axes if _axis_is_degenerate(axis)
+        ),
         "physical_axis_count": len(links),
         "visual_only_axis_count": len(state.axes) - len(links),
         "predicted_d6_joints": sum(
@@ -1197,6 +1334,11 @@ def build_v2_authoring_plan(
         source_origin=tuple(float(value) for value in origin),
         scale=CANONICAL_SCALE,
         physics_preset=physics_preset,
+        debug_profile=debug_profile,
+        colliders_enabled=colliders_enabled,
+        drives_enabled=drives_enabled,
+        articulation_enabled=articulation_enabled,
+        terminal_bodies_physical=terminal_bodies_physical,
         visual_axes=tuple(visual_axes),
         visual_spheres=tuple(visual_spheres),
         physical_links=tuple(links),

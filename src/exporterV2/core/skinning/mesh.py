@@ -272,22 +272,63 @@ def _skin_weights(axis: VisualAxisData, arc: float):
     return bone, bone, 1.0, 0.0
 
 
+def _link_index_for_arc(axis: VisualAxisData, arc: float) -> int:
+    if arc >= axis.total_length - 1e-12:
+        return len(axis.bone_starts) - 1
+    index = bisect.bisect_right(axis.bone_starts, arc) - 1
+    return max(0, min(index, len(axis.bone_starts) - 1))
+
+
+def centerline_tangent(axis: VisualAxisData, arc: float) -> Gf.Vec3d:
+    index = _link_index_for_arc(axis, arc)
+    rotation = Gf.Rotation(Gf.Quatd(axis.link_orientations[index]))
+    return Gf.Vec3d(
+        rotation.TransformDir(Gf.Vec3d(0.0, 0.0, 1.0))
+    ).GetNormalized()
+
+
+def centerline_point(axis: VisualAxisData, arc: float) -> Gf.Vec3d:
+    index = _link_index_for_arc(axis, arc)
+    local_arc = max(0.0, min(axis.bone_lengths[index], arc - axis.bone_starts[index]))
+    return axis.link_bases[index] + centerline_tangent(axis, arc) * local_arc
+
+
 def build_straight_centerline(axis: VisualAxisData, arcs: Iterable[float]):
-    """Sample the exact straight rest pose without procedural curvature."""
+    """Sample a straight legacy axis or an explicit piecewise-linear rest pose."""
     arc_list = list(arcs)
-    return arc_list, [axis.start + axis.axis * arc for arc in arc_list]
+    return arc_list, [centerline_point(axis, arc) for arc in arc_list]
 
 
-def build_parallel_transport_frames(axis: VisualAxisData, ring_count: int):
-    """Return the constant transport frame implied by a straight axis."""
+def build_parallel_transport_frames(axis: VisualAxisData, arcs):
+    """Parallel-transport cross sections along the legacy or explicit centerline."""
+    arc_list = list(arcs)
+    if not arc_list:
+        return [], []
     rotation = Gf.Rotation(Gf.Quatd(axis.orientation))
     normal = Gf.Vec3d(
         rotation.TransformDir(Gf.Vec3d(1.0, 0.0, 0.0))
     ).GetNormalized()
-    binormal = Gf.Vec3d(
-        rotation.TransformDir(Gf.Vec3d(0.0, 1.0, 0.0))
-    ).GetNormalized()
-    return [normal] * ring_count, [binormal] * ring_count
+    previous_tangent = centerline_tangent(axis, arc_list[0])
+    normal = (normal - previous_tangent * Gf.Dot(normal, previous_tangent)).GetNormalized()
+    normals = []
+    binormals = []
+    for arc in arc_list:
+        tangent = centerline_tangent(axis, arc)
+        if Gf.Dot(previous_tangent, tangent) < 1.0 - 1e-12:
+            transport = Gf.Rotation(previous_tangent, tangent)
+            normal = Gf.Vec3d(transport.TransformDir(normal))
+        normal = normal - tangent * Gf.Dot(normal, tangent)
+        if normal.GetLength() <= 1e-12:
+            fallback = Gf.Vec3d(1.0, 0.0, 0.0)
+            if abs(Gf.Dot(fallback, tangent)) > 0.95:
+                fallback = Gf.Vec3d(0.0, 1.0, 0.0)
+            normal = fallback - tangent * Gf.Dot(fallback, tangent)
+        normal.Normalize()
+        binormal = Gf.Cross(tangent, normal).GetNormalized()
+        normals.append(Gf.Vec3d(normal))
+        binormals.append(Gf.Vec3d(binormal))
+        previous_tangent = tangent
+    return normals, binormals
 
 
 def build_axis_tube_data(axis: VisualAxisData):
@@ -299,7 +340,7 @@ def build_axis_tube_data(axis: VisualAxisData):
         )
     arcs = build_axis_sample_arcs(axis)
     arcs, centers = build_straight_centerline(axis, arcs)
-    normals, binormals = build_parallel_transport_frames(axis, len(arcs))
+    normals, binormals = build_parallel_transport_frames(axis, arcs)
     points = []
     joint_indices = []
     joint_weights = []

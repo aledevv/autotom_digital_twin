@@ -22,6 +22,8 @@ from .core.tree_config import (
     PlantColors,
     TrussPhysicsConfig,
     calculate_physics_params,
+    compute_flexural_rigidity,
+    compute_hinge_stiffness_rad,
     compute_mass,
 )
 from .core.physics import (
@@ -76,6 +78,12 @@ def _safe(value: str) -> str:
     if not result or result[0].isdigit():
         result = f"Item_{result}"
     return result
+
+
+def _typed_prim_name(entity_type: str, canonical_id: str) -> str:
+    """Keep the Stage tree human-readable without weakening canonical identity."""
+
+    return f"{_safe(entity_type)}_{_safe(canonical_id)}"
 
 
 def _string(prim, name: str, value: str) -> None:
@@ -180,11 +188,19 @@ def _local_pose(child: Pose, parent: Pose) -> tuple[Gf.Vec3f, Gf.Quatf]:
     return Gf.Vec3f(*position), _quat_from_rotation(rotation)
 
 
-def _joint_gains(link) -> tuple[float, float, float]:
+DRIVE_SCALE_CHOICES = (1.0, 0.5, 0.25, 0.1)
+
+
+def _material_properties(link) -> tuple[float, float, float]:
     is_truss = link.role in {"truss_rachis", "pedicel"}
     density = TrussPhysicsConfig.PLANT_DENSITY if is_truss else BioConfig.PLANT_DENSITY
     young = TrussPhysicsConfig.YOUNG_MODULUS if is_truss else BioConfig.YOUNG_MODULUS
     damping_ratio = TrussPhysicsConfig.DAMPING_RATIO if is_truss else BioConfig.DAMPING_RATIO
+    return density, young, damping_ratio
+
+
+def _link_physics(link) -> tuple[float, float, float]:
+    density, young, damping_ratio = _material_properties(link)
     mass = compute_mass(link.visual_radius, link.authored_pose.length, density=density)
     stiffness, damping = calculate_physics_params(
         link.visual_radius,
@@ -196,7 +212,41 @@ def _joint_gains(link) -> tuple[float, float, float]:
     return mass, stiffness, damping
 
 
-def _author_joint(stage, link, parent, paths, stiffness_scale: float) -> None:
+def _joint_drive_gains(link, parent) -> tuple[float, float]:
+    """Use the established V2 parent-child series hinge at attachments."""
+
+    _, child_stiffness, child_damping = _link_physics(link)
+    _, child_young, _ = _material_properties(link)
+    _, parent_young, _ = _material_properties(parent)
+    child_ei = compute_flexural_rigidity(link.visual_radius, child_young)
+    parent_ei = compute_flexural_rigidity(parent.visual_radius, parent_young)
+    attachment_stiffness_rad = compute_hinge_stiffness_rad(
+        parent.authored_pose.length,
+        parent_ei,
+        link.authored_pose.length,
+        child_ei,
+    )
+    attachment_stiffness = attachment_stiffness_rad * (math.pi / 180.0)
+    ratio = (
+        attachment_stiffness / child_stiffness
+        if child_stiffness > 0.0
+        else 1.0
+    )
+    return attachment_stiffness, child_damping * math.sqrt(ratio)
+
+
+def _author_joint(
+    stage,
+    link,
+    parent,
+    paths,
+    stiffness_scale: float,
+    *,
+    drives_enabled: bool,
+    fixed_joints_enabled: bool,
+    leaf_stiffness_scale: float,
+    truss_stiffness_scale: float,
+) -> None:
     child_path = paths[link.id]
     if parent is None:
         joint = UsdPhysics.FixedJoint.Define(stage, f"{child_path}/RootFixedJoint")
@@ -210,14 +260,15 @@ def _author_joint(stage, link, parent, paths, stiffness_scale: float) -> None:
             _quat_from_rotation(link.authored_pose.rotation)
         )
         joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
-        if link.joint_type == "fixed":
+        if not fixed_joints_enabled:
             joint.CreateJointEnabledAttr().Set(False)
         return
     parent_path = paths[parent.id]
     local_position, local_rotation = _local_pose(link.authored_pose, parent.authored_pose)
     if link.joint_type == "fixed":
         joint = UsdPhysics.FixedJoint.Define(stage, f"{child_path}/AttachJoint")
-        joint.CreateJointEnabledAttr().Set(False)
+        if not fixed_joints_enabled:
+            joint.CreateJointEnabledAttr().Set(False)
     else:
         joint = UsdPhysics.Joint.Define(stage, f"{child_path}/AttachJoint")
     joint.CreateBody0Rel().SetTargets([Sdf.Path(parent_path)])
@@ -226,12 +277,20 @@ def _author_joint(stage, link, parent, paths, stiffness_scale: float) -> None:
     joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
     joint.CreateLocalRot0Attr().Set(local_rotation)
     joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
-    if link.joint_type == "d6":
-        _, stiffness, damping = _joint_gains(link)
+    if link.joint_type == "d6" and drives_enabled:
+        stiffness, damping = _joint_drive_gains(link, parent)
+        role_scale = (
+            truss_stiffness_scale
+            if link.role in {"truss_rachis", "pedicel"}
+            else leaf_stiffness_scale
+        )
+        if link.role == "pedicel":
+            role_scale *= TrussPhysicsConfig.PEDICEL_DRIVE_STIFFNESS_SCALE
+        total_scale = stiffness_scale * role_scale
         configure_joint_drives(
             joint,
-            stiffness * stiffness_scale,
-            damping * math.sqrt(stiffness_scale),
+            stiffness * total_scale,
+            damping * math.sqrt(total_scale),
             bend_limit_deg=(
                 TrussPhysicsConfig.PEDICEL_BEND_LIMIT_DEG
                 if link.role == "pedicel"
@@ -248,14 +307,20 @@ def _author_metadata(stage, plan: V2AuthoringPlan, plant_path: str) -> None:
     UsdGeom.Scope.Define(stage, topology_root)
     UsdGeom.Scope.Define(stage, organ_root)
     for node in sorted(plan.state.nodes, key=lambda item: item.id):
-        prim = UsdGeom.Xform.Define(stage, f"{topology_root}/{_safe(node.id)}").GetPrim()
+        prim = UsdGeom.Xform.Define(
+            stage,
+            f"{topology_root}/{_typed_prim_name(node.source_type, node.id)}",
+        ).GetPrim()
         _string(prim, "autotom:entityKind", "topology_node")
         _string(prim, "autotom:canonicalNodeId", node.id)
         _string(prim, "autotom:sourceType", node.source_type)
         if node.parent_id is not None:
             _string(prim, "autotom:canonicalParentId", node.parent_id)
     for organ in sorted(plan.state.organs, key=lambda item: item.id):
-        prim = UsdGeom.Xform.Define(stage, f"{organ_root}/{_safe(organ.id)}").GetPrim()
+        prim = UsdGeom.Xform.Define(
+            stage,
+            f"{organ_root}/{_typed_prim_name(organ.organ_type, organ.id)}",
+        ).GetPrim()
         _string(prim, "autotom:entityKind", "organ")
         _string(prim, "autotom:canonicalOrganId", organ.id)
         _string(prim, "autotom:canonicalNodeId", organ.node_id)
@@ -312,12 +377,22 @@ def export_plant_state_v2(
     output_path: str | Path,
     *,
     stiffness_scale: float = 1.0,
+    leaf_stiffness_scale: float = 1.0,
+    truss_stiffness_scale: float = 1.0,
     physics_hz: int = 480,
 ) -> Path:
     """Author a canonical V2 USDA stage and return its absolute path."""
 
     if stiffness_scale not in {1.0, 2.0, 4.0}:
         raise V2ExportError("stiffness_scale must be one of 1, 2, or 4")
+    if leaf_stiffness_scale not in DRIVE_SCALE_CHOICES:
+        raise V2ExportError(
+            f"leaf_stiffness_scale must be one of {DRIVE_SCALE_CHOICES}"
+        )
+    if truss_stiffness_scale not in DRIVE_SCALE_CHOICES:
+        raise V2ExportError(
+            f"truss_stiffness_scale must be one of {DRIVE_SCALE_CHOICES}"
+        )
     if physics_hz not in {480, 960}:
         raise V2ExportError("physics_hz must be 480 or 960")
     destination = Path(output_path).expanduser().resolve()
@@ -334,6 +409,7 @@ def export_plant_state_v2(
     _string(plant, "autotom:renderer", "exporterV2/plant_state")
     _string(plant, "autotom:originPolicy", "plant_base_at_stage_origin")
     _string(plant, "autotom:physicsPreset", plan.physics_preset)
+    _string(plant, "autotom:debugProfile", plan.debug_profile)
     _string(
         plant,
         "autotom:lockedImplementation",
@@ -346,16 +422,31 @@ def export_plant_state_v2(
     )
     plant.CreateAttribute("autotom:canonicalScale", Sdf.ValueTypeNames.Double, custom=True).Set(plan.scale)
     plant.CreateAttribute("autotom:stiffnessScale", Sdf.ValueTypeNames.Double, custom=True).Set(stiffness_scale)
+    plant.CreateAttribute("autotom:leafStiffnessScale", Sdf.ValueTypeNames.Double, custom=True).Set(leaf_stiffness_scale)
+    plant.CreateAttribute("autotom:trussStiffnessScale", Sdf.ValueTypeNames.Double, custom=True).Set(truss_stiffness_scale)
     plant.CreateAttribute("autotom:physicsHz", Sdf.ValueTypeNames.Int, custom=True).Set(physics_hz)
+    plant.CreateAttribute("autotom:collidersEnabled", Sdf.ValueTypeNames.Bool, custom=True).Set(plan.colliders_enabled)
+    plant.CreateAttribute("autotom:drivesEnabled", Sdf.ValueTypeNames.Bool, custom=True).Set(plan.drives_enabled)
+    plant.CreateAttribute("autotom:articulationEnabled", Sdf.ValueTypeNames.Bool, custom=True).Set(plan.articulation_enabled)
+    plant.CreateAttribute("autotom:terminalBodiesPhysical", Sdf.ValueTypeNames.Bool, custom=True).Set(plan.terminal_bodies_physical)
     _author_metadata(stage, plan, plant_path)
 
     physics_root = f"{plant_path}/Physics"
     visual_root = f"{plant_path}/Visual"
     physics_prim = UsdGeom.Xform.Define(stage, physics_root).GetPrim()
-    if plan.physics_preset == "flexible":
+    if plan.physics_preset == "flexible" and plan.articulation_enabled:
         UsdPhysics.ArticulationRootAPI.Apply(physics_prim)
     UsdGeom.Scope.Define(stage, visual_root)
-    link_paths = {link.id: f"{physics_root}/{_safe(link.id)}" for link in plan.physical_links}
+    organ_type_by_node = {
+        organ.node_id: organ.organ_type for organ in plan.state.organs
+    }
+    link_paths = {
+        link.id: (
+            f"{physics_root}/"
+            f"{_typed_prim_name(organ_type_by_node[link.owner_node_id], link.id)}"
+        )
+        for link in plan.physical_links
+    }
     link_by_id = {link.id: link for link in plan.physical_links}
     for link in plan.physical_links:
         path = link_paths[link.id]
@@ -365,15 +456,20 @@ def export_plant_state_v2(
         _string(prim, "autotom:entityKind", "physical_link")
         _string(prim, "autotom:canonicalPrimitiveId", link.canonical_axis_id)
         _string(prim, "autotom:role", link.role)
+        _string(prim, "autotom:jointType", link.joint_type)
+        prim.CreateAttribute("autotom:sourceLength", Sdf.ValueTypeNames.Double, custom=True).Set(link.authored_pose.length)
+        if link.parent_id is not None:
+            _string(prim, "autotom:physicalParentId", link.parent_id)
         _strings(prim, "autotom:canonicalOrganIds", link.canonical_organ_ids)
         rigid_body = UsdPhysics.RigidBodyAPI.Apply(prim)
         rigid_body.CreateRigidBodyEnabledAttr().Set(True)
         rigid_body.CreateKinematicEnabledAttr().Set(plan.physics_preset == "locked")
-        mass, _, _ = _joint_gains(link)
+        mass, _, _ = _link_physics(link)
         mass_api = UsdPhysics.MassAPI.Apply(prim)
         mass_api.CreateMassAttr().Set(float(mass))
         mass_api.CreateCenterOfMassAttr().Set(Gf.Vec3f(0.0, 0.0, link.authored_pose.length / 2.0))
-        _author_collider(stage, path, link.authored_pose.length, link.collider_radius)
+        if plan.colliders_enabled:
+            _author_collider(stage, path, link.authored_pose.length, link.collider_radius)
 
     for link in plan.physical_links:
         _author_joint(
@@ -382,6 +478,10 @@ def export_plant_state_v2(
             link_by_id.get(link.parent_id),
             link_paths,
             stiffness_scale,
+            drives_enabled=plan.drives_enabled,
+            fixed_joints_enabled=plan.physics_preset == "flexible",
+            leaf_stiffness_scale=leaf_stiffness_scale,
+            truss_stiffness_scale=truss_stiffness_scale,
         )
 
     visual_paths = {}
@@ -391,7 +491,10 @@ def export_plant_state_v2(
         host = link_by_id[axis.host_link_id]
         host_path = link_paths[axis.host_link_id]
         local_position, local_rotation = _local_pose(axis.authored_pose, host.authored_pose)
-        path = f"{host_path}/VisualAxis_{_safe(axis.id)}"
+        path = (
+            f"{host_path}/VisualAxis_"
+            f"{_typed_prim_name(axis.organ_type, axis.id)}"
+        )
         xform = UsdGeom.Xform.Define(stage, path)
         xform.AddTranslateOp().Set(local_position)
         xform.AddOrientOp().Set(local_rotation)
@@ -413,54 +516,59 @@ def export_plant_state_v2(
             continue
         index = owner_indices.get(sphere.owner_node_id, 0)
         owner_indices[sphere.owner_node_id] = index + 1
-        path = f"{terminal_root}/{_safe(sphere.id)}"
+        path = f"{terminal_root}/{_typed_prim_name(sphere.organ_type, sphere.id)}"
         body = UsdGeom.Xform.Define(stage, path)
         body.AddTranslateOp().Set(Gf.Vec3d(*sphere.authored_center))
         prim = body.GetPrim()
-        _string(prim, "autotom:entityKind", "terminal_body")
+        _string(
+            prim,
+            "autotom:entityKind",
+            "terminal_body" if plan.terminal_bodies_physical else "visual_sphere",
+        )
         _string(prim, "autotom:canonicalPrimitiveId", sphere.id)
         _string(prim, "autotom:canonicalNodeId", sphere.owner_node_id)
-        rigid_body = UsdPhysics.RigidBodyAPI.Apply(prim)
-        rigid_body.CreateRigidBodyEnabledAttr().Set(True)
-        rigid_body.CreateKinematicEnabledAttr().Set(plan.physics_preset == "locked")
-        mass = 4.0 / 3.0 * math.pi * sphere.radius**3 * 1000.0
-        UsdPhysics.MassAPI.Apply(prim).CreateMassAttr().Set(float(mass))
         geometry = UsdGeom.Sphere.Define(stage, f"{path}/Visual")
         geometry.CreateRadiusAttr().Set(float(sphere.radius))
         material = get_or_create_tomato_fruit_material(
             stage, _fruit_maturation(plan, sphere.owner_node_id, index)
         )
         UsdShade.MaterialBindingAPI.Apply(geometry.GetPrim()).Bind(material)
-        UsdPhysics.CollisionAPI.Apply(geometry.GetPrim())
-        host = link_by_id[sphere.host_link_id]
-        local = np.asarray(host.authored_pose.rotation).T @ (
-            np.asarray(sphere.authored_center) - np.asarray(host.authored_pose.start)
-        )
-        joint = UsdPhysics.FixedJoint.Define(stage, f"{path}/AttachJoint")
-        joint.CreateBody0Rel().SetTargets([Sdf.Path(link_paths[host.id])])
-        joint.CreateBody1Rel().SetTargets([Sdf.Path(path)])
-        joint.CreateLocalPos0Attr().Set(Gf.Vec3f(*local))
-        joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
-        # Terminal bodies are authored with identity world orientation.  The
-        # parent-side frame therefore needs the inverse parent rotation; an
-        # identity localRot0 would make PhysX snap/eject the fruit at startup.
-        joint.CreateLocalRot0Attr().Set(
-            _quat_from_rotation(np.asarray(host.authored_pose.rotation).T)
-        )
-        joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
-        if plan.physics_preset == "flexible":
-            configure_detachable_joint(
-                joint,
-                break_force=TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N,
-                exclude_from_articulation=True,
+        if plan.terminal_bodies_physical:
+            _string(prim, "autotom:hostLinkId", sphere.host_link_id)
+            rigid_body = UsdPhysics.RigidBodyAPI.Apply(prim)
+            rigid_body.CreateRigidBodyEnabledAttr().Set(True)
+            rigid_body.CreateKinematicEnabledAttr().Set(plan.physics_preset == "locked")
+            mass = 4.0 / 3.0 * math.pi * sphere.radius**3 * 1000.0
+            UsdPhysics.MassAPI.Apply(prim).CreateMassAttr().Set(float(mass))
+            if plan.colliders_enabled:
+                UsdPhysics.CollisionAPI.Apply(geometry.GetPrim())
+            host = link_by_id[sphere.host_link_id]
+            local = np.asarray(host.authored_pose.rotation).T @ (
+                np.asarray(sphere.authored_center) - np.asarray(host.authored_pose.start)
             )
-        else:
-            joint.CreateJointEnabledAttr().Set(False)
-        add_collision_filter(stage, path, link_paths[host.id])
-        sphere_paths[sphere.id] = path
+            joint = UsdPhysics.FixedJoint.Define(stage, f"{path}/AttachJoint")
+            joint.CreateBody0Rel().SetTargets([Sdf.Path(link_paths[host.id])])
+            joint.CreateBody1Rel().SetTargets([Sdf.Path(path)])
+            joint.CreateLocalPos0Attr().Set(Gf.Vec3f(*local))
+            joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+            joint.CreateLocalRot0Attr().Set(
+                _quat_from_rotation(np.asarray(host.authored_pose.rotation).T)
+            )
+            joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+            if plan.physics_preset == "flexible":
+                configure_detachable_joint(
+                    joint,
+                    break_force=TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N,
+                    exclude_from_articulation=True,
+                )
+            else:
+                joint.CreateJointEnabledAttr().Set(False)
+            if plan.colliders_enabled:
+                add_collision_filter(stage, path, link_paths[host.id])
+            sphere_paths[sphere.id] = path
 
     apply_physx_scene_settings(stage, physics_hz=physics_hz)
-    if plan.physics_preset == "flexible":
+    if plan.physics_preset == "flexible" and plan.articulation_enabled:
         apply_physx_articulation_settings(stage, physics_root)
     for path in sphere_paths.values():
         apply_physx_rigid_body_solver_settings(stage, path)
@@ -506,7 +614,7 @@ def audit_v2_stage(plan: V2AuthoringPlan, usd_path: str | Path) -> V2ExportManif
             counts[str(kind)] += 1
         primitive_attr = prim.GetAttribute("autotom:canonicalPrimitiveId")
         primitive_id = primitive_attr.Get() if primitive_attr else None
-        if kind in {"visual_axis", "terminal_body"} and primitive_id:
+        if kind in {"visual_axis", "terminal_body", "visual_sphere"} and primitive_id:
             canonical_visual_ids.add(str(primitive_id))
         if kind == "physical_link" and primitive_id:
             canonical_physical_ids.add(str(primitive_id))
@@ -544,17 +652,47 @@ def audit_v2_stage(plan: V2AuthoringPlan, usd_path: str | Path) -> V2ExportManif
     root = next(link for link in plan.physical_links if link.parent_id is None)
     if any(abs(value) > 1e-12 for value in root.authored_pose.start):
         errors.append(f"physical root is not at origin: {root.authored_pose.start}")
-    if len(rigid_body_paths) != len(plan.physical_links) + sum(
-        sphere.render_geometry for sphere in plan.visual_spheres
-    ):
+    physical_sphere_count = (
+        sum(sphere.render_geometry for sphere in plan.visual_spheres)
+        if plan.terminal_bodies_physical
+        else 0
+    )
+    if len(rigid_body_paths) != len(plan.physical_links) + physical_sphere_count:
         errors.append("rigid body count differs from the physical plan")
-    if len(collider_paths) != len(plan.physical_links) + sum(
-        sphere.render_geometry for sphere in plan.visual_spheres
-    ):
+    expected_colliders = (
+        len(plan.physical_links) + physical_sphere_count
+        if plan.colliders_enabled
+        else 0
+    )
+    if len(collider_paths) != expected_colliders:
         errors.append("collider count differs from the physical plan")
     if len(d6_joint_paths) != plan.predicted_d6_joints:
         errors.append("D6 joint count differs from the physical plan")
+    expected_fixed_joints = 1 + sum(
+        link.joint_type == "fixed" and link.parent_id is not None
+        for link in plan.physical_links
+    )
+    if len(fixed_joint_paths) != expected_fixed_joints:
+        errors.append("FixedJoint count differs from the physical plan")
+    enabled_fixed_joints = 0
+    for joint_path in fixed_joint_paths:
+        enabled = stage.GetPrimAtPath(joint_path).GetAttribute(
+            "physics:jointEnabled"
+        ).Get()
+        if enabled is not False:
+            enabled_fixed_joints += 1
+    expected_enabled_fixed = (
+        expected_fixed_joints if plan.physics_preset == "flexible" else 0
+    )
+    if enabled_fixed_joints != expected_enabled_fixed:
+        errors.append("enabled FixedJoint count differs from the physical plan")
     stiffness_scale = float(plant.GetAttribute("autotom:stiffnessScale").Get())
+    leaf_stiffness_scale = float(
+        plant.GetAttribute("autotom:leafStiffnessScale").Get()
+    )
+    truss_stiffness_scale = float(
+        plant.GetAttribute("autotom:trussStiffnessScale").Get()
+    )
     physics_hz = int(plant.GetAttribute("autotom:physicsHz").Get())
     physical_organ_ids = {
         organ_id for link in plan.physical_links for organ_id in link.canonical_organ_ids
@@ -571,8 +709,11 @@ def audit_v2_stage(plan: V2AuthoringPlan, usd_path: str | Path) -> V2ExportManif
             "source_world_origin": list(plan.source_origin),
             "global_scale": plan.scale,
             "physics_preset": plan.physics_preset,
+            "debug_profile": plan.debug_profile,
             "physics_hz": physics_hz,
             "stiffness_scale": stiffness_scale,
+            "leaf_stiffness_scale": leaf_stiffness_scale,
+            "truss_stiffness_scale": truss_stiffness_scale,
         },
         canonical={
             "nodes": len(plan.state.nodes),
@@ -580,6 +721,10 @@ def audit_v2_stage(plan: V2AuthoringPlan, usd_path: str | Path) -> V2ExportManif
             "organs": dict(sorted(Counter(o.organ_type for o in plan.state.organs).items())),
             "axes": len(plan.state.axes),
             "spheres": len(plan.state.spheres),
+            "selected_axis_ids": plan.diagnostics["selected_axis_ids"],
+            "omitted_axis_ids": plan.diagnostics["omitted_axis_ids"],
+            "selected_sphere_ids": plan.diagnostics["selected_sphere_ids"],
+            "omitted_sphere_ids": plan.diagnostics["omitted_sphere_ids"],
         },
         visual={
             "axes_expected": sum(axis.render_geometry for axis in plan.visual_axes),
@@ -588,6 +733,7 @@ def audit_v2_stage(plan: V2AuthoringPlan, usd_path: str | Path) -> V2ExportManif
             "leaf_blades": int(plant.GetAttribute("autotom:leafBladeCount").Get()),
             "visual_only_axes": plan.diagnostics["visual_only_axis_count"],
             "duplicate_geometry_of": plan.diagnostics["duplicate_geometry_of"],
+            "degenerate_axis_ids": plan.diagnostics["degenerate_axis_ids"],
             "spheres": [
                 {
                     "id": sphere.id,
@@ -605,10 +751,15 @@ def audit_v2_stage(plan: V2AuthoringPlan, usd_path: str | Path) -> V2ExportManif
             "physical_links": len(plan.physical_links),
             "d6_joints": plan.predicted_d6_joints,
             "fixed_links": sum(link.joint_type == "fixed" for link in plan.physical_links),
-            "terminal_bodies": sum(sphere.render_geometry for sphere in plan.visual_spheres),
+            "terminal_bodies": physical_sphere_count,
+            "static_visual_spheres": (
+                sum(sphere.render_geometry for sphere in plan.visual_spheres)
+                - physical_sphere_count
+            ),
             "rigid_bodies_authored": len(rigid_body_paths),
             "colliders_authored": len(collider_paths),
             "fixed_joints_authored": len(fixed_joint_paths),
+            "fixed_joints_enabled": enabled_fixed_joints,
             "locked_implementation": (
                 "kinematic_bodies_with_disabled_fixed_topology_joints"
                 if plan.physics_preset == "locked"
@@ -617,7 +768,25 @@ def audit_v2_stage(plan: V2AuthoringPlan, usd_path: str | Path) -> V2ExportManif
             "kinematic_bodies": (
                 len(rigid_body_paths) if plan.physics_preset == "locked" else 0
             ),
-            "dynamic_organ_ids": sorted(physical_organ_ids),
+            "colliders_enabled": plan.colliders_enabled,
+            "drives_enabled": plan.drives_enabled,
+            "articulation_enabled": plan.articulation_enabled,
+            "dynamic_organ_ids": sorted(
+                {
+                    organ_id
+                    for link in plan.physical_links
+                    if link.joint_type == "d6"
+                    for organ_id in link.canonical_organ_ids
+                }
+            ),
+            "structural_fixed_organ_ids": sorted(
+                {
+                    organ_id
+                    for link in plan.physical_links
+                    if link.joint_type == "fixed"
+                    for organ_id in link.canonical_organ_ids
+                }
+            ),
             "static_metadata_organ_ids": sorted(all_organ_ids - physical_organ_ids),
             "joint_target": plan.diagnostics["joint_target"],
             "joint_warning_max": plan.diagnostics["joint_warning_max"],

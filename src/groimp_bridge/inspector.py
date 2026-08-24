@@ -15,6 +15,7 @@ from .client import GroIMPClient, GroIMPError, run_json_call
 from .models import GroIMPGraphSnapshot, InspectionReport, StepResult
 from .queries import enrich_snapshot, parse_project_graph, query_model_time
 from .runtime import isolated_project
+from .runtime import override_runtime_paths
 
 
 DEFAULT_API_URL = "http://localhost:58081/api/"
@@ -95,6 +96,7 @@ def inspect_project(
                 parameters_path = source_project.parent / "param" / "parameters.rgg"
                 source = parameters_path.read_text(encoding="utf-8")
                 updated = override_model_duration(source, model_duration_days)
+                updated = override_runtime_paths(updated, runtime_project.parent)
                 client.update_source(workbench, "param/parameters.rgg", updated)
                 client.compile(workbench)
             for step_number in range(1, steps + 1):

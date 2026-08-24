@@ -5,6 +5,11 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Any, Iterator
 
+import requests
+
+
+DEFAULT_REQUEST_TIMEOUT_SECONDS = 120.0
+
 
 class GroIMPError(RuntimeError):
     """Base error raised by the GroIMP bridge."""
@@ -21,6 +26,20 @@ class GroIMPRequestError(GroIMPError):
 def _response_excerpt(response: Any, limit: int = 1000) -> str:
     text = getattr(response, "text", "") or ""
     return str(text)[:limit]
+
+
+def _execute_call(call: Any, *, timeout: float = DEFAULT_REQUEST_TIMEOUT_SECONDS):
+    """Run GroPy calls with a finite timeout while retaining test doubles."""
+
+    if all(hasattr(call, name) for name in ("url", "parameters", "content")):
+        call.result = requests.post(
+            url=call.url,
+            params=call.parameters,
+            data=call.content,
+            timeout=timeout,
+        )
+        return call
+    return call.run()
 
 
 class GroIMPClient:
@@ -48,7 +67,9 @@ class GroIMPClient:
         workbench = None
         try:
             try:
-                request = self._link.createWB(template=template, name=name).run()
+                request = _execute_call(
+                    self._link.createWB(template=template, name=name)
+                )
             except Exception as exc:
                 raise GroIMPConnectionError(
                     f"Cannot create GroIMP template {template!r} at {self.api_url}: {exc}"
@@ -72,7 +93,7 @@ class GroIMPClient:
         workbench = None
         try:
             try:
-                request = self._link.openWB(path=project_path).run()
+                request = _execute_call(self._link.openWB(path=project_path))
             except Exception as exc:
                 raise GroIMPConnectionError(
                     f"Cannot connect to GroIMP at {self.api_url}: {exc}"
@@ -94,7 +115,7 @@ class GroIMPClient:
         if workbench is None:
             return
         try:
-            workbench.close().run()
+            _execute_call(workbench.close(), timeout=10.0)
         except Exception:
             # Never mask the extraction error with a secondary cleanup failure.
             pass
@@ -119,7 +140,7 @@ class GroIMPClient:
         """Run one public RGG function and validate the HTTP response."""
 
         try:
-            request = workbench.runRGGFunction(function_name).run()
+            request = _execute_call(workbench.runRGGFunction(function_name))
         except Exception as exc:
             raise GroIMPConnectionError(
                 f"Failed while running RGG function {function_name!r}: {exc}"
@@ -143,7 +164,7 @@ class GroIMPClient:
         """
 
         try:
-            request = workbench.exportSubScene("obj", int(node_id)).run()
+            request = _execute_call(workbench.exportSubScene("obj", int(node_id)))
         except Exception as exc:
             raise GroIMPConnectionError(
                 f"Failed while exporting OBJ subscene for node {node_id}: {exc}"
@@ -167,7 +188,7 @@ class GroIMPClient:
         """Export the full interpreted scene, also forcing renderer refresh."""
 
         try:
-            request = workbench.export3d("obj").run()
+            request = _execute_call(workbench.export3d("obj"))
         except Exception as exc:
             raise GroIMPConnectionError(f"Failed while exporting the OBJ scene: {exc}") from exc
         status = getattr(request.result, "status_code", None)
@@ -186,7 +207,7 @@ def run_json_call(call: Any, *, operation: str) -> dict[str, Any]:
     """Execute one GroPy JSON call and normalize request errors."""
 
     try:
-        request = call.run()
+        request = _execute_call(call)
     except Exception as exc:
         raise GroIMPConnectionError(f"GroIMP {operation} failed: {exc}") from exc
     status = getattr(request.result, "status_code", None)

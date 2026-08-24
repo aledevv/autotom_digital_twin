@@ -20,6 +20,28 @@ The path-based command copies the GSZ and `model/input/` to an isolated
 temporary directory. `Dynamic_Model` therefore writes only under `/tmp`; the
 source project and its existing CSV outputs are not changed.
 
+GroIMP 2.2.1 headless does not reliably derive `getWD()` from the opened GSZ;
+on this installation it resolves to the account home. Before `openWB`, the
+runtime rewrites `PATH_INPUT` and `PATH_OUTPUT` only in the temporary GSZ copy.
+This is required because `parameters_derived.rgg` reads its external files
+during project initialization, before the API can update or compile sources.
+The original GSZ and RGG files remain byte-for-byte unchanged.
+
+Extract one day, or one consecutive range efficiently, with:
+
+```bash
+./extract_plant_states.sh --day 50
+./extract_plant_states.sh --from-day 1 --to-day 160 --skip-existing
+```
+
+This uses a single workbench, preserves native IDs across the range, checks
+the observed GroIMP day after every step, and closes the workbench on success
+or error. Each completed JSON is published atomically. Existing outputs are
+rejected up front unless `--overwrite` replaces them or `--skip-existing`
+resumes an interrupted range while retaining them.
+See [the batch extraction guide](../../docs/GROIMP_BATCH_EXTRACTION.md) for the
+failure mode, recovery procedure, and 1-to-160 workflow.
+
 The public Python boundary is:
 
 ```python

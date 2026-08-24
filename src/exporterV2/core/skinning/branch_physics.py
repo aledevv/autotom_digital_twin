@@ -2,7 +2,7 @@
 
 from typing import Dict
 
-from pxr import Gf, UsdGeom, UsdPhysics, Vt
+from pxr import Gf, Sdf, UsdGeom, UsdPhysics, Vt
 
 from ..tree_config import GAP, scaled
 from ..usd.collision import add_collision_filter
@@ -12,7 +12,9 @@ from ..usd.joints import (
     create_attachment_joint_locked,
     create_attachment_revolute_joint,
     create_internal_joint,
+    create_internal_joint_at_rest,
     create_internal_joint_locked,
+    create_internal_joint_locked_at_rest,
     create_internal_revolute_joint,
 )
 from .model import BranchData
@@ -61,26 +63,66 @@ def author_rigid_links(stage, branch: BranchData) -> None:
     UsdGeom.Xform.Define(stage, branch.physics_root_path)
     collision_enabled = branch.definition.get("collision_enabled", True)
     for index, path in enumerate(branch.link_paths):
+        length = branch.link_lengths[index]
+        visual_radius = branch.link_radii[index]
+        collider_radius = branch.link_collider_radii[index]
+        metadata = branch.link_metadata[index]
         link = UsdGeom.Xform.Define(stage, path)
         link.AddTranslateOp().Set(branch.link_bases[index])
-        link.AddOrientOp().Set(branch.orientation)
+        link.AddOrientOp().Set(branch.link_orientations[index])
         rigid_body = UsdPhysics.RigidBodyAPI.Apply(link.GetPrim())
         rigid_body.CreateRigidBodyEnabledAttr().Set(True)
         mass_api = UsdPhysics.MassAPI.Apply(link.GetPrim())
-        mass_api.CreateMassAttr().Set(branch.mass)
+        mass_api.CreateMassAttr().Set(branch.link_masses[index])
         mass_api.CreateCenterOfMassAttr().Set(
-            Gf.Vec3f(0.0, 0.0, branch.link_height / 2.0)
+            Gf.Vec3f(0.0, 0.0, length / 2.0)
         )
+        prim = link.GetPrim()
+        prim.CreateAttribute(
+            "autotom:entityKind", Sdf.ValueTypeNames.String, custom=True
+        ).Set("physical_link")
+        prim.CreateAttribute(
+            "autotom:role", Sdf.ValueTypeNames.String, custom=True
+        ).Set("internode" if metadata else branch.definition.get("kind", "branch"))
+        prim.CreateAttribute(
+            "autotom:jointType", Sdf.ValueTypeNames.String, custom=True
+        ).Set("fixed" if branch.locked_joints else branch.joint_type)
+        prim.CreateAttribute(
+            "autotom:sourceLength", Sdf.ValueTypeNames.Double, custom=True
+        ).Set(float(length))
+        prim.CreateAttribute(
+            "autotom:visualRadius", Sdf.ValueTypeNames.Double, custom=True
+        ).Set(float(visual_radius))
+        prim.CreateAttribute(
+            "autotom:colliderRadius", Sdf.ValueTypeNames.Double, custom=True
+        ).Set(float(collider_radius))
+        if metadata:
+            prim.CreateAttribute(
+                "autotom:groimpNodeId", Sdf.ValueTypeNames.Int64, custom=True
+            ).Set(int(metadata["groimp_node_id"]))
+            for key, attribute_name in (
+                ("canonical_organ_id", "autotom:canonicalOrganId"),
+                ("canonical_axis_id", "autotom:canonicalPrimitiveId"),
+            ):
+                prim.CreateAttribute(
+                    attribute_name, Sdf.ValueTypeNames.String, custom=True
+                ).Set(str(metadata[key]))
+            represented = metadata.get("represented_organ_ids", [metadata["canonical_organ_id"]])
+            prim.CreateAttribute(
+                "autotom:representedOrganIds",
+                Sdf.ValueTypeNames.StringArray,
+                custom=True,
+            ).Set(Vt.StringArray([str(value) for value in represented]))
         if collision_enabled:
             for collider_index in range(branch.spec.colliders_per_link):
                 _create_capsule_proxy(
                     stage,
                     path,
-                    branch.link_height,
-                    branch.radius,
+                    length,
+                    collider_radius,
                     collider_index,
                     branch.spec.colliders_per_link,
-                    branch.spec.collider_radius_scale,
+                    1.0,
                     branch.spec.collider_length_scale,
                 )
 
@@ -88,6 +130,19 @@ def author_rigid_links(stage, branch: BranchData) -> None:
 def _filter_pair(stage, path_a: str, path_b: str) -> None:
     add_collision_filter(stage, path_a, path_b)
     add_collision_filter(stage, path_b, path_a)
+
+
+def _child_frame_in_parent(branch: BranchData, parent_index: int, child_index: int):
+    parent_rotation = Gf.Rotation(
+        Gf.Quatd(branch.link_orientations[parent_index])
+    )
+    child_rotation = Gf.Rotation(
+        Gf.Quatd(branch.link_orientations[child_index])
+    )
+    offset_world = branch.link_bases[child_index] - branch.link_bases[parent_index]
+    local_position = parent_rotation.GetInverse().TransformDir(offset_world)
+    local_rotation = child_rotation * parent_rotation.GetInverse()
+    return Gf.Vec3f(*local_position), Gf.Quatf(local_rotation.GetQuat())
 
 
 def author_branch_joints(
@@ -98,7 +153,15 @@ def author_branch_joints(
     """Author V2-compatible root, internal, and branch-attachment joints."""
     gap = scaled(GAP)
     if branch.parent_id is None:
-        anchor_link_to_world(stage, branch.link_paths[0])
+        if branch.explicit_link_poses:
+            anchor_link_to_world(
+                stage,
+                branch.link_paths[0],
+                Gf.Vec3f(*branch.link_bases[0]),
+                branch.link_orientations[0],
+            )
+        else:
+            anchor_link_to_world(stage, branch.link_paths[0])
     else:
         parent = resolved_by_id[branch.parent_id]
         parent_path = parent.link_paths[branch.parent_link_index]
@@ -148,14 +211,27 @@ def author_branch_joints(
         child_path = branch.link_paths[child_index]
         joint_name = f"Joint_{child_index:02d}_{child_index + 1:02d}"
         if branch.locked_joints:
-            create_internal_joint_locked(
-                stage,
-                parent_path,
-                child_path,
-                joint_name,
-                branch.link_height,
-                gap,
-            )
+            if branch.explicit_link_poses:
+                local_position, local_rotation = _child_frame_in_parent(
+                    branch, child_index - 1, child_index
+                )
+                create_internal_joint_locked_at_rest(
+                    stage,
+                    parent_path,
+                    child_path,
+                    joint_name,
+                    local_position,
+                    local_rotation,
+                )
+            else:
+                create_internal_joint_locked(
+                    stage,
+                    parent_path,
+                    child_path,
+                    joint_name,
+                    branch.link_height,
+                    gap,
+                )
         elif branch.joint_type == "revolute_planar":
             create_internal_revolute_joint(
                 stage,
@@ -168,19 +244,37 @@ def author_branch_joints(
                 branch.gains.damping,
             )
         else:
-            create_internal_joint(
-                stage,
-                parent_path,
-                child_path,
-                joint_name,
-                branch.link_height,
-                gap,
-                branch.gains.stiffness,
-                branch.gains.damping,
-                bend_axes=(
-                    ("rotX",)
-                    if branch.joint_type == "d6_planar"
-                    else ("rotX", "rotY")
-                ),
-                bend_limit_deg=branch.bend_limit_deg,
+            bend_axes = (
+                ("rotX",)
+                if branch.joint_type == "d6_planar"
+                else ("rotX", "rotY")
             )
+            if branch.explicit_link_poses:
+                local_position, local_rotation = _child_frame_in_parent(
+                    branch, child_index - 1, child_index
+                )
+                create_internal_joint_at_rest(
+                    stage,
+                    parent_path,
+                    child_path,
+                    joint_name,
+                    local_position,
+                    local_rotation,
+                    branch.gains.stiffness,
+                    branch.gains.damping,
+                    bend_axes=bend_axes,
+                    bend_limit_deg=branch.bend_limit_deg,
+                )
+            else:
+                create_internal_joint(
+                    stage,
+                    parent_path,
+                    child_path,
+                    joint_name,
+                    branch.link_height,
+                    gap,
+                    branch.gains.stiffness,
+                    branch.gains.damping,
+                    bend_axes=bend_axes,
+                    bend_limit_deg=branch.bend_limit_deg,
+                )

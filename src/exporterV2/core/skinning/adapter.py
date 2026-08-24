@@ -9,6 +9,7 @@ from pxr import Gf
 from ..tree_config import (
     BioConfig,
     GAP,
+    MIN_LINK_RADIUS_WORLD,
     PhysicsRuntimeConfig,
     calculate_physics_params,
     compute_flexural_rigidity,
@@ -106,6 +107,67 @@ def _path_component(value: str) -> str:
     result = re.sub(r"[^A-Za-z0-9_]", "_", value)
     if not result or result[0].isdigit():
         result = f"Branch_{result}"
+    return result
+
+
+def _quat_from_column_rotation(rows) -> Gf.Quatf:
+    """Convert a PlantState column-vector rotation matrix to a Gf quaternion."""
+
+    m00, m01, m02 = (float(value) for value in rows[0][:3])
+    m10, m11, m12 = (float(value) for value in rows[1][:3])
+    m20, m21, m22 = (float(value) for value in rows[2][:3])
+    trace = m00 + m11 + m22
+    if trace > 0.0:
+        scale = math.sqrt(trace + 1.0) * 2.0
+        w = 0.25 * scale
+        x = (m21 - m12) / scale
+        y = (m02 - m20) / scale
+        z = (m10 - m01) / scale
+    elif m00 > m11 and m00 > m22:
+        scale = math.sqrt(1.0 + m00 - m11 - m22) * 2.0
+        w = (m21 - m12) / scale
+        x = 0.25 * scale
+        y = (m01 + m10) / scale
+        z = (m02 + m20) / scale
+    elif m11 > m22:
+        scale = math.sqrt(1.0 + m11 - m00 - m22) * 2.0
+        w = (m02 - m20) / scale
+        x = (m01 + m10) / scale
+        y = 0.25 * scale
+        z = (m12 + m21) / scale
+    else:
+        scale = math.sqrt(1.0 + m22 - m00 - m11) * 2.0
+        w = (m10 - m01) / scale
+        x = (m02 + m20) / scale
+        y = (m12 + m21) / scale
+        z = 0.25 * scale
+    norm = math.sqrt(w * w + x * x + y * y + z * z)
+    return Gf.Quatf(w / norm, x / norm, y / norm, z / norm)
+
+
+def _explicit_link_data(branch: dict):
+    """Resolve optional per-link dimensions and canonical rest frames."""
+
+    raw_specs = branch.get("link_specs")
+    if raw_specs is None:
+        return None
+
+    result = []
+    for raw in raw_specs:
+        length = scaled(float(raw["length"]))
+        radius = scaled(float(raw["radius"]))
+        frame = raw.get("rest_frame")
+        if frame is None:
+            start = None
+            orientation = None
+        else:
+            start = Gf.Vec3d(
+                scaled(float(frame[0][3])),
+                scaled(float(frame[1][3])),
+                scaled(float(frame[2][3])),
+            )
+            orientation = _quat_from_column_rotation(frame)
+        result.append((raw, length, radius, start, orientation))
     return result
 
 
@@ -249,12 +311,32 @@ def resolve_vegetative_graph(
             inner_radius = _inner_radius(branch)
             height = scaled(branch["height"])
             n_links = int(branch["n_links"])
-            mass = compute_mass(
-                radius,
-                height,
-                density=_density(branch),
-                inner_radius=inner_radius,
+            explicit_links = _explicit_link_data(branch)
+            explicit_link_poses = bool(
+                explicit_links and explicit_links[0][3] is not None
             )
+            if explicit_links is None:
+                link_lengths = [height] * n_links
+                link_radii = [radius] * n_links
+                link_metadata = [{} for _ in range(n_links)]
+            else:
+                link_lengths = [item[1] for item in explicit_links]
+                link_radii = [item[2] for item in explicit_links]
+                link_metadata = [dict(item[0]) for item in explicit_links]
+            link_collider_radii = [
+                max(value * 0.90, MIN_LINK_RADIUS_WORLD)
+                for value in link_radii
+            ]
+            link_masses = [
+                compute_mass(
+                    link_radius,
+                    link_length,
+                    density=_density(branch),
+                    inner_radius=min(inner_radius, link_radius * 0.99),
+                )
+                for link_length, link_radius in zip(link_lengths, link_radii)
+            ]
+            mass = link_masses[0]
 
             parent_definition = all_branch_defs.get(parent_id) if parent_id else None
             gains = _resolve_gains(
@@ -277,19 +359,31 @@ def resolve_vegetative_graph(
             local_rot0 = None
             centered_terminal = False
 
-            if is_root:
+            if not is_root:
+                parent_link_index = int(branch["attach_link"]) - 1
+                parent_data = by_id[parent_id]
+                if not 0 <= parent_link_index < parent_data.n_links:
+                    raise ValueError(
+                        f"Branch '{branch_id}' attach_link={branch['attach_link']} is outside "
+                        f"parent '{parent_id}' link range"
+                    )
+
+            if explicit_link_poses:
+                link_bases = [item[3] for item in explicit_links]
+                link_orientations = [item[4] for item in explicit_links]
+                start = link_bases[0]
+                orientation = link_orientations[0]
+                first_rotation = Gf.Rotation(Gf.Quatd(orientation))
+                axis = Gf.Vec3d(
+                    first_rotation.TransformDir(Gf.Vec3d(0.0, 0.0, 1.0))
+                ).GetNormalized()
+            elif is_root:
                 start = Gf.Vec3d(0.0, 0.0, 0.0)
                 axis = Gf.Vec3d(0.0, 0.0, 1.0)
                 orientation = Gf.Quatf(1.0, 0.0, 0.0, 0.0)
             else:
                 parent_data = by_id[parent_id]
                 parent_definition = all_branch_defs[parent_id]
-                parent_link_index = int(branch["attach_link"]) - 1
-                if not 0 <= parent_link_index < parent_data.n_links:
-                    raise ValueError(
-                        f"Branch '{branch_id}' attach_link={branch['attach_link']} is outside "
-                        f"parent '{parent_id}' link range"
-                    )
 
                 tilt = float(branch.get("tilt", 0.0))
                 rot = float(branch.get("rot", 0.0))
@@ -332,14 +426,42 @@ def resolve_vegetative_graph(
                 local_pos0 = Gf.Vec3f(*offset_parent)
                 local_rot0 = Gf.Quatf(branch_in_parent.GetQuat())
 
+            if not explicit_link_poses:
+                link_orientations = [orientation] * n_links
+                cursor = Gf.Vec3d(start)
+                link_bases = []
+                for link_length, link_orientation in zip(
+                    link_lengths, link_orientations
+                ):
+                    link_bases.append(Gf.Vec3d(cursor))
+                    rotation = Gf.Rotation(Gf.Quatd(link_orientation))
+                    direction = Gf.Vec3d(
+                        rotation.TransformDir(Gf.Vec3d(0.0, 0.0, 1.0))
+                    ).GetNormalized()
+                    cursor += direction * (link_length + gap)
+
+            if explicit_link_poses and not is_root:
+                parent_data = by_id[parent_id]
+                parent_rotation = Gf.Rotation(
+                    Gf.Quatd(parent_data.link_orientations[parent_link_index])
+                )
+                offset_world = start - parent_data.link_bases[parent_link_index]
+                local_offset = parent_rotation.GetInverse().TransformDir(offset_world)
+                child_rotation = Gf.Rotation(Gf.Quatd(orientation))
+                relative = child_rotation * parent_rotation.GetInverse()
+                local_pos0 = Gf.Vec3f(*local_offset)
+                local_rot0 = Gf.Quatf(relative.GetQuat())
+
             safe_id = _path_component(branch_id)
             physics_root = f"{physics_parent_path}/{safe_id}"
-            link_paths = [
-                f"{physics_root}/{safe_id}_Link_{index + 1:02d}"
-                for index in range(n_links)
-            ]
-            link_step = axis * (height + gap)
-            link_bases = [start + link_step * index for index in range(n_links)]
+            link_paths = []
+            for index in range(n_links):
+                suffix = ""
+                if explicit_links is not None:
+                    suffix = f"_{_path_component(str(link_metadata[index]['id']))}"
+                link_paths.append(
+                    f"{physics_root}/{safe_id}_Link_{index + 1:02d}{suffix}"
+                )
             visual_root = f"{visual_parent_path}/{safe_id}"
             skel_root = f"{visual_root}/SkelRoot"
 
@@ -363,6 +485,12 @@ def resolve_vegetative_graph(
                 axis=axis,
                 orientation=orientation,
                 link_bases=link_bases,
+                link_orientations=link_orientations,
+                link_lengths=link_lengths,
+                link_radii=link_radii,
+                link_collider_radii=link_collider_radii,
+                link_masses=link_masses,
+                link_metadata=link_metadata,
                 link_paths=link_paths,
                 physics_root_path=physics_root,
                 visual_root_path=visual_root,
@@ -380,6 +508,7 @@ def resolve_vegetative_graph(
                 attachment_local_pos0=local_pos0,
                 attachment_local_rot0=local_rot0,
                 centered_terminal=centered_terminal,
+                explicit_link_poses=explicit_link_poses,
             )
             resolved.append(data)
             by_id[branch_id] = data

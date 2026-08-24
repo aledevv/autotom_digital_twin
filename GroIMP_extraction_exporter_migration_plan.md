@@ -442,6 +442,31 @@ remaining acceptance checks are in
 Phase-J flexible articulation blocker; the live in-memory bridge remains out
 of scope until Phase J passes.
 
+#### Conservative V2 stem checkpoint — 2026-08-24
+
+The flexible diagnosis was reset to the last proven V2 authoring architecture
+instead of continuing to duplicate its physics. The `stem` diagnostic profile
+now follows `PlantState -> BRANCHES adapter -> build_stage()` and uses the
+established `skinned` backend in `segmented` mode. It therefore retains the V2
+organic per-rigid-link mesh, invisible compound capsule colliders, FixedJoint
+topology and Isaac lifecycle; no visual cylinders are introduced.
+
+`BRANCHES` accepts optional per-link `link_specs`. Canonical PlantState inputs
+use individual internode length, radius and rebased GroIMP local-to-world frame.
+`--pose-mode legacy` omits those frames and retains the procedural rest-pose
+fallback. Configurations without `link_specs` remain backward compatible.
+Link paths keep the historical hierarchy while appending readable GroIMP IDs,
+for example `trunk/trunk_Link_01_Internode_g421092`.
+
+The day-10 serverless checkpoint produces five order-zero internodes, five
+rigid bodies, five FixedJoints including the world anchor, ten capsule
+colliders, five `OrganicVisual` meshes, zero D6 joints and zero visual
+cylinders. Offline adapter/backend regression tests pass. The one-second
+flexible-preset Isaac smoke at 480 Hz also passes with five finite bodies,
+exactly zero displacement/drift and no reported errors. Phase J remains
+`IN PROGRESS`: the user GUI assessment is the next gate before adding
+`leaf-supports`.
+
 ---
 
 # 2. Why this refactor is necessary

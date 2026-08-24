@@ -61,9 +61,19 @@ def _validate_continuation(
     attach_frac = float(current.definition.get("attach_frac", 1.0))
     tilt = float(current.definition.get("tilt", 0.0))
     rot = float(current.definition.get("rot", 0.0))
-    expected_tip = previous.start + previous.axis * previous.total_length
+    previous_rotation = Gf.Rotation(
+        Gf.Quatd(previous.link_orientations[-1])
+    )
+    previous_direction = Gf.Vec3d(
+        previous_rotation.TransformDir(Gf.Vec3d(0.0, 0.0, 1.0))
+    ).GetNormalized()
+    expected_tip = (
+        previous.link_bases[-1]
+        + previous_direction * previous.link_lengths[-1]
+    )
     position_error = (current.start - expected_tip).GetLength()
     axis_alignment = Gf.Dot(previous.axis, current.axis)
+    explicit = previous.explicit_link_poses or current.explicit_link_poses
 
     problems = []
     if current.parent_id != previous.branch_id:
@@ -72,13 +82,13 @@ def _validate_continuation(
         problems.append("attachment is not on the parent's final link")
     if not math.isclose(attach_frac, 1.0, abs_tol=_CHAIN_TOLERANCE):
         problems.append(f"attach_frac is {attach_frac}, expected 1.0")
-    if not math.isclose(tilt, 0.0, abs_tol=_CHAIN_TOLERANCE):
+    if not explicit and not math.isclose(tilt, 0.0, abs_tol=_CHAIN_TOLERANCE):
         problems.append(f"tilt is {tilt}, expected 0.0")
-    if not math.isclose(rot, 0.0, abs_tol=_CHAIN_TOLERANCE):
+    if not explicit and not math.isclose(rot, 0.0, abs_tol=_CHAIN_TOLERANCE):
         problems.append(f"rot is {rot}, expected 0.0")
     if position_error > _CHAIN_TOLERANCE:
         problems.append(f"rest-pose tip gap is {position_error:.6g}m")
-    if axis_alignment < 1.0 - _CHAIN_TOLERANCE:
+    if not explicit and axis_alignment < 1.0 - _CHAIN_TOLERANCE:
         problems.append(f"axes are not aligned (dot={axis_alignment:.6g})")
     if problems:
         raise ValueError(
@@ -209,10 +219,10 @@ def build_visual_axes(
             ):
                 link_paths.append(path)
                 link_bases.append(base)
-                link_orientations.append(member.orientation)
-                bone_starts.append(cursor + link_index * member.link_height)
-                bone_lengths.append(member.link_height)
-            cursor += member_length
+                link_orientations.append(member.link_orientations[link_index])
+                bone_starts.append(cursor)
+                bone_lengths.append(member.link_lengths[link_index])
+                cursor += member.link_lengths[link_index]
 
         safe_id = _path_component(axis_id)
         previous_axis = used_paths.get(safe_id)

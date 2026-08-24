@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from zipfile import ZipFile
 
 import pytest
 
@@ -152,7 +153,14 @@ def test_isolated_project_copies_only_project_inputs_and_empty_outputs(tmp_path)
     source_dir = tmp_path / "model"
     source_dir.mkdir()
     project = source_dir / "project_bridge.gsz"
-    project.write_bytes(b"gsz")
+    parameters = (
+        'static String PATH_INPUT = getWD()+"input/";\n'
+        'static String PATH_OUTPUT = getWD()+"output/";\n'
+    )
+    with ZipFile(project, "w") as archive:
+        archive.writestr("param/parameters.rgg", parameters)
+        archive.writestr("Model.rgg", "module Model;\n")
+    source_bytes = project.read_bytes()
     (source_dir / "input").mkdir()
     (source_dir / "input" / "values.csv").write_text("x\n1\n", encoding="utf-8")
     (source_dir / "output").mkdir()
@@ -160,13 +168,20 @@ def test_isolated_project_copies_only_project_inputs_and_empty_outputs(tmp_path)
 
     with isolated_project(project) as copied_project:
         runtime_root = copied_project.parent
-        assert copied_project.read_bytes() == b"gsz"
+        with ZipFile(copied_project) as archive:
+            runtime_parameters = archive.read("param/parameters.rgg").decode(
+                "windows-1252"
+            )
+        assert f'PATH_INPUT = "{runtime_root}/input/"' in runtime_parameters
+        assert f'PATH_OUTPUT = "{runtime_root}/output/"' in runtime_parameters
+        assert "getWD()" not in runtime_parameters
         assert (runtime_root / "input" / "values.csv").is_file()
         assert not (runtime_root / "output" / "must_not_copy.txt").exists()
         for relative in OUTPUT_DIRECTORIES:
             assert (runtime_root / "output" / relative).is_dir()
 
     assert not runtime_root.exists()
+    assert project.read_bytes() == source_bytes
 
 
 def _sample_report() -> InspectionReport:

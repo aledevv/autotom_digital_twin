@@ -13,6 +13,8 @@ from .mesh import (
     author_plain_mesh,
     build_axis_sample_arcs,
     build_parallel_transport_frames,
+    centerline_point,
+    centerline_tangent,
     link_rest_world,
 )
 from .model import VisualAxisData
@@ -168,7 +170,9 @@ def _append_centered_host_dome(
         _CENTERED_FORK_HOST_DOME_MAX_M,
         max(tip_radius * _CENTERED_FORK_HOST_DOME_RADIUS_SCALE, 0.0010),
     )
-    apex_world = axis.start + axis.axis * (core_end + dome_depth)
+    apex_world = centerline_point(axis, core_end) + centerline_tangent(
+        axis, core_end
+    ) * dome_depth
     apex_local = world_to_link.Transform(apex_world)
     apex_index = len(points)
     points.append(Gf.Vec3f(*apex_local))
@@ -211,12 +215,12 @@ def _build_segmented_link_mesh(
         terminal_taper_start=taper_start,
     )
 
-    normals, binormals = build_parallel_transport_frames(axis, len(arcs))
+    normals, binormals = build_parallel_transport_frames(axis, arcs)
     world_to_link = link_rest_world(axis, link_index).GetInverse()
     points = []
 
     for arc, normal, binormal in zip(arcs, normals, binormals):
-        center = axis.start + axis.axis * arc
+        center = centerline_point(axis, arc)
         radius = _visual_radius(axis, arc)
         radius *= _root_overlap_radius_scale(arc, visual_start, core_start)
         radius *= _tongue_radius_scale(arc, core_end, tongue_end)
