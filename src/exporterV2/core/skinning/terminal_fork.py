@@ -112,6 +112,8 @@ def _find_terminal_existing_child(
     for child in all_branch_defs.values():
         if child.get("parent") != parent.branch_id:
             continue
+        if child.get("disable_centered_terminal", False):
+            continue
         if not _is_supported_existing_organ(child):
             continue
 

@@ -29,6 +29,26 @@ Tests that inspect `UsdPhysics` or `PhysxSchema` should run under Isaac Sim when
 
 These validate authored scene settings, runtime iterations, FixedJoints, break force, `excludeFromArticulation`, terminal body placement, and collision filters.
 
+## Performance comparison
+
+Use the same Isaac process, render cadence and physics rates for legacy/new
+comparisons:
+
+```bash
+uv run python -m exporterV2.performance_benchmark \
+  --baseline legacy=/tmp/tree_legacy.usda \
+  --candidate candidate=/tmp/tree_candidate.usda \
+  --physics-hz 60,120,240,480 \
+  --require-candidate-faster \
+  --output /tmp/exporter_v2_performance.json
+```
+
+The generated `exporter_v2_performance_comparison/1.0` JSON includes both raw
+stage counts and measured render/PhysX throughput. Timing values naturally
+vary between runs; field order, labels and rate ordering are deterministic.
+The lightweight orchestrator starts one clean Isaac worker per rate; within
+each worker legacy and candidate are loaded sequentially in the same process.
+
 ## Manual Demos
 
 Manual visual assets live in `src/exporterV2/demos/` and are not part of pytest collection. They are intended for paper figures, screenshots, videos, and Isaac Sim inspection:

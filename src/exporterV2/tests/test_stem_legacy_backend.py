@@ -80,6 +80,22 @@ def test_legacy_branch_paths_are_unchanged_without_link_specs():
     ]
     assert resolved.link_lengths == pytest.approx([0.20, 0.20])
     assert resolved.link_radii == pytest.approx([0.02, 0.02])
+    assert resolved.spec.visual.radial_segments == 14
+    assert resolved.spec.visual.axial_spacing_m == pytest.approx(0.005)
+    assert resolved.spec.visual.radius_transition_samples == 9
+
+
+def test_plant_state_adapter_uses_bounded_segmented_visual_density(day10_state):
+    branch = build_stem_branches(day10_state).branches[0]
+    assert branch["visual_profile"] == {
+        "radial_segments": 12,
+        "axial_spacing_m": 0.012,
+        "radius_transition_samples": 5,
+    }
+    resolved = resolve_vegetative_graph([branch])[0]
+    assert resolved.spec.visual.radial_segments == 12
+    assert resolved.spec.visual.axial_spacing_m == pytest.approx(0.012)
+    assert resolved.spec.visual.radius_transition_samples == 5
 
 
 def test_stem_stage_uses_segmented_meshes_and_explicit_frames(tmp_path, day10_state):
@@ -139,4 +155,3 @@ def test_stem_cli_writes_loadable_output(tmp_path):
     ]) == 0
     assert Usd.Stage.Open(str(destination)) is not None
     assert destination.with_suffix(".manifest.json").exists()
-

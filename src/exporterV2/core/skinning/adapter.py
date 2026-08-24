@@ -17,11 +17,55 @@ from ..tree_config import (
     compute_mass,
     scaled,
 )
-from .model import BranchData, BranchSpec, PhysicsGains
+from .model import BranchData, BranchSpec, PhysicsGains, VisualProfile
 
 
 VALID_SYSTEMS = frozenset(("vegetative", "truss"))
 VALID_JOINT_TYPES = frozenset(("fixed", "d6", "d6_planar", "revolute_planar"))
+
+
+def _visual_profile(branch: dict) -> VisualProfile:
+    """Resolve an optional per-branch visual LOD without changing legacy defaults."""
+
+    raw = branch.get("visual_profile")
+    if raw is None:
+        return VisualProfile()
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"Branch '{branch.get('id', '<unknown>')}' visual_profile must be a mapping"
+        )
+
+    allowed = {
+        "radial_segments",
+        "axial_spacing_m",
+        "radius_transition_samples",
+    }
+    unknown = sorted(set(raw) - allowed)
+    if unknown:
+        raise ValueError(
+            f"Branch '{branch.get('id', '<unknown>')}' visual_profile has "
+            f"unsupported fields {unknown}"
+        )
+
+    profile = VisualProfile(
+        radial_segments=int(raw.get("radial_segments", 14)),
+        axial_spacing_m=float(raw.get("axial_spacing_m", 0.005)),
+        radius_transition_samples=int(raw.get("radius_transition_samples", 9)),
+    )
+    if profile.radial_segments < 6:
+        raise ValueError(
+            f"Branch '{branch.get('id', '<unknown>')}' radial_segments must be >= 6"
+        )
+    if profile.axial_spacing_m <= 0.0:
+        raise ValueError(
+            f"Branch '{branch.get('id', '<unknown>')}' axial_spacing_m must be positive"
+        )
+    if profile.radius_transition_samples < 3:
+        raise ValueError(
+            f"Branch '{branch.get('id', '<unknown>')}' "
+            "radius_transition_samples must be >= 3"
+        )
+    return profile
 
 
 def branch_system(branch: dict) -> str:
@@ -59,6 +103,8 @@ def is_structural_terminal_host(branch_def: dict) -> bool:
 
 def is_centered_terminal_leaf(child_def: dict, parent_def: dict, all_branch_defs: Dict[str, dict]) -> bool:
     """Check if the child is the primary terminal continuation of its host."""
+    if child_def.get("disable_centered_terminal", False):
+        return False
     if branch_system(child_def) != "vegetative":
         return False
     if "petiole" not in str(child_def.get("id", "")).lower():
@@ -474,6 +520,7 @@ def resolve_vegetative_graph(
                     link_height=height,
                     density=_density(branch),
                     young_modulus=_young_modulus(branch),
+                    visual=_visual_profile(branch),
                 ),
                 branch_id=branch_id,
                 parent_id=parent_id,

@@ -59,6 +59,49 @@ bodies and mouse picking of invisible colliders. The user approved the visual
 shape and Shift+drag interaction on 2026-08-24. This checkpoint is therefore
 closed; leaf supports are the next incremental group.
 
+## 2026-08-24 interactive-rate and performance checkpoint
+
+The apparent day-50 regression to about 11 FPS was caused by a runtime
+difference, not by PlantState topology. The old loader silently used Isaac's
+60 Hz `World` default even though its USD declared 480 Hz. The diagnostic
+loader applied 480 Hz and paid for eight PhysX substeps per 60 Hz render.
+
+The runtime now uses 60 Hz for GUI inspection and retains 480 Hz for mandatory
+headless validation. `--interactive-physics-hz 60|120|240|480` allows explicit
+GUI experiments without changing the authored stage. Telemetry now separates
+authored/runtime physics Hz, render Hz, render updates, physics steps and real
+simulated time. A permanent legacy/candidate benchmark emits
+`exporter_v2_performance_comparison/1.0` JSON.
+
+Same-machine day-50 baseline:
+
+```text
+PlantState: 60 Hz 51.0 FPS, 120 Hz 34.7, 240 Hz 20.9, 480 Hz 12.0
+480 Hz equal comparison: legacy 1.74 FPS, PlantState 11.89 FPS
+60 Hz historical loop: legacy 11.5 FPS, PlantState 50.5 FPS
+```
+
+The earlier segmented-visual optimization is retained (81,036 -> 39,304 mesh
+triangles) but is not presented as the root FPS fix. Phase J is still
+`IN PROGRESS`; subsequent leaf/truss checkpoints must pass both interactive
+60 Hz inspection and 480 Hz headless validation.
+
+The permanent isolated benchmark subsequently confirmed 49.69, 34.30, 21.07
+and 11.15 candidate FPS at 60, 120, 240 and 480 Hz. The matching legacy values
+were 11.24, 6.34, 3.34 and 1.70 FPS, so the candidate remained 4.42-6.54 times
+faster at equal cadence. Isaac Sim 4.5 requires its runtime `PhysicsScene`
+registry to be synchronized after opening an existing USD and the selected
+cadence to be reapplied after `World.reset()`; otherwise its getter silently
+falls back to 60 Hz. A five-second day-50 `leaves` validation then completed at
+an effective 480 Hz (2,400 steps) without non-finite bodies or articulation
+failure.
+
+The corresponding GUI run used an effective 60 Hz for 15.83 simulated seconds
+and closed normally. It measured 39.39 rendered frames/s in the full
+interactive application, with 43 interactive bodies, mouse grab and invisible
+collider picking enabled, and no non-finite body. Shift+drag quality still
+requires the user's visual confirmation; telemetry only proves availability.
+
 ## Implemented in this checkpoint
 
 - Canonical `PlantState -> complete V2 visual view -> physical plan ->

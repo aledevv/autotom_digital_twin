@@ -83,7 +83,11 @@ def author_rigid_links(stage, branch: BranchData) -> None:
         ).Set("physical_link")
         prim.CreateAttribute(
             "autotom:role", Sdf.ValueTypeNames.String, custom=True
-        ).Set("internode" if metadata else branch.definition.get("kind", "branch"))
+        ).Set(
+            str(metadata.get("axis_role", "internode"))
+            if metadata
+            else branch.definition.get("kind", "branch")
+        )
         prim.CreateAttribute(
             "autotom:jointType", Sdf.ValueTypeNames.String, custom=True
         ).Set("fixed" if branch.locked_joints else branch.joint_type)

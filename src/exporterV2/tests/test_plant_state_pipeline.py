@@ -9,10 +9,16 @@ from pathlib import Path
 import sys
 
 import pytest
-from pxr import Usd, UsdGeom
+from pxr import Sdf, Usd, UsdGeom
 
 from exporterV2.cli import main
-from exporterV2.isaac_app import _arguments, _open_stage_and_wait, _world_endpoints
+from exporterV2.isaac_app import (
+    _arguments,
+    _authored_physics_hz,
+    _open_stage_and_wait,
+    _timing_metrics,
+    _world_endpoints,
+)
 from exporterV2.plant_state_adapter import (
     DEBUG_PROFILES,
     Pose,
@@ -300,7 +306,70 @@ def test_isaac_arguments_do_not_leak_to_kit(monkeypatch, tmp_path):
     args = _arguments()
     assert args.usd == stage
     assert args.duration == 30
+    assert args.physics_hz == 480
+    assert args.interactive_physics_hz == 60
     assert sys.argv == ["isaac_app.py", "--/kit/test=true"]
+
+
+def test_isaac_interactive_rate_is_explicit_and_does_not_leak_to_kit(
+    monkeypatch, tmp_path
+):
+    stage = tmp_path / "plant.usda"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "isaac_app.py",
+            "--usd",
+            str(stage),
+            "--physics-preset",
+            "flexible",
+            "--physics-hz",
+            "960",
+            "--interactive-physics-hz",
+            "120",
+            "--/kit/test=true",
+        ],
+    )
+    args = _arguments()
+    assert args.physics_hz == 960
+    assert args.interactive_physics_hz == 120
+    assert sys.argv == ["isaac_app.py", "--/kit/test=true"]
+
+
+def test_timing_metrics_count_render_updates_and_physics_substeps():
+    metrics = _timing_metrics(
+        authored_physics_hz=480,
+        runtime_physics_hz=120,
+        render_hz=60,
+        render_update_count=30,
+        physics_step_count=60,
+        simulated_seconds=0.5,
+        wall_seconds=1.0,
+    )
+    assert metrics == {
+        "physics_hz": 120,
+        "authored_physics_hz": 480,
+        "runtime_physics_hz": 120,
+        "render_hz": 60,
+        "physics_substeps_per_render": 2,
+        "render_update_count": 30,
+        "physics_step_count": 60,
+        "simulated_seconds": 0.5,
+        "wall_seconds": 1.0,
+        "render_updates_per_second": 30.0,
+        "physics_steps_per_second": 60.0,
+        "simulation_realtime_ratio": 0.5,
+    }
+
+
+def test_authored_physics_rate_is_read_before_runtime_override():
+    stage = Usd.Stage.CreateInMemory()
+    scene = stage.DefinePrim("/World/PhysicsScene", "PhysicsScene")
+    scene.CreateAttribute(
+        "physxScene:timeStepsPerSecond", Sdf.ValueTypeNames.Int
+    ).Set(480)
+    assert _authored_physics_hz(stage) == 480
 
 
 def test_isaac_45_open_stage_none_return_is_supported(tmp_path):

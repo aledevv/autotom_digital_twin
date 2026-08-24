@@ -19,6 +19,13 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--duration", type=float, default=5.0)
     parser.add_argument("--physics-preset", choices=("locked", "flexible"), required=True)
     parser.add_argument("--physics-hz", type=int, choices=(480, 960), default=480)
+    parser.add_argument(
+        "--interactive-physics-hz",
+        type=int,
+        choices=(60, 120, 240, 480),
+        default=60,
+        help="GUI runtime rate; headless validation continues to use --physics-hz.",
+    )
     parser.add_argument("--report", type=Path)
     parser.add_argument("--diagnostic-monitor", action="store_true")
     args, kit_args = parser.parse_known_args()
@@ -27,6 +34,85 @@ def _arguments() -> argparse.Namespace:
     # Kit also owns --usd; prevent a bootstrap open followed by a second open.
     sys.argv = [sys.argv[0], *kit_args]
     return args
+
+
+def _authored_physics_hz(stage) -> int | None:
+    """Read the source USD rate before ``World`` applies its runtime override."""
+
+    scenes = [
+        prim
+        for prim in stage.Traverse()
+        if prim.GetTypeName() == "PhysicsScene"
+    ]
+    if len(scenes) != 1:
+        return None
+    value = scenes[0].GetAttribute("physxScene:timeStepsPerSecond").Get()
+    return None if value is None else int(value)
+
+
+def _register_runtime_physics_scene(stage) -> str:
+    """Synchronize Isaac 4.5's runtime registry with an open USD scene.
+
+    SimulationManager tracks PhysicsScene addition events.  When a ``World``
+    is constructed after ``open_stage`` (the safe legacy V2 order), that event
+    may already be over and ``get_physics_dt()`` silently falls back to 60 Hz.
+    """
+
+    from isaacsim.core.simulation_manager import SimulationManager
+    from pxr import PhysxSchema, UsdPhysics
+
+    scenes = [prim for prim in stage.Traverse() if prim.IsA(UsdPhysics.Scene)]
+    if len(scenes) != 1:
+        raise RuntimeError(
+            f"expected exactly one PhysicsScene, found {len(scenes)}"
+        )
+    prim = scenes[0]
+    api = (
+        PhysxSchema.PhysxSceneAPI(prim)
+        if prim.HasAPI(PhysxSchema.PhysxSceneAPI)
+        else PhysxSchema.PhysxSceneAPI.Apply(prim)
+    )
+    path = str(prim.GetPath())
+    # Isaac Sim 4.5 exposes no public refresh for this registry.  Keep the
+    # compatibility shim isolated here so a future runtime can replace it.
+    SimulationManager._physics_scene_apis.clear()
+    SimulationManager._physics_scene_apis[path] = api
+    return path
+
+
+def _timing_metrics(
+    *,
+    authored_physics_hz: int | None,
+    runtime_physics_hz: int,
+    render_hz: int,
+    render_update_count: int,
+    physics_step_count: int,
+    simulated_seconds: float,
+    wall_seconds: float,
+) -> dict:
+    """Return consistent GUI/headless timing telemetry."""
+
+    return {
+        # Compatibility field retained for existing report consumers.
+        "physics_hz": runtime_physics_hz,
+        "authored_physics_hz": authored_physics_hz,
+        "runtime_physics_hz": runtime_physics_hz,
+        "render_hz": render_hz,
+        "physics_substeps_per_render": runtime_physics_hz // render_hz,
+        "render_update_count": render_update_count,
+        "physics_step_count": physics_step_count,
+        "simulated_seconds": simulated_seconds,
+        "wall_seconds": wall_seconds,
+        "render_updates_per_second": (
+            render_update_count / wall_seconds if wall_seconds > 0.0 else None
+        ),
+        "physics_steps_per_second": (
+            physics_step_count / wall_seconds if wall_seconds > 0.0 else None
+        ),
+        "simulation_realtime_ratio": (
+            simulated_seconds / wall_seconds if wall_seconds > 0.0 else None
+        ),
+    }
 
 
 def _open_stage_and_wait(
@@ -290,34 +376,49 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
     latest = dict(initial)
     initial_extent = max(float(np.linalg.norm(value)) for value in initial.values())
     explosion_limit = max(5.0, initial_extent * 10.0 + 1.0)
-    dt = 1.0 / args.physics_hz
-    steps = max(1, int(math.ceil(args.duration * args.physics_hz)))
+    dt = 1.0 / args.runtime_physics_hz
+    steps = max(1, int(math.ceil(args.duration * args.runtime_physics_hz)))
     # A batched full-body sample once per simulated second is sufficient for
     # explosion/detachment checks and avoids making Python telemetry dominate
     # mature 200+ link plants.
     sample_interval = (
         1
         if args.diagnostic_monitor
-        else max(1, int(round(1.0 * args.physics_hz)))
+        else max(1, int(round(1.0 * args.runtime_physics_hz)))
     )
     log_interval = (
-        max(1, int(round(0.1 * args.physics_hz)))
+        max(1, int(round(0.1 * args.runtime_physics_hz)))
         if args.diagnostic_monitor
         else sample_interval
     )
     samples = []
     errors = []
     reset_projection_limit = 1e-6
+    fixed_endpoint_projection_limit = 2e-6
     if max_reset_projection > reset_projection_limit:
         errors.append(
             f"World.reset moved a body by {max_reset_projection:.6g} m: "
             f"{max_reset_projection_body}"
         )
-    if max_reset_endpoint_projection > reset_projection_limit:
+    endpoint_projection_failures = {
+        path: error
+        for path, error in reset_endpoint_projection.items()
+        if error
+        > (
+            fixed_endpoint_projection_limit
+            if body_metadata[path]["joint_type"] == "fixed"
+            else reset_projection_limit
+        )
+    }
+    if endpoint_projection_failures:
+        failure_body = max(
+            endpoint_projection_failures,
+            key=endpoint_projection_failures.get,
+        )
         errors.append(
             "World.reset moved a body endpoint by "
-            f"{max_reset_endpoint_projection:.6g} m: "
-            f"{max_reset_endpoint_projection_body}"
+            f"{endpoint_projection_failures[failure_body]:.6g} m: "
+            f"{failure_body}"
         )
     max_displacement = 0.0
     max_root_displacement = 0.0
@@ -326,13 +427,20 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
     max_endpoint_displacement_body = None
     max_dynamic_sag_ratio = 0.0
     max_dynamic_sag_body = None
+    dynamic_sag_by_role = {
+        role: {"ratio": 0.0, "body": None}
+        for role in ("internode", "petiole", "leaf_rachis", "truss_rachis", "pedicel")
+    }
     max_structural_endpoint_drift = 0.0
     first_nonfinite_body = None
     first_failure_time = None
+    steps_completed = 0
+    simulation_started = float(world.current_time)
     wall_started = time.perf_counter()
 
     for step in range(steps):
         world.step(render=False)
+        steps_completed = step + 1
         if step % sample_interval and step != steps - 1:
             continue
         current, current_endpoints = poses_by_path()
@@ -342,7 +450,9 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
                 errors.append(f"non-finite body pose: {path}")
                 if first_nonfinite_body is None:
                     first_nonfinite_body = path
-                    first_failure_time = (step + 1) * dt
+                    first_failure_time = max(
+                        0.0, float(world.current_time) - simulation_started
+                    )
                 continue
             if float(np.linalg.norm(value)) > explosion_limit:
                 errors.append(f"body exceeded explosion limit: {path}")
@@ -368,6 +478,12 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
                 if sag_ratio > max_dynamic_sag_ratio:
                     max_dynamic_sag_ratio = sag_ratio
                     max_dynamic_sag_body = path
+                role_sag = dynamic_sag_by_role.setdefault(
+                    body_metadata[path]["role"], {"ratio": 0.0, "body": None}
+                )
+                if sag_ratio > role_sag["ratio"]:
+                    role_sag["ratio"] = sag_ratio
+                    role_sag["body"] = path
             elif body_metadata[path]["joint_type"] == "fixed":
                 max_structural_endpoint_drift = max(
                     max_structural_endpoint_drift, endpoint_displacement
@@ -380,7 +496,7 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
             )
         if len(current) != len(paths):
             errors.append("one or more rigid bodies became unreadable")
-        elapsed = min((step + 1) * dt, args.duration)
+        elapsed = max(0.0, float(world.current_time) - simulation_started)
         if samples:
             sample_dt = max(elapsed - samples[-1][0], dt)
             max_speed = max(
@@ -419,12 +535,21 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
         )
     wall_seconds = time.perf_counter() - wall_started
     simulated_seconds = samples[-1][0] if samples else 0.0
+    timing = _timing_metrics(
+        authored_physics_hz=args.authored_physics_hz,
+        runtime_physics_hz=args.runtime_physics_hz,
+        render_hz=args.render_hz,
+        render_update_count=0,
+        physics_step_count=steps_completed,
+        simulated_seconds=simulated_seconds,
+        wall_seconds=wall_seconds,
+    )
     return {
         "schema_version": "exporter_v2_stability/1.0",
         "status": "passed" if not errors else "failed",
         "usd": str(args.usd),
         "physics_preset": args.physics_preset,
-        "physics_hz": args.physics_hz,
+        **timing,
         **metadata,
         "duration_seconds": args.duration,
         "steps_requested": steps,
@@ -436,9 +561,11 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
         "max_endpoint_displacement_body": max_endpoint_displacement_body,
         "max_dynamic_sag_ratio": max_dynamic_sag_ratio,
         "max_dynamic_sag_body": max_dynamic_sag_body,
+        "dynamic_sag_by_role": dynamic_sag_by_role,
         "max_structural_endpoint_drift_m": max_structural_endpoint_drift,
         "max_root_displacement_m": max_root_displacement,
         "reset_projection_limit_m": reset_projection_limit,
+        "fixed_endpoint_reset_projection_limit_m": fixed_endpoint_projection_limit,
         "max_reset_projection_m": max_reset_projection,
         "max_reset_projection_body": max_reset_projection_body,
         "max_reset_endpoint_projection_m": max_reset_endpoint_projection,
@@ -451,10 +578,6 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
         "first_failure_time_seconds": first_failure_time,
         "first_failure_ancestor_chain": _ancestor_chain(
             first_nonfinite_body, parents
-        ),
-        "wall_seconds": wall_seconds,
-        "simulation_realtime_ratio": (
-            simulated_seconds / wall_seconds if wall_seconds > 0.0 else None
         ),
         "errors": errors,
     }
@@ -501,6 +624,7 @@ def _run_gui_monitor(
         for path in resolved_paths
     )
     started = time.perf_counter()
+    simulation_started = float(world.current_time)
     step = 0
     max_displacement = 0.0
     max_displacement_body = None
@@ -515,6 +639,9 @@ def _run_gui_monitor(
             continue
         world.step(render=True)
         step += 1
+        simulated_seconds = max(
+            0.0, float(world.current_time) - simulation_started
+        )
         positions, orientations = bodies.get_world_poses()
         endpoints = _world_endpoints(
             positions, orientations, resolved_paths, body_metadata
@@ -526,7 +653,7 @@ def _run_gui_monitor(
         ):
             if not np.isfinite(value).all():
                 first_nonfinite = path
-                failure_time = step / args.physics_hz
+                failure_time = simulated_seconds
                 frozen = True
                 print(
                     f"[ERROR] GUI monitor froze at {failure_time:.6f}s: "
@@ -545,16 +672,28 @@ def _run_gui_monitor(
                 max_endpoint_displacement = endpoint_displacement
                 max_endpoint_displacement_body = path
     wall_seconds = time.perf_counter() - started
+    simulated_seconds = max(
+        0.0, float(world.current_time) - simulation_started
+    )
+    physics_steps = int(round(simulated_seconds * args.runtime_physics_hz))
+    timing = _timing_metrics(
+        authored_physics_hz=args.authored_physics_hz,
+        runtime_physics_hz=args.runtime_physics_hz,
+        render_hz=args.render_hz,
+        render_update_count=step,
+        physics_step_count=physics_steps,
+        simulated_seconds=simulated_seconds,
+        wall_seconds=wall_seconds,
+    )
     return {
         "schema_version": "exporter_v2_stability/1.0",
         "status": "failed" if first_nonfinite else "closed_by_user",
         "usd": str(args.usd),
         "mode": "gui",
         "physics_preset": args.physics_preset,
-        "physics_hz": args.physics_hz,
+        **timing,
         **_diagnostic_metadata(stage),
         **mouse_interaction,
-        "simulated_seconds": step / args.physics_hz,
         "rigid_body_count": len(paths),
         "root_body": root_path,
         "max_displacement_m": max_displacement,
@@ -566,10 +705,6 @@ def _run_gui_monitor(
         "first_nonfinite_body": first_nonfinite,
         "first_failure_time_seconds": failure_time,
         "first_failure_ancestor_chain": _ancestor_chain(first_nonfinite, parents),
-        "wall_seconds": wall_seconds,
-        "simulation_realtime_ratio": (
-            (step / args.physics_hz) / wall_seconds if wall_seconds > 0.0 else None
-        ),
         "errors": [] if first_nonfinite is None else [f"non-finite body pose: {first_nonfinite}"],
     }
 
@@ -591,17 +726,22 @@ def main() -> int:
         from isaacsim.core.utils.stage import is_stage_loading
 
         context = omni.usd.get_context()
+        requested_runtime_hz = (
+            args.physics_hz if args.headless else args.interactive_physics_hz
+        )
         load_started = time.perf_counter()
         opened_path = _open_stage_and_wait(context, app, usd_path, is_stage_loading)
         if opened_path != usd_path:
             raise RuntimeError(f"opened {opened_path!s} instead of {usd_path}")
         stage = context.get_stage()
         authored_geometry = _authored_body_geometry(stage)
+        args.authored_physics_hz = _authored_physics_hz(stage)
         world = World(
             stage_units_in_meters=1.0,
-            physics_dt=1.0 / args.physics_hz,
+            physics_dt=1.0 / requested_runtime_hz,
             rendering_dt=1.0 / 60.0,
         )
+        _register_runtime_physics_scene(stage)
         mouse_interaction = {}
         if not args.headless:
             # Match the old V2 ordering: configure after stage open and again
@@ -612,10 +752,35 @@ def main() -> int:
             world.reset()
         finally:
             restore_gravity()
+        # Reset reapplies the Kit loop default (60 Hz) on opened stages.  Set
+        # the requested runtime cadence afterwards so headless validation is
+        # genuinely 480 Hz while the interactive default remains 60 Hz.
+        world.set_simulation_dt(
+            physics_dt=1.0 / requested_runtime_hz,
+            rendering_dt=1.0 / 60.0,
+        )
+        args.runtime_physics_hz = int(round(1.0 / world.get_physics_dt()))
+        args.render_hz = int(round(1.0 / world.get_rendering_dt()))
+        authored_runtime_hz = _authored_physics_hz(stage)
+        if (
+            authored_runtime_hz != requested_runtime_hz
+            or args.runtime_physics_hz != requested_runtime_hz
+        ):
+            raise RuntimeError(
+                "Isaac runtime physics rate mismatch after reset: requested "
+                f"{requested_runtime_hz}, authored {authored_runtime_hz}, "
+                f"effective {args.runtime_physics_hz}"
+            )
         if not args.headless:
             mouse_interaction = _configure_mouse_interaction(app, stage)
         load_seconds = time.perf_counter() - load_started
         print(f"[OK] Isaac Sim opened canonical V2 stage: {usd_path}", flush=True)
+        print(
+            f"[TIMING] authored={args.authored_physics_hz}Hz "
+            f"runtime={args.runtime_physics_hz}Hz render={args.render_hz}Hz "
+            f"substeps/render={args.runtime_physics_hz // args.render_hz}",
+            flush=True,
+        )
         report_path = None
         if args.headless or args.diagnostic_monitor:
             report_path = (
@@ -633,6 +798,12 @@ def main() -> int:
                     "mode": "headless" if args.headless else "gui",
                     "usd": str(usd_path),
                     "load_seconds": load_seconds,
+                    "authored_physics_hz": args.authored_physics_hz,
+                    "runtime_physics_hz": args.runtime_physics_hz,
+                    "render_hz": args.render_hz,
+                    "physics_substeps_per_render": (
+                        args.runtime_physics_hz // args.render_hz
+                    ),
                     **_diagnostic_metadata(stage),
                     **mouse_interaction,
                 },

@@ -39,15 +39,23 @@ explicitly:
 ./run_debugV2.sh --day 25 --organ stem --generate-only
 ```
 
-At this checkpoint `stem` is the only accepted organ. Unsupported values fail
-before generating or opening a stage; they will be enabled incrementally as
-their adapters are migrated.
+The implemented incremental profiles are `stem`, `laterals`, `leaf-supports`
+and `leaves`. Later profiles remain gated until their adapters are migrated.
 
 `canonical` uses the rebased GroIMP frame, length and radius of each
 internode. `legacy` retains those per-link dimensions but lets V2 construct the
 old procedural vertical rest pose. Both modes use segmented organic meshes,
 not visual cylinders. The stem is fixed by design; interactive leaf tests
 start with the later `leaf-supports` checkpoint.
+
+Interactive Isaac runs use 60 Hz by default for the same effective cadence as
+the historical V2 loader, while authored/headless validation remains 480 Hz:
+
+```bash
+./run_debugV2.sh --day 50 --organ leaves
+./run_debugV2.sh --day 50 --organ leaves --interactive-physics-hz 120
+./run_debugV2.sh --day 50 --organ leaves --headless --physics-hz 480 --duration 5
+```
 
 ### CSV Mode (with groIMP data)
 ```bash

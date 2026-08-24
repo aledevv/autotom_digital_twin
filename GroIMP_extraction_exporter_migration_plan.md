@@ -514,6 +514,65 @@ Shift+drag behavior on 2026-08-24. The lateral checkpoint is complete, but
 Phase J remains `IN PROGRESS`; leaf supports are the next incremental
 implementation.
 
+#### Phase J interactive performance checkpoint — 2026-08-24
+
+The day-50 `leaves` checkpoint exposed an apparent regression to roughly
+11 FPS. A same-process comparison showed that the PlantState stage is not the
+cause: at equal settings it is substantially faster than the checkpoint USD
+from commit `d7f5038`. The difference was the loader. The historical V2
+constructed `World(stage_units_in_meters=1.0)` and therefore ran at Isaac's
+60 Hz default, despite the saved USD declaring 480 Hz; the new diagnostic
+loader applied the authored 480 Hz explicitly.
+
+Measured on the same machine and 60 Hz renderer:
+
+```text
+new day 50: 60 Hz 51.0 FPS; 120 Hz 34.7; 240 Hz 20.9; 480 Hz 12.0
+equal 480 Hz: legacy 1.74 FPS; PlantState 11.89 FPS
+historical 60 Hz loop: legacy 11.5 FPS; PlantState 50.5 FPS
+```
+
+Interactive and validation rates are now intentionally separate. GUI runs
+default to 60 Hz and expose `--interactive-physics-hz 60|120|240|480`;
+headless/stress runs retain `--physics-hz 480|960`. Stability telemetry records
+authored/runtime rates, render updates, actual physics steps and simulated
+time instead of assuming one physics step per rendered frame. The reusable
+`performance_benchmark.py` writes
+`exporter_v2_performance_comparison/1.0` reports for legacy/candidate stages.
+
+The permanent benchmark was rerun after synchronizing Isaac Sim 4.5's runtime
+`PhysicsScene` registry and reapplying the selected cadence after reset. With
+30 render frames and 120 isolated physics steps per stage, it measured:
+
+```text
+rate       legacy FPS   PlantState FPS   render speedup
+60 Hz          11.24          49.69           4.42x
+120 Hz          6.34          34.30           5.41x
+240 Hz          3.34          21.07           6.31x
+480 Hz          1.70          11.15           6.54x
+```
+
+The day-50 `leaves` stage also passed five simulated seconds headless at an
+effective 480 Hz: 2,400 physics steps, no NaN/Inf or invalid articulation, and
+constant bounded displacement. The JSON report is
+`/tmp/exporter_v2_day50_performance.json`; `/tmp` is intentionally not a
+versioned artifact.
+
+A full GUI session at the default effective 60 Hz ran for 15.83 simulated
+seconds before normal user closure. It measured 39.39 rendered frames/s in the
+interactive application, exposed 43 dynamic grabbable bodies, kept mouse grab
+and invisible-collider picking enabled, and reported no non-finite body or
+runtime error. Telemetry confirms interaction availability; subjective
+Shift+drag behavior remains a human visual approval rather than an automated
+claim.
+
+The segmented PlantState visuals retain exact canonical endpoints, radii and
+poses while removing redundant straight-axis samples: the day-50 `leaves`
+stage decreased from 81,036 to 39,304 mesh triangles and from 3.9 MB to
+2.3 MB. This is retained as a useful visual optimization, although timestep
+comparison proved that it was not the main source of the 11 FPS result.
+Phase J remains `IN PROGRESS`.
+
 ---
 
 # 2. Why this refactor is necessary
