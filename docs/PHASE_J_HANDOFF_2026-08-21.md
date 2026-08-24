@@ -31,9 +31,33 @@ mesh technique—there is no cylinder fallback. Day 10 currently audits as:
 
 The one-second headless Isaac run at 480 Hz passed with five finite bodies,
 zero displacement, zero root/endpoint drift, no NaN/Inf and no PhysX error.
-The remaining immediate gate is a GUI review of the same USD. The stem is
-intentionally fixed and is not an interaction test; Shift+drag begins with the
-later `leaf-supports` checkpoint.
+The stem is intentionally fixed and is not an interaction test.
+
+The second implemented gate is `--debug-profile laterals`, tested on day 50.
+It reconstructs four native order-one chains with four Internodes each and
+attaches them to trunk links `2, 2, 3, 7`. The fixed stem remains the physical
+support while all 16 lateral links use the established V2 D6 drives. No leaf
+or truss geometry is included yet.
+
+```text
+26 rigid bodies
+10 FixedJoints
+16 D6 joints
+52 invisible capsule colliders
+26 OrganicVisual meshes / 5 visual axes
+0 visual cylinders
+0 active unfiltered initial overlaps
+```
+
+The day-50 one- and five-second flexible tests at 480 Hz pass. Because
+`World.reset()` performs one internal physics step, gravity is suspended only
+during that step and immediately restored. This separates joint-frame snapping
+from real gravitational deformation: reset projection is below `8.8e-8 m`,
+the laterals settle to `5.56%` maximum sag, stem drift is zero, and the final
+tail speed is about `1.54e-4 m/s`. GUI telemetry confirms 16 interactive D6
+bodies and mouse picking of invisible colliders. The user approved the visual
+shape and Shift+drag interaction on 2026-08-24. This checkpoint is therefore
+closed; leaf supports are the next incremental group.
 
 ## Implemented in this checkpoint
 

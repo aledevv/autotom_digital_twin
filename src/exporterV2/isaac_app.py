@@ -106,6 +106,51 @@ def _body_metadata(stage, body_paths: list[str]) -> dict[str, dict]:
     return result
 
 
+def _authored_body_geometry(stage) -> tuple[dict[str, tuple[float, float, float]], dict[str, tuple[float, float, float]]]:
+    """Capture authored starts/endpoints before ``World.reset()`` starts PhysX."""
+
+    from pxr import Gf, UsdGeom
+
+    paths, _root_path = _entity_paths(stage)
+    metadata = _body_metadata(stage, paths)
+    starts = {}
+    endpoints = {}
+    for path in paths:
+        matrix = UsdGeom.Xformable(
+            stage.GetPrimAtPath(path)
+        ).ComputeLocalToWorldTransform(0)
+        start = matrix.ExtractTranslation()
+        direction = matrix.TransformDir(Gf.Vec3d(0.0, 0.0, 1.0)).GetNormalized()
+        endpoint = start + direction * metadata[path]["length"]
+        starts[path] = tuple(float(value) for value in start)
+        endpoints[path] = tuple(float(value) for value in endpoint)
+    return starts, endpoints
+
+
+def _suspend_gravity_for_reset(stage):
+    """Avoid counting World.reset's mandatory internal step as pose snapping."""
+
+    from pxr import UsdPhysics
+
+    scenes = [prim for prim in stage.Traverse() if prim.IsA(UsdPhysics.Scene)]
+    if len(scenes) != 1:
+        raise RuntimeError(
+            f"expected exactly one PhysicsScene, found {len(scenes)}"
+        )
+    scene = UsdPhysics.Scene(scenes[0])
+    attribute = scene.GetGravityMagnitudeAttr()
+    magnitude = attribute.Get()
+    if magnitude is None:
+        magnitude = 9.81
+        attribute = scene.CreateGravityMagnitudeAttr()
+    attribute.Set(0.0)
+
+    def restore() -> None:
+        attribute.Set(float(magnitude))
+
+    return restore
+
+
 def _world_endpoints(positions, orientations, paths, metadata):
     """Return body endpoints from scalar-first world quaternions."""
 
@@ -193,7 +238,7 @@ def _write_report(path: Path, report: dict) -> None:
     )
 
 
-def _run_stability(stage, world, args: argparse.Namespace) -> dict:
+def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) -> dict:
     import numpy as np
     from isaacsim.core.prims import RigidPrim
 
@@ -221,6 +266,27 @@ def _run_stability(stage, world, args: argparse.Namespace) -> dict:
         return dict(zip(resolved_paths, values, strict=True)), endpoints
 
     initial, initial_endpoints = poses_by_path()
+    authored_starts, authored_endpoints = authored_geometry
+    reset_projection = {
+        path: float(np.linalg.norm(initial[path] - authored_starts[path]))
+        for path in paths
+    }
+    reset_endpoint_projection = {
+        path: float(
+            np.linalg.norm(initial_endpoints[path] - authored_endpoints[path])
+        )
+        for path in paths
+    }
+    max_reset_projection = max(reset_projection.values(), default=0.0)
+    max_reset_projection_body = max(
+        reset_projection, key=reset_projection.get, default=None
+    )
+    max_reset_endpoint_projection = max(
+        reset_endpoint_projection.values(), default=0.0
+    )
+    max_reset_endpoint_projection_body = max(
+        reset_endpoint_projection, key=reset_endpoint_projection.get, default=None
+    )
     latest = dict(initial)
     initial_extent = max(float(np.linalg.norm(value)) for value in initial.values())
     explosion_limit = max(5.0, initial_extent * 10.0 + 1.0)
@@ -241,6 +307,18 @@ def _run_stability(stage, world, args: argparse.Namespace) -> dict:
     )
     samples = []
     errors = []
+    reset_projection_limit = 1e-6
+    if max_reset_projection > reset_projection_limit:
+        errors.append(
+            f"World.reset moved a body by {max_reset_projection:.6g} m: "
+            f"{max_reset_projection_body}"
+        )
+    if max_reset_endpoint_projection > reset_projection_limit:
+        errors.append(
+            "World.reset moved a body endpoint by "
+            f"{max_reset_endpoint_projection:.6g} m: "
+            f"{max_reset_endpoint_projection_body}"
+        )
     max_displacement = 0.0
     max_root_displacement = 0.0
     max_displacement_body = None
@@ -360,6 +438,11 @@ def _run_stability(stage, world, args: argparse.Namespace) -> dict:
         "max_dynamic_sag_body": max_dynamic_sag_body,
         "max_structural_endpoint_drift_m": max_structural_endpoint_drift,
         "max_root_displacement_m": max_root_displacement,
+        "reset_projection_limit_m": reset_projection_limit,
+        "max_reset_projection_m": max_reset_projection,
+        "max_reset_projection_body": max_reset_projection_body,
+        "max_reset_endpoint_projection_m": max_reset_endpoint_projection,
+        "max_reset_endpoint_projection_body": max_reset_endpoint_projection_body,
         "tail_max_speed_mps": tail_max_speed,
         "explosion_limit_m": explosion_limit,
         "root_drift_limit_m": root_drift_limit,
@@ -378,7 +461,12 @@ def _run_stability(stage, world, args: argparse.Namespace) -> dict:
 
 
 def _run_gui_monitor(
-    stage, world, app, args: argparse.Namespace, mouse_interaction: dict
+    stage,
+    world,
+    app,
+    args: argparse.Namespace,
+    mouse_interaction: dict,
+    authored_geometry,
 ) -> dict:
     """Render until the user closes Isaac, freezing on the first invalid pose."""
 
@@ -402,6 +490,15 @@ def _run_gui_monitor(
     )
     initial_endpoints = _world_endpoints(
         positions, orientations, resolved_paths, body_metadata
+    )
+    authored_starts, authored_endpoints = authored_geometry
+    reset_projection = max(
+        float(np.linalg.norm(initial[path] - authored_starts[path]))
+        for path in resolved_paths
+    )
+    reset_endpoint_projection = max(
+        float(np.linalg.norm(initial_endpoints[path] - authored_endpoints[path]))
+        for path in resolved_paths
     )
     started = time.perf_counter()
     step = 0
@@ -464,6 +561,8 @@ def _run_gui_monitor(
         "max_displacement_body": max_displacement_body,
         "max_endpoint_displacement_m": max_endpoint_displacement,
         "max_endpoint_displacement_body": max_endpoint_displacement_body,
+        "max_reset_projection_m": reset_projection,
+        "max_reset_endpoint_projection_m": reset_endpoint_projection,
         "first_nonfinite_body": first_nonfinite,
         "first_failure_time_seconds": failure_time,
         "first_failure_ancestor_chain": _ancestor_chain(first_nonfinite, parents),
@@ -497,6 +596,7 @@ def main() -> int:
         if opened_path != usd_path:
             raise RuntimeError(f"opened {opened_path!s} instead of {usd_path}")
         stage = context.get_stage()
+        authored_geometry = _authored_body_geometry(stage)
         world = World(
             stage_units_in_meters=1.0,
             physics_dt=1.0 / args.physics_hz,
@@ -507,7 +607,11 @@ def main() -> int:
             # Match the old V2 ordering: configure after stage open and again
             # after reset because Kit/PhysX can recreate UI state at reset.
             _configure_mouse_interaction(app, stage)
-        world.reset()
+        restore_gravity = _suspend_gravity_for_reset(stage)
+        try:
+            world.reset()
+        finally:
+            restore_gravity()
         if not args.headless:
             mouse_interaction = _configure_mouse_interaction(app, stage)
         load_seconds = time.perf_counter() - load_started
@@ -534,7 +638,7 @@ def main() -> int:
                 },
             )
         if args.headless:
-            report = _run_stability(stage, world, args)
+            report = _run_stability(stage, world, args, authored_geometry)
             report["load_seconds"] = load_seconds
             _write_report(report_path, report)
             print(
@@ -545,7 +649,7 @@ def main() -> int:
             return 0 if report["status"] == "passed" else 1
         if args.diagnostic_monitor:
             report = _run_gui_monitor(
-                stage, world, app, args, mouse_interaction
+                stage, world, app, args, mouse_interaction, authored_geometry
             )
             report["load_seconds"] = load_seconds
             _write_report(report_path, report)

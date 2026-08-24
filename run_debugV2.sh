@@ -15,14 +15,14 @@ OUTPUT=""
 
 usage() {
   cat <<'EOF'
-Usage: ./run_debugV2.sh --day N [--organ stem] [options]
+Usage: ./run_debugV2.sh --day N [--organ stem|laterals] [options]
 
 Run one incremental ExporterV2 organ checkpoint from PlantState.
-Only the stem checkpoint is currently implemented.
+The laterals checkpoint includes the fixed stem and native lateral Internodes.
 
 Options:
   --day N                    PlantState simulation day (required)
-  --organ NAME               Organ checkpoint (currently: stem)
+  --organ NAME               Organ checkpoint: stem|laterals
   --pose-mode MODE           canonical|legacy (default: canonical)
   --physics-preset MODE      flexible|locked (default: flexible)
   --headless                 Run the finite Isaac stability test
@@ -34,7 +34,8 @@ Options:
 
 Examples:
   ./run_debugV2.sh --day 10 --organ stem
-  ./run_debugV2.sh --day 50 --organ stem --headless --duration 1
+  ./run_debugV2.sh --day 50 --organ laterals --headless --duration 1
+  ./run_debugV2.sh --day 50 --organ laterals
   ./run_debugV2.sh --day 25 --organ stem --generate-only
   ./run_debugV2.sh --day 10 --organ stem --pose-mode legacy
 EOF
@@ -65,10 +66,10 @@ if [[ ! "$DAY" =~ ^[1-9][0-9]*$ ]]; then
   echo "--day must be a positive integer" >&2
   exit 2
 fi
-if [[ "$ORGAN" != "stem" ]]; then
-  echo "Organ checkpoint '$ORGAN' is not implemented yet; available: stem" >&2
-  exit 2
-fi
+case "$ORGAN" in
+  stem|laterals) ;;
+  *) echo "Organ checkpoint '$ORGAN' is not implemented yet; available: stem, laterals" >&2; exit 2 ;;
+esac
 if [[ "$POSE_MODE" != "canonical" && "$POSE_MODE" != "legacy" ]]; then
   echo "--pose-mode must be canonical or legacy" >&2
   exit 2
@@ -85,7 +86,7 @@ fi
 COMMAND=(
   "$SCRIPT_DIR/run_mainV2.sh"
   --day "$DAY"
-  --debug-profile stem
+  --debug-profile "$ORGAN"
   --pose-mode "$POSE_MODE"
   --physics-preset "$PHYSICS_PRESET"
   --duration "$DURATION"

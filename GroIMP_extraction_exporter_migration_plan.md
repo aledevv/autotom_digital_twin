@@ -464,8 +464,55 @@ colliders, five `OrganicVisual` meshes, zero D6 joints and zero visual
 cylinders. Offline adapter/backend regression tests pass. The one-second
 flexible-preset Isaac smoke at 480 Hz also passes with five finite bodies,
 exactly zero displacement/drift and no reported errors. Phase J remains
-`IN PROGRESS`: the user GUI assessment is the next gate before adding
-`leaf-supports`.
+`IN PROGRESS`.
+
+#### Conservative V2 lateral-branch checkpoint — 2026-08-24
+
+The `laterals` diagnostic profile now follows the same established
+`PlantState -> BRANCHES -> build_stage()` route. It contains only the fixed
+stem and native lateral Internodes: leaves, leaf supports, trusses and fruits
+are deliberately absent. The adapter walks canonical `parent_id` links through
+turtle pass-through nodes and builds maximal native Internode chains; it does
+not reuse CSV ranks, geometric nearest-neighbour matching or phyllotaxis.
+
+For day 50 this resolves 10 stem Internodes and four lateral chains of four
+Internodes. Their native attachments are trunk links `2, 2, 3, 7`, with
+readable paths such as `Branch_s2_o0_g421238/..._Internode_g421238`. Canonical
+mode preserves every GroIMP frame, length and radius. The legacy procedural
+45-degree pose remains available only as a diagnostic comparison and reports
+its initial overlaps without making them canonical acceptance failures.
+
+The flexible canonical stage audits as:
+
+```text
+26 rigid bodies
+10 FixedJoints (fixed stem)
+16 D6 joints (four complete lateral chains)
+52 invisible capsule colliders
+26 segmented OrganicVisual meshes across 5 visual axes
+0 visual cylinders
+10 intentional/filtered initial capsule overlaps
+0 active unfiltered overlaps
+```
+
+The established V2 parent/child, attachment-neighbour and sibling collision
+filters are retained. The two branch roots on trunk link 2 are explicitly
+filtered as siblings. Source and authored poses, physical gains, collider
+radii, attachment mapping and overlap classifications are recorded in
+`exporter_v2_laterals_checkpoint/1.0`.
+
+Offline ExporterV2 regression completed with `88 passed, 2 skipped`. Isaac at
+480 Hz passed the one- and five-second day-50 flexible runs. `World.reset()`
+performs one mandatory internal physics step, so the runtime temporarily
+suspends gravity only for that step and restores it before explicit
+simulation. The measured reset projection is below `8.8e-8 m`; subsequent
+gravity sag reaches `5.56%`, stem/root drift remains zero, and the five-second
+tail speed is approximately `1.54e-4 m/s`. The GUI monitor reports 16
+interactive D6 bodies, enabled mouse grab including invisible colliders, and
+no non-finite body. The user approved the initial canonical shape and
+Shift+drag behavior on 2026-08-24. The lateral checkpoint is complete, but
+Phase J remains `IN PROGRESS`; leaf supports are the next incremental
+implementation.
 
 ---
 

@@ -23,8 +23,9 @@ from .plant_state_usd import (
 )
 from .plant_state_branches import POSE_MODES
 from .plant_state_legacy_backend import (
+    INCREMENTAL_PROFILES,
     StemCheckpointError,
-    export_stem_checkpoint,
+    export_incremental_checkpoint,
 )
 
 
@@ -115,16 +116,18 @@ def generate_from_args(args: argparse.Namespace):
             f"requested day {args.day}, input metadata contains "
             f"{state.metadata.simulation_time}"
         )
-    if args.debug_profile == "stem":
+    if args.debug_profile in INCREMENTAL_PROFILES:
         if args.debug_no_colliders or args.debug_no_drives or args.debug_no_articulation:
             raise V2PlantStateError(
-                "the conservative stem checkpoint requires colliders, joints, and articulation"
+                f"the conservative {args.debug_profile} checkpoint requires "
+                "colliders, joints, and articulation"
             )
         return (
             state,
-            *export_stem_checkpoint(
+            *export_incremental_checkpoint(
                 state,
                 destination,
+                debug_profile=args.debug_profile,
                 pose_mode=args.pose_mode,
                 physics_preset=args.physics_preset,
                 physics_hz=args.physics_hz,
@@ -173,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
     if physical_links is None:
         physical_links = len(plan.physical_links)
     print(
-        f"[OK] V2 canonical stage: day={args.day}, plant_id={args.plant_id}, "
+        f"[OK] V2 PlantState stage: day={args.day}, plant_id={args.plant_id}, "
         f"axes={len(state.axes)}, physical_links={physical_links}, "
         f"d6={plan.predicted_d6_joints}, spheres={len(state.spheres)}, "
         f"profile={plan.debug_profile}, pose_mode={args.pose_mode}"
