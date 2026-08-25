@@ -11,7 +11,9 @@ from ..tree_config import (
     GAP,
     MIN_LINK_RADIUS_WORLD,
     PhysicsRuntimeConfig,
+    TrussPhysicsConfig,
     calculate_physics_params,
+    calculate_truss_physics_params,
     compute_flexural_rigidity,
     compute_hinge_stiffness_rad,
     compute_mass,
@@ -222,11 +224,21 @@ def _inner_radius(branch: dict) -> float:
 
 
 def _density(branch: dict) -> float:
-    return float(branch.get("density", BioConfig.PLANT_DENSITY))
+    default = (
+        TrussPhysicsConfig.PLANT_DENSITY
+        if branch.get("physics_profile") == "truss"
+        else BioConfig.PLANT_DENSITY
+    )
+    return float(branch.get("density", default))
 
 
 def _young_modulus(branch: dict) -> float:
-    return float(branch.get("young_modulus", BioConfig.YOUNG_MODULUS))
+    default = (
+        TrussPhysicsConfig.YOUNG_MODULUS
+        if branch.get("physics_profile") == "truss"
+        else BioConfig.YOUNG_MODULUS
+    )
+    return float(branch.get("young_modulus", default))
 
 
 def _resolve_gains(
@@ -239,15 +251,30 @@ def _resolve_gains(
     legacy_physics: bool,
 ) -> PhysicsGains:
     young_modulus = _young_modulus(branch)
-    stiffness, damping = calculate_physics_params(
-        radius,
-        height,
-        mass,
-        legacy_physics=legacy_physics,
-        young_modulus=young_modulus,
-        damping_ratio=branch.get("damping_ratio"),
-        inner_radius=inner_radius,
-    )
+    is_truss = branch.get("physics_profile") == "truss" and inner_radius <= 0.0
+    if is_truss:
+        stiffness, damping = calculate_truss_physics_params(
+            radius,
+            height,
+            mass,
+            young_modulus=young_modulus,
+            damping_ratio=float(
+                branch.get("damping_ratio", TrussPhysicsConfig.DAMPING_RATIO)
+            ),
+        )
+    else:
+        damping_ratio = branch.get("damping_ratio")
+        if damping_ratio is None and branch.get("physics_profile") == "truss":
+            damping_ratio = TrussPhysicsConfig.DAMPING_RATIO
+        stiffness, damping = calculate_physics_params(
+            radius,
+            height,
+            mass,
+            legacy_physics=legacy_physics,
+            young_modulus=young_modulus,
+            damping_ratio=damping_ratio,
+            inner_radius=inner_radius,
+        )
 
     if not legacy_physics and parent is not None:
         parent_radius = scaled(parent["radius"])

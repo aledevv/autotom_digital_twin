@@ -34,7 +34,7 @@ def test_day50_leaf_support_adapter_is_native_and_complete(day50_state):
     assert kinds.count("leaf_rachis") == 23
     assert sum(branch["n_links"] for branch in branches) == 81
     assert len({branch["visual_axis_id"] for branch in branches}) == 32
-    assert len(result.approved_collision_filters) == 3
+    assert result.approved_collision_filters == ()
     assert result.collapsed_duplicates == ()
     assert {
         branch["joint_type"]
@@ -179,7 +179,13 @@ def test_day50_flexible_leaf_support_stage_and_manifest(tmp_path, day50_state):
         "rigid_bodies": 81,
         "visual_axes": 32,
     }
-    assert len(manifest["collisions"]["approved_native_groimp_filters"]) == 3
+    applied = manifest["collisions"]["applied_initial_filters"]
+    assert len(applied) == 3
+    assert all(
+        record["reason"] == "auto_filtered_initial_authored_overlap"
+        and record["permanent_pair_filter"]
+        for record in applied
+    )
     assert manifest["collisions"]["active_overlaps"] == []
     assert manifest["authored"]["visual_cylinders"] == 0
     assert manifest["physics"]["leaf_support_policy"] == {

@@ -368,7 +368,9 @@ def create_fixed_joint_to_tip(
     exclude_from_articulation: bool = False,
     local_pos0: Gf.Vec3f = None,
     local_pos1: Gf.Vec3f = None,
-) -> None:
+    local_rot0: Gf.Quatf = None,
+    local_rot1: Gf.Quatf = None,
+) -> UsdPhysics.FixedJoint:
     """
     Create FixedJoint attaching a rigid body (leaf node) to the tip of a parent link.
     
@@ -418,9 +420,15 @@ def create_fixed_joint_to_tip(
     else:
         joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, -child_offset))
     
-    # Both rotations identity (child inherits parent orientation)
-    joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
-    joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+    # Legacy callers inherit the parent orientation.  Explicit canonical poses
+    # may instead provide the relative frame needed to make both world-space
+    # joint frames coincide without a reset-time angular projection.
+    joint.CreateLocalRot0Attr().Set(
+        local_rot0 or Gf.Quatf(1.0, 0.0, 0.0, 0.0)
+    )
+    joint.CreateLocalRot1Attr().Set(
+        local_rot1 or Gf.Quatf(1.0, 0.0, 0.0, 0.0)
+    )
     configure_detachable_joint(
         joint,
         break_force=break_force,
@@ -430,6 +438,7 @@ def create_fixed_joint_to_tip(
     
     # Filter collision between child and parent
     add_collision_filter(stage, child_body_path, parent_link_path)
+    return joint
 
 
 def create_fixed_joint_attachment(

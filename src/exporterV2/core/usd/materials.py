@@ -7,6 +7,7 @@ TOMATO_LEAF_MATERIAL_PATH = "/World/Looks/TomatoLeaf"
 TOMATO_LEAF_OMNISURFACE_MATERIAL_PATH = "/World/Looks/TomatoLeafOmniSurface"
 TOMATO_STEM_MATERIAL_PATH = "/World/Looks/TomatoStem"
 TOMATO_STEM_OMNISURFACE_MATERIAL_PATH = "/World/Looks/TomatoStemOmniSurface"
+TOMATO_TRUSS_MATERIAL_PATH = "/World/Looks/TomatoTrussRachis"
 TOMATO_FRUIT_MATERIAL_ROOT = "/World/Looks/TomatoFruit"
 TOMATO_FRUIT_MATURATION_BUCKETS = 8
 
@@ -215,6 +216,24 @@ def get_or_create_tomato_stem_material(stage, preset: str = "realtime"):
     if preset == "realistic":
         return _create_realistic_tomato_stem_material(stage, material_path)
     return _create_realtime_tomato_stem_material(stage, material_path)
+
+
+def get_or_create_tomato_truss_material(stage):
+    """Return the historical muted-green rachis material."""
+
+    existing = stage.GetPrimAtPath(TOMATO_TRUSS_MATERIAL_PATH)
+    if existing.IsValid():
+        return UsdShade.Material(existing)
+    UsdGeom.Scope.Define(stage, "/World/Looks")
+    return _create_preview_surface_material(
+        stage,
+        TOMATO_TRUSS_MATERIAL_PATH,
+        {
+            "diffuseColor": Gf.Vec3f(0.263, 0.424, 0.227),
+            "roughness": 0.68,
+            "metallic": 0.0,
+        },
+    )
 
 
 def get_or_create_tomato_fruit_material(

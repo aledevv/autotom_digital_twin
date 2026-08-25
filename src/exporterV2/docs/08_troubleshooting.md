@@ -5,8 +5,13 @@
 Run ordinary tests from the project root so `src/` imports resolve:
 
 ```bash
-uv run pytest src/exporterV2 -v
+uv run pytest src/exporterV2/adapters/groimp_csv/tests \
+  src/exporterV2/core/optimizations/tests src/exporterV2/tests -v
 ```
+
+Do not collect the entire `src/exporterV2` directory with ordinary Python:
+`core/usd/tests` contains standalone Isaac-oriented tests with historical
+top-level imports and has its own command below.
 
 If a test needs `PhysxSchema`, run it with Isaac Sim Python:
 
@@ -83,11 +88,101 @@ damping ratio (`0.3`). Leaf dry biomass from PlantState (mg converted to kg) is
 aggregated into the host support mass and center of mass; petiolules and blades
 remain free of rigid bodies, colliders and joints.
 
+## Appendage Angles or Truss Visuals Differ from V2
+
+PlantState profiles default to `--appendage-pose-mode v2-aesthetic`. This keeps
+the native GroIMP organ topology and dimensions while applying the historical
+V2 local angles to lateral petiolules and pedicels. Use
+`--appendage-pose-mode canonical` to inspect the raw GroIMP pose. The manifest
+always stores both `source_pose` and `authored_pose`, and mesh, collider, joint,
+leaf blade and tomato all follow the authored pose together.
+
+Leaf blades still use the historical longitudinal fold, centre arch and tip
+sag. Truss rachides are physically segmented so they can bend, but visually
+use one continuous skinned/segmented organic axis with the historical truss
+material. A generated truss containing `HistoricalTrussRachisVisual` cylinders
+or a non-zero `visual_cylinders` audit count is a regression.
+
+## Day-160 Truss Stiffness and Damping
+
+Use the in-memory calibration presets before changing active values in
+`core/tree_config.py`:
+
+```bash
+./run_debugV2.sh --day 160 --organ truss-supports \
+  --lateral-joint-policy fixed --truss-calibration-preset balanced
+```
+
+`compliant`, `balanced`, `firm` and `current` select independent rachis and
+pedicel values. `--truss-damping-override 2|4|7` changes damping only after a
+preset has been selected; use it for persistent oscillation, never to correct
+static sag. The exporter applies these values to an in-memory BRANCHES copy,
+so repeated candidates do not rewrite `tree_config.py`.
+
+After visual approval, copy the selected values to `TrussPhysicsConfig`:
+
+- `RACHIS_YOUNG_MODULUS` and `RACHIS_DAMPING_RATIO` for the main truss axis;
+- `PEDICEL_YOUNG_MODULUS` and `PEDICEL_DAMPING_RATIO` for pedicels;
+- `PEDICEL_DRIVE_STIFFNESS_SCALE` for the additional pedicel drive scale.
+
+The active day-160 selection is rachis `20 GPa`, pedicel `4 GPa`, damping
+ratio `4` for both and pedicel drive scale `0.2`.
+
+Truss density is deliberately limited to `2000 kg/m3`; ordinary plant tissue
+remains `1000 kg/m3`. Do not raise density to hide an unstable drive. In one
+temporary day-50, 480 Hz test
+with the new V2-authored pedicel pose, damping ratios 7 and 4 caused spontaneous
+fruit detachment, while ratio 2 completed five simulated seconds. This is a
+diagnostic observation, not a selected default: mass density, the 6 N break
+force, overlap filters and authored pose also influence the result.
+
+Pedicel length is a geometry control, not a physics parameter. Adjust
+`TrussGeometryConfig.PLANT_STATE_PEDICEL_LENGTH_SCALE` (currently `3.0`) instead
+of the legacy `PEDICEL_LENGTH`: PlantState supplies its own native length. The
+source length remains in the manifest while mesh, collider, endpoint and fruit
+move together to the scaled authored length.
+
+For the fruit-bearing stage, first try
+`--terminal-solver-preset stabilized`, which changes only terminal bodies from
+32/1 to 64/4 solver iterations. If that is insufficient, test
+`--truss-armature-multiplier 1` and then `4`; the value is multiplied by each
+truss link's local inertia and authored only on truss D6 joints. Both controls
+are explicit fallbacks and remain disabled in the isolated support baseline.
+
 ## Tomatoes Fall Immediately
 
-Check `TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N`. If it is below the static and dynamic load from the tomato, the FixedJoint can break as soon as simulation starts. Current default is `6.0 N`.
+Physical tomatoes in the canonical GroIMP PlantState pipeline are unsupported
+on mature plants. The normal day-based workflow intentionally uses
+`truss-supports`, so no tomato rigid body, collider or terminal joint is
+authored. Use `fruit-visual` when static tomato geometry is sufficient.
+
+The historical experimental path is guarded:
+
+```bash
+./run_debugV2.sh --day 160 --organ full \
+  --allow-experimental-fruit-physics
+```
+
+It authors external tomato bodies with `excludeFromArticulation=true` and
+immediate break force `6 N`. There is no soft-start, gravity ramp, deferred
+arming or automatic equilibrium-pose capture in the production runtime.
+
+Do not infer stability merely from finite coordinates. The headless monitor
+fails an unforced terminal body that travels more than `0.25 m` and reports its
+path and joint ancestry. During the 2026-08-25 canonical checkpoint, day 80
+showed exactly this failure while `truss-supports` without fruit remained
+stable. A stricter day-160 A/B test then disabled all 504 colliders in memory,
+raised the break force to `1e9 N` and preserved exclusion from the articulation.
+It still failed to settle after 12 seconds. Residual collision contacts are
+therefore not the primary cause in that configuration; the 72 external
+terminal bodies and FixedJoints remain the unsupported boundary. Exact
+measurements and the comparison with `main` are recorded in
+[`../../groimp_bridge/BRANCH_REPORT_2026-08-25.md`](../../groimp_bridge/BRANCH_REPORT_2026-08-25.md).
 
 ## Tomatoes Do Not Detach
+
+This section applies only to the explicitly enabled experimental `full`
+profile or to the legacy BRANCHES path.
 
 Verify that detachment is enabled and serialized:
 
@@ -100,6 +195,36 @@ Verify that detachment is enabled and serialized:
 ## Collision Instability Near Tomatoes
 
 Inspect `FilteredPairs` on the tomato body. Detachable tomatoes should filter collisions toward their pedicel and related truss rachis. Missing filters can make contact resolution fight the FixedJoint.
+
+## A Different Plant Day Reports Initial Overlaps
+
+Canonical PlantState profiles default to `--initial-overlap-policy filter`.
+The exporter measures the actual authored capsule, cylinder, and sphere
+colliders, then filters only each rigid-body pair that overlaps at rest. The
+manifest records collider paths, roles, canonical IDs, contact count, and
+maximum penetration depth.
+
+Sphere checks must be order-independent. A sphere is encoded internally as a
+zero-length swept segment; both point-segment orders have regression coverage.
+If a mature day behaves differently after changes to the narrow phase, run the
+reversed sphere-capsule and sphere-cylinder tests before adding more filters.
+
+This prevents startup impulses but permanently disables contact between that
+specific pair. It does not alter the GroIMP pose and it does not filter the
+whole stem. Use `--initial-overlap-policy error` when investigating whether a
+new overlap is a modelling problem rather than an intentional dense canopy.
+
+## Physical Petiolules Are Slow or Exceed the Budget
+
+`--physical-petiolules` is intentionally disabled by default. It adds one
+rigid body, two capsule proxies, and one D6 joint for every positive
+petiolule/terminal rachis axis. At day 50 the complete canonical plant rises
+from 123 to 254 D6 joints because PlantState retains more native leaf and truss
+segments than the old CSV grouping.
+
+Normal exports stop above 230 D6 joints. `--allow-over-budget` is accepted only
+with `--physical-petiolules` and is a diagnostic comparison switch, not a
+recommended production configuration.
 
 ## Demo Paths
 

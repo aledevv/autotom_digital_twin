@@ -4,6 +4,8 @@ physics.py - PhysX Configuration
 Shared PhysX scene and articulation settings for Isaac Sim simulations.
 """
 
+import math
+
 from pxr import UsdPhysics, Gf, Sdf
 
 try:  # OpenUSD wheels do not ship NVIDIA's schema plugin.
@@ -148,3 +150,37 @@ def apply_physx_rigid_body_solver_settings(
         _apply_schema_token(prim, "PhysxRigidBodyAPI")
         _attribute(prim, "physxRigidBody:solverPositionIterationCount", Sdf.ValueTypeNames.Int, solver_position_iterations)
         _attribute(prim, "physxRigidBody:solverVelocityIterationCount", Sdf.ValueTypeNames.Int, solver_velocity_iterations)
+
+
+def apply_physx_joint_armature(
+    stage,
+    joint_path: str,
+    armature: float,
+) -> None:
+    """Author PhysX joint armature in kg*m^2.
+
+    The OpenUSD wheel used by the serverless exporter does not include
+    NVIDIA's PhysxSchema plugin, so keep a schema-token fallback just like the
+    rigid-body helpers above.  Isaac Sim resolves the authored API and
+    attribute when it opens the resulting layer.
+    """
+
+    armature = float(armature)
+    if not math.isfinite(armature) or armature < 0.0:
+        raise ValueError("joint armature must be finite and non-negative")
+    prim = stage.GetPrimAtPath(joint_path)
+    if not prim or not prim.IsValid():
+        raise ValueError(f"Joint prim does not exist: {joint_path}")
+
+    if PhysxSchema is not None:
+        joint_api = PhysxSchema.PhysxJointAPI(prim)
+        if not joint_api:
+            joint_api = PhysxSchema.PhysxJointAPI.Apply(prim)
+        joint_api.CreateArmatureAttr().Set(armature)
+    else:
+        _apply_schema_token(prim, "PhysxJointAPI")
+        prim.CreateAttribute(
+            "physxJoint:armature",
+            Sdf.ValueTypeNames.Float,
+            custom=False,
+        ).Set(armature)

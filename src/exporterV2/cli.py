@@ -22,13 +22,20 @@ from .plant_state_usd import (
     save_v2_manifest,
 )
 from .plant_state_branches import (
+    APPENDAGE_POSE_MODES,
+    LATERAL_JOINT_POLICIES,
     LEAF_JOINT_POLICIES,
     POSE_MODES,
+    TRUSS_CALIBRATION_PRESETS,
+    TRUSS_DAMPING_CHOICES,
     VISUAL_QUALITY_MODES,
 )
 from .plant_state_legacy_backend import (
+    INITIAL_OVERLAP_POLICIES,
     INCREMENTAL_PROFILES,
     StemCheckpointError,
+    TERMINAL_SOLVER_PRESETS,
+    TRUSS_ARMATURE_MULTIPLIERS,
     export_incremental_checkpoint,
 )
 
@@ -52,10 +59,25 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--input", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument(
-        "--physics-preset", choices=("locked", "flexible"), default="locked"
+        "--physics-preset", choices=("locked", "flexible"), default="flexible"
     )
     parser.add_argument("--optimize", action="store_true")
     parser.add_argument("--allow-near-budget", action="store_true")
+    parser.add_argument(
+        "--initial-overlap-policy",
+        choices=INITIAL_OVERLAP_POLICIES,
+        default="filter",
+        help="Filter precise authored overlap pairs or fail the canonical audit.",
+    )
+    # WARNING: this restores one rigid body, collider set, and D6 joint per
+    # petiolule.  It is intentionally off because it can substantially slow
+    # down and destabilize large PlantState articulations.
+    parser.add_argument("--physical-petiolules", action="store_true")
+    parser.add_argument(
+        "--allow-over-budget",
+        action="store_true",
+        help="Unsafe diagnostic override; requires --physical-petiolules.",
+    )
     parser.add_argument(
         "--stiffness-scale", type=float, choices=(1.0, 2.0, 4.0), default=1.0
     )
@@ -73,13 +95,27 @@ def build_argument_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--physics-hz", type=int, choices=(480, 960), default=480)
     parser.add_argument(
-        "--debug-profile", choices=DEBUG_PROFILES, default="full"
+        "--debug-profile", choices=DEBUG_PROFILES, default="truss-supports"
+    )
+    parser.add_argument(
+        "--allow-experimental-fruit-physics",
+        action="store_true",
+        help=(
+            "Required for the unsupported full profile with physical fruits. "
+            "The stable default stops at dynamic truss supports."
+        ),
     )
     parser.add_argument(
         "--pose-mode",
         choices=POSE_MODES,
         default="canonical",
         help="PlantState rest pose for the conservative V2 backend.",
+    )
+    parser.add_argument(
+        "--appendage-pose-mode",
+        choices=APPENDAGE_POSE_MODES,
+        default="v2-aesthetic",
+        help="Leaflet/pedicel authored pose: historical V2 recipe or raw GroIMP.",
     )
     parser.add_argument(
         "--leaf-joint-policy",
@@ -89,6 +125,37 @@ def build_argument_parser() -> argparse.ArgumentParser:
             "PlantState leaf supports: optimized fixes rachides to petioles; "
             "distributed restores D6 bending along both."
         ),
+    )
+    parser.add_argument(
+        "--lateral-joint-policy",
+        choices=LATERAL_JOINT_POLICIES,
+        default="dynamic",
+        help="PlantState laterals remain D6 or become a fixed support scaffold.",
+    )
+    parser.add_argument(
+        "--truss-calibration-preset",
+        choices=TRUSS_CALIBRATION_PRESETS,
+        default="current",
+        help="In-memory day-160 truss calibration; does not rewrite tree_config.",
+    )
+    parser.add_argument(
+        "--truss-damping-override",
+        type=float,
+        choices=TRUSS_DAMPING_CHOICES,
+        help="Override both truss damping ratios after selecting a preset.",
+    )
+    parser.add_argument(
+        "--truss-armature-multiplier",
+        type=float,
+        choices=TRUSS_ARMATURE_MULTIPLIERS,
+        default=0.0,
+        help="Fallback armature: 0, 1x or 4x each truss link local inertia.",
+    )
+    parser.add_argument(
+        "--terminal-solver-preset",
+        choices=TERMINAL_SOLVER_PRESETS,
+        default="current",
+        help="Tomato solver iterations: current (32/1) or stabilized (64/4).",
     )
     parser.add_argument(
         "--visual-quality",
@@ -111,6 +178,23 @@ def build_argument_parser() -> argparse.ArgumentParser:
 
 
 def generate_from_args(args: argparse.Namespace):
+    if args.allow_experimental_fruit_physics and args.debug_profile != "full":
+        raise V2PlantStateError(
+            "--allow-experimental-fruit-physics is valid only with "
+            "--debug-profile full"
+        )
+    if args.debug_profile == "full" and not args.allow_experimental_fruit_physics:
+        raise V2PlantStateError(
+            "full PlantState fruit physics is unsupported and requires "
+            "--allow-experimental-fruit-physics; use the default "
+            "truss-supports profile"
+        )
+    if args.debug_profile == "full":
+        print(
+            "[WARNING] physical PlantState fruits are experimental and "
+            "unsupported on mature plants; no stability guarantee is made",
+            file=sys.stderr,
+        )
     source = args.input
     if source is None:
         suffix = "" if args.plant_id == 1 else f"_plant_{args.plant_id}"
@@ -120,7 +204,7 @@ def generate_from_args(args: argparse.Namespace):
     destination = args.output
     if destination is None:
         suffix = "" if args.plant_id == 1 else f"_plant_{args.plant_id}"
-        if args.debug_profile == "full":
+        if args.debug_profile == "truss-supports":
             destination = PROJECT_ROOT / "data" / "usd_models" / (
                 f"tree_v2_day_{args.day}{suffix}.usda"
             )
@@ -151,10 +235,23 @@ def generate_from_args(args: argparse.Namespace):
                 destination,
                 debug_profile=args.debug_profile,
                 pose_mode=args.pose_mode,
+                appendage_pose_mode=args.appendage_pose_mode,
                 physics_preset=args.physics_preset,
                 physics_hz=args.physics_hz,
                 leaf_joint_policy=args.leaf_joint_policy,
+                lateral_joint_policy=args.lateral_joint_policy,
+                truss_calibration_preset=args.truss_calibration_preset,
+                truss_damping_override=args.truss_damping_override,
+                truss_armature_multiplier=args.truss_armature_multiplier,
+                terminal_solver_preset=args.terminal_solver_preset,
                 visual_quality=args.visual_quality,
+                physical_petiolules=args.physical_petiolules,
+                initial_overlap_policy=args.initial_overlap_policy,
+                allow_near_budget=args.allow_near_budget,
+                allow_over_budget=args.allow_over_budget,
+                allow_experimental_fruit_physics=(
+                    args.allow_experimental_fruit_physics
+                ),
             ),
         )
     plan = build_v2_authoring_plan(
@@ -204,7 +301,13 @@ def main(argv: list[str] | None = None) -> int:
         f"axes={len(state.axes)}, physical_links={physical_links}, "
         f"d6={plan.predicted_d6_joints}, spheres={len(state.spheres)}, "
         f"profile={plan.debug_profile}, pose_mode={args.pose_mode}, "
+        f"appendage_pose_mode={args.appendage_pose_mode}, "
         f"leaf_joint_policy={args.leaf_joint_policy}, "
+        f"lateral_joint_policy={args.lateral_joint_policy}, "
+        f"truss_calibration_preset={args.truss_calibration_preset}, "
+        f"truss_armature_multiplier={args.truss_armature_multiplier}, "
+        f"terminal_solver_preset={args.terminal_solver_preset}, "
+        f"physical_petiolules={args.physical_petiolules}, "
         f"visual_quality={args.visual_quality}"
     )
     print(f"[OK] USDA: {usd_path}")

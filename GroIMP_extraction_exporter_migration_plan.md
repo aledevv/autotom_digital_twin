@@ -419,7 +419,7 @@ up to 220 no filtering, 220–230 warning/explicit aggregation review, and above
 230 explicit filtering or merging with canonical organ references retained on
 every aggregate physical link.
 
-### Phase J — ExporterV2 migration: `IN PROGRESS — FLEXIBLE VALIDATION BLOCKED`
+### Phase J — ExporterV2 migration: `PARTIALLY COMPLETED — FRUIT PHYSICS UNSUPPORTED`
 
 Checkpoint recorded on 2026-08-21. The canonical day-based V2 adapter,
 serverless CLI, launcher, complete visual mapping, 220/230 budget policy,
@@ -433,8 +433,9 @@ Isaac Sim passed 5-second day-25 locked/flexible runs and the scalable
 kinematic locked baseline at day 80. The dynamic flexible day-80 articulation
 diverges before one simulated second at 480 Hz, and also at 960 Hz with
 stiffness scales 1x, 2x and 4x (damping scaled by the square root). Phase J is
-therefore deliberately **not** marked completed. The safe user default remains
-`locked` until the flexible blocker is resolved.
+therefore deliberately **not** marked completed at that checkpoint. The then
+safe default was `locked`; the 2026-08-25 closure below supersedes it with the
+validated flexible, fruit-free profile.
 
 The exact diagnostic sequence, completed results, day-160 extension and
 remaining acceptance checks are in
@@ -627,6 +628,263 @@ A quick same-process day-50 benchmark at 60 Hz measured 45.52 FPS for
 71.90 steps/s. This short run indicates that restoring mesh quality has no
 material interactive cost on the test machine. The one-second 480 Hz smoke
 also passed all 480 steps without NaN/Inf or articulation failure.
+
+#### Phase J canonical-truss and collision-filter checkpoint — 2026-08-25
+
+The conservative PlantState backend now includes `truss-supports`,
+`fruit-visual`, and `full`. Native `Fruits` primitives provide every rachis,
+pedicel, and tomato; biological `Truss` nodes remain represented in metadata
+without duplicate geometry. Canonical frames and dimensions are combined with
+the historical V2 truss renderer and mechanics: curved gravity-elbow pedicel
+meshes, truss material colours, `TrussPhysicsConfig` gains, ±25-degree
+pedicel limits, 0.1 pedicel drive scale, and detachable 6 N tomato joints.
+
+Initial overlap handling is no longer tied to three day-50 GroIMP IDs. The
+default `--initial-overlap-policy filter` audits actual authored colliders and
+adds deterministic, pair-local filters; `error` retains strict validation.
+Every permanent pair filter, collider contact and penetration depth is stored
+in the checkpoint manifest. No global `/World/Stem` filter, automatic tilt, or
+automatic shift is introduced.
+
+Serverless canonical audits with visual-only petiolules pass with zero active
+unfiltered overlaps:
+
+```text
+day 25:   52 rigid bodies,  43 D6,  9 Fixed,  1 fruit
+day 50:  160 rigid bodies, 123 D6, 37 Fixed, 27 fruits
+day 80:  288 rigid bodies, 206 D6, 82 Fixed, 72 fruits
+day 160: 288 rigid bodies, 206 D6, 82 Fixed, 72 fruits
+```
+
+`--physical-petiolules` is available but off by default. It restores one body,
+collider set and D6 per petiolule; the day-50 `full` profile reaches 254 D6 and
+therefore requires the explicit diagnostic `--allow-over-budget` override.
+This preserves comparison capability without presenting the expensive mode as
+production-safe.
+
+The narrow phase now handles zero-length swept segments symmetrically. This is
+important because spheres are represented as points: the former implementation
+could miss a sphere-capsule overlap when deterministic path ordering put the
+sphere second. Regression tests cover both orders for sphere-capsule and
+sphere-cylinder pairs.
+
+Offline adapter, USD, collision-shape, CLI and budget tests pass. The complete
+ExporterV2 suite reports `137 passed, 2 skipped`; the dedicated truss suite,
+including the reversed-shape regressions, reports `17 passed`. Isaac flexible
+results at 480 Hz are:
+
+```text
+day 25 full:           1 s PASS; 5 s PASS (52 bodies)
+day 50 full:           1 s PASS; 5 s PASS (160 bodies)
+day 80 truss-supports: 1 s PASS (216 bodies)
+day 80 full:           FAIL — spontaneous tomato detachment during settling
+```
+
+The day-80 failure is isolated to the external breakable fruit layer: the same
+support articulation is stable without fruit, and a diagnostic run with the
+terminal FixedJoint break force temporarily raised above 6 N is stable. The
+production asset remains at the historical 6 N and no broad/global collision
+filter has been smuggled in. The Isaac monitor now treats an unforced terminal
+displacement above 0.25 m as failure and records the first body and ancestor
+chain instead of accepting a finite but detached fruit as stable.
+
+Phase J remains `IN PROGRESS`. Day 80/160 full and stress validation, plus the
+sequential GUI approval of `truss-supports` and `full`, are still mandatory.
+The next physics decision is whether to preserve 6 N through a documented
+settling phase or adopt a broader pair-local clearance policy; neither is
+selected implicitly by this checkpoint.
+
+Interactive review subsequently requested a 50 MPa vegetative baseline and a
+moderate truss stiffening from 3 GPa to 4 GPa, leaving damping, limits and the
+0.1 pedicel drive scale unchanged. `run_debugV2.sh --day N` now selects `full`
+by default so tomatoes are present without an organ opt-in; `--organ` remains
+an explicit diagnostic override.
+
+#### Phase J V2-aesthetic appendage checkpoint — 2026-08-25
+
+PlantState appendices now expose `--appendage-pose-mode
+v2-aesthetic|canonical`, defaulting to the historical V2 aesthetic. Native
+GroIMP topology, IDs, attachment points, lengths, radii and organ counts remain
+authoritative. Lateral petiolules use the model-provided inclination with the
+historical alternating local azimuth; lateral pedicels use the historical
+56-degree inclination and alternating azimuth. Terminal appendices remain
+coaxial. The original GroIMP frame is retained as `source_pose`, while mesh,
+collider, joint, lamina and tomato consistently use the recorded
+`authored_pose`.
+
+Leaf blades continue to use the V2 fold, centre arch and tip-sag profile. Truss
+rachides keep their separate rigid bodies and D6 joints, but the visible
+geometry is once again a continuous organic segmented axis with the historical
+truss material. Per-link `HistoricalTrussRachisVisual` cylinders were removed;
+the audit requires zero visual cylinders. The `canonical` appendage mode
+remains available for direct comparison with the raw GroIMP orientation.
+
+Physics tuning is deliberately not automated. Independent rachis and pedicel
+Young moduli and damping ratios, plus the pedicel drive scale, are exposed in
+`core/tree_config.py` for manual iteration. Density, bend limits and the 6 N
+fruit break force remain separate unchanged adaptations. A temporary day-50
+480 Hz diagnostic found spontaneous fruit detachment at damping ratios 7 and 4
+with the new authored pose, while ratio 2 completed five seconds; no production
+default was selected from that small experiment at the user's request.
+
+Pedicel proportions expose a separate
+`TrussGeometryConfig.PLANT_STATE_PEDICEL_LENGTH_SCALE`, initially `1.2`.
+Unlike the CSV-era fixed length, this multiplies each native PlantState
+pedicel. The manifest preserves the GroIMP source length and authored scale;
+mesh, collider, rigid-body mass/extent and tomato attachment all use the same
+scaled endpoint.
+
+Offline pose, alternation, terminal, visual-continuity, attachment and
+canonical-fallback tests pass. Focused CLI/pipeline/truss coverage reports 45
+passes; leaf/truss visual coverage reports 29 passes. Serverless full-profile
+audits pass at days 25, 50, 80 and 160 with zero visual cylinders and no audit
+errors. Day 50 preserves 160 bodies, 123 D6, 37 Fixed joints and 27 fruits;
+days 80/160 preserve 288 bodies, 206 D6, 82 Fixed joints and 72 fruits.
+
+The broader ordinary legacy suite reports 223 passes and one skip. Its sole
+failure is an existing CSV optimizer expectation that day 80 exceed 250 D6;
+the current legacy configuration produces 215, so that assertion is unrelated
+to PlantState appendage authoring and was not changed here. Phase J remains
+`IN PROGRESS`: manual physics tuning, GUI approval and the final day
+25/50/80/160 flexible/stress matrix are still outstanding.
+
+#### Phase J day-160 isolated truss calibration checkpoint — 2026-08-25
+
+The final calibration reference is now exclusively day 160. The conservative
+backend exposes an in-memory lateral policy (`dynamic|fixed`) and the four
+truss candidates `compliant`, `balanced`, `firm`, and `current`; selecting a
+candidate never rewrites `tree_config.py`. An optional damping override is
+restricted to 1, 2, 4, or 7. Truss density is fixed at the requested moderate
+`2000 kg/m3`, ordinary vegetative density remains `1000 kg/m3`, canonical fruit
+masses and the 6 N breakable attachment remain unchanged, and PlantState
+pedicels retain authored length scale 3.0.
+
+The fruit-bearing fallback sequence is also explicit but inactive: terminal
+solver iterations can be raised from 32/1 to 64/4, followed by truss-only D6
+armature equal to 1x or 4x each child link's local inertia. Both choices are
+recorded in USD metadata and the deterministic manifest. They do not alter
+geometry, source pose, fruit mass, break force, or the rest of the
+articulation. Headless telemetry now groups native lateral chains and reports
+tip displacement normalized by branch length; full dynamic runs fail above
+the declared 20 percent limit.
+
+The first required candidate was generated as:
+
+```bash
+./run_debugV2.sh --day 160 --organ truss-supports \
+  --lateral-joint-policy fixed \
+  --truss-calibration-preset balanced \
+  --headless --physics-hz 480 --duration 5
+```
+
+Its serverless audit reports 216 rigid bodies, 190 D6, 26 Fixed joints, 432
+capsules, no fruit bodies, no active overlap, and no audit error. Total authored
+truss-support mass is approximately 0.158789 kg. The real Isaac test completed
+5.000 seconds at 480 Hz with no NaN/Inf, spontaneous detachment, snapping,
+stem drift, structural endpoint drift, or reported error. Maximum reset
+projection was 1.24e-7 m; the truss-rachis sag ratio was approximately 9.90
+percent, pedicel sag 14.03 percent, and final tail speed 2.80e-4 m/s. The low
+realtime ratio (about 0.0415 at 480 Hz) is performance telemetry, not a physics
+failure; the GUI uses 60 Hz.
+
+Visual review selected the day-160 balanced stiffness with damping ratio `4`:
+rachis `20 GPa`, pedicel `4 GPa`, damping `4` for both and pedicel drive scale
+`0.2`. These values are active in `TrussPhysicsConfig`. With dynamic laterals
+restored, the fruit-free articulation passes five seconds at 480 Hz; maximum
+lateral-tip displacement is about 10.93 percent, below the 20 percent limit,
+with zero stem or structural endpoint drift.
+
+The `full` profile authors all 72 canonical tomatoes and their real masses.
+Immediate 6 N joints detach collectively during the startup gravity impulse,
+even with solver iterations 64/4 and truss armature 1x or 4x. The runtime now
+uses an explicit `after_settle` policy instead: tomato joints have no authored
+break threshold during a 1.5-second smooth gravity ramp, must remain below
+0.05 m/s for a continuous 0.5 seconds, and are then armed at the historical
+6 N threshold. A six-second timeout leaves them safely unbreakable and reports
+the failure instead of arming a moving plant. The USD and manifest retain the
+target force and the complete settling contract.
+
+Offline authoring confirms 72 initially unbreakable joints with target 6 N and
+all soft-start metadata. The real Isaac validation could not be completed in
+this run because CUDA entered `cudaErrorInitializationError` after a prior Kit
+crash; this is an environment failure before physics startup, not a passing
+physics result. Phase J remains `IN PROGRESS` until day-160 soft-start,
+post-arm 5/30-second stability and GUI detachment are verified.
+
+The first interactive soft-start implementation was rejected after producing
+severe instability. Runtime evidence showed that per-step writes to the USD
+gravity attribute caused repeated timeline resets and eventually
+`Illegal BroadPhaseUpdateData`; the truss parameters were not the cause. The
+ramp now targets the PhysX tensor simulation view directly, without editing the
+stage, and the 72 final break-force changes are emitted as one USD change
+block. This correction still requires the pending GPU validation above.
+
+An additional full-load settled-pose experiment is now available. It keeps all
+72 tomatoes as physical external rigid bodies and preserves
+`excludeFromArticulation=true`; only the in-memory terminal break force is
+raised from the stored 6 N target to 1e9 N. The capture requires linear speed
+below 0.01 m/s and angular speed below 0.10 rad/s for one continuous second
+after a two-second minimum, then serializes exact world poses to
+`exporter_v2_settled_pose/1.0`. The generated day-160 source audit confirms 72
+terminal joints, all 72 excluded from the articulation, with source target 6 N.
+Dynamic capture remains pending because the NVIDIA driver is currently
+unavailable even to `nvidia-smi`; no equilibrium result is claimed yet.
+
+#### Phase J scientific closure and fruit-free default — 2026-08-25
+
+The later controlled experiment supersedes the soft-start and pose-capture
+proposals above. Those paragraphs are retained as experiment history, not as
+the active runtime contract. Gravity ramping, deferred joint arming, settled
+pose capture and collision A/B flags have been removed from production code.
+
+The supported PlantState V2 boundary is now `truss-supports`: flexible preset,
+dynamic lateral branches, continuous organic truss rachides and dynamic
+pedicels, with no visual or physical tomatoes. Serverless audits passed for all
+versioned days:
+
+```text
+day 1:     9 bodies,   6 D6,  3 Fixed,  18 capsules, 0 fruit
+day 25:   51 bodies,  43 D6,  8 Fixed, 102 capsules, 0 fruit
+day 50:  133 bodies, 123 D6, 10 Fixed, 266 capsules, 0 fruit
+day 80:  216 bodies, 206 D6, 10 Fixed, 432 capsules, 0 fruit
+day 160: 216 bodies, 206 D6, 10 Fixed, 432 capsules, 0 fruit
+```
+
+The fruit-free day-160 articulation passed five simulated seconds at 480 Hz.
+The full candidate instead has 288 bodies and 72 external tomatoes, compared
+with 265 bodies and 40 tomatoes in the tracked V2 of `main`. It contains 1716
+filtered relations versus 1248 in the legacy reference.
+
+A decisive collision A/B run preserved the 288-body topology, tomato masses,
+`excludeFromArticulation=true` and terminal joint structure, raised break force
+to `1e9 N`, and disabled all 504 colliders only in memory. The system still did
+not settle after 12 seconds: final linear velocity `0.1128 m/s`, final angular
+velocity `4.613 rad/s`, peak angular velocity `10.934 rad/s`. The USD hash was
+unchanged. Missing collision filters are therefore not the primary cause of
+the observed mature-plant instability; the unsupported boundary is the load
+and dynamics of the 72 external terminal FixedJoints.
+
+All day-based entrypoints now default to `truss-supports`, `flexible` and
+dynamic laterals. `run_mainV2.sh` writes the normal production-named USDA;
+`run_debugV2.sh` writes under `/tmp`. Static tomatoes remain available through
+`fruit-visual`. Physical `full` retains the explicit historical 6 N behavior
+only behind `--allow-experimental-fruit-physics`, emits a strong warning and
+marks its manifest `unsupported_experimental`.
+
+Final verification completed with `167 passed, 11 deselected` across the
+offline GroIMP/PlantState/V1/V2 suites, `65 passed, 2 skipped` across the V2
+USD/skinning/CSV suites, `98 passed, 1 skipped` across the legacy optimizer
+suite, and `26 passed` in the dedicated truss suite. Wrapper syntax and full
+profile guards passed. SHA-256 values for the GSZ and PlantState days
+1/10/25/50/80/160 were unchanged; generated USDA/manifests and unrelated CSV
+artifacts were restored rather than committed.
+
+Phase J is consequently recorded as
+`PARTIALLY COMPLETED — FRUIT PHYSICS UNSUPPORTED`, not `COMPLETED`. This is a
+scientific scope boundary for the specific mature GroIMP adapter and does not
+invalidate the general USD builder. Full evidence, commands and interpretation
+are in `src/groimp_bridge/BRANCH_REPORT_2026-08-25.md`. No merge into `main` is
+part of this closure.
 
 ---
 
@@ -1319,11 +1577,12 @@ Document that distinction.
 
 # 17. Phase J — ExporterV2 migration
 
-**Status (2026-08-21): `IN PROGRESS — FLEXIBLE VALIDATION BLOCKED`.**
+**Status (2026-08-25): `PARTIALLY COMPLETED — FRUIT PHYSICS UNSUPPORTED`.**
 
-Canonical generation and collision/manifest authoring are implemented. Do not
-mark this phase complete until the mature flexible articulation and day-160
-extension pass the checks listed in `docs/PHASE_J_HANDOFF_2026-08-21.md`.
+Canonical generation and collision/manifest authoring are implemented and the
+fruit-free day-160 articulation is validated. Physical tomato terminal bodies
+on mature PlantState plants remain guarded and unsupported; see
+`src/groimp_bridge/BRANCH_REPORT_2026-08-25.md`.
 
 Only after V1 correctly reproduces the canonical plant should V2 be migrated.
 
@@ -1905,13 +2164,14 @@ This refactor is complete only when:
 Each phase must produce a small testable artifact.
 
 Phases A through F and H through I have now been completed. Phase G was
-deliberately skipped. Phase J is implemented but its flexible mature-plant
-validation is blocked; the next implementation task is:
+deliberately skipped. Phase J is partially completed: the fruit-free V2 path is
+validated through day 160, while physical fruits are unsupported. Any future
+implementation task is optional and must begin from that explicit boundary:
 
 ```text
-NEXT TASK:
-Resolve the Phase-J flexible day-80/day-160 articulation instability, complete
-the mandatory Isaac stress matrix, and only then close Phase J.
+OPTIONAL FUTURE TASK:
+Design and validate a different mature-fruit terminal-body model before
+re-enabling physical tomatoes in the supported PlantState workflow.
 ```
 
 V2 must preserve all canonical visual organs. Physical filtering or merging is

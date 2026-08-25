@@ -5,6 +5,10 @@ PhysX-specific adaptation. The shared turtle resolver reconstructs full world
 frames from that snapshot. The inspection JSON remains diagnostic data and is
 distinct from the completed canonical `plant_state/1.0` format.
 
+The complete branch status, including the supported fruit-free V2 boundary and
+the negative day-160 fruit-physics result, is recorded in
+[BRANCH_REPORT_2026-08-25.md](BRANCH_REPORT_2026-08-25.md).
+
 ## Run
 
 Start GroIMP with GroLink enabled on port `58081`, then run:
@@ -204,5 +208,8 @@ placement. See `src/plant_state/README.md` for the canonical wire contract.
 
 Leaf-blade surface meshes remain in the OBJ artifacts, but only their validated
 supporting axes are canonicalized. Renderer-cache offsets remain explicit and
-are not applied to `PlantState`. The legacy CSV adapter, exporter migrations,
-and Isaac Sim integration remain future phases.
+are not applied to `PlantState`. The temporary legacy CSV adapter was skipped
+by design. ExporterV1 is migrated and validated; ExporterV2 is supported
+through dynamic truss rachides and pedicels. Physical tomatoes on the mature
+GroIMP plant remain an explicitly guarded, unsupported experiment. The live
+in-memory GroIMP-to-Isaac connection remains future work.

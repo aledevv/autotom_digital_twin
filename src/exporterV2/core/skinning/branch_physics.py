@@ -82,6 +82,18 @@ def author_rigid_links(stage, branch: BranchData) -> None:
             "autotom:entityKind", Sdf.ValueTypeNames.String, custom=True
         ).Set("physical_link")
         prim.CreateAttribute(
+            "autotom:branchId", Sdf.ValueTypeNames.String, custom=True
+        ).Set(str(branch.branch_id))
+        prim.CreateAttribute(
+            "autotom:branchKind", Sdf.ValueTypeNames.String, custom=True
+        ).Set(str(branch.definition.get("kind", "branch")))
+        prim.CreateAttribute(
+            "autotom:branchLinkIndex", Sdf.ValueTypeNames.Int, custom=True
+        ).Set(index + 1)
+        prim.CreateAttribute(
+            "autotom:branchLinkCount", Sdf.ValueTypeNames.Int, custom=True
+        ).Set(len(branch.link_paths))
+        prim.CreateAttribute(
             "autotom:role", Sdf.ValueTypeNames.String, custom=True
         ).Set(
             str(metadata.get("axis_role", "internode"))
@@ -94,6 +106,17 @@ def author_rigid_links(stage, branch: BranchData) -> None:
         prim.CreateAttribute(
             "autotom:sourceLength", Sdf.ValueTypeNames.Double, custom=True
         ).Set(float(length))
+        if metadata and "source_length" in metadata:
+            prim.CreateAttribute(
+                "autotom:canonicalSourceLength",
+                Sdf.ValueTypeNames.Double,
+                custom=True,
+            ).Set(scaled(float(metadata["source_length"])))
+            prim.CreateAttribute(
+                "autotom:authoredLengthScale",
+                Sdf.ValueTypeNames.Double,
+                custom=True,
+            ).Set(float(metadata.get("authored_length_scale", 1.0)))
         prim.CreateAttribute(
             "autotom:visualRadius", Sdf.ValueTypeNames.Double, custom=True
         ).Set(float(visual_radius))

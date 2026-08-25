@@ -64,6 +64,42 @@ def test_visual_quality_cli_defaults_to_realistic():
         parser.parse_args(["--day", "50", "--visual-quality", "invalid"])
 
 
+def test_appendage_pose_cli_defaults_to_v2_aesthetic():
+    parser = build_argument_parser()
+    assert parser.parse_args(["--day", "50"]).appendage_pose_mode == "v2-aesthetic"
+    assert parser.parse_args(
+        ["--day", "50", "--appendage-pose-mode", "canonical"]
+    ).appendage_pose_mode == "canonical"
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--day", "50", "--appendage-pose-mode", "invalid"])
+
+
+def test_truss_calibration_cli_defaults_and_overrides():
+    parser = build_argument_parser()
+    default = parser.parse_args(["--day", "160"])
+    assert default.lateral_joint_policy == "dynamic"
+    assert default.truss_calibration_preset == "current"
+    assert default.truss_damping_override is None
+    assert default.debug_profile == "truss-supports"
+    assert default.physics_preset == "flexible"
+    assert default.allow_experimental_fruit_physics is False
+    calibrated = parser.parse_args(
+        [
+            "--day",
+            "160",
+            "--lateral-joint-policy",
+            "fixed",
+            "--truss-calibration-preset",
+            "balanced",
+            "--truss-damping-override",
+            "4",
+        ]
+    )
+    assert calibrated.lateral_joint_policy == "fixed"
+    assert calibrated.truss_calibration_preset == "balanced"
+    assert calibrated.truss_damping_override == 4.0
+
+
 def _state(day: int):
     return load_plant_state(
         PROJECT_ROOT / "data" / "plant_states" / f"plant_state_day_{day}.json"

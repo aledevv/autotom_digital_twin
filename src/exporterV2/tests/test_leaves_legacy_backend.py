@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 
 import pytest
-from pxr import Usd, UsdGeom, UsdPhysics
+from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
 from exporterV2.cli import main as exporter_main
 from exporterV2.plant_state_branches import (
@@ -48,6 +48,38 @@ def test_day50_rigid_leaf_visual_adapter_is_complete(day50_state):
         for record in result.rigid_leaf_visuals
     )
     assert all(record["host_fraction"] in {0.0, 1.0} for record in result.rigid_leaf_visuals)
+    assert result.appendage_pose_mode == "v2-aesthetic"
+    assert all("source_rest_frame" in record for record in result.rigid_leaf_visuals)
+
+
+def test_v2_leaflet_pose_uses_historical_inclination_and_left_right_azimuth(
+    day50_state,
+):
+    result = build_leaf_branches(day50_state, appendage_pose_mode="v2-aesthetic")
+    axes = {axis.id: axis for axis in day50_state.axes}
+    organs = {organ.node_id: organ for organ in day50_state.organs}
+    checked = 0
+    for record in result.rigid_leaf_visuals:
+        if record["role"] not in {"petiolule_left", "petiolule_right"}:
+            continue
+        segment = int(record["axis_id"].rsplit(":", 1)[1])
+        inclinations = organs[record["node_id"]].properties.petiolule_inclinations or ()
+        expected = float(inclinations[segment]) if segment < len(inclinations) else 90.0
+        host_head = [axes[record["host_axis_id"]].world_frame[row][2] for row in range(3)]
+        authored_head = [record["rest_frame"][row][2] for row in range(3)]
+        assert sum(a * b for a, b in zip(host_head, authored_head)) == pytest.approx(
+            math.cos(math.radians(expected)), abs=1e-8
+        )
+        checked += 1
+    assert checked == 106
+
+
+def test_canonical_leaflet_pose_preserves_groimp_frames(day50_state):
+    result = build_leaf_branches(day50_state, appendage_pose_mode="canonical")
+    assert all(
+        record["source_rest_frame"] == record["rest_frame"]
+        for record in result.rigid_leaf_visuals
+    )
 
 
 def test_degenerate_leaf_visuals_remain_metadata_only(day50_state):
@@ -170,6 +202,44 @@ def test_visual_only_petiolules_use_historical_v2_root_flare_and_tip_taper(
     ) * 2.0
     assert root_radius > canonical_radius
     assert tip_radius == pytest.approx(canonical_radius * 0.65, rel=1e-5)
+
+
+def test_every_leaf_blade_is_anchored_to_its_canonical_petiolule_tip(
+    tmp_path, day50_state
+):
+    _plan, usd_path, manifest_path = export_incremental_checkpoint(
+        day50_state,
+        tmp_path / "leaf_anchors.usda",
+        debug_profile="leaves",
+        physics_preset="flexible",
+    )
+    stage = Usd.Stage.Open(str(usd_path))
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    errors = []
+    for record in manifest["topology"]["rigid_leaf_visuals"]:
+        root = stage.GetPrimAtPath(record["root_path"])
+        blade = UsdGeom.Mesh(root.GetChild("LeafBlade"))
+        # Point 1 is the blade midrib at station zero, hence its attachment.
+        blade_root_local = Gf.Vec3d(*blade.GetPointsAttr().Get()[1])
+        blade_root_world = UsdGeom.Xformable(root).ComputeLocalToWorldTransform(
+            0
+        ).Transform(blade_root_local)
+
+        frame = record["rest_frame"]
+        petiolule_start = Gf.Vec3d(
+            *(float(frame[row][3]) * 2.0 for row in range(3))
+        )
+        petiolule_head = Gf.Vec3d(
+            *(float(frame[row][2]) for row in range(3))
+        ).GetNormalized()
+        expected = petiolule_start + petiolule_head * (
+            float(record["length"]) * 2.0
+        )
+        errors.append((blade_root_world - expected).GetLength())
+
+    assert len(errors) == 131
+    assert max(errors) < 1e-8
 
 
 def test_optimized_leaves_keep_visuals_but_reduce_d6(tmp_path, day50_state):

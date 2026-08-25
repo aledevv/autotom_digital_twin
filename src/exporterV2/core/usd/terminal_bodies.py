@@ -2,7 +2,7 @@
 
 import math
 
-from pxr import Gf, UsdGeom, UsdPhysics
+from pxr import Gf, Sdf, UsdGeom, UsdPhysics
 
 from ..physics import apply_physx_rigid_body_solver_settings
 from ..tree_config import OutputConfig, PlantColors, TrussPhysicsConfig, scaled
@@ -43,7 +43,12 @@ def _resolve_terminal_body_attachment(body: dict, stem_path: str):
             else stem_path
         )
 
-    return detachment_enabled, break_force, exclude_from_articulation, body_parent_path
+    return (
+        detachment_enabled,
+        break_force,
+        exclude_from_articulation,
+        body_parent_path,
+    )
 
 
 def validate_terminal_body_clearance(
@@ -57,6 +62,16 @@ def validate_terminal_body_clearance(
     branch_defs=None,
 ):
     """Report initial overlaps and optionally filter only those collision pairs."""
+    terminal_body_records = [
+        record
+        for record in terminal_body_records
+        if record.get("physical", True)
+        # Explicit PlantState terminal bodies are audited later from their
+        # actual authored sphere/capsule colliders.  The legacy approximation
+        # assumes one straight axis per branch and is invalid for canonical
+        # per-link frames.
+        and record.get("canonical_primitive_id") is None
+    ]
     if not terminal_body_records:
         return
 
@@ -192,10 +207,89 @@ def build_terminal_bodies(stage, stem_path, terminal_bodies, branch_registry, br
         parent_paths, parent_bases, parent_axis, parent_orientation = branch_registry[
             parent_branch_id
         ]
-        parent_height = scaled(branch_defs[parent_branch_id]["height"])
+        parent_definition = branch_defs[parent_branch_id]
+        parent_specs = parent_definition.get("link_specs") or ()
+        parent_height = scaled(
+            parent_specs[-1]["length"]
+            if parent_specs
+            else parent_definition["height"]
+        )
         parent_link_path = parent_paths[-1]
         parent_base = parent_bases[-1]
-        body_pos = parent_base + parent_axis * (parent_height + child_offset)
+        explicit_center = body.get("rest_center")
+        body_pos = (
+            Gf.Vec3d(*(scaled(float(value)) for value in explicit_center))
+            if explicit_center is not None
+            else parent_base + parent_axis * (parent_height + child_offset)
+        )
+        explicit_orientation = None
+        if body.get("rest_frame") is not None:
+            from ..skinning.adapter import _quat_from_column_rotation
+
+            explicit_orientation = _quat_from_column_rotation(body["rest_frame"])
+        physical_orientation = explicit_orientation or parent_orientation
+        is_pedicel = (
+            "pedicel" in parent_branch_id.lower()
+            or branch_defs[parent_branch_id].get("kind") == "pedicel"
+        )
+        if shape == "sphere" and is_pedicel and explicit_center is None:
+            parent_rotation = Gf.Rotation(parent_orientation)
+            gravity_local = parent_rotation.GetInverse().TransformDir(
+                Gf.Vec3d(0.0, 0.0, -1.0)
+            )
+            centers, tangents = sample_gravity_elbow(
+                parent_height, parent_branch_id, gravity_local
+            )
+            visual_overlap = 0.002
+            tomato_center_local = centers[-1] + Gf.Vec3d(
+                *tangents[-1]
+            ).GetNormalized() * (radius - visual_overlap)
+            body_pos = parent_base + parent_rotation.TransformDir(
+                tomato_center_local
+            )
+
+        if shape == "sphere" and body.get("physical", True) is False:
+            visual_root = UsdGeom.Xform.Define(
+                stage, f"{stem_path}/TerminalVisuals/{body['id']}"
+            )
+            visual_root.AddTranslateOp().Set(body_pos)
+            if explicit_orientation is not None:
+                visual_root.AddOrientOp().Set(explicit_orientation)
+            sphere = UsdGeom.Sphere.Define(stage, f"{visual_root.GetPath()}/Sphere")
+            sphere.CreateRadiusAttr().Set(radius)
+            sphere.CreateDisplayColorAttr().Set(
+                [PlantColors.tomato_color(body.get("maturation", 0.0))]
+            )
+            material = get_or_create_tomato_fruit_material(
+                stage, body.get("maturation", 0.0)
+            )
+            from pxr import UsdShade
+
+            UsdShade.MaterialBindingAPI.Apply(sphere.GetPrim()).Bind(material)
+            prim = visual_root.GetPrim()
+            prim.CreateAttribute(
+                "autotom:entityKind", Sdf.ValueTypeNames.String, custom=True
+            ).Set("terminal_visual")
+            for source, attribute in (
+                ("canonical_organ_id", "autotom:canonicalOrganId"),
+                ("canonical_primitive_id", "autotom:canonicalPrimitiveId"),
+            ):
+                if body.get(source) is not None:
+                    prim.CreateAttribute(
+                        attribute, Sdf.ValueTypeNames.String, custom=True
+                    ).Set(str(body[source]))
+            terminal_body_records.append(
+                {
+                    "id": body["id"],
+                    "path": str(visual_root.GetPath()),
+                    "parent_branch_id": parent_branch_id,
+                    "pos": tuple(float(value) for value in body_pos),
+                    "radius": radius,
+                    "physical": False,
+                    "exclude_from_articulation": False,
+                }
+            )
+            continue
         (
             detachment_enabled,
             break_force,
@@ -208,12 +302,9 @@ def build_terminal_bodies(stage, stem_path, terminal_bodies, branch_registry, br
         if shape == "sphere":
             maturation = body.get("maturation", 0.0)
             tomato_material = get_or_create_tomato_fruit_material(stage, maturation)
-            is_pedicel = (
-                "pedicel" in parent_branch_id.lower()
-                or branch_defs[parent_branch_id].get("kind") == "pedicel"
-            )
             local_pos0 = None
             local_pos1 = None
+            local_rot1 = None
 
             if is_pedicel:
                 cylinder = UsdGeom.Cylinder.Get(stage, f"{parent_link_path}/Cylinder")
@@ -232,30 +323,49 @@ def build_terminal_bodies(stage, stem_path, terminal_bodies, branch_registry, br
                 centers, tangents = sample_gravity_elbow(
                     parent_height, parent_branch_id, gravity_local
                 )
-                create_gravity_elbow_mesh(
-                    stage,
-                    parent_link_path,
-                    centers,
-                    tangents,
-                    scaled(branch_defs[parent_branch_id]["radius"]),
-                    parent_branch_id,
-                )
+                if not stage.GetPrimAtPath(
+                    f"{parent_link_path}/GravityElbowPedicelVisual"
+                ):
+                    create_gravity_elbow_mesh(
+                        stage,
+                        parent_link_path,
+                        centers,
+                        tangents,
+                        scaled(branch_defs[parent_branch_id]["radius"]),
+                        parent_branch_id,
+                    )
 
                 tip_local = centers[-1]
                 terminal_down_local = Gf.Vec3d(*tangents[-1]).GetNormalized()
                 visual_overlap = 0.002
-                tomato_center_local = tip_local + terminal_down_local * (
-                    radius - visual_overlap
-                )
                 parent_fwd_rotation = Gf.Rotation(parent_orientation)
-                body_pos = parent_base + parent_fwd_rotation.TransformDir(
-                    tomato_center_local
-                )
                 local_pos0 = Gf.Vec3f(*tip_local)
-                local_pos1 = Gf.Vec3f(
-                    *(-terminal_down_local * (radius - visual_overlap))
-                )
+                if explicit_center is None:
+                    tomato_center_local = tip_local + terminal_down_local * (
+                        radius - visual_overlap
+                    )
+                    body_pos = parent_base + parent_fwd_rotation.TransformDir(
+                        tomato_center_local
+                    )
+                    local_pos1 = Gf.Vec3f(
+                        *(-terminal_down_local * (radius - visual_overlap))
+                    )
+                else:
+                    tip_world = parent_base + parent_fwd_rotation.TransformDir(tip_local)
+                    child_rotation = Gf.Rotation(Gf.Quatd(physical_orientation))
+                    local_pos1 = Gf.Vec3f(
+                        *child_rotation.GetInverse().TransformDir(tip_world - body_pos)
+                    )
+                    # FixedJoint frames must coincide in world space at the
+                    # canonical rest pose.  A GroIMP sphere frame is generally
+                    # not aligned with its pedicel, so identity/identity would
+                    # inject a large angular correction and can break the 6 N
+                    # historical attachment on mature plants.
+                    local_rot1 = Gf.Quatf(
+                        physical_orientation.GetInverse() * parent_orientation
+                    )
 
+            authored_orientation = physical_orientation
             body_path = create_sphere_rigid_body(
                 stage,
                 body_parent_path,
@@ -263,12 +373,27 @@ def build_terminal_bodies(stage, stem_path, terminal_bodies, branch_registry, br
                 radius,
                 body_pos,
                 mass,
-                orientation=parent_orientation,
+                orientation=authored_orientation,
                 color=PlantColors.tomato_color(maturation),
                 material=tomato_material,
             )
+            body_prim = stage.GetPrimAtPath(body_path)
+            body_prim.CreateAttribute(
+                "autotom:entityKind", Sdf.ValueTypeNames.String, custom=True
+            ).Set("terminal_body")
+            body_prim.CreateAttribute(
+                "autotom:role", Sdf.ValueTypeNames.String, custom=True
+            ).Set("fruit")
+            for source, attribute in (
+                ("canonical_organ_id", "autotom:canonicalOrganId"),
+                ("canonical_primitive_id", "autotom:canonicalPrimitiveId"),
+            ):
+                if body.get(source) is not None:
+                    body_prim.CreateAttribute(
+                        attribute, Sdf.ValueTypeNames.String, custom=True
+                    ).Set(str(body[source]))
 
-            if is_pedicel:
+            if is_pedicel and explicit_center is None:
                 tomato_prim = stage.GetPrimAtPath(body_path)
                 tomato_filtered = UsdPhysics.FilteredPairsAPI(tomato_prim)
                 if not tomato_filtered:
@@ -289,8 +414,8 @@ def build_terminal_bodies(stage, stem_path, terminal_bodies, branch_registry, br
                 exclude_from_articulation=exclude_from_articulation,
                 local_pos0=local_pos0,
                 local_pos1=local_pos1,
+                local_rot1=local_rot1,
             )
-
             terminal_body_records.append(
                 {
                     "id": body["id"],
@@ -299,6 +424,19 @@ def build_terminal_bodies(stage, stem_path, terminal_bodies, branch_registry, br
                     "pos": (body_pos[0], body_pos[1], body_pos[2]),
                     "radius": radius,
                     "exclude_from_articulation": exclude_from_articulation,
+                    "physical": True,
+                    "canonical_organ_id": body.get("canonical_organ_id"),
+                    "canonical_primitive_id": body.get("canonical_primitive_id"),
+                    "source_center": body.get("source_center"),
+                    "source_frame": body.get("source_frame", body.get("rest_frame")),
+                    "authored_frame": body.get("rest_frame"),
+                    "authored_orientation": [
+                        float(authored_orientation.GetReal()),
+                        *(
+                            float(value)
+                            for value in authored_orientation.GetImaginary()
+                        ),
+                    ],
                 }
             )
 
@@ -348,6 +486,8 @@ def filter_external_terminal_body_collisions(
 ):
     """Filter detached fruit against its pedicel and rachis chains."""
     for record in terminal_body_records:
+        if not record.get("physical", True):
+            continue
         if not record.get("exclude_from_articulation"):
             continue
 

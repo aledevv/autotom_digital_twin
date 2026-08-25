@@ -165,6 +165,12 @@ def _diagnostic_metadata(stage) -> dict:
 
     return {
         "debug_profile": str(value("autotom:debugProfile", "full")),
+        "lateral_joint_policy": str(
+            value("autotom:lateralJointPolicy", "dynamic")
+        ),
+        "truss_calibration_preset": str(
+            value("autotom:trussCalibrationPreset", "current")
+        ),
         "colliders_enabled": bool(value("autotom:collidersEnabled", True)),
         "drives_enabled": bool(value("autotom:drivesEnabled", True)),
         "articulation_enabled": bool(value("autotom:articulationEnabled", True)),
@@ -188,6 +194,10 @@ def _body_metadata(stage, body_paths: list[str]) -> dict[str, dict]:
             "role": str(value("autotom:role", "terminal_body")),
             "joint_type": str(value("autotom:jointType", "terminal")),
             "length": float(value("autotom:sourceLength", 0.0)),
+            "branch_id": str(value("autotom:branchId", "")),
+            "branch_kind": str(value("autotom:branchKind", "")),
+            "branch_link_index": int(value("autotom:branchLinkIndex", 0)),
+            "branch_link_count": int(value("autotom:branchLinkCount", 0)),
         }
     return result
 
@@ -374,6 +384,7 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
         reset_endpoint_projection, key=reset_endpoint_projection.get, default=None
     )
     latest = dict(initial)
+    latest_endpoints = dict(initial_endpoints)
     initial_extent = max(float(np.linalg.norm(value)) for value in initial.values())
     explosion_limit = max(5.0, initial_extent * 10.0 + 1.0)
     dt = 1.0 / args.runtime_physics_hz
@@ -433,7 +444,9 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
     }
     max_structural_endpoint_drift = 0.0
     first_nonfinite_body = None
+    first_failure_body = None
     first_failure_time = None
+    spontaneous_terminal_detachment_limit = 0.25
     steps_completed = 0
     simulation_started = float(world.current_time)
     wall_started = time.perf_counter()
@@ -450,6 +463,7 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
                 errors.append(f"non-finite body pose: {path}")
                 if first_nonfinite_body is None:
                     first_nonfinite_body = path
+                    first_failure_body = path
                     first_failure_time = max(
                         0.0, float(world.current_time) - simulation_started
                     )
@@ -461,6 +475,19 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
             if displacement > max_displacement:
                 max_displacement = displacement
                 max_displacement_body = path
+            if (
+                body_metadata[path]["role"] == "fruit"
+                and displacement > spontaneous_terminal_detachment_limit
+            ):
+                errors.append(
+                    "terminal body detached without an applied interaction: "
+                    f"{path} moved {displacement:.6g} m"
+                )
+                if first_failure_body is None:
+                    first_failure_body = path
+                    first_failure_time = max(
+                        0.0, float(world.current_time) - simulation_started
+                    )
             endpoint_displacement = float(
                 np.linalg.norm(current_endpoints[path] - initial_endpoints[path])
             )
@@ -507,6 +534,7 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
             max_speed = 0.0
         samples.append((elapsed, max_speed))
         latest = current
+        latest_endpoints = current_endpoints
         if errors or (step + 1) % log_interval == 0 or step == steps - 1:
             print(
                 f"[SIM] {elapsed:.1f}/{args.duration:.1f}s "
@@ -532,6 +560,36 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
     if args.duration >= 30.0 and tail_max_speed > 0.05:
         errors.append(
             f"persistent oscillation: tail speed {tail_max_speed:.6g} m/s"
+        )
+    lateral_lengths = {}
+    lateral_tip_paths = {}
+    for path, item in body_metadata.items():
+        if item["branch_kind"] != "lateral_branch":
+            continue
+        branch_id = item["branch_id"]
+        lateral_lengths[branch_id] = lateral_lengths.get(branch_id, 0.0) + item["length"]
+        if item["branch_link_index"] == item["branch_link_count"]:
+            lateral_tip_paths[branch_id] = path
+    lateral_tip_ratios = {}
+    for branch_id, path in lateral_tip_paths.items():
+        length = lateral_lengths.get(branch_id, 0.0)
+        if length > 0.0 and path in latest_endpoints:
+            lateral_tip_ratios[branch_id] = float(
+                np.linalg.norm(latest_endpoints[path] - initial_endpoints[path]) / length
+            )
+    max_lateral_tip_ratio = max(lateral_tip_ratios.values(), default=0.0)
+    max_lateral_tip_branch = max(
+        lateral_tip_ratios, key=lateral_tip_ratios.get, default=None
+    )
+    lateral_tip_limit = 0.20
+    if (
+        metadata.get("debug_profile") == "full"
+        and metadata.get("lateral_joint_policy") == "dynamic"
+        and max_lateral_tip_ratio > lateral_tip_limit
+    ):
+        errors.append(
+            "lateral tip displacement exceeds 20%: "
+            f"{max_lateral_tip_branch}={max_lateral_tip_ratio:.6g}"
         )
     wall_seconds = time.perf_counter() - wall_started
     simulated_seconds = samples[-1][0] if samples else 0.0
@@ -571,17 +629,24 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
         "max_reset_endpoint_projection_m": max_reset_endpoint_projection,
         "max_reset_endpoint_projection_body": max_reset_endpoint_projection_body,
         "tail_max_speed_mps": tail_max_speed,
+        "lateral_tip_displacement_ratios": lateral_tip_ratios,
+        "max_lateral_tip_displacement_ratio": max_lateral_tip_ratio,
+        "max_lateral_tip_displacement_branch": max_lateral_tip_branch,
+        "lateral_tip_displacement_limit": lateral_tip_limit,
         "explosion_limit_m": explosion_limit,
         "root_drift_limit_m": root_drift_limit,
         "locked_initial_projection_limit_m": locked_projection_limit,
         "first_nonfinite_body": first_nonfinite_body,
+        "first_failure_body": first_failure_body,
         "first_failure_time_seconds": first_failure_time,
         "first_failure_ancestor_chain": _ancestor_chain(
-            first_nonfinite_body, parents
+            first_failure_body, parents
+        ),
+        "spontaneous_terminal_detachment_limit_m": (
+            spontaneous_terminal_detachment_limit
         ),
         "errors": errors,
     }
-
 
 def _run_gui_monitor(
     stage,

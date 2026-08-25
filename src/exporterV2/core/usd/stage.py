@@ -15,11 +15,13 @@ if __name__ == "__main__" or "exporterV2" not in sys.modules:
     if SRC_DIR not in sys.path:
         sys.path.insert(0, SRC_DIR)
     from exporterV2.core.tree_config import (
-        BRANCHES, GAP, OutputConfig, TrussPhysicsConfig, scaled, validate_branches
+        BRANCHES, GAP, OutputConfig, PhysicsRuntimeConfig, TrussPhysicsConfig,
+        scaled, validate_branches
     )
 else:
     from ..tree_config import (
-        BRANCHES, GAP, OutputConfig, TrussPhysicsConfig, scaled, validate_branches
+        BRANCHES, GAP, OutputConfig, PhysicsRuntimeConfig, TrussPhysicsConfig,
+        scaled, validate_branches
     )
 
 from .branch_chains import build_chain, is_truss_branch as _is_truss_branch

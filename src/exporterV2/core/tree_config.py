@@ -55,6 +55,8 @@ class PhysicsRuntimeConfig:
     SOLVER_VELOCITY_ITERATIONS = 4
     TERMINAL_BODY_SOLVER_POSITION_ITERATIONS = 32
     TERMINAL_BODY_SOLVER_VELOCITY_ITERATIONS = 1
+    STABILIZED_TERMINAL_BODY_SOLVER_POSITION_ITERATIONS = 64
+    STABILIZED_TERMINAL_BODY_SOLVER_VELOCITY_ITERATIONS = 4
     ENABLE_GPU_DYNAMICS = True
 
 
@@ -128,11 +130,15 @@ class TrussGeometryConfig:
     PEDICEL_LENGTH = 0.015
     PEDICEL_RADIUS = 0.0005
     LATERAL_PEDICEL_CHORD_ANGLE_DEG = 56.0
+    # PlantState keeps the GroIMP length in metadata but authors a slightly
+    # longer V2 pedicel so large tomato visuals do not crowd the truss rachis.
+    # Mesh, collider, joint endpoint and tomato all follow this scale.
+    PLANT_STATE_PEDICEL_LENGTH_SCALE = 3.0
 
 
 class BioConfig:
     """Biological parameters for plant tissue."""
-    YOUNG_MODULUS = 70.0e6   # [Pa] 20-50 MPa - mature tomato stem
+    YOUNG_MODULUS = 30.0e6   # [Pa] requested whole-plant vegetative baseline
     DAMPING_RATIO = 0.8     # Critically damped (zeta=1.0) to prevent 30s oscillations
     PLANT_DENSITY = 1000.0   # [kg/m^3] plant tissue density
 
@@ -146,19 +152,28 @@ class TrussPhysicsConfig:
     - Higher damping to reduce oscillations
     - Custom minimum K to handle thin pedicels
     """
-    YOUNG_MODULUS = 30.0e8  # [Pa] Stable detachable-truss test setting
-    DAMPING_RATIO = 7.0      # High damping to reduce oscillations
-    # Inflated density to achieve ~5:1 mass ratio with attached tomato.
-    # PhysX TGS solver becomes unstable when joint mass ratio exceeds ~10:1.
-    # A 2mm pedicel at normal plant density weighs ~0.3g vs a 50g tomato (ratio ~160:1).
-    # Raising density to 20000 kg/m^3 brings the pedicel to ~10g (ratio ~5:1), which
-    # is optimal for solver convergence without any visual change to the geometry.
-    PLANT_DENSITY = 20000.0  # [kg/m^3]
+    # Manual tuning surface for PlantState trusses.  The exporter deliberately
+    # does not auto-select these values: adjust rachis and pedicel stiffness or
+    # damping independently here, then regenerate the USDA for comparison.
+    # Day-160 fruit-free calibration approved in GUI (2026-08-25).
+    RACHIS_YOUNG_MODULUS = 20.0e9  # [Pa]
+    PEDICEL_YOUNG_MODULUS = 4.0e9  # [Pa]
+    RACHIS_DAMPING_RATIO = 4.0
+    PEDICEL_DAMPING_RATIO = 4.0
+    # Compatibility aliases for legacy BRANCHES without component-specific data.
+    YOUNG_MODULUS = RACHIS_YOUNG_MODULUS
+    DAMPING_RATIO = RACHIS_DAMPING_RATIO
+    # Moderate solver adaptation selected against the final day-160 plant.
+    # This intentionally accepts a harder terminal-body mass ratio instead of
+    # hiding it behind the former extremely dense vegetative supports.
+    # Do not raise this to repair detachable-fruit instability: at day 160 the
+    # added self-weight is transferred to the lateral support branches.
+    PLANT_DENSITY = 2000.0  # [kg/m^3]
     MIN_K = 0.001             # [N·m/rad] Minimum stiffness for thin pedicels
     PEDICEL_BEND_LIMIT_DEG = 25.0
-    # Real pedicels are much shorter than the visual-lab sample, so they need a
-    # softer attachment drive for tomato weight to produce visible droop.
-    PEDICEL_DRIVE_STIFFNESS_SCALE = 0.1
+    # Third manual tuning control for pedicel angular drives.  Keep this
+    # separate from Young's modulus so their response can be compared directly.
+    PEDICEL_DRIVE_STIFFNESS_SCALE = 0.2
     # Breakable tomato detachment remains enabled for truss tests. Initial
     # compenetrating tomato pairs are filtered separately to avoid solver
     # repulsion spikes breaking the joints at startup.
@@ -512,7 +527,14 @@ def calculate_physics_params(
     return K_deg, D_deg
 
 
-def calculate_truss_physics_params(radius: float, height: float, mass: float):
+def calculate_truss_physics_params(
+    radius: float,
+    height: float,
+    mass: float,
+    *,
+    young_modulus: float | None = None,
+    damping_ratio: float | None = None,
+):
     """
     Compute spring constant K and damper D for truss components (rachis + pedicels).
     
@@ -531,15 +553,19 @@ def calculate_truss_physics_params(radius: float, height: float, mass: float):
             K: Spring constant [N*m/rad]
             D: Damping coefficient [N*m*s/rad]
     """
+    if young_modulus is None:
+        young_modulus = TrussPhysicsConfig.YOUNG_MODULUS
+    if damping_ratio is None:
+        damping_ratio = TrussPhysicsConfig.DAMPING_RATIO
     I = compute_second_moment(radius)
-    K = (TrussPhysicsConfig.YOUNG_MODULUS * I) / height
+    K = (young_modulus * I) / height
     
     # Apply minimum stiffness for thin pedicels
     if K < TrussPhysicsConfig.MIN_K:
         K = TrussPhysicsConfig.MIN_K
     
     J = compute_moment_of_inertia(radius, height, mass)
-    D = 2.0 * TrussPhysicsConfig.DAMPING_RATIO * math.sqrt(K * J)
+    D = 2.0 * damping_ratio * math.sqrt(K * J)
 
     # Isaac Sim expects stiffness and damping w.r.t. degrees (not radians)
     rad_to_deg = math.pi / 180.0
