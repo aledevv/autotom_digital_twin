@@ -85,14 +85,24 @@ def test_legacy_branch_paths_are_unchanged_without_link_specs():
     assert resolved.spec.visual.radius_transition_samples == 9
 
 
-def test_plant_state_adapter_uses_bounded_segmented_visual_density(day10_state):
+def test_plant_state_adapter_defaults_to_historical_realistic_visual_density(day10_state):
     branch = build_stem_branches(day10_state).branches[0]
     assert branch["visual_profile"] == {
+        "radial_segments": 14,
+        "axial_spacing_m": 0.005,
+        "radius_transition_samples": 9,
+    }
+
+
+def test_plant_state_adapter_keeps_performance_visual_density_opt_in(day10_state):
+    result = build_stem_branches(day10_state, visual_quality="performance")
+    assert result.visual_quality == "performance"
+    assert result.branches[0]["visual_profile"] == {
         "radial_segments": 12,
         "axial_spacing_m": 0.012,
         "radius_transition_samples": 5,
     }
-    resolved = resolve_vegetative_graph([branch])[0]
+    resolved = resolve_vegetative_graph([result.branches[0]])[0]
     assert resolved.spec.visual.radial_segments == 12
     assert resolved.spec.visual.axial_spacing_m == pytest.approx(0.012)
     assert resolved.spec.visual.radius_transition_samples == 5

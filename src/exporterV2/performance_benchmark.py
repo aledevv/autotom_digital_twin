@@ -392,7 +392,10 @@ def main(argv: list[str] | None = None) -> int:
             "each physics rate must be divisible by --render-hz"
         )
 
-    if not args._worker and len(args.physics_hz) > 1:
+    # The ordinary uv entry point never has Isaac's Python environment, even
+    # for a single requested rate. Always isolate master/worker execution; the
+    # worker alone imports SimulationApp.
+    if not args._worker:
         report = _run_isolated_rates(args, kit_args)
         destination = save_report(report, args.output)
         print(f"[OK] Performance report: {destination}", flush=True)

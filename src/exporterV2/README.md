@@ -53,14 +53,32 @@ the historical V2 loader, while authored/headless validation remains 480 Hz:
 
 ```bash
 ./run_debugV2.sh --day 50 --organ leaves
+./run_debugV2.sh --day 50 --organ leaves --leaf-joint-policy optimized
+./run_debugV2.sh --day 50 --organ leaves --visual-quality performance
 ./run_debugV2.sh --day 50 --organ leaves --interactive-physics-hz 120
 ./run_debugV2.sh --day 50 --organ leaves --headless --physics-hz 480 --duration 5
 ```
 
-### CSV Mode (with groIMP data)
+PlantState leaf checkpoints default to `--leaf-joint-policy distributed`:
+petioles and main rachides use D6 joints, while petiolules and blades remain
+rigid visuals on their support. `optimized` keeps only petioles dynamic and
+fixes rachides, preserving the lower-cost checkpoint for larger plants. The
+setting does not affect static BRANCHES configurations.
+
+Incremental PlantState profiles default to `--visual-quality realistic`, the
+original V2 skinned/segmented sampling used on stem, laterals, petioles,
+rachides and rigid petiolules. `--visual-quality performance` is an explicit
+lower-detail fallback; it changes only tessellation, never canonical pose or
+physics topology. Canonical leaf dry biomass is aggregated on its supporting
+rachis, so visual-only blades still load the branch without additional bodies.
+
+### PlantState mode
 ```bash
 ./run_mainV2.sh --day 100
 ```
+
+Day-based execution reads `data/plant_states/plant_state_day_N.json`; there is
+no CSV fallback.
 
 ### Runtime and Debug Configuration
 

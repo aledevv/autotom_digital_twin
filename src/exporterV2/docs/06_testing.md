@@ -49,6 +49,36 @@ vary between runs; field order, labels and rate ordering are deterministic.
 The lightweight orchestrator starts one clean Isaac worker per rate; within
 each worker legacy and candidate are loaded sequentially in the same process.
 
+To compare the two PlantState leaf-joint policies without changing geometry:
+
+```bash
+./run_debugV2.sh --day 50 --organ leaves --leaf-joint-policy optimized --generate-only \
+  --output /tmp/day50_leaves_optimized.usda
+./run_debugV2.sh --day 50 --organ leaves --leaf-joint-policy distributed --generate-only \
+  --output /tmp/day50_leaves_distributed.usda
+uv run python -m exporterV2.performance_benchmark \
+  --baseline optimized=/tmp/day50_leaves_optimized.usda \
+  --candidate distributed=/tmp/day50_leaves_distributed.usda \
+  --physics-hz 60,120,240,480 \
+  --output /tmp/day50_leaf_joint_comparison.json
+```
+
+The day-50 acceptance threshold for `distributed` is 20 rendered updates/s at
+the 60 Hz interactive cadence, plus a five-second 480 Hz headless stability
+pass. Visual bending and Shift+drag remain manual GUI checks.
+
+To compare visual quality without changing physics topology:
+
+```bash
+./run_debugV2.sh --day 50 --organ leaves --visual-quality realistic --generate-only \
+  --output /tmp/day50_leaves_realistic.usda
+./run_debugV2.sh --day 50 --organ leaves --visual-quality performance --generate-only \
+  --output /tmp/day50_leaves_performance.usda
+```
+
+The manifest records the selected profile, mesh complexity and visual leaf
+mass aggregated into each physical support.
+
 ## Manual Demos
 
 Manual visual assets live in `src/exporterV2/demos/` and are not part of pytest collection. They are intended for paper figures, screenshots, videos, and Isaac Sim inspection:

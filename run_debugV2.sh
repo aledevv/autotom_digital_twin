@@ -12,6 +12,8 @@ GENERATE_ONLY="false"
 DURATION="5"
 PHYSICS_HZ="480"
 INTERACTIVE_PHYSICS_HZ="60"
+LEAF_JOINT_POLICY="distributed"
+VISUAL_QUALITY="realistic"
 INPUT=""
 OUTPUT=""
 
@@ -21,7 +23,7 @@ Usage: ./run_debugV2.sh --day N [--organ stem|laterals|leaf-supports|leaves] [op
 
 Run one incremental ExporterV2 organ checkpoint from PlantState.
 Each checkpoint is cumulative: leaves includes the validated fixed stem,
-native laterals, dynamic petioles, fixed rachides, and rigid leaf visuals.
+native laterals, dynamic petioles and rachides, and rigid leaf visuals.
 
 Options:
   --day N                    PlantState simulation day (required)
@@ -32,6 +34,8 @@ Options:
   --duration SECONDS         Simulated headless duration (default: 5)
   --physics-hz N             Headless/authoring: 480|960 (default: 480)
   --interactive-physics-hz N GUI only: 60|120|240|480 (default: 60)
+  --leaf-joint-policy MODE   optimized|distributed (default: distributed)
+  --visual-quality MODE      realistic|performance (default: realistic)
   --generate-only            Generate and audit USDA without Isaac Sim
   --input PATH               Override PlantState JSON path
   --output PATH              Override generated USDA path
@@ -59,6 +63,8 @@ while [[ $# -gt 0 ]]; do
     --duration) DURATION="${2:?Missing value for --duration}"; shift 2 ;;
     --physics-hz) PHYSICS_HZ="${2:?Missing value for --physics-hz}"; shift 2 ;;
     --interactive-physics-hz) INTERACTIVE_PHYSICS_HZ="${2:?Missing value for --interactive-physics-hz}"; shift 2 ;;
+    --leaf-joint-policy) LEAF_JOINT_POLICY="${2:?Missing value for --leaf-joint-policy}"; shift 2 ;;
+    --visual-quality) VISUAL_QUALITY="${2:?Missing value for --visual-quality}"; shift 2 ;;
     --generate-only) GENERATE_ONLY="true"; shift ;;
     --input) INPUT="${2:?Missing value for --input}"; shift 2 ;;
     --output) OUTPUT="${2:?Missing value for --output}"; shift 2 ;;
@@ -88,6 +94,14 @@ if [[ "$PHYSICS_PRESET" != "flexible" && "$PHYSICS_PRESET" != "locked" ]]; then
   echo "--physics-preset must be flexible or locked" >&2
   exit 2
 fi
+if [[ "$LEAF_JOINT_POLICY" != "optimized" && "$LEAF_JOINT_POLICY" != "distributed" ]]; then
+  echo "--leaf-joint-policy must be optimized or distributed" >&2
+  exit 2
+fi
+if [[ "$VISUAL_QUALITY" != "realistic" && "$VISUAL_QUALITY" != "performance" ]]; then
+  echo "--visual-quality must be realistic or performance" >&2
+  exit 2
+fi
 if [[ "$HEADLESS" == "true" && "$GENERATE_ONLY" == "true" ]]; then
   echo "--headless and --generate-only are mutually exclusive" >&2
   exit 2
@@ -102,6 +116,8 @@ COMMAND=(
   --duration "$DURATION"
   --physics-hz "$PHYSICS_HZ"
   --interactive-physics-hz "$INTERACTIVE_PHYSICS_HZ"
+  --leaf-joint-policy "$LEAF_JOINT_POLICY"
+  --visual-quality "$VISUAL_QUALITY"
 )
 [[ -z "$INPUT" ]] || COMMAND+=(--input "$INPUT")
 [[ -z "$OUTPUT" ]] || COMMAND+=(--output "$OUTPUT")
@@ -109,5 +125,5 @@ COMMAND=(
 [[ "$GENERATE_ONLY" == "false" ]] || COMMAND+=(--generate-only)
 
 echo "=== ExporterV2 incremental checkpoint ==="
-echo "day=$DAY organ=$ORGAN pose=$POSE_MODE physics=$PHYSICS_PRESET validation_hz=$PHYSICS_HZ interactive_hz=$INTERACTIVE_PHYSICS_HZ"
+echo "day=$DAY organ=$ORGAN pose=$POSE_MODE physics=$PHYSICS_PRESET leaf_joints=$LEAF_JOINT_POLICY visual_quality=$VISUAL_QUALITY validation_hz=$PHYSICS_HZ interactive_hz=$INTERACTIVE_PHYSICS_HZ"
 exec "${COMMAND[@]}"

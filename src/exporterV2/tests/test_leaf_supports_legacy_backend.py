@@ -45,7 +45,8 @@ def test_day50_leaf_support_adapter_is_native_and_complete(day50_state):
         branch["joint_type"]
         for branch in branches
         if branch["kind"] == "leaf_rachis"
-    } == {"fixed"}
+    } == {"d6"}
+    assert result.leaf_joint_policy == "distributed"
 
     leaf_organs = {
         organ.id for organ in day50_state.organs if organ.organ_type == "Leaf"
@@ -112,6 +113,28 @@ def test_legacy_leaf_mode_uses_procedural_pose_without_filtering_organs(day50_st
     assert sum(branch.n_links for branch in resolved) == 81
 
 
+def test_optimized_leaf_policy_preserves_rigid_rachides(day50_state):
+    result = build_leaf_support_branches(
+        day50_state, leaf_joint_policy="optimized"
+    )
+    assert result.leaf_joint_policy == "optimized"
+    assert {
+        branch["joint_type"]
+        for branch in result.branches
+        if branch["kind"] == "leaf_petiole"
+    } == {"d6"}
+    assert {
+        branch["joint_type"]
+        for branch in result.branches
+        if branch["kind"] == "leaf_rachis"
+    } == {"fixed"}
+    assert sum(
+        branch["n_links"]
+        for branch in result.branches
+        if branch["joint_type"] != "fixed"
+    ) == 43
+
+
 def test_approved_filters_are_bound_to_the_validated_day50_source(day50_state):
     changed = replace(
         day50_state,
@@ -129,11 +152,11 @@ def test_day50_flexible_leaf_support_stage_and_manifest(tmp_path, day50_state):
         physics_preset="flexible",
     )
     assert plan.physical_link_count == 81
-    assert plan.predicted_d6_joints == 43
+    assert plan.predicted_d6_joints == 71
     stage = Usd.Stage.Open(str(usd_path))
     assert stage is not None
-    assert sum(prim.GetTypeName() == "PhysicsFixedJoint" for prim in stage.Traverse()) == 38
-    assert sum(prim.GetTypeName() == "PhysicsJoint" for prim in stage.Traverse()) == 43
+    assert sum(prim.GetTypeName() == "PhysicsFixedJoint" for prim in stage.Traverse()) == 10
+    assert sum(prim.GetTypeName() == "PhysicsJoint" for prim in stage.Traverse()) == 71
     assert sum(prim.IsA(UsdGeom.Capsule) for prim in stage.Traverse()) == 162
     assert sum(prim.IsA(UsdGeom.Mesh) for prim in stage.Traverse()) == 81
     assert sum(prim.IsA(UsdGeom.Cylinder) for prim in stage.Traverse()) == 0
@@ -145,9 +168,9 @@ def test_day50_flexible_leaf_support_stage_and_manifest(tmp_path, day50_state):
     assert manifest["schema_version"] == "exporter_v2_leaf_supports_checkpoint/1.0"
     assert manifest["expected"] == {
         "capsule_colliders": 162,
-        "d6_joints": 43,
+        "d6_joints": 71,
         "degenerate_leaf_organs": 1,
-        "fixed_joints": 38,
+        "fixed_joints": 10,
         "internodes": 26,
         "leaf_organs": 28,
         "leaf_support_links": 55,
@@ -160,10 +183,12 @@ def test_day50_flexible_leaf_support_stage_and_manifest(tmp_path, day50_state):
     assert manifest["collisions"]["active_overlaps"] == []
     assert manifest["authored"]["visual_cylinders"] == 0
     assert manifest["physics"]["leaf_support_policy"] == {
-        "leaf_rachis": "fixed_to_petiole",
+        "leaf_rachis": "d6_distributed",
         "petiole": "d6",
+        "policy": "distributed",
         "visual_geometry": "complete_canonical_segmented",
     }
+    assert manifest["metadata"]["leaf_joint_policy"] == "distributed"
     assert manifest["errors"] == []
     assert {
         prim.GetAttribute("autotom:role").Get()
@@ -183,6 +208,31 @@ def test_locked_leaf_support_stage_is_all_fixed(tmp_path, day50_state):
     assert plan.predicted_d6_joints == 0
     assert manifest["authored"]["fixed_joints"] == 81
     assert manifest["authored"]["d6_joints"] == 0
+
+
+def test_optimized_leaf_support_stage_retains_checkpoint_counts(
+    tmp_path, day50_state
+):
+    plan, usd_path, manifest_path = export_incremental_checkpoint(
+        day50_state,
+        tmp_path / "leaf_supports_optimized.usda",
+        debug_profile="leaf-supports",
+        physics_preset="flexible",
+        leaf_joint_policy="optimized",
+    )
+    assert plan.predicted_d6_joints == 43
+    stage = Usd.Stage.Open(str(usd_path))
+    assert sum(
+        prim.GetTypeName() == "PhysicsFixedJoint" for prim in stage.Traverse()
+    ) == 38
+    assert sum(
+        prim.GetTypeName() == "PhysicsJoint" for prim in stage.Traverse()
+    ) == 43
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["metadata"]["leaf_joint_policy"] == "optimized"
+    assert manifest["physics"]["leaf_support_policy"]["leaf_rachis"] == (
+        "fixed_to_petiole"
+    )
 
 
 def test_leaf_support_cli_manifest_is_deterministic(tmp_path):

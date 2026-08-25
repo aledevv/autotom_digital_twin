@@ -102,6 +102,46 @@ interactive application, with 43 interactive bodies, mouse grab and invisible
 collider picking enabled, and no non-finite body. Shift+drag quality still
 requires the user's visual confirmation; telemetry only proves availability.
 
+## 2026-08-24 distributed leaf-joint checkpoint
+
+Commit `1cccf33` preserves the optimized leaf checkpoint before the joint
+policy change. PlantState incremental exports now accept
+`--leaf-joint-policy optimized|distributed`, defaulting to `distributed` for
+`leaf-supports` and `leaves` while leaving static BRANCHES unchanged.
+
+At day 50 both modes retain 81 bodies, 162 capsules, 343 meshes and 39,304
+triangles. Optimized uses 43 D6 and 38 FixedJoint. Distributed converts only
+the 28 leaf-rachis joints to D6, reaching 71 D6 and 10 FixedJoint; petiolules
+and blades remain rigid visuals. No stiffness, damping, pose or dimension was
+tuned.
+
+Distributed passed 2,400 headless steps over five simulated seconds at 480 Hz
+without non-finite state, articulation failure or fixed-stem drift. Equal-run
+render throughput for optimized/distributed was respectively 48.87/44.22 FPS
+at 60 Hz, 33.69/29.18 at 120 Hz, 21.22/17.56 at 240 Hz and 11.67/9.61 at 480
+Hz. It therefore clears the 20 FPS interactive acceptance threshold. The first
+GUI review confirmed stable Shift+drag, but rejected the checkpoint visually:
+the reduced mesh sampling made branches appear too cylindrical and the leaf
+supports felt harder than the historical V2. Phase J remains `IN PROGRESS`.
+
+The corrective candidate restores the exact historical segmented profile
+(14 radial samples, 5 mm axial spacing, 9 transition samples) as
+`--visual-quality realistic` on stem, laterals, petioles, rachides and rigid
+petiolules. The 39,304-triangle profile remains explicitly selectable as
+`performance`; it is no longer the default. Day 50 realistic contains 78,712
+triangles with unchanged 81-body/71-D6/10-Fixed topology. Leaf stiffness is
+unchanged. Leaf damping returns from ratio 0.8 to the historical 0.3, and
+4.717 g of canonical leaf dry biomass is aggregated into support-body mass and
+center of mass without adding joints or colliders. Headless and GUI approval
+for this corrective candidate are pending.
+
+A short same-process 60 Hz benchmark (30 render updates, 120 physics steps)
+measured performance/realistic at 45.52/46.71 render updates/s and
+72.28/71.90 PhysX steps/s. The realistic mesh therefore showed no measurable
+interactive FPS regression in this quick sample; physics throughput differed
+by only 0.53%. The benchmark report is intentionally temporary under
+`/tmp/autotom-phase-j-realistic/`.
+
 ## Implemented in this checkpoint
 
 - Canonical `PlantState -> complete V2 visual view -> physical plan ->

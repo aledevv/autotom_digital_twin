@@ -488,6 +488,9 @@ def resolve_vegetative_graph(
 
             if explicit_link_poses and not is_root:
                 parent_data = by_id[parent_id]
+                centered_terminal = is_centered_terminal_leaf(
+                    branch, parent_definition, all_branch_defs
+                )
                 parent_rotation = Gf.Rotation(
                     Gf.Quatd(parent_data.link_orientations[parent_link_index])
                 )

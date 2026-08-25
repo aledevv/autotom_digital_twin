@@ -22,6 +22,8 @@ BRANCH_BACKEND="skinned"
 SKINNING_VISUAL_MODE="segmented"
 DEBUG_PROFILE="full"
 POSE_MODE="canonical"
+LEAF_JOINT_POLICY="distributed"
+VISUAL_QUALITY="realistic"
 DEBUG_NO_COLLIDERS="false"
 DEBUG_NO_DRIVES="false"
 DEBUG_NO_ARTICULATION="false"
@@ -48,6 +50,8 @@ usage() {
   echo "  --interactive-physics-hz N   GUI only: 60|120|240|480 (default: 60)"
   echo "  --debug-profile PROFILE      full|stem|leaf-supports|leaves|laterals|truss-supports|fruit-visual"
   echo "  --pose-mode MODE             canonical|legacy (PlantState, default: canonical)"
+  echo "  --leaf-joint-policy MODE     optimized|distributed (default: distributed)"
+  echo "  --visual-quality MODE        realistic|performance (default: realistic)"
   echo "  --debug-no-colliders         Diagnostic profiles only"
   echo "  --debug-no-drives            Flexible diagnostic profiles only"
   echo "  --debug-no-articulation      Diagnostic profiles only"
@@ -74,6 +78,8 @@ while [[ $# -gt 0 ]]; do
     --interactive-physics-hz) INTERACTIVE_PHYSICS_HZ="${2:?Missing value for --interactive-physics-hz}"; shift 2 ;;
     --debug-profile) DEBUG_PROFILE="${2:?Missing value for --debug-profile}"; shift 2 ;;
     --pose-mode) POSE_MODE="${2:?Missing value for --pose-mode}"; shift 2 ;;
+    --leaf-joint-policy) LEAF_JOINT_POLICY="${2:?Missing value for --leaf-joint-policy}"; shift 2 ;;
+    --visual-quality) VISUAL_QUALITY="${2:?Missing value for --visual-quality}"; shift 2 ;;
     --debug-no-colliders) DEBUG_NO_COLLIDERS="true"; shift ;;
     --debug-no-drives) DEBUG_NO_DRIVES="true"; shift ;;
     --debug-no-articulation) DEBUG_NO_ARTICULATION="true"; shift ;;
@@ -124,6 +130,14 @@ case "$POSE_MODE" in
   canonical|legacy) ;;
   *) echo "Invalid --pose-mode: $POSE_MODE" >&2; exit 2 ;;
 esac
+case "$LEAF_JOINT_POLICY" in
+  optimized|distributed) ;;
+  *) echo "Invalid --leaf-joint-policy: $LEAF_JOINT_POLICY" >&2; exit 2 ;;
+esac
+case "$VISUAL_QUALITY" in
+  realistic|performance) ;;
+  *) echo "Invalid --visual-quality: $VISUAL_QUALITY" >&2; exit 2 ;;
+esac
 if [[ "$DEBUG_PROFILE" == "full" && ( "$DEBUG_NO_COLLIDERS" == "true" || "$DEBUG_NO_DRIVES" == "true" || "$DEBUG_NO_ARTICULATION" == "true" ) ]]; then
   echo "Diagnostic physics switches require a non-full --debug-profile" >&2
   exit 2
@@ -145,7 +159,7 @@ if [[ ! -f "$INPUT" ]]; then
   exit 2
 fi
 
-GENERATOR=(uv run python -m exporterV2 --day "$DAY" --plant-id "$PLANT_ID" --input "$INPUT" --output "$OUTPUT" --physics-preset "$PHYSICS_PRESET" --stiffness-scale "$STIFFNESS_SCALE" --leaf-stiffness-scale "$LEAF_STIFFNESS_SCALE" --truss-stiffness-scale "$TRUSS_STIFFNESS_SCALE" --physics-hz "$PHYSICS_HZ" --debug-profile "$DEBUG_PROFILE" --pose-mode "$POSE_MODE")
+GENERATOR=(uv run python -m exporterV2 --day "$DAY" --plant-id "$PLANT_ID" --input "$INPUT" --output "$OUTPUT" --physics-preset "$PHYSICS_PRESET" --stiffness-scale "$STIFFNESS_SCALE" --leaf-stiffness-scale "$LEAF_STIFFNESS_SCALE" --truss-stiffness-scale "$TRUSS_STIFFNESS_SCALE" --physics-hz "$PHYSICS_HZ" --debug-profile "$DEBUG_PROFILE" --pose-mode "$POSE_MODE" --leaf-joint-policy "$LEAF_JOINT_POLICY" --visual-quality "$VISUAL_QUALITY")
 [[ "$OPTIMIZE" == "false" ]] || GENERATOR+=(--optimize)
 [[ "$ALLOW_NEAR_BUDGET" == "false" ]] || GENERATOR+=(--allow-near-budget)
 [[ "$DEBUG_NO_COLLIDERS" == "false" ]] || GENERATOR+=(--debug-no-colliders)

@@ -9,7 +9,15 @@ from pxr import Gf
 from ..mesh_geometry import build_open_tube_topology
 from ..tree_config import PlantColors
 from .adapter import branch_system, is_structural_terminal_host
-from .mesh import _axis_color, _smoothstep, _visual_radius, author_plain_mesh, link_rest_world
+from .mesh import (
+    _axis_color,
+    _smoothstep,
+    _visual_radius,
+    author_plain_mesh,
+    centerline_point,
+    centerline_tangent,
+    link_rest_world,
+)
 from .model import BranchData, VisualAxisData
 
 
@@ -133,6 +141,13 @@ def _find_terminal_existing_child(
 
 
 def _child_axis_from_definition(parent: BranchData, child_def: dict) -> Gf.Vec3d:
+    link_specs = child_def.get("link_specs")
+    if link_specs and link_specs[0].get("rest_frame") is not None:
+        frame = link_specs[0]["rest_frame"]
+        return _normalized(
+            Gf.Vec3d(*(float(frame[row][2]) for row in range(3)))
+        )
+
     tilt = float(child_def.get("tilt", 0.0))
     rot = float(child_def.get("rot", 0.0))
     roll = float(child_def.get("roll", 0.0))
@@ -218,7 +233,7 @@ def _build_shoot_mesh(
     shoot_direction: Gf.Vec3d,
     parent_radius: float,
 ):
-    parent_axis = _normalized(axis.axis)
+    parent_axis = _normalized(centerline_tangent(axis, axis.total_length))
     last_length = axis.bone_lengths[-1]
     overlap = min(
         ROOT_OVERLAP_MAX_M,
@@ -347,7 +362,7 @@ def author_terminal_visual_fork(
         child_axis,
         azimuth_jitter_deg,
     )
-    junction = axis.start + axis.axis * axis.total_length
+    junction = centerline_point(axis, axis.total_length)
     parent_radius = _visual_radius(axis, axis.total_length)
 
     (

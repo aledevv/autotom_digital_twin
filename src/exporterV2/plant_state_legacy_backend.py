@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 import json
 import math
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from pxr import Gf, Sdf, UsdGeom, UsdPhysics
@@ -13,8 +14,14 @@ from pxr import Gf, Sdf, UsdGeom, UsdPhysics
 from plant_state import PlantState
 
 from .core.physics import apply_physx_articulation_settings, apply_physx_scene_settings
-from .core.skinning import build_visual_axes, resolve_vegetative_graph
-from .core.mesh_geometry import build_open_tube_topology
+from .core.skinning import (
+    VisualAxisData,
+    VisualProfile,
+    VisualSegment,
+    build_visual_axes,
+    resolve_vegetative_graph,
+)
+from .core.skinning.adapter import _quat_from_column_rotation
 from .core.skinning.leaf_blade import (
     LEAF_ARCH_LIFT_FRACTION,
     LEAF_HALF_WIDTH_FRACTION,
@@ -23,12 +30,13 @@ from .core.skinning.leaf_blade import (
     LEAF_TIP_SAG_FRACTION,
     author_leaf_blade,
 )
-from .core.skinning.mesh import author_plain_mesh
+from .core.skinning.visual_segmented import author_segmented_visual_axis
 from .core.tree_config import GLOBAL_SCALE, PlantColors
-from .core.usd.materials import get_or_create_tomato_stem_material
 from .core.usd import build_stage
 from .core.usd.collision import add_collision_filter
 from .plant_state_branches import (
+    LEAF_JOINT_POLICIES,
+    VISUAL_QUALITY_MODES,
     StemBranchesResult,
     build_leaf_branches,
     build_leaf_support_branches,
@@ -100,6 +108,19 @@ def _author_stage_metadata(
     _custom(stem, "autotom:debugProfile", Sdf.ValueTypeNames.String, adapter.debug_profile)
     _custom(stem, "autotom:poseMode", Sdf.ValueTypeNames.String, adapter.pose_mode)
     _custom(stem, "autotom:physicsPreset", Sdf.ValueTypeNames.String, physics_preset)
+    _custom(
+        stem,
+        "autotom:visualQuality",
+        Sdf.ValueTypeNames.String,
+        adapter.visual_quality,
+    )
+    if adapter.leaf_joint_policy is not None:
+        _custom(
+            stem,
+            "autotom:leafJointPolicy",
+            Sdf.ValueTypeNames.String,
+            adapter.leaf_joint_policy,
+        )
     _custom(stem, "autotom:collidersEnabled", Sdf.ValueTypeNames.Bool, True)
     _custom(stem, "autotom:drivesEnabled", Sdf.ValueTypeNames.Bool, True)
     _custom(stem, "autotom:articulationEnabled", Sdf.ValueTypeNames.Bool, True)
@@ -153,13 +174,7 @@ def _author_rigid_leaf_visuals(stage, adapter: StemBranchesResult) -> list[dict[
         if axis_id is not None:
             body_by_axis[str(axis_id)] = str(prim.GetPath())
 
-    stem_material = get_or_create_tomato_stem_material(stage)
     authored = []
-    # These axes are straight and rigidly bound to their support. Four rings
-    # preserve the tapered silhouette and exact endpoints without the seven
-    # redundant axial rings used by the first diagnostic implementation.
-    radial_segments = 10
-    ring_count = 4
     for record in adapter.rigid_leaf_visuals:
         host_path = body_by_axis.get(record["host_axis_id"])
         if host_path is None:
@@ -175,14 +190,30 @@ def _author_rigid_leaf_visuals(stage, adapter: StemBranchesResult) -> list[dict[
         start = Gf.Vec3d(
             *(float(frame[row][3]) * GLOBAL_SCALE for row in range(3))
         )
-        left = Gf.Vec3d(*(float(frame[row][0]) for row in range(3))).GetNormalized()
-        up = Gf.Vec3d(*(float(frame[row][1]) for row in range(3))).GetNormalized()
         head = Gf.Vec3d(*(float(frame[row][2]) for row in range(3))).GetNormalized()
         length = float(record["length"]) * GLOBAL_SCALE
         radius = float(record["radius"]) * GLOBAL_SCALE
 
         root_path = f"{host_path}/RigidLeafVisuals/{record['id']}"
-        root = UsdGeom.Xform.Define(stage, root_path).GetPrim()
+        root_xform = UsdGeom.Xform.Define(stage, root_path)
+        root = root_xform.GetPrim()
+        orientation = _quat_from_column_rotation(frame)
+        desired_world = Gf.Matrix4d(1.0)
+        desired_world.SetTransform(
+            Gf.Rotation(Gf.Quatd(orientation)), start
+        )
+        root_xform.AddTransformOp().Set(desired_world * world_to_host)
+        actual_world = UsdGeom.Xformable(root).ComputeLocalToWorldTransform(0)
+        frame_error = max(
+            abs(float(actual_world[row][column] - desired_world[row][column]))
+            for row in range(4)
+            for column in range(4)
+        )
+        if frame_error > 1e-8:
+            raise IncrementalCheckpointError(
+                f"leaf visual {record['axis_id']} could not author its canonical "
+                f"frame (matrix error {frame_error:.3g})"
+            )
         _custom(root, "autotom:entityKind", Sdf.ValueTypeNames.String, "rigid_leaf_visual")
         _custom(root, "autotom:attachmentMode", Sdf.ValueTypeNames.String, "rigid_visual")
         _custom(root, "autotom:canonicalOrganId", Sdf.ValueTypeNames.String, record["organ_id"])
@@ -191,29 +222,56 @@ def _author_rigid_leaf_visuals(stage, adapter: StemBranchesResult) -> list[dict[
         _custom(root, "autotom:role", Sdf.ValueTypeNames.String, record["role"])
         _custom(root, "autotom:hostPrimitiveId", Sdf.ValueTypeNames.String, record["host_axis_id"])
 
-        points = []
-        for ring in range(ring_count):
-            fraction = ring / float(ring_count - 1)
-            center = start + head * (length * fraction)
-            taper = 1.0 - 0.35 * fraction * fraction * (3.0 - 2.0 * fraction)
-            for radial in range(radial_segments):
-                angle = 2.0 * math.pi * radial / radial_segments
-                world_point = center + radius * taper * (
-                    left * math.cos(angle) + up * math.sin(angle)
+        profile_raw = adapter.branches[0]["visual_profile"]
+        profile = VisualProfile(
+            radial_segments=int(profile_raw["radial_segments"]),
+            axial_spacing_m=float(profile_raw["axial_spacing_m"]),
+            radius_transition_samples=int(
+                profile_raw["radius_transition_samples"]
+            ),
+        )
+        member = SimpleNamespace(
+            definition={"id": record["id"], "kind": "petiolule"},
+            spec=SimpleNamespace(visual=profile),
+            centered_terminal=False,
+            centered_terminal_host=False,
+        )
+        visual_axis = VisualAxisData(
+            axis_id=record["axis_id"],
+            members=[member],
+            member_offsets={record["id"]: 0.0},
+            member_lengths={record["id"]: length},
+            visual_segments=[
+                VisualSegment(
+                    source_id=record["axis_id"],
+                    start_arc=0.0,
+                    length=length,
+                    radius=radius,
+                    end_radius=radius * 0.65,
                 )
-                points.append(Gf.Vec3f(*world_to_host.Transform(world_point)))
-        face_counts, face_indices = build_open_tube_topology(
-            ring_count, radial_segments
+            ],
+            link_paths=[root_path],
+            link_bases=[start],
+            link_orientations=[orientation],
+            bone_starts=[0.0],
+            bone_lengths=[length],
+            start=start,
+            axis=head,
+            orientation=orientation,
+            total_length=length,
+            visual_root_path=root_path,
+            skel_root_path=f"{root_path}/UnusedSkelRoot",
+            skeleton_path=f"{root_path}/UnusedSkeleton",
+            animation_path=f"{root_path}/UnusedAnimation",
+            mesh_path=f"{root_path}/UnusedMesh",
+            parent_radius=float(
+                stage.GetPrimAtPath(host_path)
+                .GetAttribute("autotom:visualRadius")
+                .Get()
+            ),
+            attachment_arcs=[],
         )
-        author_plain_mesh(
-            stage,
-            f"{root_path}/PetioluleVisual",
-            points,
-            face_counts,
-            face_indices,
-            PlantColors.PETIOLULE,
-            material=stem_material,
-        )
+        visual_stats = author_segmented_visual_axis(stage, visual_axis)
 
         blade_length = min(0.09, max(0.04, length * LEAF_LENGTH_FRACTION))
         author_leaf_blade(
@@ -229,12 +287,59 @@ def _author_rigid_leaf_visuals(stage, adapter: StemBranchesResult) -> list[dict[
             color=PlantColors.LEAF_BLADE,
             world_to_link=world_to_host,
         )
+        added_mass = float(record.get("aggregated_mass_kg", 0.0))
+        if added_mass > 0.0:
+            # Preserve the lean V2 topology (no petiolule/blade rigid bodies),
+            # while retaining the canonical leaf load. The dry biomass is
+            # concentrated near the blade centroid and combined with the host
+            # mass/COM, so gravity produces the expected bending moment.
+            host_prim = stage.GetPrimAtPath(host_path)
+            mass_api = UsdPhysics.MassAPI(host_prim)
+            mass_attr = mass_api.GetMassAttr()
+            com_attr = mass_api.GetCenterOfMassAttr()
+            previous_mass = float(mass_attr.Get())
+            previous_com_value = com_attr.Get()
+            previous_com = Gf.Vec3d(*previous_com_value)
+            blade_centroid_world = start + head * (
+                length + 0.4 * blade_length
+            )
+            blade_centroid_local = world_to_host.Transform(blade_centroid_world)
+            combined_mass = previous_mass + added_mass
+            combined_com = (
+                previous_com * previous_mass + blade_centroid_local * added_mass
+            ) / combined_mass
+            mass_attr.Set(combined_mass)
+            com_attr.Set(Gf.Vec3f(*combined_com))
+            current_visual_mass = float(
+                host_prim.GetAttribute("autotom:aggregatedLeafVisualMassKg").Get()
+                or 0.0
+            )
+            _custom(
+                host_prim,
+                "autotom:aggregatedLeafVisualMassKg",
+                Sdf.ValueTypeNames.Double,
+                current_visual_mass + added_mass,
+            )
+        _custom(
+            root,
+            "autotom:aggregatedMassKg",
+            Sdf.ValueTypeNames.Double,
+            added_mass,
+        )
+        _custom(
+            root,
+            "autotom:massSource",
+            Sdf.ValueTypeNames.String,
+            str(record.get("mass_source", "none")),
+        )
         authored.append(
             {
                 **record,
                 "host_body_path": host_path,
                 "root_path": root_path,
                 "blade_length": blade_length,
+                "renderer": "v2_segmented_organic",
+                "visual_stats": visual_stats,
             }
         )
     return authored
@@ -392,9 +497,28 @@ def _audit_stage(
         prim for prim in stage.Traverse() if prim.GetTypeName() == "PhysicsJoint"
     ]
     meshes = [prim for prim in stage.Traverse() if prim.IsA(UsdGeom.Mesh)]
-    organic_meshes = [prim for prim in meshes if prim.GetName().startswith("OrganicVisual_")]
-    petiolule_meshes = [prim for prim in meshes if prim.GetName() == "PetioluleVisual"]
+    all_organic_meshes = [
+        prim for prim in meshes if prim.GetName().startswith("OrganicVisual_")
+    ]
+    organic_meshes = [
+        prim
+        for prim in all_organic_meshes
+        if prim.GetParent().GetAttribute("autotom:entityKind").Get()
+        == "physical_link"
+    ]
+    petiolule_meshes = [
+        prim
+        for prim in all_organic_meshes
+        if prim.GetParent().GetAttribute("autotom:entityKind").Get()
+        == "rigid_leaf_visual"
+    ]
     leaf_blades = [prim for prim in meshes if prim.GetName() == "LeafBlade"]
+    terminal_fork_shoots = [
+        prim for prim in meshes if prim.GetName() == "TerminalForkYoungShoot"
+    ]
+    terminal_fork_leaves = [
+        prim for prim in meshes if prim.GetName() == "TerminalForkYoungLeaf"
+    ]
     cylinders = [prim for prim in stage.Traverse() if prim.IsA(UsdGeom.Cylinder)]
     capsules = [prim for prim in stage.Traverse() if prim.IsA(UsdGeom.Capsule)]
     paths = [str(prim.GetPath()) for prim in bodies]
@@ -420,6 +544,7 @@ def _audit_stage(
     mesh_complexity_by_role = {
         "all": mesh_complexity(meshes),
         "organic": mesh_complexity(organic_meshes),
+        "organic_all": mesh_complexity(all_organic_meshes),
         "petiolules": mesh_complexity(petiolule_meshes),
         "leaf_blades": mesh_complexity(leaf_blades),
     }
@@ -437,6 +562,16 @@ def _audit_stage(
     )
     expected_fixed = expected_count - expected_d6
     expected_axes = len({branch["visual_axis_id"] for branch in adapter.branches})
+    branch_by_id = {branch["id"]: branch for branch in adapter.branches}
+    expected_terminal_forks = sum(
+        branch.get("kind") == "leaf_petiole"
+        and not branch.get("disable_centered_terminal", False)
+        and branch.get("parent") in branch_by_id
+        and branch_by_id[branch["parent"]].get("kind") == "lateral_branch"
+        and int(branch.get("attach_link", -1))
+        == int(branch_by_id[branch["parent"]]["n_links"])
+        for branch in adapter.branches
+    )
     if len(bodies) != expected_count:
         errors.append(f"physical links {len(bodies)} != expected {expected_count}")
     if len(fixed_joints) != expected_fixed:
@@ -455,6 +590,16 @@ def _audit_stage(
         errors.append(f"checkpoint authored {len(cylinders)} forbidden visual cylinders")
     if len(paths) != len(set(paths)):
         errors.append("duplicate USD physical-link paths")
+    if len(terminal_fork_shoots) != expected_terminal_forks:
+        errors.append(
+            f"terminal fork shoots {len(terminal_fork_shoots)} != expected "
+            f"{expected_terminal_forks}"
+        )
+    if len(terminal_fork_leaves) != expected_terminal_forks:
+        errors.append(
+            f"terminal fork leaves {len(terminal_fork_leaves)} != expected "
+            f"{expected_terminal_forks}"
+        )
 
     authored_poses = []
     if adapter.pose_mode == "canonical":
@@ -519,6 +664,22 @@ def _audit_stage(
         }
         for branch in resolved
     ]
+    authored_body_masses = []
+    for prim in bodies:
+        mass_api = UsdPhysics.MassAPI(prim)
+        authored_body_masses.append(
+            {
+                "body_path": str(prim.GetPath()),
+                "mass_kg": float(mass_api.GetMassAttr().Get()),
+                "center_of_mass": [
+                    float(value) for value in mass_api.GetCenterOfMassAttr().Get()
+                ],
+                "aggregated_leaf_visual_mass_kg": float(
+                    prim.GetAttribute("autotom:aggregatedLeafVisualMassKg").Get()
+                    or 0.0
+                ),
+            }
+        )
 
     schema = {
         "stem": STEM_CHECKPOINT_SCHEMA,
@@ -566,8 +727,10 @@ def _audit_stage(
                 "petiolule_visual_meshes": len(adapter.rigid_leaf_visuals),
                 "leaf_blades": len(adapter.rigid_leaf_visuals),
                 "total_meshes": expected_count + 2 * len(adapter.rigid_leaf_visuals),
+                "terminal_forks": expected_terminal_forks,
             }
         )
+        expected["total_meshes"] += 2 * expected_terminal_forks
         if len(rigid_leaf_visuals) != len(adapter.rigid_leaf_visuals):
             errors.append(
                 f"rigid leaf visuals {len(rigid_leaf_visuals)} != expected "
@@ -590,6 +753,14 @@ def _audit_stage(
             "debug_profile": adapter.debug_profile,
             "pose_mode": adapter.pose_mode,
             "physics_preset": physics_preset,
+            "leaf_joint_policy": adapter.leaf_joint_policy,
+            "visual_quality": adapter.visual_quality,
+            "visual_profile": (
+                dict(adapter.branches[0]["visual_profile"])
+                if adapter.branches
+                else None
+            ),
+            "visual_renderer": "historical_v2_skinned_segmented",
             "global_scale": GLOBAL_SCALE,
             "usd": str(usd_path),
         },
@@ -600,8 +771,11 @@ def _audit_stage(
             "d6_joints": len(d6_joints),
             "capsule_colliders": len(capsules),
             "organic_meshes": len(organic_meshes),
+            "rigid_visual_organic_meshes": len(petiolule_meshes),
             "petiolule_visual_meshes": len(petiolule_meshes),
             "leaf_blades": len(leaf_blades),
+            "terminal_fork_shoots": len(terminal_fork_shoots),
+            "terminal_fork_leaves": len(terminal_fork_leaves),
             "total_meshes": len(meshes),
             "visual_axes": len(resolved_axes),
             "visual_cylinders": len(cylinders),
@@ -631,11 +805,21 @@ def _audit_stage(
         },
         physics={
             "branch_gains": gains,
+            "authored_body_masses": authored_body_masses,
+            "aggregated_leaf_visual_mass_kg": sum(
+                float(record.get("aggregated_mass_kg", 0.0))
+                for record in rigid_leaf_visuals
+            ),
             "visual_axis_ids": [axis.axis_id for axis in resolved_axes],
             "leaf_support_policy": (
                 {
                     "petiole": "d6",
-                    "leaf_rachis": "fixed_to_petiole",
+                    "leaf_rachis": (
+                        "d6_distributed"
+                        if adapter.leaf_joint_policy == "distributed"
+                        else "fixed_to_petiole"
+                    ),
+                    "policy": adapter.leaf_joint_policy,
                     "visual_geometry": "complete_canonical_segmented",
                 }
                 if adapter.debug_profile in {"leaf-supports", "leaves"}
@@ -708,6 +892,8 @@ def export_incremental_checkpoint(
     pose_mode: str = "canonical",
     physics_preset: str = "flexible",
     physics_hz: int = 480,
+    leaf_joint_policy: str = "distributed",
+    visual_quality: str = "realistic",
 ) -> tuple[IncrementalCheckpointPlan, Path, Path]:
     """Build and audit one PlantState profile with the original V2 backend."""
 
@@ -719,6 +905,16 @@ def export_incremental_checkpoint(
         raise IncrementalCheckpointError(
             f"physics_preset must be locked or flexible, got {physics_preset!r}"
         )
+    if leaf_joint_policy not in LEAF_JOINT_POLICIES:
+        raise IncrementalCheckpointError(
+            "leaf_joint_policy must be one of "
+            f"{LEAF_JOINT_POLICIES}, got {leaf_joint_policy!r}"
+        )
+    if visual_quality not in VISUAL_QUALITY_MODES:
+        raise IncrementalCheckpointError(
+            "visual_quality must be one of "
+            f"{VISUAL_QUALITY_MODES}, got {visual_quality!r}"
+        )
     destination = Path(output_path).expanduser().resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
     adapter_builders = {
@@ -727,7 +923,13 @@ def export_incremental_checkpoint(
         "leaf-supports": build_leaf_support_branches,
         "leaves": build_leaf_branches,
     }
-    adapter = adapter_builders[debug_profile](state, pose_mode=pose_mode)
+    adapter_kwargs = {
+        "pose_mode": pose_mode,
+        "visual_quality": visual_quality,
+    }
+    if debug_profile in {"leaf-supports", "leaves"}:
+        adapter_kwargs["leaf_joint_policy"] = leaf_joint_policy
+    adapter = adapter_builders[debug_profile](state, **adapter_kwargs)
     locked = physics_preset == "locked"
     stage, stem_path = build_stage(
         str(destination),

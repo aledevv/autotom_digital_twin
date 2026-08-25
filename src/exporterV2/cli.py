@@ -21,7 +21,11 @@ from .plant_state_usd import (
     manifest_path_for,
     save_v2_manifest,
 )
-from .plant_state_branches import POSE_MODES
+from .plant_state_branches import (
+    LEAF_JOINT_POLICIES,
+    POSE_MODES,
+    VISUAL_QUALITY_MODES,
+)
 from .plant_state_legacy_backend import (
     INCREMENTAL_PROFILES,
     StemCheckpointError,
@@ -77,6 +81,24 @@ def build_argument_parser() -> argparse.ArgumentParser:
         default="canonical",
         help="PlantState rest pose for the conservative V2 backend.",
     )
+    parser.add_argument(
+        "--leaf-joint-policy",
+        choices=LEAF_JOINT_POLICIES,
+        default="distributed",
+        help=(
+            "PlantState leaf supports: optimized fixes rachides to petioles; "
+            "distributed restores D6 bending along both."
+        ),
+    )
+    parser.add_argument(
+        "--visual-quality",
+        choices=VISUAL_QUALITY_MODES,
+        default="realistic",
+        help=(
+            "PlantState skinned mesh quality: realistic restores the original "
+            "V2 sampling; performance keeps the lighter diagnostic mesh."
+        ),
+    )
     parser.add_argument("--debug-no-colliders", action="store_true")
     parser.add_argument("--debug-no-drives", action="store_true")
     parser.add_argument("--debug-no-articulation", action="store_true")
@@ -131,6 +153,8 @@ def generate_from_args(args: argparse.Namespace):
                 pose_mode=args.pose_mode,
                 physics_preset=args.physics_preset,
                 physics_hz=args.physics_hz,
+                leaf_joint_policy=args.leaf_joint_policy,
+                visual_quality=args.visual_quality,
             ),
         )
     plan = build_v2_authoring_plan(
@@ -179,7 +203,9 @@ def main(argv: list[str] | None = None) -> int:
         f"[OK] V2 PlantState stage: day={args.day}, plant_id={args.plant_id}, "
         f"axes={len(state.axes)}, physical_links={physical_links}, "
         f"d6={plan.predicted_d6_joints}, spheres={len(state.spheres)}, "
-        f"profile={plan.debug_profile}, pose_mode={args.pose_mode}"
+        f"profile={plan.debug_profile}, pose_mode={args.pose_mode}, "
+        f"leaf_joint_policy={args.leaf_joint_policy}, "
+        f"visual_quality={args.visual_quality}"
     )
     print(f"[OK] USDA: {usd_path}")
     print(f"[OK] Manifest: {manifest_path}")

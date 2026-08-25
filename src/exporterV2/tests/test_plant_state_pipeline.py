@@ -11,7 +11,7 @@ import sys
 import pytest
 from pxr import Sdf, Usd, UsdGeom
 
-from exporterV2.cli import main
+from exporterV2.cli import build_argument_parser, main
 from exporterV2.isaac_app import (
     _arguments,
     _authored_physics_hz,
@@ -41,6 +41,27 @@ from plant_state import load_plant_state
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+
+def test_leaf_joint_policy_cli_defaults_to_distributed():
+    parser = build_argument_parser()
+    args = parser.parse_args(["--day", "50"])
+    assert args.leaf_joint_policy == "distributed"
+    assert parser.parse_args(
+        ["--day", "50", "--leaf-joint-policy", "optimized"]
+    ).leaf_joint_policy == "optimized"
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--day", "50", "--leaf-joint-policy", "invalid"])
+
+
+def test_visual_quality_cli_defaults_to_realistic():
+    parser = build_argument_parser()
+    assert parser.parse_args(["--day", "50"]).visual_quality == "realistic"
+    assert parser.parse_args(
+        ["--day", "50", "--visual-quality", "performance"]
+    ).visual_quality == "performance"
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--day", "50", "--visual-quality", "invalid"])
 
 
 def _state(day: int):

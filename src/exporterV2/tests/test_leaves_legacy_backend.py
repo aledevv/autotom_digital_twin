@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -40,7 +41,8 @@ def test_day50_rigid_leaf_visual_adapter_is_complete(day50_state):
         branch["n_links"]
         for branch in result.branches
         if branch["joint_type"] != "fixed"
-    ) == 43
+    ) == 71
+    assert result.leaf_joint_policy == "distributed"
     assert all(
         record["host_axis_id"].endswith(("petiole:0", "leaf_rachis:0", "leaf_rachis:1"))
         for record in result.rigid_leaf_visuals
@@ -85,7 +87,7 @@ def test_day50_leaves_are_visual_only_and_do_not_expand_physics(
         physics_preset="flexible",
     )
     assert plan.physical_link_count == 81
-    assert plan.predicted_d6_joints == 43
+    assert plan.predicted_d6_joints == 71
     stage = Usd.Stage.Open(str(usd_path))
     assert stage is not None
 
@@ -103,23 +105,95 @@ def test_day50_leaves_are_visual_only_and_do_not_expand_physics(
     assert len(visuals) == 131
     assert all(not prim.HasAPI(UsdPhysics.RigidBodyAPI) for prim in visuals)
     assert all(not prim.HasAPI(UsdPhysics.CollisionAPI) for prim in visuals)
-    assert sum(prim.GetTypeName() == "PhysicsFixedJoint" for prim in stage.Traverse()) == 38
-    assert sum(prim.GetTypeName() == "PhysicsJoint" for prim in stage.Traverse()) == 43
+    assert sum(prim.GetTypeName() == "PhysicsFixedJoint" for prim in stage.Traverse()) == 10
+    assert sum(prim.GetTypeName() == "PhysicsJoint" for prim in stage.Traverse()) == 71
     assert sum(prim.IsA(UsdGeom.Capsule) for prim in stage.Traverse()) == 162
-    assert sum(prim.GetName() == "PetioluleVisual" for prim in stage.Traverse()) == 131
+    assert sum(
+        prim.GetName() == "OrganicVisual_01"
+        and prim.GetParent().GetAttribute("autotom:entityKind").Get()
+        == "rigid_leaf_visual"
+        for prim in stage.Traverse()
+    ) == 131
     assert sum(prim.GetName() == "LeafBlade" for prim in stage.Traverse()) == 131
-    assert sum(prim.IsA(UsdGeom.Mesh) for prim in stage.Traverse()) == 343
+    assert sum(prim.GetName() == "TerminalForkYoungShoot" for prim in stage.Traverse()) == 4
+    assert sum(prim.GetName() == "TerminalForkYoungLeaf" for prim in stage.Traverse()) == 4
+    assert sum(prim.IsA(UsdGeom.Mesh) for prim in stage.Traverse()) == 351
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["schema_version"] == "exporter_v2_leaves_checkpoint/1.0"
     assert manifest["expected"]["rigid_leaf_visuals"] == 131
     assert manifest["expected"]["leaf_blades"] == 131
-    assert manifest["expected"]["total_meshes"] == 343
-    assert manifest["authored"]["mesh_complexity"]["all"]["triangles"] < 40_000
-    assert manifest["authored"]["mesh_complexity"]["organic"]["triangles"] < 23_000
-    assert manifest["authored"]["mesh_complexity"]["petiolules"]["triangles"] == 7_860
+    assert manifest["expected"]["total_meshes"] == 351
+    assert manifest["expected"]["terminal_forks"] == 4
+    # Every vegetative axis uses the actual historical V2 organic renderer.
+    assert 85_000 < manifest["authored"]["mesh_complexity"]["all"]["triangles"] < 100_000
+    assert manifest["metadata"]["visual_quality"] == "realistic"
+    assert manifest["metadata"]["visual_profile"] == {
+        "radial_segments": 14,
+        "axial_spacing_m": 0.005,
+        "radius_transition_samples": 9,
+    }
+    assert manifest["physics"]["aggregated_leaf_visual_mass_kg"] > 0.0
+    assert manifest["metadata"]["visual_renderer"] == (
+        "historical_v2_skinned_segmented"
+    )
+    assert manifest["authored"]["mesh_complexity"]["organic"]["triangles"] == 50_624
+    assert manifest["authored"]["mesh_complexity"]["petiolules"]["triangles"] == 30_688
     assert manifest["collisions"]["active_overlaps"] == []
     assert manifest["errors"] == []
+
+
+def test_visual_only_petiolules_use_historical_v2_root_flare_and_tip_taper(
+    tmp_path, day50_state
+):
+    _plan, usd_path, _manifest_path = export_incremental_checkpoint(
+        day50_state,
+        tmp_path / "leaf_shape.usda",
+        debug_profile="leaves",
+        physics_preset="flexible",
+    )
+    stage = Usd.Stage.Open(str(usd_path))
+    root = next(
+        prim
+        for prim in stage.Traverse()
+        if prim.GetAttribute("autotom:entityKind").Get() == "rigid_leaf_visual"
+        and prim.GetAttribute("autotom:groimpNodeId").Get() == 421110
+    )
+    mesh = UsdGeom.Mesh(root.GetChild("OrganicVisual_01"))
+    points = list(mesh.GetPointsAttr().Get())
+    ring_size = 14
+    root_radius = sum(math.hypot(point[0], point[1]) for point in points[:ring_size]) / ring_size
+    tip_radius = sum(math.hypot(point[0], point[1]) for point in points[-ring_size:]) / ring_size
+    canonical_axis_id = root.GetAttribute("autotom:canonicalPrimitiveId").Get()
+    canonical_radius = next(
+        axis.radius for axis in day50_state.axes if axis.id == canonical_axis_id
+    ) * 2.0
+    assert root_radius > canonical_radius
+    assert tip_radius == pytest.approx(canonical_radius * 0.65, rel=1e-5)
+
+
+def test_optimized_leaves_keep_visuals_but_reduce_d6(tmp_path, day50_state):
+    plan, usd_path, manifest_path = export_incremental_checkpoint(
+        day50_state,
+        tmp_path / "leaves_optimized.usda",
+        debug_profile="leaves",
+        physics_preset="flexible",
+        leaf_joint_policy="optimized",
+    )
+    assert plan.physical_link_count == 81
+    assert plan.predicted_d6_joints == 43
+    stage = Usd.Stage.Open(str(usd_path))
+    assert sum(
+        prim.GetTypeName() == "PhysicsFixedJoint" for prim in stage.Traverse()
+    ) == 38
+    assert sum(
+        prim.GetTypeName() == "PhysicsJoint" for prim in stage.Traverse()
+    ) == 43
+    assert sum(prim.GetName() == "LeafBlade" for prim in stage.Traverse()) == 131
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["metadata"]["leaf_joint_policy"] == "optimized"
+    assert manifest["authored"]["rigid_bodies"] == 81
+    assert manifest["authored"]["capsule_colliders"] == 162
 
 
 def test_leaves_cli_manifest_is_deterministic(tmp_path):

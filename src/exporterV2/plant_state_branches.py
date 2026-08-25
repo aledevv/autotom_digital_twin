@@ -10,6 +10,8 @@ from plant_state import AxisGeometry, OrganRecord, PlantState, validate_plant_st
 
 
 POSE_MODES = ("canonical", "legacy")
+LEAF_JOINT_POLICIES = ("optimized", "distributed")
+VISUAL_QUALITY_MODES = ("realistic", "performance")
 DAY50_SOURCE_SHA256 = "d646a340eb3fd57f885d4dcea8f7f207b76a35596b0a87c90e63968d30acf4d9"
 DAY50_APPROVED_LEAF_SUPPORT_FILTERS = (
     ("node-421250:internode:0", "node-421243:petiole:0"),
@@ -17,15 +19,37 @@ DAY50_APPROVED_LEAF_SUPPORT_FILTERS = (
     ("node-421201:leaf_rachis:0", "node-421423:leaf_rachis:0"),
 )
 
-# Canonical axes are already split at every physical link. Sampling their
-# straight interiors every 5 mm (the historical generic default) adds no shape
-# information and made the day-50 stage unnecessarily heavy. Radius
-# transitions and every canonical endpoint remain sampled explicitly.
-PLANT_STATE_SEGMENTED_VISUAL_PROFILE = {
+# This is the established V2 skinning profile. Keep it as the PlantState
+# default: although canonical axes already provide the centerline, dense axial
+# sampling and radius-transition rings are what give branches their organic V2
+# silhouette instead of a visibly faceted/cylindrical appearance.
+PLANT_STATE_REALISTIC_VISUAL_PROFILE = {
+    "radial_segments": 14,
+    "axial_spacing_m": 0.005,
+    "radius_transition_samples": 9,
+}
+
+# Explicit fallback for very large plants or slower GPUs. This is never chosen
+# implicitly, so a performance optimization cannot silently degrade visuals.
+PLANT_STATE_PERFORMANCE_VISUAL_PROFILE = {
     "radial_segments": 12,
     "axial_spacing_m": 0.012,
     "radius_transition_samples": 5,
 }
+
+
+def _segmented_visual_profile(visual_quality: str) -> dict[str, float | int]:
+    if visual_quality not in VISUAL_QUALITY_MODES:
+        raise PlantStateBranchesError(
+            f"visual_quality must be one of {VISUAL_QUALITY_MODES}, "
+            f"got {visual_quality!r}"
+        )
+    source = (
+        PLANT_STATE_REALISTIC_VISUAL_PROFILE
+        if visual_quality == "realistic"
+        else PLANT_STATE_PERFORMANCE_VISUAL_PROFILE
+    )
+    return dict(source)
 
 
 class PlantStateBranchesError(ValueError):
@@ -44,6 +68,8 @@ class StemBranchesResult:
     degenerate_organs: tuple[dict[str, Any], ...] = ()
     approved_collision_filters: tuple[dict[str, Any], ...] = ()
     rigid_leaf_visuals: tuple[dict[str, Any], ...] = ()
+    leaf_joint_policy: str | None = None
+    visual_quality: str = "realistic"
 
 
 def _rebased_frame(axis: AxisGeometry, origin) -> list[list[float]]:
@@ -184,6 +210,7 @@ def build_stem_branches(
     state: PlantState,
     *,
     pose_mode: str = "canonical",
+    visual_quality: str = "realistic",
 ) -> StemBranchesResult:
     """Return one fixed ``trunk`` BRANCHES chain backed by canonical internodes."""
 
@@ -260,7 +287,7 @@ def build_stem_branches(
         "link_specs": link_specs,
         "source_origin": [float(value) for value in origin],
         "plant_state_schema": state.schema_version,
-        "visual_profile": dict(PLANT_STATE_SEGMENTED_VISUAL_PROFILE),
+        "visual_profile": _segmented_visual_profile(visual_quality),
     }
     return StemBranchesResult(
         branches=(branch,),
@@ -268,6 +295,7 @@ def build_stem_branches(
         represented_organ_ids=tuple(represented),
         collapsed_duplicates=tuple(collapsed),
         pose_mode=pose_mode,
+        visual_quality=visual_quality,
     )
 
 
@@ -275,6 +303,7 @@ def build_lateral_branches(
     state: PlantState,
     *,
     pose_mode: str = "canonical",
+    visual_quality: str = "realistic",
 ) -> StemBranchesResult:
     """Return the fixed stem plus native lateral Internode chains."""
 
@@ -284,7 +313,9 @@ def build_lateral_branches(
             f"pose_mode must be one of {POSE_MODES}, got {pose_mode!r}"
         )
 
-    stem = build_stem_branches(state, pose_mode=pose_mode)
+    stem = build_stem_branches(
+        state, pose_mode=pose_mode, visual_quality=visual_quality
+    )
     nodes = {node.id: node for node in state.nodes}
     root = nodes[state.root_node_id]
     all_internodes = _internode_items(state)
@@ -483,7 +514,7 @@ def build_lateral_branches(
                 "source_origin": [float(value) for value in root.pose.world_start],
                 "source_parent_node_id": parent_node_id,
                 "plant_state_schema": state.schema_version,
-                "visual_profile": dict(PLANT_STATE_SEGMENTED_VISUAL_PROFILE),
+                "visual_profile": _segmented_visual_profile(visual_quality),
             }
         )
         attachment_map.append(
@@ -507,6 +538,7 @@ def build_lateral_branches(
         pose_mode=pose_mode,
         debug_profile="laterals",
         attachment_map=tuple(attachment_map),
+        visual_quality=visual_quality,
     )
 
 
@@ -589,6 +621,8 @@ def build_leaf_support_branches(
     state: PlantState,
     *,
     pose_mode: str = "canonical",
+    leaf_joint_policy: str = "distributed",
+    visual_quality: str = "realistic",
 ) -> StemBranchesResult:
     """Return stem, native laterals, petioles, and main leaf rachides."""
 
@@ -597,8 +631,15 @@ def build_leaf_support_branches(
         raise PlantStateBranchesError(
             f"pose_mode must be one of {POSE_MODES}, got {pose_mode!r}"
         )
+    if leaf_joint_policy not in LEAF_JOINT_POLICIES:
+        raise PlantStateBranchesError(
+            "leaf_joint_policy must be one of "
+            f"{LEAF_JOINT_POLICIES}, got {leaf_joint_policy!r}"
+        )
 
-    structural = build_lateral_branches(state, pose_mode=pose_mode)
+    structural = build_lateral_branches(
+        state, pose_mode=pose_mode, visual_quality=visual_quality
+    )
     nodes = {node.id: node for node in state.nodes}
     organs = {organ.node_id: organ for organ in state.organs}
     root = nodes[state.root_node_id]
@@ -756,6 +797,9 @@ def build_leaf_support_branches(
             pose_mode,
             f"Petiole_g{node.groimp_node_id}",
         )
+        rachis_joint_type = (
+            "d6" if leaf_joint_policy == "distributed" else "fixed"
+        )
         branches.append(
             {
                 "id": petiole_id,
@@ -779,12 +823,17 @@ def build_leaf_support_branches(
                 "rot": rotation,
                 "joint_type": "d6",
                 "attachment_joint_type": "d6",
+                # The support-only checkpoint excludes terminal visual fork
+                # dressing. build_leaf_branches enables it once complete leaf
+                # visuals are present.
                 "disable_centered_terminal": True,
                 "link_specs": [petiole_spec],
                 "source_origin": [float(value) for value in root.pose.world_start],
                 "source_parent_node_id": parent_node,
                 "plant_state_schema": state.schema_version,
-                "visual_profile": dict(PLANT_STATE_SEGMENTED_VISUAL_PROFILE),
+                "visual_profile": _segmented_visual_profile(visual_quality),
+                # Historical V2 damping ratio. Stiffness remains unchanged.
+                "damping_ratio": 0.3,
             }
         )
         attachment_map.append(
@@ -838,17 +887,17 @@ def build_leaf_support_branches(
                 "height": sum(spec["length"] for spec in rachis_specs) / len(rachis_specs),
                 "tilt": 0.0,
                 "rot": 0.0,
-                # The complete canonical rachis stays visible and collidable,
-                # but follows the petiole as one rigid leaf-support assembly.
-                # This preserves the established V2 look while avoiding one
-                # D6 articulation per rachis segment.
-                "joint_type": "fixed",
-                "attachment_joint_type": "fixed",
+                # ``optimized`` keeps the complete rachis rigidly attached to
+                # the petiole. ``distributed`` restores the established V2
+                # bending chain without making petiolules physical bodies.
+                "joint_type": rachis_joint_type,
+                "attachment_joint_type": rachis_joint_type,
                 "link_specs": rachis_specs,
                 "source_origin": [float(value) for value in root.pose.world_start],
                 "source_parent_node_id": node.id,
                 "plant_state_schema": state.schema_version,
-                "visual_profile": dict(PLANT_STATE_SEGMENTED_VISUAL_PROFILE),
+                "visual_profile": _segmented_visual_profile(visual_quality),
+                "damping_ratio": 0.3,
             }
         )
         attachment_map.append(
@@ -893,6 +942,8 @@ def build_leaf_support_branches(
             )
         )
         else (),
+        leaf_joint_policy=leaf_joint_policy,
+        visual_quality=visual_quality,
     )
 
 
@@ -925,10 +976,17 @@ def build_leaf_branches(
     state: PlantState,
     *,
     pose_mode: str = "canonical",
+    leaf_joint_policy: str = "distributed",
+    visual_quality: str = "realistic",
 ) -> StemBranchesResult:
     """Add canonical petiolules and leaf blades as rigidly attached visuals."""
 
-    supports = build_leaf_support_branches(state, pose_mode=pose_mode)
+    supports = build_leaf_support_branches(
+        state,
+        pose_mode=pose_mode,
+        leaf_joint_policy=leaf_joint_policy,
+        visual_quality=visual_quality,
+    )
     if pose_mode != "canonical":
         raise PlantStateBranchesError(
             "the leaves checkpoint requires canonical petiolule frames"
@@ -966,6 +1024,15 @@ def build_leaf_branches(
                 int(axis.id.rsplit(":", 1)[1]),
             ),
         )
+        positive_visual_count = sum(
+            axis.length > 1e-9 and axis.radius > 1e-9 for axis in visual_axes
+        )
+        leaf_dry_mass_kg = max(float(organ.common.dry_biomass or 0.0), 0.0) * 1e-6
+        mass_per_visual_kg = (
+            leaf_dry_mass_kg / positive_visual_count
+            if positive_visual_count
+            else 0.0
+        )
         for axis in visual_axes:
             source_axis_ids.append(axis.id)
             if axis.length <= 1e-9 or axis.radius <= 1e-9:
@@ -1002,11 +1069,23 @@ def build_leaf_branches(
                     "rest_frame": _rebased_frame(axis, root.pose.world_start),
                     "length": float(axis.length),
                     "radius": float(axis.radius),
+                    # PlantState dry biomass is stored in mg. Petiolules and
+                    # blades remain visual-only, but their source mass is
+                    # aggregated into the host rachis rigid body below.
+                    "aggregated_mass_kg": mass_per_visual_kg,
+                    "mass_source": "plant_state_leaf_dry_biomass",
                 }
             )
 
+    complete_branches = []
+    for source in supports.branches:
+        branch = dict(source)
+        if branch.get("kind") == "leaf_petiole":
+            branch.pop("disable_centered_terminal", None)
+        complete_branches.append(branch)
+
     return StemBranchesResult(
-        branches=supports.branches,
+        branches=tuple(complete_branches),
         source_axis_ids=tuple(source_axis_ids),
         represented_organ_ids=supports.represented_organ_ids,
         collapsed_duplicates=supports.collapsed_duplicates,
@@ -1016,4 +1095,6 @@ def build_leaf_branches(
         degenerate_organs=supports.degenerate_organs,
         approved_collision_filters=supports.approved_collision_filters,
         rigid_leaf_visuals=tuple(visual_records),
+        leaf_joint_policy=supports.leaf_joint_policy,
+        visual_quality=visual_quality,
     )

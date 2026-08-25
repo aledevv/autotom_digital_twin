@@ -573,6 +573,61 @@ stage decreased from 81,036 to 39,304 mesh triangles and from 3.9 MB to
 comparison proved that it was not the main source of the 11 FPS result.
 Phase J remains `IN PROGRESS`.
 
+#### Phase J distributed leaf-joint checkpoint — 2026-08-24
+
+The optimized day-50 leaf stage was preserved in Git commit `1cccf33` before
+restoring distributed leaf-support bending. PlantState incremental exports now
+expose `--leaf-joint-policy optimized|distributed`; `distributed` is the
+PlantState default and does not affect legacy BRANCHES input.
+
+Both policies preserve exactly 81 rigid bodies, 162 capsule colliders, 343
+meshes and 39,304 triangles. `optimized` authors 43 D6 plus 38 FixedJoint;
+`distributed` changes the 28 canonical leaf-rachis links to D6, producing 71
+D6 plus the 10 fixed stem joints. Petiolules, terminal rachides and blades stay
+rigid visuals without bodies, colliders or joints. Canonical poses, dimensions,
+mass calculation, combined parent-child stiffness, damping and drive scale 1
+remain unchanged.
+
+The distributed stage passed five simulated seconds at an effective 480 Hz
+(2,400 steps), with no NaN/Inf, invalid articulation or fixed-stem drift. The
+same-process benchmark measured:
+
+```text
+rate       optimized FPS   distributed FPS
+60 Hz            48.87             44.22
+120 Hz           33.69             29.18
+240 Hz           21.22             17.56
+480 Hz           11.67              9.61
+```
+
+The 60 Hz interactive target of 20 FPS is therefore satisfied with substantial
+margin. The first GUI inspection confirmed stable Shift+drag but rejected the
+visual/feel gate: reduced sampling made branches appear cylindrical and leaf
+supports felt harder than the historical V2. Phase J stays `IN PROGRESS`.
+
+#### Phase J realistic-mesh corrective candidate — 2026-08-24
+
+The original V2 segmented profile is restored as the PlantState default via
+`--visual-quality realistic`: 14 radial samples, 5 mm axial spacing and 9
+radius-transition samples on stem, laterals, petioles, rachides and rigid
+petiolules. `--visual-quality performance` retains the previous 12/12 mm/5
+profile as an explicit fallback. Day 50 realistic has 78,712 triangles versus
+39,304 performance triangles, with identical canonical pose and
+81-body/71-D6/10-Fixed physics topology.
+
+No stiffness was changed. Leaf-only damping returns to the historical V2 ratio
+0.3. Canonical dry biomass from visual-only leaf parts is converted from mg to
+kg and aggregated into the supporting body mass and center of mass (4.717 g at
+day 50), without creating petiolule/blade rigid bodies, colliders or joints.
+Automated stability, benchmark and final GUI review remain required before
+accepting this corrective checkpoint.
+
+A quick same-process day-50 benchmark at 60 Hz measured 45.52 FPS for
+`performance` and 46.71 FPS for `realistic`; PhysX throughput was 72.28 versus
+71.90 steps/s. This short run indicates that restoring mesh quality has no
+material interactive cost on the test machine. The one-second 480 Hz smoke
+also passed all 480 steps without NaN/Inf or articulation failure.
+
 ---
 
 # 2. Why this refactor is necessary

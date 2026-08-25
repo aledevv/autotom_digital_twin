@@ -54,6 +54,35 @@ Do not remove this compatibility shim merely because the USD attribute reads
 Solver iterations remain centralized in `PhysicsRuntimeConfig`; changing them
 affects generated USD metadata and must be documented with the output.
 
+## Leaf movement vs joint cost
+
+PlantState leaf checkpoints expose two policies without changing geometry,
+poses, masses or material parameters:
+
+```bash
+# Default: D6 at petiole and rachis, distributed leaf-support bending
+./run_debugV2.sh --day 50 --organ leaves --leaf-joint-policy distributed
+
+# Lower-cost fallback: D6 petiole, fixed rachis
+./run_debugV2.sh --day 50 --organ leaves --leaf-joint-policy optimized
+```
+
+Petiolules and blades are rigid visuals in both modes. Do not make them rigid
+bodies merely to restore rachis bending: the historical day-50 asset spent 91
+additional D6 joints on petiolules. Compare policies at the same interactive
+physics rate before changing stiffness, damping or solver iterations.
+
+If PlantState branches look cylindrical, check for `--visual-quality
+performance`. The default `realistic` mode restores the original V2 profile:
+14 radial samples, 5 mm axial spacing and 9 radius-transition samples on every
+segmented vegetative axis. The performance profile uses 12/12 mm/5. Neither
+profile authors visual cylinders.
+
+Leaf supports retain their EI-derived stiffness but use the historical V2
+damping ratio (`0.3`). Leaf dry biomass from PlantState (mg converted to kg) is
+aggregated into the host support mass and center of mass; petiolules and blades
+remain free of rigid bodies, colliders and joints.
+
 ## Tomatoes Fall Immediately
 
 Check `TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N`. If it is below the static and dynamic load from the tomato, the FixedJoint can break as soon as simulation starts. Current default is `6.0 N`.
