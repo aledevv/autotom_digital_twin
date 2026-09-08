@@ -1,5 +1,13 @@
 from pathlib import Path
 
+USD_PATH = Path(__file__).resolve().parent / "generated_leaflet.usda"
+
+if not USD_PATH.is_file():
+    raise SystemExit(
+        f"Generated leaflet USD not found: {USD_PATH}\n"
+        "Run generate_real_leaf_shape.py first."
+    )
+
 from isaacsim import SimulationApp
 
 
@@ -15,16 +23,7 @@ from isaacsim.core.api import World
 
 
 def main():
-    usd_path = (
-        Path(__file__).resolve().parent
-        / "generated_leaflet.usda"
-    )
-
-    if not usd_path.exists():
-        raise FileNotFoundError(
-            f"Generated leaflet USD not found: {usd_path}\n"
-            "Run generate_real_leaf_shape.py first."
-        )
+    usd_path = USD_PATH
 
     print("[1] Opening leaflet USD")
     print("    ", usd_path)
