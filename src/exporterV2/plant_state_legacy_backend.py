@@ -257,7 +257,7 @@ def _author_stage_metadata(
         _custom(prim, "autotom:diagnostic", Sdf.ValueTypeNames.String, record["reason"])
 
 
-def _author_rigid_leaf_visuals(stage, adapter: StemBranchesResult) -> list[dict[str, Any]]:
+def _author_rigid_leaf_visuals(stage, adapter: StemBranchesResult, leaf_shapes=None) -> list[dict[str, Any]]:
     """Bind canonical petiolules and V2 blades directly to support bodies."""
 
     if not adapter.rigid_leaf_visuals:
@@ -412,6 +412,7 @@ def _author_rigid_leaf_visuals(stage, adapter: StemBranchesResult) -> list[dict[
             # ``world_to_host`` here applied the petiolule transform twice and
             # left every blade visibly detached from its support.
             world_to_link=actual_world.GetInverse(),
+            shape=(leaf_shapes.for_leaf(record["leaflet_id"]) if leaf_shapes is not None else None),
         )
         added_mass = float(record.get("aggregated_mass_kg", 0.0))
         if added_mass > 0.0:
@@ -1492,6 +1493,7 @@ def export_incremental_checkpoint(
     allow_near_budget: bool = False,
     allow_over_budget: bool = False,
     allow_experimental_fruit_physics: bool = False,
+    leaf_shape_config=None,
 ) -> tuple[IncrementalCheckpointPlan, Path, Path]:
     """Build and audit one PlantState profile with the original V2 backend."""
 
@@ -1629,6 +1631,11 @@ def export_incremental_checkpoint(
             "physical petiolules substantially increase simulation cost and "
             "may destabilize PhysX"
         )
+    from .leaf_shapes.client import prepare_leaf_shapes, author_shape_manifest
+    leaf_shapes = prepare_leaf_shapes(
+        ((record["leaflet_id"], record["leaflet_role"]) for record in adapter.rigid_leaf_visuals),
+        plant_id=state.metadata.plant_id, config=leaf_shape_config,
+    )
     stage, stem_path = build_stage(
         str(destination),
         branches=list(adapter.branches),
@@ -1637,6 +1644,7 @@ def export_incremental_checkpoint(
         skip_limit_check=allow_over_budget,
         branch_backend="skinned",
         skinning_visual_mode="segmented",
+        leaf_shapes=leaf_shapes,
     )
     truss_armatures = _author_truss_joint_armatures(
         stage, truss_armature_multiplier
@@ -1659,7 +1667,7 @@ def export_incremental_checkpoint(
         terminal_solver_preset=terminal_solver_preset,
         allow_experimental_fruit_physics=allow_experimental_fruit_physics,
     )
-    rigid_leaf_visuals = _author_rigid_leaf_visuals(stage, adapter)
+    rigid_leaf_visuals = _author_rigid_leaf_visuals(stage, adapter, leaf_shapes)
     historical_truss_visuals = _author_historical_truss_visuals(stage, adapter)
     approved_filters = _apply_approved_collision_filters(stage, adapter)
     auto_filters = (
@@ -1669,6 +1677,7 @@ def export_incremental_checkpoint(
     )
     apply_physx_scene_settings(stage, physics_hz=physics_hz)
     apply_physx_articulation_settings(stage, stem_path)
+    author_shape_manifest(stage, leaf_shapes)
     stage.GetRootLayer().Save()
     manifest = _audit_stage(
         stage,
@@ -1686,6 +1695,7 @@ def export_incremental_checkpoint(
         terminal_solver_preset=terminal_solver_preset,
         allow_experimental_fruit_physics=allow_experimental_fruit_physics,
     )
+    manifest.metadata["leaf_shapes"] = leaf_shapes.manifest()
     manifest_path = save_manifest(manifest, manifest_path_for(destination))
     if manifest.errors:
         raise IncrementalCheckpointError("; ".join(manifest.errors))

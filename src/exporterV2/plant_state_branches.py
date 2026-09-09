@@ -16,6 +16,7 @@ from plant_state import (
 )
 
 from .core.tree_config import TrussGeometryConfig, TrussPhysicsConfig
+from .leaf_shapes.config import ROLE_MAP
 
 
 POSE_MODES = ("canonical", "legacy")
@@ -1260,6 +1261,8 @@ def build_leaf_branches(
                     "groimp_node_id": int(nodes[node_id].groimp_node_id),
                     "axis_id": axis.id,
                     "role": axis.role,
+                    "leaflet_role": ROLE_MAP[axis.role],
+                    "leaflet_id": axis.id,
                     "host_axis_id": host.id,
                     "host_fraction": float(fraction),
                     "rest_frame": rest_frame,
@@ -1315,6 +1318,8 @@ def build_leaf_branches(
                 {
                     "id": branch_id,
                     "kind": "petiolule",
+                    "leaflet_role": record["leaflet_role"],
+                    "leaflet_id": record["leaflet_id"],
                     "system": "vegetative",
                     "visual_axis_id": branch_id,
                     "visual_segments": [

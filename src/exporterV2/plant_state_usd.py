@@ -338,7 +338,7 @@ def _fruit_maturation(plan: V2AuthoringPlan, owner_node_id: str, index: int) -> 
     return max(0.0, min(float(ages[index]) / properties.ripening_degree_days, 1.0))
 
 
-def _author_leaf_blades(stage, plan, visual_paths, link_paths, source_link_by_id) -> int:
+def _author_leaf_blades(stage, plan, visual_paths, link_paths, source_link_by_id, leaf_shapes=None) -> int:
     count = 0
     by_owner: dict[str, int] = {}
     for axis in plan.visual_axes:
@@ -367,6 +367,7 @@ def _author_leaf_blades(stage, plan, visual_paths, link_paths, source_link_by_id
             tip_sag=length * LEAF_TIP_SAG_FRACTION,
             color=PlantColors.LEAF_BLADE,
             world_to_link=host_world.GetInverse(),
+            shape=(leaf_shapes.for_leaf(axis.id) if leaf_shapes is not None else None),
         )
         count += 1
     return count
@@ -380,6 +381,7 @@ def export_plant_state_v2(
     leaf_stiffness_scale: float = 1.0,
     truss_stiffness_scale: float = 1.0,
     physics_hz: int = 480,
+    leaf_shape_config=None,
 ) -> Path:
     """Author a canonical V2 USDA stage and return its absolute path."""
 
@@ -395,6 +397,12 @@ def export_plant_state_v2(
         )
     if physics_hz not in {480, 960}:
         raise V2ExportError("physics_hz must be 480 or 960")
+    from .leaf_shapes.client import prepare_leaf_shapes, author_shape_manifest
+    from .leaf_shapes.config import ROLE_MAP
+    leaf_shapes = prepare_leaf_shapes(
+        ((axis.id, ROLE_MAP[axis.role]) for axis in plan.visual_axes if axis.render_geometry and axis.role in ROLE_MAP),
+        plant_id=plan.state.metadata.plant_id, config=leaf_shape_config,
+    )
     destination = Path(output_path).expanduser().resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
     stage = Usd.Stage.CreateNew(str(destination))
@@ -506,7 +514,8 @@ def export_plant_state_v2(
         _author_axis_visual(stage, path, axis.authored_pose.length, axis.radius, axis.role)
         visual_paths[axis.id] = path
 
-    leaf_blade_count = _author_leaf_blades(stage, plan, visual_paths, link_paths, link_by_id)
+    leaf_blade_count = _author_leaf_blades(stage, plan, visual_paths, link_paths, link_by_id, leaf_shapes)
+    author_shape_manifest(stage, leaf_shapes)
     terminal_root = "/World/TerminalBodies"
     UsdGeom.Xform.Define(stage, terminal_root)
     sphere_paths = {}
@@ -700,6 +709,7 @@ def audit_v2_stage(plan: V2AuthoringPlan, usd_path: str | Path) -> V2ExportManif
     all_organ_ids = {organ.id for organ in plan.state.organs}
     return V2ExportManifest(
         metadata={
+            "leaf_shapes": json.loads(stage.GetDefaultPrim().GetAttribute("autotom:leafShapes").Get() or "{}"),
             "status": "passed" if not errors else "failed",
             "usd_file": path.name,
             "plant_id": plan.state.metadata.plant_id,

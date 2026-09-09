@@ -19,6 +19,22 @@ exporterV2/
 
 ## Quick Start
 
+### Realistic leaflets on the current plant
+
+```bash
+./run_mainV2.sh --day 50                         # Gaussian, global seed 42
+./run_mainV2.sh --day 50 --leaf-shape-backend i3
+./run_mainV2.sh --day 50 --leaf-shape-seed 123
+```
+
+Each leaflet receives its own deterministic seed. The same input and global
+seed reproduce the same combination. Configure defaults in
+`profiles/leaf_shape.yaml`, or pass `--leaf-shape-config PATH`; CLI backend/seed
+override YAML. `legacy` remains an explicit shape option for regression.
+The launcher manages the separate Python 3.12 shape environment automatically.
+See [leaf shape setup, geometry and provenance](docs/10_realistic_leaf_shapes.md),
+including the Triangle requirement for standalone generation inside Isaac Python.
+
 ### Canonical stem checkpoint
 
 The incremental Phase-J migration routes the main stem through the original

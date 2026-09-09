@@ -1,47 +1,46 @@
 from pathlib import Path
 
-USD_PATH = Path(__file__).resolve().parent / "generated_leaflet.usda"
-
-if not USD_PATH.is_file():
-    raise SystemExit(
-        f"Generated leaflet USD not found: {USD_PATH}\n"
-        "Run generate_real_leaf_shape.py first."
-    )
-
 from isaacsim import SimulationApp
 
 
-# Isaac Sim must be bootstrapped before omni / pxr imports.
 simulation_app = SimulationApp({
     "headless": False,
 })
 
 
 import omni.usd
-
 from isaacsim.core.api import World
 
 
 def main():
-    usd_path = USD_PATH
+    usd_path = (
+        Path(__file__).resolve().parent
+        / "generated_leaflet_3d.usda"
+    )
 
-    print("[1] Opening leaflet USD")
-    print("    ", usd_path)
+    if not usd_path.exists():
+        raise FileNotFoundError(
+            f"Missing USD: {usd_path}\n"
+            "Run generate_real_leaf_shape_3d.py first."
+        )
+
+    print("[1] Opening:", usd_path)
 
     context = omni.usd.get_context()
     context.open_stage(str(usd_path))
 
-    # Give Kit a few updates so the stage is loaded/rendered.
+    # Allow stage to finish loading.
     for _ in range(10):
         simulation_app.update()
 
-    print("[2] Stage opened")
+    world = World(
+        stage_units_in_meters=1.0
+    )
 
-    world = World(stage_units_in_meters=1.0)
     world.reset()
 
-    print("[OK] Isaac Sim running")
-    print("     Close the Isaac Sim window to exit.")
+    print("[OK] Leaf loaded in Isaac Sim")
+    print("Close the window to exit.")
 
     while simulation_app.is_running():
         world.step(render=True)

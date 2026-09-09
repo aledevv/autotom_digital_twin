@@ -5,19 +5,23 @@ import triangle as tr
 
 from pxr import Usd, UsdGeom, Gf
 
-from tomato_leaf_generator.shape.gaussian_efd import GaussianEFDShapeGenerator
+from tomato_leaf_generator.shape.factory import create_leaf_shape_generator
 
-
-LEAF_LENGTH = 0.06  # 6 cm
+ROLE = "right"
 SEED = 42
-ROLE = "left"
 
+LEAF_LENGTH = 0.06
+
+ARCH_LIFT = 0.004
+TIP_SAG = 0.008
+TIP_SAG_EXPONENT = 1.85
+
+FOLD_DEPTH = 0.003
+FOLD_EXPONENT = 0.8
+
+GEN_MODE = "gaussian" # "i3/gaussian"
 
 def main():
-    # -------------------------------------------------------------------------
-    # Paths
-    # -------------------------------------------------------------------------
-
     repo_root = Path(__file__).resolve().parents[3]
 
     model_path = (
@@ -30,49 +34,84 @@ def main():
         / "gaussian_efd_d16"
     )
 
-    output_usd = Path(__file__).resolve().parent / "generated_leaflet.usda"
+    output_usd = (
+        Path(__file__).resolve().parent
+        / "generated_leaflet_3d.usda"
+    )
 
-    print("[1] Loading Gaussian leaf generator")
-    print("    Model:", model_path)
+    # ------------------------------------------------------------------
+    # Generate 2D leaflet
+    # ------------------------------------------------------------------
+    
+    repo_root = Path(__file__).resolve().parents[3]
+    
+    resources_root = (
+        repo_root
+        / "external"
+        / "real_leaves"
+        / "src"
+        / "tomato_leaf_generator"
+        / "resources"
+    )
 
-    if not model_path.exists():
-        raise FileNotFoundError(model_path)
+    if GEN_MODE == "i3":
+        shape_config = {
+                "backend": "i3",
+                "bank": "shape_bank.npz",
+                "neighbours": 5,
+                "dirichlet_alpha": 1.0,
+                "maximum_raw_weight": 0.95,
+                "maximum_expansion": 0.1,
+                "variation_seed_offset": 90000,
+                "maximum_weight_draws": 100,
+                "maximum_geometry_attempts": 100,
+            }
+    elif GEN_MODE == "gaussian":
+        shape_config = {
+            # Gaussian
+            "model": "gaussian_efd_d16",
+    
+            # I3
+            "bank": "shape_bank.npz",
+            "neighbours": 5,
+            "dirichlet_alpha": 1.0,
+            "maximum_raw_weight": 0.95,
+            "maximum_expansion": 0.1,
+            "variation_seed_offset": 90000,
+            "maximum_weight_draws": 100,
+            "maximum_geometry_attempts": 100,
+        }
+    else:
+        print("Unknown generation mode, exiting")
+        exit(1)
 
-    # -------------------------------------------------------------------------
-    # Generate canonical 2D leaflet
-    # -------------------------------------------------------------------------
+    
 
-    generator = GaussianEFDShapeGenerator(model_path)
+    generator = create_leaf_shape_generator(
+        config=shape_config,
+        root=resources_root,
+        method=GEN_MODE,
+    )
 
     leaf = generator.generate(
         seed=SEED,
         role=ROLE,
     )
+    
 
     contour = leaf.contour_xy.copy()
 
-    print("[2] Leaf generated")
-    print("    Role:", ROLE)
-    print("    Contour:", contour.shape)
-    print("    H60:", leaf.features_h60.shape)
+    print("[1] Generated contour:", contour.shape)
 
-    # -------------------------------------------------------------------------
-    # Scale canonical shape to physical size
-    #
-    # Canonical base ≈ (0, 0)
-    # Canonical tip  ≈ (0, 1)
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Scale to physical size
+    # ------------------------------------------------------------------
 
     scaled = contour * LEAF_LENGTH
 
-    print("[3] Scaled leaflet")
-    print("    Length target:", LEAF_LENGTH, "m")
-    print("    Bounds min:", scaled.min(axis=0))
-    print("    Bounds max:", scaled.max(axis=0))
-
-    # -------------------------------------------------------------------------
-    # Triangulate the closed 2D polygon
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Triangulate
+    # ------------------------------------------------------------------
 
     indices = np.arange(len(scaled))
 
@@ -81,66 +120,132 @@ def main():
         np.roll(indices, -1),
     ])
 
-    triangulation_input = {
-        "vertices": scaled,
-        "segments": segments,
-    }
-
-    result = tr.triangulate(triangulation_input, "p")
-
-    if "vertices" not in result or "triangles" not in result:
-        raise RuntimeError("Triangle failed to produce a valid triangulation")
+    result = tr.triangulate(
+        {
+            "vertices": scaled,
+            "segments": segments,
+        },
+        "p",
+    )
 
     vertices_2d = result["vertices"]
     triangles = result["triangles"]
 
-    print("[4] Triangulation complete")
-    print("    Vertices:", vertices_2d.shape)
-    print("    Triangles:", triangles.shape)
+    print("[2] Vertices:", vertices_2d.shape)
+    print("[3] Triangles:", triangles.shape)
 
-    # -------------------------------------------------------------------------
-    # Convert 2D polygon into a flat 3D mesh
-    # x -> leaflet lateral direction
-    # y -> base-to-tip direction
-    # z -> initially zero
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Static 3D deformation
+    # ------------------------------------------------------------------
 
-    points = [
-        Gf.Vec3f(float(x), float(y), 0.0)
-        for x, y in vertices_2d
-    ]
+    x = vertices_2d[:, 0]
+    y = vertices_2d[:, 1]
 
-    face_vertex_counts = [3] * len(triangles)
-    face_vertex_indices = triangles.flatten().tolist()
+    t = np.clip(
+        y / LEAF_LENGTH,
+        0.0,
+        1.0,
+    )
 
-    # -------------------------------------------------------------------------
-    # Author USD
-    # -------------------------------------------------------------------------
+    # Longitudinal arch
+    z_arch = ARCH_LIFT * 4.0 * t * (1.0 - t)
 
-    print("[5] Creating USD mesh")
+    # Tip sag
+    z_sag = TIP_SAG * t**TIP_SAG_EXPONENT
+
+    # Approximate central fold
+    max_half_width = np.max(np.abs(x))
+
+    if max_half_width > 1e-10:
+        lateral = np.clip(
+            np.abs(x) / max_half_width,
+            0.0,
+            1.0,
+        )
+    else:
+        lateral = np.zeros_like(x)
+
+    fold_profile = np.sin(np.pi * t) ** FOLD_EXPONENT
+
+    z_fold = FOLD_DEPTH * lateral * fold_profile
+
+    z = z_arch - z_sag - z_fold
+
+    vertices_3d = np.column_stack([
+        x,
+        y,
+        z,
+    ])
+
+    print(
+        "[4] Z range:",
+        vertices_3d[:, 2].min(),
+        vertices_3d[:, 2].max(),
+    )
+
+    # ------------------------------------------------------------------
+    # Create USD
+    # ------------------------------------------------------------------
 
     stage = Usd.Stage.CreateNew(str(output_usd))
 
-    UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
-    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    UsdGeom.SetStageUpAxis(
+        stage,
+        UsdGeom.Tokens.z,
+    )
+    UsdGeom.SetStageMetersPerUnit(
+        stage,
+        1.0,
+    )
 
-    UsdGeom.Xform.Define(stage, "/World")
+    world = UsdGeom.Xform.Define(
+        stage,
+        "/World",
+    )
 
-    mesh = UsdGeom.Mesh.Define(stage, "/World/Leaf")
+    mesh = UsdGeom.Mesh.Define(
+        stage,
+        "/World/Leaf",
+    )
+
+    points = [
+        Gf.Vec3f(
+            float(px),
+            float(py),
+            float(pz),
+        )
+        for px, py, pz in vertices_3d
+    ]
 
     mesh.GetPointsAttr().Set(points)
-    mesh.GetFaceVertexCountsAttr().Set(face_vertex_counts)
-    mesh.GetFaceVertexIndicesAttr().Set(face_vertex_indices)
 
-    mesh.CreateOrientationAttr().Set(UsdGeom.Tokens.rightHanded)
-    mesh.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
+    mesh.GetFaceVertexCountsAttr().Set(
+        [3] * len(triangles)
+    )
 
-    stage.SetDefaultPrim(stage.GetPrimAtPath("/World"))
+    mesh.GetFaceVertexIndicesAttr().Set(
+        triangles.flatten().tolist()
+    )
+
+    mesh.CreateOrientationAttr().Set(
+        UsdGeom.Tokens.rightHanded
+    )
+
+    mesh.CreateSubdivisionSchemeAttr().Set(
+        UsdGeom.Tokens.none
+    )
+
+    mesh.CreateDoubleSidedAttr().Set(True)
+
+    mesh.CreateDisplayColorAttr().Set([
+        Gf.Vec3f(0.15, 0.45, 0.10)
+    ])
+
+    stage.SetDefaultPrim(world.GetPrim())
 
     stage.GetRootLayer().Save()
 
-    print("[OK] USD saved:")
-    print("    ", output_usd)
+    print("[OK] Saved:", output_usd)
 
 
 if __name__ == "__main__":

@@ -5,8 +5,9 @@ and applies longitudinal midrib folding and static gravity sag.
 """
 
 import math
+import json
 from typing import Iterable
-from pxr import Gf
+from pxr import Gf, Sdf
 from ..tree_config import PlantColors
 from ..usd.materials import get_or_create_tomato_leaf_material
 from .mesh import (
@@ -61,8 +62,16 @@ def author_leaf_blade(
     tip_sag: float,
     color: tuple,
     world_to_link: Gf.Matrix4d,
+    shape: dict | None = None,
 ) -> None:
     """2D blade with longitudinal midrib fold and one gentle gravity arch."""
+    # None is the historical low-level API. Production always passes an explicit shape.
+    if shape is not None and shape["backend"] != "legacy":
+        return _author_generated_blade(
+            stage, path, root, forward, length=length, fold_depth=fold_depth,
+            arch_lift=arch_lift, tip_sag=tip_sag, color=color,
+            world_to_link=world_to_link, shape=shape,
+        )
     forward = _normalized(forward)
     world_up = Gf.Vec3d(0.0, 0.0, 1.0)
     side = Gf.Cross(world_up, forward)
@@ -114,9 +123,62 @@ def author_leaf_blade(
         color,
         material=material,
     )
+    if shape is not None:
+        _author_shape_metadata(stage, path, shape, world_to_link.Transform(root),
+                               world_to_link.Transform(root + forward * length - world_up * tip_sag))
 
 
-def author_petiolule_leaf_blades(stage, visual_axes: Iterable) -> int:
+def _author_shape_metadata(stage, path, shape, base, tip):
+    prim = stage.GetPrimAtPath(path)
+    values = {
+        "leafShapeBackend": (Sdf.ValueTypeNames.String, shape["backend"]),
+        "leafletRole": (Sdf.ValueTypeNames.String, shape["role"]),
+        "leafShapeSeed": (Sdf.ValueTypeNames.Int64, shape["seed"]),
+        "leafShapeStructuralId": (Sdf.ValueTypeNames.String, shape["id"]),
+        "leafShapeProvider": (Sdf.ValueTypeNames.String, shape.get("provenance", {}).get("provider", "merlice")),
+        "leafShapeProvenance": (Sdf.ValueTypeNames.String, json.dumps(shape.get("provenance", {}), sort_keys=True)),
+        "leafShapeBase": (Sdf.ValueTypeNames.Double3, Gf.Vec3d(base)),
+        "leafShapeTip": (Sdf.ValueTypeNames.Double3, Gf.Vec3d(tip)),
+    }
+    for key, (kind, value) in values.items():
+        prim.CreateAttribute(f"autotom:{key}", kind, custom=True).Set(value)
+
+
+def _author_generated_blade(stage, path, root, forward, *, length, fold_depth,
+                            arch_lift, tip_sag, color, world_to_link, shape):
+    # TODO: move shape/mesh/deformation orchestration out of core/skinning into leaf_geometry.
+    forward = _normalized(forward)
+    world_up = Gf.Vec3d(0, 0, 1)
+    side = Gf.Cross(world_up, forward)
+    if side.GetLength() <= 1e-8:
+        side = Gf.Cross(Gf.Vec3d(0, 1, 0), forward)
+    side = _normalized(side)
+    sheet_normal = _normalized(Gf.Cross(forward, side))
+    max_half_width = max(abs(x) for x, _ in shape["vertices"])
+    if max_half_width <= 1e-12:
+        raise ValueError(f"zero-width generated blade: {shape['id']}")
+
+    def deform(xy):
+        x, y = xy
+        t = min(1.0, max(0.0, y))
+        arch = arch_lift * 4*t*(1-t)
+        sag = tip_sag * t**LEAF_TIP_SAG_EXPONENT
+        # TODO: constrain an explicit midrib before refining this approximate fold.
+        lateral = min(1.0, abs(x)/max_half_width)
+        fold = fold_depth * lateral * math.sin(math.pi*t)**LEAF_FOLD_EXPONENT
+        point = root + side*(length*x) + forward*(length*y) + world_up*(arch-sag) - sheet_normal*fold
+        return world_to_link.Transform(point)
+
+    points = [Gf.Vec3f(*deform(xy)) for xy in shape["vertices"]]
+    # The existing side/forward basis reverses the canonical XY front normal.
+    # Reverse faces only; never reflect or reorder the generated contour.
+    indices = [i for a, b, c in shape["triangles"] for i in (a, c, b)]
+    author_plain_mesh(stage, path, points, [3]*len(shape["triangles"]), indices,
+                      color, material=get_or_create_tomato_leaf_material(stage))
+    _author_shape_metadata(stage, path, shape, deform(shape["base"]), deform(shape["tip"]))
+
+
+def author_petiolule_leaf_blades(stage, visual_axes: Iterable, leaf_shapes=None) -> int:
     """Find all petiolules and author a realistic leaf blade at their tip."""
     count = 0
     for axis in visual_axes:
@@ -147,6 +209,7 @@ def author_petiolule_leaf_blades(stage, visual_axes: Iterable) -> int:
             tip_sag=tip_sag,
             color=PlantColors.LEAF_BLADE,
             world_to_link=world_to_link,
+            shape=(leaf_shapes.for_leaf(axis.definition["leaflet_id"]) if leaf_shapes is not None else None),
         )
         count += 1
 

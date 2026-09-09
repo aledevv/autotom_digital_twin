@@ -62,6 +62,7 @@ def build_skinned_vegetative_structure(
     locked_joints: bool = False,
     legacy_physics: bool = False,
     visual_mode: str = None,
+    leaf_shapes=None,
 ):
     """Build vegetative physics and one of the supported smooth visual modes."""
     if visual_mode is None:
@@ -144,7 +145,7 @@ def build_skinned_vegetative_structure(
         "segmented_tongues": 0,
     }
 
-    leaf_blade_count = author_petiolule_leaf_blades(stage, visual_axes)
+    leaf_blade_count = author_petiolule_leaf_blades(stage, visual_axes, leaf_shapes)
 
     segmented_mode = visual_mode == "segmented"
 

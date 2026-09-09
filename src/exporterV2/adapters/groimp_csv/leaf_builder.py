@@ -335,6 +335,8 @@ def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: f
         # Create left petiolule
         branches.append({
             "id": left_id,
+            "leaflet_role": "left",
+            "leaflet_id": left_id,
             "system": "vegetative",
             "visual_axis_id": left_id,
             "visual_segments": [
@@ -371,6 +373,8 @@ def create_lateral_petiolules(leaf_dict: Dict, rachis_id: str, petiole_radius: f
         # Create right petiolule
         branches.append({
             "id": right_id,
+            "leaflet_role": "right",
+            "leaflet_id": right_id,
             "system": "vegetative",
             "visual_axis_id": right_id,
             "visual_segments": [
@@ -472,6 +476,8 @@ def create_terminal_petiolule(
     
     branch = {
         "id": term_id,
+        "leaflet_role": "terminal",
+        "leaflet_id": term_id,
         "system": "vegetative",
         "visual_axis_id": visual_axis_id,
         "visual_segments": [

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import sys
+from .leaf_shapes.config import BACKENDS, load_leaf_shape_config
 
 from plant_state import PlantStateValidationError, load_plant_state
 
@@ -58,6 +59,9 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--plant-id", type=_positive_int, default=1)
     parser.add_argument("--input", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--leaf-shape-backend", choices=BACKENDS, default=None)
+    parser.add_argument("--leaf-shape-seed", type=int, default=None)
+    parser.add_argument("--leaf-shape-config", type=Path, default=None)
     parser.add_argument(
         "--physics-preset", choices=("locked", "flexible"), default="flexible"
     )
@@ -178,6 +182,11 @@ def build_argument_parser() -> argparse.ArgumentParser:
 
 
 def generate_from_args(args: argparse.Namespace):
+    leaf_shape_config = load_leaf_shape_config(
+        getattr(args, "leaf_shape_config", None),
+        backend=getattr(args, "leaf_shape_backend", None),
+        seed=getattr(args, "leaf_shape_seed", None),
+    )
     if args.allow_experimental_fruit_physics and args.debug_profile != "full":
         raise V2PlantStateError(
             "--allow-experimental-fruit-physics is valid only with "
@@ -233,6 +242,7 @@ def generate_from_args(args: argparse.Namespace):
             *export_incremental_checkpoint(
                 state,
                 destination,
+                leaf_shape_config=leaf_shape_config,
                 debug_profile=args.debug_profile,
                 pose_mode=args.pose_mode,
                 appendage_pose_mode=args.appendage_pose_mode,
@@ -267,6 +277,7 @@ def generate_from_args(args: argparse.Namespace):
     usd_path = export_plant_state_v2(
         plan,
         destination,
+        leaf_shape_config=leaf_shape_config,
         stiffness_scale=args.stiffness_scale,
         leaf_stiffness_scale=args.leaf_stiffness_scale,
         truss_stiffness_scale=args.truss_stiffness_scale,

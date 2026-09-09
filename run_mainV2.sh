@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ISAACSIM_DIR="${ISAACSIM_DIR:-$HOME/isaacsim}"
 DAY=""
+LEAF_SHAPE_ARGS=()
 PLANT_ID="1"
 INPUT=""
 OUTPUT=""
@@ -44,6 +45,9 @@ usage() {
   echo "With --day: generate V2 from plant_state/1.0 and open it in Isaac Sim."
   echo "Without --day: retain the BRANCHES static demo from tree_config.py."
   echo
+  echo "  --leaf-shape-backend MODE    gaussian (default)|i3|legacy; requires --day"
+  echo "  --leaf-shape-seed N          Global non-negative seed (default: YAML, 42)"
+  echo "  --leaf-shape-config PATH     Leaf YAML; CLI options override YAML"
   echo "  --plant-id N"
   echo "  --input PATH                 Canonical JSON (no CSV fallback)"
   echo "  --output PATH                Generated USDA"
@@ -81,6 +85,8 @@ usage() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --leaf-shape-backend|--leaf-shape-seed|--leaf-shape-config)
+      LEAF_SHAPE_ARGS+=("$1" "${2:?Missing leaf shape option value}"); shift 2 ;;
     --day) DAY="${2:?Missing value for --day}"; shift 2 ;;
     --plant-id) PLANT_ID="${2:?Missing value for --plant-id}"; shift 2 ;;
     --input) INPUT="${2:?Missing value for --input}"; shift 2 ;;
@@ -121,6 +127,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$DAY" ]]; then
+  if (( ${#LEAF_SHAPE_ARGS[@]} )); then
+    echo "Leaf shape options require --day" >&2
+    exit 2
+  fi
   if [[ -n "$INPUT" || -n "$OUTPUT" || "$GENERATE_ONLY" == "true" || "$HEADLESS" == "true" ]]; then
     echo "--input, --output, --generate-only and --headless require --day" >&2
     exit 2
@@ -218,6 +228,7 @@ if [[ ! -f "$INPUT" ]]; then
 fi
 
 GENERATOR=(uv run python -m exporterV2 --day "$DAY" --plant-id "$PLANT_ID" --input "$INPUT" --output "$OUTPUT" --physics-preset "$PHYSICS_PRESET" --stiffness-scale "$STIFFNESS_SCALE" --leaf-stiffness-scale "$LEAF_STIFFNESS_SCALE" --truss-stiffness-scale "$TRUSS_STIFFNESS_SCALE" --physics-hz "$PHYSICS_HZ" --debug-profile "$DEBUG_PROFILE" --pose-mode "$POSE_MODE" --appendage-pose-mode "$APPENDAGE_POSE_MODE" --leaf-joint-policy "$LEAF_JOINT_POLICY" --lateral-joint-policy "$LATERAL_JOINT_POLICY" --truss-calibration-preset "$TRUSS_CALIBRATION_PRESET" --truss-armature-multiplier "$TRUSS_ARMATURE_MULTIPLIER" --terminal-solver-preset "$TERMINAL_SOLVER_PRESET" --visual-quality "$VISUAL_QUALITY" --initial-overlap-policy "$INITIAL_OVERLAP_POLICY")
+GENERATOR+=("${LEAF_SHAPE_ARGS[@]}")
 [[ -z "$TRUSS_DAMPING_OVERRIDE" ]] || GENERATOR+=(--truss-damping-override "$TRUSS_DAMPING_OVERRIDE")
 [[ "$OPTIMIZE" == "false" ]] || GENERATOR+=(--optimize)
 [[ "$ALLOW_NEAR_BUDGET" == "false" ]] || GENERATOR+=(--allow-near-budget)

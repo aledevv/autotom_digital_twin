@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
+from exporterV2.leaf_shapes.config import load_leaf_shape_config
 from exporterV2.cli import main as exporter_main
 from exporterV2.plant_state_branches import (
     PlantStateBranchesError,
@@ -116,6 +117,7 @@ def test_day50_leaves_are_visual_only_and_do_not_expand_physics(
         day50_state,
         tmp_path / "leaves.usda",
         debug_profile="leaves",
+        leaf_shape_config=load_leaf_shape_config(backend="legacy"),
         physics_preset="flexible",
     )
     assert plan.physical_link_count == 81
@@ -211,6 +213,7 @@ def test_every_leaf_blade_is_anchored_to_its_canonical_petiolule_tip(
         day50_state,
         tmp_path / "leaf_anchors.usda",
         debug_profile="leaves",
+        leaf_shape_config=load_leaf_shape_config(backend="legacy"),
         physics_preset="flexible",
     )
     stage = Usd.Stage.Open(str(usd_path))

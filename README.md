@@ -17,8 +17,8 @@ The central research goal is to preserve the organ-level topology produced by
 the plant model while making the result usable in an interactive simulator:
 stems, leaves, trusses, pedicels, and tomatoes are assigned USD geometry and
 materials and optionally equipped with articulated PhysX dynamics. Static V1
-now consumes canonical `plant_state/1.0`; V2 remains on its CSV adapter until
-the planned Phase J migration.
+and the current V2 `--day` runner consume canonical `plant_state/1.0` snapshots.
+The older CSV adapter remains available for historical workflows.
 
 ## Visual Comparison
 
@@ -32,7 +32,7 @@ and fruits.
 | Exporter | Role | Main capabilities |
 | --- | --- | --- |
 | V1, `src/exporterV1` | Canonical static baseline | `plant_state/1.0`, complete organ/topology manifest, colored static geometry |
-| V2.2, `src/exporterV2` | Active pipeline | CSV-derived articulated plant, organic branch visuals, 3D compound leaves, physical trusses, detachable tomatoes, PBR organ materials, runtime PhysX settings, optimizer |
+| V2.2, `src/exporterV2` | Active pipeline | PlantState articulated plant, Gaussian/I3 compound leaflets, organic branch visuals, dynamic truss supports, PBR materials, runtime PhysX settings; physical fruits remain experimental |
 
 ### Exporter V2.0 Demo
 https://github.com/user-attachments/assets/357638f1-c9d2-485e-94ee-cd6e2d5e7535
@@ -92,6 +92,10 @@ https://github.com/user-attachments/assets/e33f672d-72b8-41b2-9b4d-43bf5656226e
 </p>
 
 ## Pipeline
+
+The diagram below describes the historical CSV route. Current `--day` runs
+read PlantState snapshots; realistic blade generation uses the isolated shape
+worker described in the [leaf integration notes](src/exporterV2/docs/10_realistic_leaf_shapes.md).
 
 ```mermaid
 graph LR
@@ -177,6 +181,20 @@ Exporter V2.2 is organized around reusable layers:
 | Runtime | Isaac Sim scene settings, GPU dynamics, solver iterations | Done |
 
 ## Running
+
+The current PlantState V2 runner supports realistic Gaussian leaflets by default
+and I3 as an alternative, with an individual deterministic seed per leaflet:
+
+```bash
+./run_mainV2.sh --day 50
+./run_mainV2.sh --day 50 --leaf-shape-backend i3 --leaf-shape-seed 42
+```
+
+Defaults live in `src/exporterV2/profiles/leaf_shape.yaml`; use
+`--leaf-shape-config PATH` for a custom file. The separate Python 3.12 shape
+environment is managed automatically. See the
+[setup and geometry notes](src/exporterV2/docs/10_realistic_leaf_shapes.md)
+for dependencies, reproduction, the explicit `legacy` option and validation.
 
 Generate canonical static V1 without Isaac Sim, or open the same stage
 interactively:

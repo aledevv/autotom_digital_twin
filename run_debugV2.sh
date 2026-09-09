@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 DAY=""
+LEAF_SHAPE_ARGS=()
 ORGAN="truss-supports"
 POSE_MODE="canonical"
 APPENDAGE_POSE_MODE="v2-aesthetic"
@@ -37,6 +38,9 @@ Each checkpoint is cumulative: leaves includes the validated fixed stem,
 native laterals, dynamic petioles and rachides, and rigid leaf visuals.
 
 Options:
+  --leaf-shape-backend MODE   gaussian (default)|i3|legacy
+  --leaf-shape-seed N         Global non-negative seed (default: YAML, 42)
+  --leaf-shape-config PATH    Leaf YAML; CLI options override YAML
   --day N                    PlantState simulation day (required)
   --organ NAME               Optional diagnostic subset (default: truss-supports)
   --pose-mode MODE           canonical|legacy (default: canonical)
@@ -79,6 +83,8 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --leaf-shape-backend|--leaf-shape-seed|--leaf-shape-config)
+      LEAF_SHAPE_ARGS+=("$1" "${2:?Missing leaf shape option value}"); shift 2 ;;
     --day) DAY="${2:?Missing value for --day}"; shift 2 ;;
     --organ) ORGAN="${2:?Missing value for --organ}"; shift 2 ;;
     --pose-mode) POSE_MODE="${2:?Missing value for --pose-mode}"; shift 2 ;;
@@ -188,6 +194,7 @@ COMMAND=(
   --visual-quality "$VISUAL_QUALITY"
   --initial-overlap-policy "$INITIAL_OVERLAP_POLICY"
 )
+COMMAND+=("${LEAF_SHAPE_ARGS[@]}")
 [[ -z "$TRUSS_DAMPING_OVERRIDE" ]] || COMMAND+=(--truss-damping-override "$TRUSS_DAMPING_OVERRIDE")
 [[ "$PHYSICAL_PETIOLULES" == "false" ]] || COMMAND+=(--physical-petiolules)
 [[ "$ALLOW_NEAR_BUDGET" == "false" ]] || COMMAND+=(--allow-near-budget)

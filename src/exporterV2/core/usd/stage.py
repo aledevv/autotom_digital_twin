@@ -83,6 +83,7 @@ def build_stage(
     legacy_physics: bool = False,
     branch_backend: str = "legacy",
     skinning_visual_mode: str = None,
+    leaf_shapes=None,
 ):
     """
     Build the full tree USD stage from BRANCHES configuration.
@@ -148,6 +149,7 @@ def build_stage(
             locked_joints=locked_joints,
             legacy_physics=legacy_physics,
             visual_mode=skinning_visual_mode,
+            leaf_shapes=leaf_shapes,
         ))
 
     for b in branches_to_build:
