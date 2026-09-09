@@ -120,6 +120,12 @@ gate:
   --allow-experimental-fruit-physics
 ```
 
+For reproducible collision/topology ablations, per-step pose and velocity
+measurements, and real joint-break events, see the opt-in
+[detachable-fruit investigation](../experiments/detachable_fruit_v2/README.md).
+Its headless results require a three-minute GUI review with Shift+click before
+any configuration can be accepted for interactive use.
+
 The day-160 full scene did not settle even with all colliders disabled in
 memory and break force `1e9 N`; it is therefore not a supported production
 configuration. The method and measurements are in

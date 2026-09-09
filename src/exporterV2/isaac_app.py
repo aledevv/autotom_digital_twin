@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -28,6 +29,8 @@ def _arguments() -> argparse.Namespace:
     )
     parser.add_argument("--report", type=Path)
     parser.add_argument("--diagnostic-monitor", action="store_true")
+    parser.add_argument("--fruit-experiment", type=Path,
+                        help="Opt-in configuration for shared headless/GUI fruit diagnostics")
     args, kit_args = parser.parse_known_args()
     if args.duration <= 0.0:
         parser.error("--duration must be positive")
@@ -781,14 +784,31 @@ def main() -> int:
     if not usd_path.is_file():
         print(f"[ERROR] USD stage does not exist: {usd_path}", file=sys.stderr)
         return 2
+    experiment_config = None
+    if args.fruit_experiment:
+        experiment_config = json.loads(args.fruit_experiment.read_text())
+        if hashlib.sha256(usd_path.read_bytes()).hexdigest() != experiment_config["scene_sha256"]:
+            raise ValueError("fruit experiment USD does not match its recorded SHA-256")
+        previous_report = Path(experiment_config["run_dir"]) / ("report.json" if args.headless else "gui-report.json")
+        if previous_report.exists():
+            raise ValueError(f"refusing to overwrite previous fruit experiment: {previous_report}")
 
     from isaacsim import SimulationApp
 
-    app = SimulationApp({"headless": args.headless})
+    if args.fruit_experiment:
+        # Small plant scenes suffer from dispatch overhead with the machine-wide
+        # worker count. Apply the same bounded pool to every experimental case.
+        sys.argv.append("--/plugins/carb.tasking.plugin/threadCount=4")
+    app = SimulationApp({"headless": args.headless, "fast_shutdown": not bool(args.fruit_experiment)})
     try:
         import omni.usd
         from isaacsim.core.api import World
         from isaacsim.core.utils.stage import is_stage_loading
+
+        if args.fruit_experiment:
+            import carb.settings
+            from omni.physx.bindings._physx import SETTING_NUM_THREADS
+            carb.settings.get_settings().set(SETTING_NUM_THREADS, 4)
 
         context = omni.usd.get_context()
         requested_runtime_hz = (
@@ -800,12 +820,17 @@ def main() -> int:
             raise RuntimeError(f"opened {opened_path!s} instead of {usd_path}")
         stage = context.get_stage()
         authored_geometry = _authored_body_geometry(stage)
+        args.fruit_authored_geometry = authored_geometry
         args.authored_physics_hz = _authored_physics_hz(stage)
         world = World(
             stage_units_in_meters=1.0,
             physics_dt=1.0 / requested_runtime_hz,
             rendering_dt=1.0 / 60.0,
         )
+        if args.fruit_experiment:
+            # World/PhysicsContext defaults overwrite an authored PGS scene
+            # with TGS. Restore the requested solver before PhysX is cooked.
+            world.get_physics_context().set_solver_type(experiment_config["solver"])
         _register_runtime_physics_scene(stage)
         mouse_interaction = {}
         if not args.headless:
@@ -847,7 +872,7 @@ def main() -> int:
             flush=True,
         )
         report_path = None
-        if args.headless or args.diagnostic_monitor:
+        if (args.headless or args.diagnostic_monitor) and not args.fruit_experiment:
             report_path = (
                 args.report.expanduser().resolve()
                 if args.report is not None
@@ -873,6 +898,16 @@ def main() -> int:
                     **mouse_interaction,
                 },
             )
+        if args.fruit_experiment:
+            source_root = str(Path(__file__).resolve().parents[1])
+            if source_root not in sys.path:
+                sys.path.insert(0, source_root)
+            from exporterV2.fruit_diagnostics import run as run_fruit_diagnostics
+            config = experiment_config
+            if config["hz"] != args.runtime_physics_hz:
+                raise ValueError("fruit experiment and runtime frequencies differ")
+            report = run_fruit_diagnostics(stage, world, app, args, config)
+            return 1 if report["status"] == "failed" else 0
         if args.headless:
             report = _run_stability(stage, world, args, authored_geometry)
             report["load_seconds"] = load_seconds

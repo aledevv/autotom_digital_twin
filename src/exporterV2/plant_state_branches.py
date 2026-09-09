@@ -1768,9 +1768,13 @@ def build_truss_branches(
                         "mass": (4.0 / 3.0) * math.pi * float(sphere.radius) ** 3 * 1000.0,
                         "maturation": maturation,
                         "physical": physical_fruits,
-                        "detachment_enabled": physical_fruits,
-                        "exclude_from_articulation": physical_fruits,
-                        "break_force": 6.0 if physical_fruits else None,
+                        "detachment_enabled": physical_fruits and TrussPhysicsConfig.TOMATO_DETACHMENT_ENABLED,
+                        "exclude_from_articulation": physical_fruits and TrussPhysicsConfig.TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION,
+                        "break_force": (
+                            TrussPhysicsConfig.TOMATO_DETACHMENT_BREAK_FORCE_N
+                            if physical_fruits and TrussPhysicsConfig.TOMATO_DETACHMENT_ENABLED
+                            else None
+                        ),
                         "canonical_node_id": node.id,
                         "canonical_organ_id": organ.id,
                         "canonical_primitive_id": sphere.id,
