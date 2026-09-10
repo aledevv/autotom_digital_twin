@@ -43,14 +43,21 @@ def main():
     parser.add_argument("--duration", type=float, default=20)
     parser.add_argument("--acceptance", choices=("strict", "functional"), default="strict",
                         help="Functional keeps numerical tolerances advisory; GUI requires 20 FPS and user review.")
-    parser.add_argument("--force-target", choices=("min", "median", "max"))
+    parser.add_argument("--force-target", help="min, median, max, or an exact fruit rigid-body USD path")
+    parser.add_argument("--interaction", choices=("com", "surface", "native", "bounded"), default="com")
+    parser.add_argument("--drag-distance", type=float, default=.2, help="Replay displacement in metres")
+    parser.add_argument("--drag-profile", choices=("slow", "rapid", "early-release"), default="slow")
     parser.add_argument("--force-start", type=float, default=30)
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--gui", action="store_true")
-    parser.add_argument("--mouse-grab-mode", choices=("joint", "force"), default="joint")
+    parser.add_argument("--mouse-grab-mode", choices=("joint", "force", "bounded"), default="joint")
     parser.add_argument("--mouse-force-coefficient", type=float, default=10.0,
                         help="Native mouse gain, not a force in newtons.")
     args = parser.parse_args()
+    if not 0 < args.drag_distance <= 2:
+        parser.error("replay drag distance must be in (0, 2] metres")
+    if args.interaction != "com" and not args.force_target:
+        parser.error("interaction comparison requires --force-target")
     if not 0 < args.mouse_force_coefficient <= 10:
         parser.error("mouse force coefficient must be in (0, 10], the native Physics Settings UI range")
     if args.damping_ratio is None:
@@ -93,6 +100,7 @@ def main():
     config["source_truss_physics"] = physics
     config["implementation_sha256"] = {str(p.relative_to(ROOT)): sha(p) for p in [
         Path(__file__).resolve(), ROOT / "src/exporterV2/fruit_experiments.py",
+        ROOT / "src/exporterV2/fruit_interaction.py",
         ROOT / "src/exporterV2/fruit_diagnostics.py", ROOT / "src/exporterV2/isaac_app.py"]}
     isaac_root = Path(os.environ.get("ISAACSIM_DIR", str(Path.home() / "isaacsim")))
     config["isaac_version"] = (isaac_root / "VERSION").read_text().strip()

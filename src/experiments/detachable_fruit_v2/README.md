@@ -15,6 +15,15 @@ The original state is preserved on GitHub by annotated tag
 
 The first instrumented comparison is documented in [RESULTS.md](RESULTS.md).
 The follow-up on iterations, 60 Hz and FPS is in [ITERATIONS_60HZ.md](ITERATIONS_60HZ.md).
+The subsequent Shift+click comparison is in [INTERACTION_RESULTS.md](INTERACTION_RESULTS.md).
+
+For interaction comparisons, `--force-target` accepts min/median/max or an
+exact fruit rigid-body path. `--interaction com|surface|native|bounded` selects
+the stimulus; `--drag-distance` is in metres and `--drag-profile` selects slow,
+rapid or early-release replay. Native resultant force remains unknown; zero
+in the direct-force metric means no force commanded by the runner, not zero
+native force. For manual review, use `--mouse-grab-mode bounded` with no
+`--force-target`; the latter selects automated stimulation.
 
 ## Run a case
 

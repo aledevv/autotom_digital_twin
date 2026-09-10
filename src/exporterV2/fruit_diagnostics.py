@@ -215,18 +215,29 @@ def run(stage, world, app, args, config):
     current_time = 0.0
     target_choice = config.get("force_target")
     target_record = None
+    gui_interaction = None
     if target_choice:
         order = {"min": 0, "median": len(records) // 2, "max": len(records) - 1}
         if not records:
             raise ValueError("force test requires a fruit")
-        target_record = records[order[target_choice]]
+        if target_choice in order:
+            target_record = records[order[target_choice]]
+        else:
+            target_record = next((r for r in records if r["fruit"] == target_choice), None)
+            if target_record is None:
+                raise ValueError(f"force target is not an attached fruit: {target_choice}")
     def on_event(event):
         if event.type == int(SimulationEvent.JOINT_BREAK):
             raw = event.payload["jointPath"]
             path = str(PhysicsSchemaTools.decodeSdfPath(raw[0], raw[1]))
             broken.add(path)
-            events.append({"time_s": float(world.current_time) - start_time, "joint": path,
-                           "kind": "joint_break", "applied_force_n": applied_force})
+            event_time = float(world.current_time) - start_time
+            user_target = gui_interaction.handle_break(path, event_time) if gui_interaction else False
+            if gui_interaction and not user_target:
+                errors.append(f"joint broke outside the selected fruit drag: {path}")
+            events.append({"time_s": event_time, "joint": path, "user_target": user_target,
+                           "kind": "joint_break", "applied_force_n":
+                           None if target_record and config.get("interaction") == "native" else applied_force})
             print(f"[FRUIT] joint_break t={current_time:.6f} {path}", flush=True)
     # Deliver events on the Python simulation thread after the step. A push
     # subscriber can run on a PhysX worker while the main thread holds the GIL.
@@ -264,6 +275,14 @@ def run(stage, world, app, args, config):
             trace.clear()
             chunk += 1
     steps = int(math.ceil(args.duration * hz))
+    interaction = None
+    if target_record:
+        from exporterV2.fruit_interaction import InteractionReplay
+        interaction = InteractionReplay(config, view, indices[target_record["fruit"]], target_record,
+                                        output / f"{prefix}-interaction.jsonl")
+    elif not args.headless and config.get("mouse_grab_mode") == "bounded":
+        from exporterV2.fruit_interaction import GuiDragBridge
+        gui_interaction = GuiDragBridge(stage, view, paths, records, broken, output / "gui-interaction.jsonl")
     if errors:
         first_failure = {"time_s": 0.0, "error": errors[0]}
         steps = 0
@@ -274,15 +293,9 @@ def run(stage, world, app, args, config):
             if not world.is_playing():
                 errors.append("timeline stopped before completion")
                 break
-            if target_record and target_record["joint"] not in broken:
-                ramp = (current_time + 1 / hz - config["force_start"]) / 5
-                applied_force = 12 * min(1, max(0, ramp))
-                if applied_force:
-                    view.apply_forces_and_torques_at_pos(
-                        forces=np.array([[0., 0., -applied_force]], dtype=np.float32),
-                        indices=np.array([indices[target_record["fruit"]]], dtype=np.int32), is_global=True)
-            else:
-                applied_force = 0.0
+            applied_force = interaction.before_step(current_time, 1 / hz, broken) if interaction else 0.0
+            if gui_interaction:
+                applied_force = gui_interaction.before_step(current_time, 1 / hz, broken)
             step_started = time.perf_counter()
             world.step(render=False)
             physics_done = time.perf_counter()
@@ -298,6 +311,8 @@ def run(stage, world, app, args, config):
             if not finite.all():
                 errors.append(f"nonfinite state: {paths[int(np.flatnonzero(~finite)[0])]}")
                 first_failure = {"time_s": current_time, "body": paths[int(np.flatnonzero(~finite)[0])]}
+                np.savez_compressed(output / f"{prefix}-failure-state.npz", time_s=current_time,
+                                    paths=np.asarray(paths), state=state, finite=finite)
                 break
             speed, angular = np.linalg.norm(velocities[:, :3], axis=1), np.linalg.norm(velocities[:, 3:], axis=1)
             motion_linear, motion_angular = motion_rates(previous_pos, previous_quat, pos, quat, np.asarray(com_pos), 1 / hz)
@@ -315,7 +330,7 @@ def run(stage, world, app, args, config):
                                        np.linalg.norm(velocities[index, :3])) / hz + .001
                     event["continuity_travel_bound_m"] = float(travel_bound)
                     event["continuity_passed"] = bool(event["pose_step_m"] <= travel_bound)
-                    if target_record and event["joint"] == target_record["joint"] and not event["continuity_passed"]:
+                    if ((target_record and event["joint"] == target_record["joint"]) or event.get("user_target")) and not event["continuity_passed"]:
                         errors.append("target fruit pose discontinuity at joint break")
             captured_events = len(events)
             previous_pos, previous_quat, previous_velocity = pos.copy(), quat.copy(), velocities.copy()
@@ -336,7 +351,7 @@ def run(stage, world, app, args, config):
                                            current_time, config["force_start"], args.headless)
             if unexpected:
                 errors.append("spontaneous joint break: " + sorted(unexpected)[0])
-            if target_record and current_time >= config["force_start"] + 5 and target_record["joint"] not in broken:
+            if target_record and config.get("interaction", "com") in ("com", "surface") and current_time >= config["force_start"] + 5 and target_record["joint"] not in broken:
                 errors.append("target fruit did not detach within the 0-12 N, five-second ramp")
             if np.linalg.norm(pos[roots] - initial_pos[roots], axis=1).max() > .001:
                 errors.append("fixed root drift exceeds 1 mm")
@@ -370,6 +385,8 @@ def run(stage, world, app, args, config):
                     first_failure = {"time_s": current_time, "error": errors[-1]}
                 break
             if not args.headless and (step + 1) % max(1, hz // 60) == 0:
+                if gui_interaction:
+                    gui_interaction.time_s = current_time
                 render_start = time.perf_counter()
                 world.render()
                 frame_wall = time.perf_counter()
@@ -380,6 +397,10 @@ def run(stage, world, app, args, config):
     except KeyboardInterrupt:
         errors.append("experiment interrupted before completion")
     finally:
+        if interaction:
+            interaction.close(current_time)
+        if gui_interaction:
+            gui_interaction.close(current_time)
         flush_trace()
         subscription = None
     loop_wall_seconds = time.perf_counter() - wall_start
@@ -416,8 +437,10 @@ def run(stage, world, app, args, config):
                 first_failure = min(anomalies, key=lambda event: event["time_s"])
     else:
         metrics, limits, gate_errors = {}, {}, ["no valid samples"]
-    if target_record and target_record["joint"] not in broken:
-        errors.append("target fruit did not detach under the force ramp")
+    if target_record and config.get("drag_profile") != "early-release" and target_record["joint"] not in broken:
+        errors.append("target fruit did not detach during the requested interaction")
+    if target_record and config.get("drag_profile") == "early-release" and broken:
+        errors.append("unexpected joint break in early-release trial")
     if args.headless and config.get("acceptance", "strict") == "strict":
         errors.extend(gate_errors)
     if not completed:
@@ -444,6 +467,8 @@ def run(stage, world, app, args, config):
     if not args.headless and config.get("acceptance") == "functional":
         if performance["gui_steady_fps"] is None or performance["gui_steady_fps"] < 20:
             errors.append("GUI steady frame rate is unavailable or below the required 20 FPS")
+        if gui_interaction and not any(e.get("user_target") for e in events):
+            errors.append("no selected fruit detached during the manual bounded-drag review")
     report = {"schema_version": "exporter_v2_fruit_diagnostics/1.1", "status": "failed" if errors else ("passed" if args.headless else "awaiting_user_review"),
               "config": config, "errors": list(dict.fromkeys(errors)), "events": events,
               "simulated_seconds": current_time, "wall_seconds": time.perf_counter() - wall_start,
@@ -464,6 +489,7 @@ def run(stage, world, app, args, config):
                            for i, p in enumerate(paths)],
               "max_reset_projection_m": float(reset_errors.max()), "peak_linear_body": paths[int(peak_lin.argmax())],
               "peak_angular_body": paths[int(peak_ang.argmax())], "force_target": target_record,
+              "interaction": interaction.summary if interaction else (gui_interaction.summary if gui_interaction else None),
               "user_acceptance": None}
     _write_report(report_path, json_finite(report))
     print(f"[FRUIT] status={report['status']} report={report_path}", flush=True)

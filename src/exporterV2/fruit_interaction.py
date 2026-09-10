@@ -1,0 +1,311 @@
+"""Reproducible native mouse events and controlled force comparisons.
+
+Native picking is queried independently; a ray hit is not a measurement of
+the force applied internally by the mouse interactor.
+"""
+from __future__ import annotations
+
+import json
+import numpy as np
+
+
+def unit(vector):
+    vector = np.asarray(vector, dtype=float)
+    norm = np.linalg.norm(vector)
+    if not np.isfinite(norm) or norm < 1e-12:
+        raise ValueError("invalid interaction ray")
+    return vector / norm
+
+
+def pick_ray(center, body, query):
+    """Find an unobstructed horizontal view of the requested rigid body."""
+    center = np.asarray(center, dtype=float)
+    attempts = []
+    for angle in np.linspace(0, 2 * np.pi, 24, endpoint=False):
+        eye = center + .5 * np.array([np.cos(angle), np.sin(angle), 0.])
+        direction = unit(center - eye)
+        hit = query(tuple(eye), tuple(direction), 1.0)
+        attempts.append({"origin": eye.tolist(), "direction": direction.tolist(),
+                         "rigid_body": str(hit.get("rigidBody", "")),
+                         "collider": str(hit.get("collision", "")), "hit": bool(hit.get("hit"))})
+        if hit.get("hit") and str(hit.get("rigidBody")) == body:
+            return eye, direction, np.asarray(hit["position"], dtype=float), attempts
+    raise ValueError(f"no unobstructed fruit ray for {body}: {attempts}")
+
+
+class LimitedDrag:
+    """A COM spring with a vector force cap and vector slew limit in SI."""
+    stiffness = 60.0
+    maximum_force = 12.0
+    slew_rate = 2.4
+
+    def __init__(self):
+        self.active = False
+        self.force = np.zeros(3)
+
+    def begin(self, center, hit, normal):
+        self.center = np.asarray(center, dtype=float).copy()
+        self.hit = np.asarray(hit, dtype=float).copy()
+        self.normal = unit(normal)
+        self.target = self.center.copy()
+        self.force = np.zeros(3)
+        self.active = True
+
+    def move(self, origin, direction):
+        direction = unit(direction)
+        denominator = np.dot(direction, self.normal)
+        if abs(denominator) < 1e-8:
+            self.end()
+            return
+        distance = np.dot(self.hit - origin, self.normal) / denominator
+        if distance <= 0 or not np.isfinite(distance):
+            self.end()
+            return
+        point = np.asarray(origin) + distance * direction
+        self.target = self.center + point - self.hit
+
+    def step(self, current_center, dt):
+        if not self.active:
+            return np.zeros(3)
+        desired = self.stiffness * (self.target - current_center)
+        length = np.linalg.norm(desired)
+        if length > self.maximum_force:
+            desired *= self.maximum_force / length
+        delta = desired - self.force
+        length = np.linalg.norm(delta)
+        if length > self.slew_rate * dt:
+            delta *= self.slew_rate * dt / length
+        self.force += delta
+        return self.force.copy()
+
+    def end(self):
+        self.active = False
+        self.force = np.zeros(3)
+
+
+class InteractionReplay:
+    def __init__(self, config, view, index, target, output):
+        from omni.physx import get_physx_interface, get_physx_scene_query_interface
+        from omni.physx.bindings._physx import PhysicsInteractionEvent
+        import carb.settings
+
+        self.config, self.view, self.index, self.target = config, view, index, target
+        self.kind = config.get("interaction", "com")
+        self.native = get_physx_interface()
+        self.query = get_physx_scene_query_interface().raycast_closest
+        self.events = PhysicsInteractionEvent
+        self.started, self.released = False, False
+        self.local_hit = self.eye = self.hit = None
+        self.direction = None
+        self.drag = LimitedDrag()
+        self.local_com = np.asarray(view.get_coms()[0])[index].reshape(3)
+        self.log = output.open("w")
+        self.summary = {"kind": self.kind, "body": target["fruit"],
+                        "native_force_newtons": None, "selection": None}
+        if self.kind == "native":
+            settings = carb.settings.get_settings()
+            for name, value in (("mouseInteractionEnabled", True), ("mouseGrab", True),
+                                ("mouseGrabIgnoreInvisible", False),
+                                ("forceGrab", config.get("mouse_grab_mode", "force") == "force"),
+                                ("pickingForce", config.get("mouse_force_coefficient", 10.0))):
+                settings.set("/physics/" + name, value)
+            self.summary["native_settings"] = {name: settings.get("/physics/" + name) for name in
+                                                ("mouseGrab", "forceGrab", "pickingForce", "mouseGrabIgnoreInvisible")}
+
+    def write(self, value):
+        self.log.write(json.dumps(value, allow_nan=False) + "\n")
+        self.log.flush()
+
+    def release(self, time_s, reason):
+        if self.started and not self.released:
+            if self.kind == "native":
+                self.native.update_interaction(tuple(self.eye), tuple(self.direction), self.events.MOUSE_DRAG_ENDED)
+            self.released = True
+            self.drag.end()
+            self.write({"time_s": time_s, "event": "end", "reason": reason})
+
+    def before_step(self, time_s, dt, broken):
+        from exporterV2.fruit_diagnostics import rotate
+        start = self.config["force_start"]
+        if self.target["joint"] in broken:
+            self.release(time_s, "joint_break")
+            return 0.0
+        if time_s + dt < start or self.released:
+            return 0.0
+        release_after = .5 if self.config.get("drag_profile") == "early-release" else 5
+        if self.kind in ("native", "bounded") and time_s >= start + release_after:
+            self.release(time_s, "gesture_complete")
+            return 0.0
+        pos, quat = self.view.get_world_poses(indices=np.array([self.index]))
+        pos, quat = np.asarray(pos)[0], np.asarray(quat)[0]
+        if not self.started:
+            self.eye, self.direction, self.hit, attempts = pick_ray(pos, self.target["fruit"], self.query)
+            inverse = quat.copy()
+            inverse[1:] *= -1
+            self.local_hit = rotate(inverse, self.hit - pos)
+            self.summary["selection"] = attempts[-1] | {"point": self.hit.tolist(), "attempts": attempts}
+            self.write({"time_s": time_s, "event": "begin", **self.summary["selection"]})
+            if self.kind == "native":
+                self.native.update_interaction(tuple(self.eye), tuple(self.direction), self.events.MOUSE_DRAG_BEGAN)
+            elif self.kind == "bounded":
+                self.drag.begin(pos + rotate(quat, self.local_com), self.hit, -self.direction)
+            self.started = True
+        duration = .2 if self.config.get("drag_profile") == "rapid" else 5
+        fraction = float(np.clip((time_s + dt - start) / duration, 0, 1))
+        if self.kind in ("native", "bounded"):
+            target_point = self.hit + np.array([0., 0., -self.config.get("drag_distance", .2) * fraction])
+            self.direction = unit(target_point - self.eye)
+            if self.kind == "native":
+                self.native.update_interaction(tuple(self.eye), tuple(self.direction), self.events.MOUSE_DRAG_CHANGED)
+                command = None
+            else:
+                self.drag.move(self.eye, self.direction)
+                command = self.drag.step(pos + rotate(quat, self.local_com), dt)
+                self.view.apply_forces_and_torques_at_pos(forces=np.asarray([command], dtype=np.float32),
+                                                        indices=np.array([self.index], dtype=np.int32), is_global=True)
+            self.write({"time_s": time_s, "event": "move", "origin": self.eye.tolist(),
+                        "direction": self.direction.tolist(), "target_point": target_point.tolist(),
+                        "command_force_n": command.tolist() if command is not None else None})
+            return float(np.linalg.norm(command)) if command is not None else 0.0
+        force = 12 * fraction
+        position = pos + rotate(quat, self.local_hit) if self.kind == "surface" else None
+        self.view.apply_forces_and_torques_at_pos(
+            forces=np.array([[0., 0., -force]], dtype=np.float32),
+            positions=np.asarray([position], dtype=np.float32) if position is not None else None,
+            indices=np.array([self.index], dtype=np.int32), is_global=True)
+        self.write({"time_s": time_s, "event": "force", "force_n": [0., 0., -force],
+                    "position": position.tolist() if position is not None else "center_of_mass"})
+        return force
+
+    def close(self, time_s):
+        self.release(time_s, "monitor_exit")
+        self.log.close()
+
+
+class GuiDragBridge:
+    """Route fruit drags to LimitedDrag, retaining native handling elsewhere.
+
+    The Isaac 4.5 Python overlay resolves its interface factory at event time.
+    This process-local adapter restores that factory on close; installed NVIDIA
+    files and the global PhysX interface are never modified.
+    """
+    def __init__(self, stage, view, paths, records, broken, output):
+        import carb.input
+        import omni.appwindow
+        import omni.physxui.scripts.physxViewportOverlays as overlay
+        from omni.physx import get_physx_interface, get_physx_scene_query_interface
+        from omni.physx.bindings._physx import PhysicsInteractionEvent
+        self.native = get_physx_interface()
+        self.query = get_physx_scene_query_interface().raycast_closest
+        self.events = PhysicsInteractionEvent
+        self.stage, self.view, self.broken = stage, view, broken
+        self.indices = {p: i for i, p in enumerate(paths)}
+        self.records = {r["fruit"]: r for r in records}
+        self.coms = np.asarray(view.get_coms()[0]).reshape(len(paths), 3)
+        self.drag = LimitedDrag()
+        self.capture, self.record = None, None
+        self.time_s = 0.
+        self.summary = {"mode": "bounded", "stiffness_npm": 60., "force_cap_n": 12.,
+                        "vector_slew_nps": 2.4, "grabs": [], "peak_command_n": 0.}
+        self.log = output.open("w")
+        self.input = carb.input.acquire_input_interface()
+        self.window = omni.appwindow.get_default_app_window()
+        self.overlay, self.original_factory = overlay, overlay.get_physx_interface
+        self.factory = lambda: self
+        overlay.get_physx_interface = self.factory
+
+    def __getattr__(self, name):
+        return getattr(self.native, name)
+
+    def write(self, data):
+        self.log.write(json.dumps({"time_s": self.time_s, **data}, allow_nan=False) + "\n")
+        self.log.flush()
+
+    def center(self, body):
+        from exporterV2.fruit_diagnostics import rotate
+        index = self.indices[body]
+        positions, quats = self.view.get_world_poses(indices=np.array([index]))
+        return np.asarray(positions)[0] + rotate(np.asarray(quats)[0], self.coms[index])
+
+    def update_interaction(self, origin, direction, event):
+        from pxr import Gf, UsdGeom
+        from omni.kit.viewport.utility import get_active_viewport
+        try:
+            origin, direction = np.asarray(origin, dtype=float), unit(direction)
+            if not np.isfinite(origin).all():
+                raise ValueError("nonfinite ray origin")
+        except ValueError:
+            self.cancel("invalid_ray")
+            return
+        if event == self.events.MOUSE_DRAG_BEGAN:
+            self.drag.end()
+            hit = self.query(tuple(origin), tuple(direction), 1e4)
+            body = str(hit.get("rigidBody", ""))
+            record = self.records.get(body)
+            if hit.get("hit") and record and record["joint"] not in self.broken:
+                viewport = get_active_viewport()
+                camera = self.stage.GetPrimAtPath(viewport.camera_path)
+                normal = np.asarray(UsdGeom.Xformable(camera).ComputeLocalToWorldTransform(0).TransformDir(Gf.Vec3d(0, 0, -1)))
+                self.capture, self.record = "bounded", record
+                self.drag.begin(self.center(body), hit["position"], normal)
+                grab = {"body": body, "joint": record["joint"], "collider": str(hit.get("collision", "")),
+                        "origin": origin.tolist(), "direction": direction.tolist(), "point": list(hit["position"]),
+                        "plane_normal": unit(normal).tolist(), "begin_s": self.time_s}
+                self.summary["grabs"].append(grab)
+                self.write({"event": "begin", **grab})
+                print(f"[DRAG] selected={body}", flush=True)
+                return
+            self.capture, self.record = "native", None
+            self.write({"event": "native_begin", "body": body, "origin": origin.tolist(), "direction": direction.tolist()})
+        if self.capture == "bounded":
+            if event == self.events.MOUSE_DRAG_CHANGED and self.drag.active:
+                self.drag.move(origin, direction)
+                self.write({"event": "move", "origin": origin.tolist(), "direction": direction.tolist()})
+            elif event == self.events.MOUSE_DRAG_ENDED:
+                self.cancel("mouse_up")
+                self.capture = None
+            return
+        self.native.update_interaction(tuple(origin), tuple(direction), event)
+        if event == self.events.MOUSE_DRAG_ENDED:
+            self.capture = None
+
+    def cancel(self, reason):
+        if self.drag.active:
+            self.write({"event": "cancel", "reason": reason, "body": self.record["fruit"]})
+        self.drag.end()
+
+    def handle_break(self, joint, time_s):
+        self.time_s = time_s
+        authorized = bool(self.capture == "bounded" and self.drag.active and self.record["joint"] == joint)
+        if authorized:
+            self.cancel("joint_break")
+        return authorized
+
+    def before_step(self, time_s, dt, broken):
+        import carb.input
+        self.time_s = time_s
+        if not self.drag.active:
+            return 0.
+        mouse_down = self.input.get_mouse_value(self.window.get_mouse(), carb.input.MouseInput.LEFT_BUTTON)
+        keyboard = self.window.get_keyboard()
+        shift = any(self.input.get_keyboard_value(keyboard, key) for key in
+                    (carb.input.KeyboardInput.LEFT_SHIFT, carb.input.KeyboardInput.RIGHT_SHIFT))
+        escape = self.input.get_keyboard_value(keyboard, carb.input.KeyboardInput.ESCAPE)
+        if not mouse_down or not shift or escape or self.record["joint"] in broken:
+            self.cancel("input_released_or_joint_broken")
+            return 0.
+        command = self.drag.step(self.center(self.record["fruit"]), dt)
+        self.view.apply_forces_and_torques_at_pos(forces=np.asarray([command], dtype=np.float32),
+                                                indices=np.array([self.indices[self.record["fruit"]]], dtype=np.int32), is_global=True)
+        magnitude = float(np.linalg.norm(command))
+        self.summary["peak_command_n"] = max(magnitude, self.summary["peak_command_n"])
+        self.write({"event": "force", "body": self.record["fruit"], "force_n": command.tolist()})
+        return magnitude
+
+    def close(self, time_s):
+        self.time_s = time_s
+        self.cancel("monitor_exit")
+        if self.overlay.get_physx_interface is self.factory:
+            self.overlay.get_physx_interface = self.original_factory
+        self.factory = None  # Break the adapter/factory reference cycle before Kit shutdown.
+        self.log.close()
