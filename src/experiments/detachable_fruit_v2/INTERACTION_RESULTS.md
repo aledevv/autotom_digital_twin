@@ -267,3 +267,17 @@ not an unloaded recovery window; the recorded tail threshold advisories
 must not be presented as a rest-stability pass. User feedback was
 "non male. mi spieghi cosa hai fatto finora?". This is encouraging but not
 explicit final acceptance. Full reports, input events and traces stay local.
+
+User-requested saved custom variant: English UI labels and 2.5 N attachment
+break threshold, selectable with `--break-force 2.5`. Controller forces and
+solver settings are unchanged. A line-by-line scene comparison against
+`retained-gui-review` found exactly 72 breakForce edits (6 -> 2.5 N), with
+all other USD lines unchanged. The 33 focused tests passed.
+`custom-25n-rest` and `custom-25n-pull` each completed 60 simulated seconds,
+exit 0, functional status passed and errors empty. Rest had no breaks. The
+median-ratio bounded pull had one continuous physical break at 31.4500 s
+(2.4328 N applied COM force; attachment reaction threshold remains 2.5 N).
+The retained-grip configuration stayed enabled. These are headless checks;
+GUI interaction at the new threshold has not yet been reviewed. The command
+for a fresh manual session is in README.md. Work on native interaction is
+paused for discussion as requested by the user.

@@ -36,7 +36,7 @@ class DragVisuals:
         # The orange arrow shows the actual COM force, at 2.5 cm per newton.
         tip = center + .025 * force
         self.label_position.transform = self.sc.Matrix44.get_translation_matrix(*tip.tolist())
-        self.label.text = f"{'Afferrato | ' if phase == 'free' else ''}Forza: {magnitude:.2f} N"
+        self.label.text = f"{'Held | ' if phase == 'free' else ''}Force: {magnitude:.2f} N"
         direction = force / magnitude if magnitude > 1e-8 else np.zeros(3)
         side = np.cross(direction, plane_normal)
         if np.linalg.norm(side) > 1e-8:
@@ -47,7 +47,7 @@ class DragVisuals:
         for line, (start, end) in zip(self.arrow, pairs):
             line.start, line.end = start.tolist(), end.tolist()
         if time_s - self.last_message_s >= .25:
-            post_viewport_message(self.window, f"{body.rsplit('/', 1)[-1]}  |  Forza: {magnitude:.2f} N",
+            post_viewport_message(self.window, f"{body.rsplit('/', 1)[-1]}  |  Force: {magnitude:.2f} N",
                                   "autotom.fruit_drag")
             self.last_message_s = time_s
 
@@ -55,7 +55,7 @@ class DragVisuals:
         from omni.kit.viewport.utility import post_viewport_message
         self.group.visible = False
         if reason == "joint_break":
-            post_viewport_message(self.window, "Pomodoro staccato — forza azzerata", "autotom.fruit_drag")
+            post_viewport_message(self.window, "Tomato detached — force released", "autotom.fruit_drag")
 
     def close(self):
         self.window.viewport_api.remove_scene_view(self.view)

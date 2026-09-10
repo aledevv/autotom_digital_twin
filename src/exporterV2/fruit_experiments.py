@@ -120,6 +120,9 @@ def audit(stage):
 
 def prepare_stage(stage, config):
     """Ablate a private stage copy; preserve retained bodies' world rest poses."""
+    break_force = float(config.get("break_force", 6.0))
+    if not math.isfinite(break_force) or break_force <= 0:
+        raise ValueError("break force must be finite and positive")
     bodies, joints = bodies_and_joints(stage)
     fruits = attachment_records(stage)
     original_paths = set(bodies)
@@ -186,7 +189,7 @@ def prepare_stage(stage, config):
         bodies, joints = bodies_and_joints(stage)
     for joint in joints:
         if joint.GetPrim().GetName() == "TerminalBodyFixedJoint":
-            joint.CreateBreakForceAttr().Set(6.0 if config["breakable"] else float("inf"))
+            joint.CreateBreakForceAttr().Set(break_force if config["breakable"] else float("inf"))
             joint.CreateExcludeFromArticulationAttr().Set(config["attachment"] == "external")
         if any(value(stage.GetPrimAtPath(p), "autotom:branchKind") in {"truss_rachis", "pedicel"}
                for p in joint.GetBody1Rel().GetTargets()):

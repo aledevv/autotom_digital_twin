@@ -182,3 +182,32 @@ the chosen run directory. The runner records input/source/scene hashes,
 preparation code hashes, executed monitor code hashes, and Isaac version.
 Completed investigations can be archived under the Git-ignored directory
 `artifacts/detachable_fruit_v2/`; raw results are never committed with the code.
+
+## Saved custom mouse configuration: 2.5 N attachment threshold
+
+The user-requested checkpoint keeps the existing custom controller and changes
+only its UI text to English and the fruit attachment threshold to 2.5 N.
+This is a chosen experimental value, not a validated biological calibration.
+`--break-force` sets the attachment threshold; its default remains 6 N to
+reproduce older cases. `--unbreakable` still disables breaking. The mouse cap
+remains 12 N. Native-mode investigation is deferred.
+
+Run from the repository root on this workstation (the archived source stays
+local). Each invocation creates a fresh directory and starts a 60-simulated-second
+GUI session; logs are written to that directory's `isaac.log`:
+
+```bash
+UV_CACHE_DIR=/tmp/autotom-uv-cache uv run --no-sync python src/experiments/detachable_fruit_v2/run_experiment.py \
+  --run-dir "$(mktemp -d artifacts/detachable_fruit_v2/custom-25n-gui-XXXXXX)" \
+  --source-usd artifacts/detachable_fruit_v2/2026-09-09/baseline-full/source.usda \
+  --scenario full --gui --cpu --solver PGS --hz 60 \
+  --art-position 32 --art-velocity 0 --fruit-position 255 --fruit-velocity 0 \
+  --mouse-grab-mode bounded --drag-slew-rate 4.8 --drag-damping 1 \
+  --retain-fruit-grip --break-force 2.5 --duration 60 --acceptance functional
+```
+
+Keep Shift and the left mouse button pressed to drag a fruit, including after
+detachment. Release the button to let go. Stop/Pause ends this finite review;
+rerun the command for a fresh initial state. Increase `--duration` for a longer
+session. If the archived source is absent in another checkout, omit
+`--source-usd` to regenerate the full source from the day-160 input.

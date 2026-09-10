@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import subprocess
@@ -26,6 +27,8 @@ def main():
     parser.add_argument("--fruit", help="Exact source USD fruit path; default highest mass ratio")
     parser.add_argument("--no-collisions", action="store_true")
     parser.add_argument("--unbreakable", action="store_true")
+    parser.add_argument("--break-force", type=float, default=6.0,
+                        help="Fruit attachment break threshold in N; ignored with --unbreakable")
     parser.add_argument("--attachment", choices=("external", "internal"), default="external")
     parser.add_argument("--solver", choices=("TGS", "PGS"), default="TGS")
     parser.add_argument("--cpu", action="store_true")
@@ -66,6 +69,8 @@ def main():
     parser.add_argument("--mouse-force-coefficient", type=float, default=10.0,
                         help="Native mouse gain, not a force in newtons.")
     args = parser.parse_args()
+    if not math.isfinite(args.break_force) or args.break_force <= 0:
+        parser.error("break force must be finite and positive")
     from exporterV2.fruit_interaction import unit
     try:
         args.force_direction = unit(args.force_direction).tolist()
