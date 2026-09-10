@@ -47,6 +47,8 @@ def main():
     parser.add_argument("--interaction", choices=("com", "surface", "native", "bounded"), default="com")
     parser.add_argument("--drag-distance", type=float, default=.2, help="Replay displacement in metres")
     parser.add_argument("--drag-profile", choices=("slow", "rapid", "early-release"), default="slow")
+    parser.add_argument("--drag-slew-rate", type=float, choices=(2.4, 4.8), default=2.4,
+                        help="Bounded GUI/replay vector force growth limit, in N/s")
     parser.add_argument("--force-start", type=float, default=30)
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--gui", action="store_true")

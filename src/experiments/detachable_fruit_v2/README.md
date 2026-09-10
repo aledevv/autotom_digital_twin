@@ -130,6 +130,8 @@ On the preparation command, `--mouse-grab-mode joint|force` chooses native
 interaction; the mouse coefficient must stay in (0, 10], and is not a force
 in newtons. `--mouse-grab-mode bounded` selects the experimental fruit controller
 (60 N/m, 12 N cap, vector slew 2.4 N/s), retaining native grabs for other bodies.
+`--drag-slew-rate 4.8` explicitly selects the faster experimental force ramp
+for both bounded replay and manual GUI; it leaves the spring gain and cap unchanged.
 Pull away from the initial position and hold Shift plus the mouse button to
 build force. A yellow point marks the grip, a thin line links it to the mouse
 target, and an arrow shows the actual commanded COM force (2.5 cm/N), with its

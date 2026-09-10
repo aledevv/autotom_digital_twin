@@ -134,3 +134,45 @@ error; logs are retained, and v2/v3 completed after fixing the helper.
 Nine controller regression tests pass; the preceding focused exporter checks
 passed 38 tests. Final 60-second desktop interaction and acceptance remain
 pending for this display revision.
+
+## Manual feedback review and bounded slew comparison
+
+`bounded-gui-feedback-review` recorded two user-triggered native breaks on
+r5 g421786 fruit07 (5.900 s) and r10 fruit06 (16.867 s); both continuity
+checks passed. Steady desktop FPS was 31.366, fifth-percentile 26.676,
+RTF 0.5231. The timeline stopped at 49.0833 s, so the required 60 s was not
+completed. The launcher exited 1 and subsequently logged Killed during Kit
+shutdown; the cause is not established. This is not a clean-exit pass.
+
+The user confirmed detachment but rejected the gesture because it needs too
+much mouse travel/time. The two grabs lasted 3.0 and 2.6 simulated seconds;
+95.6% and 98.1% of their force steps hit the 2.4 N/s vector slew limit. Peak
+forces were 6.022 and 5.992 N. Continuing to move the mouse could not make
+that ramp faster. This motivates a single-control comparison at 4.8 N/s.
+Spring gain remains 60 N/m, force cap 12 N and native break threshold 6 N;
+no pointer amplification or physical-scene change is included. The runner
+records `--drag-slew-rate` for both replay and manual GUI. Default stays 2.4
+so old cases remain reproducible; 4.8 is an explicit experimental candidate.
+
+All five independent 4.8 N/s headless cases completed 60 s and exited 0:
+
+| Case | Break delay after 30 s settling | Peak command | Other breaks |
+|---|---:|---:|---:|
+| Minimum mass ratio | 1.350 s | 6.478 N | 0 |
+| Median | 1.267 s | 6.004 N | 0 |
+| Maximum | 1.233 s | 5.919 N | 0 |
+| Maximum, rapid | 1.233 s | 5.920 N | 0 |
+| Maximum, release at 0.5 s | None | 2.400 N | 0 |
+
+All four detachments passed motion continuity. No nonfinite values or
+persistent gross support divergence were reported. Command traces respect
+12 N and 4.8 N/s, with no commands after break/release. Angular and residual
+motion diagnostics remain advisory, not evidence of manual acceptance.
+The 28 focused interaction/diagnostic regression tests passed.
+
+The offscreen UI-event replay `slew48-gui-probe` also completed 15 s, exit 0:
+one r5 fruit07 break at 6.4333 s (6.1135 N), continuity passed, no other
+functional-monitor errors. Its reported GUI controller slew is 4.8 N/s.
+With the identical slow pixel trajectory, grab-to-break time decreased from
+5.0667 to 4.2333 s; the factor-of-two reduction in rapid headless pulls does
+not imply that every mouse trajectory becomes twice as fast.

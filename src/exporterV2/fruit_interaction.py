@@ -39,7 +39,10 @@ class LimitedDrag:
     maximum_force = 12.0
     slew_rate = 2.4
 
-    def __init__(self):
+    def __init__(self, slew_rate=2.4):
+        if not np.isfinite(slew_rate) or slew_rate <= 0:
+            raise ValueError("force slew rate must be finite and positive")
+        self.slew_rate = float(slew_rate)
         self.active = False
         self.force = np.zeros(3)
 
@@ -97,11 +100,13 @@ class InteractionReplay:
         self.started, self.released = False, False
         self.local_hit = self.eye = self.hit = None
         self.direction = None
-        self.drag = LimitedDrag()
+        self.drag = LimitedDrag(config.get("drag_slew_rate", 2.4))
         self.local_com = np.asarray(view.get_coms()[0])[index].reshape(3)
         self.log = output.open("w")
         self.summary = {"kind": self.kind, "body": target["fruit"],
                         "native_force_newtons": None, "selection": None}
+        if self.kind == "bounded":
+            self.summary["vector_slew_nps"] = self.drag.slew_rate
         if self.kind == "native":
             settings = carb.settings.get_settings()
             for name, value in (("mouseInteractionEnabled", True), ("mouseGrab", True),
@@ -189,7 +194,7 @@ class GuiDragBridge:
     This process-local adapter restores that factory on close; installed NVIDIA
     files and the global PhysX interface are never modified.
     """
-    def __init__(self, stage, view, paths, records, broken, output):
+    def __init__(self, stage, view, paths, records, broken, output, config=None):
         import carb.input
         import omni.appwindow
         import omni.physxui.scripts.physxViewportOverlays as overlay
@@ -202,11 +207,11 @@ class GuiDragBridge:
         self.indices = {p: i for i, p in enumerate(paths)}
         self.records = {r["fruit"]: r for r in records}
         self.coms = np.asarray(view.get_coms()[0]).reshape(len(paths), 3)
-        self.drag = LimitedDrag()
+        self.drag = LimitedDrag((config or {}).get("drag_slew_rate", 2.4))
         self.capture, self.record = None, None
         self.time_s = 0.
         self.summary = {"mode": "bounded", "stiffness_npm": 60., "force_cap_n": 12.,
-                        "vector_slew_nps": 2.4, "grabs": [], "peak_command_n": 0.}
+                        "vector_slew_nps": self.drag.slew_rate, "grabs": [], "peak_command_n": 0.}
         self.log = output.open("w")
         self.input = carb.input.acquire_input_interface()
         self.window = omni.appwindow.get_default_app_window()

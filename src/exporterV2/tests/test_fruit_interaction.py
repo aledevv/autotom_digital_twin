@@ -34,8 +34,9 @@ def test_invalid_ray_is_rejected(vector):
         unit(vector)
 
 
-def test_rapid_drag_and_direction_reversal_obey_vector_force_limits():
-    drag = LimitedDrag()
+@pytest.mark.parametrize("slew_rate", [2.4, 4.8])
+def test_rapid_drag_and_direction_reversal_obey_vector_force_limits(slew_rate):
+    drag = LimitedDrag(slew_rate)
     drag.begin([0, 0, 0], [0, 0, 0], [1, 0, 0])
     previous = np.zeros(3)
     for step in range(1200):
@@ -43,13 +44,14 @@ def test_rapid_drag_and_direction_reversal_obey_vector_force_limits():
         drag.move(np.array([1., 0., 0.]), [-1, 0, 100 * side])
         force = drag.step(np.zeros(3), 1/60)
         assert np.linalg.norm(force) <= 12 + 1e-9
-        assert np.linalg.norm(force - previous) <= 2.4/60 + 1e-9
+        assert np.linalg.norm(force - previous) <= slew_rate/60 + 1e-9
         previous = force
     assert np.linalg.norm(previous) == pytest.approx(12)
 
 
-def test_release_cancels_force_immediately_and_new_grab_starts_at_zero():
-    drag = LimitedDrag()
+@pytest.mark.parametrize("slew_rate", [2.4, 4.8])
+def test_release_cancels_force_immediately_and_new_grab_starts_at_zero(slew_rate):
+    drag = LimitedDrag(slew_rate)
     drag.begin([0, 0, 0], [0, 0, 0], [1, 0, 0])
     drag.move(np.array([1., 0., 0.]), [-1, 0, -1])
     assert np.linalg.norm(drag.step(np.zeros(3), 1/60)) > 0

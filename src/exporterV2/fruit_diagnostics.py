@@ -282,7 +282,7 @@ def run(stage, world, app, args, config):
                                         output / f"{prefix}-interaction.jsonl")
     elif not args.headless and config.get("mouse_grab_mode") == "bounded":
         from exporterV2.fruit_interaction import GuiDragBridge
-        gui_interaction = GuiDragBridge(stage, view, paths, records, broken, output / "gui-interaction.jsonl")
+        gui_interaction = GuiDragBridge(stage, view, paths, records, broken, output / "gui-interaction.jsonl", config)
     if errors:
         first_failure = {"time_s": 0.0, "error": errors[0]}
         steps = 0
