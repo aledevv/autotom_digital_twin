@@ -136,7 +136,7 @@ def prepare_stage(stage, config):
     keep = set(bodies)
     if scenario == "no-fruit":
         keep -= {r["fruit"] for r in fruits}
-    elif scenario in {"single", "truss", "trusses"}:
+    elif scenario in {"single", "truss", "trusses", "stem-truss"}:
         supports = {p for p, prim in bodies.items()
                     if value(prim, "autotom:branchKind") in {"truss_rachis", "pedicel"}}
         if scenario == "single":
@@ -145,16 +145,20 @@ def prepare_stage(stage, config):
             parent_of = {str(j.GetBody1Rel().GetTargets()[0]): str(j.GetBody0Rel().GetTargets()[0])
                          for j in joints if j.GetBody1Rel().GetTargets() and j.GetBody0Rel().GetTargets()}
             truss_branch = value(bodies[parent_of[selected["parent"]]], "autotom:branchId")
-            if scenario == "truss":
+            if scenario in {"truss", "stem-truss"}:
                 supports = {p for p in supports if value(bodies[p], "autotom:branchId") == truss_branch
                             or value(bodies.get(parent_of.get(p)), "autotom:branchId") == truss_branch}
             keep = {root} | supports | {r["fruit"] for r in fruits if r["parent"] in supports}
+            if scenario == "stem-truss":
+                keep |= {p for p, prim in bodies.items() if value(prim, "autotom:branchKind") == "stem"}
     reanchored = []
     for joint in joints:
         a, b = joint.GetBody0Rel().GetTargets(), joint.GetBody1Rel().GetTargets()
         if not b or str(b[0]) not in keep:
             stage.RemovePrim(joint.GetPath())
         elif a and str(a[0]) not in keep:
+            if scenario == "stem-truss":
+                raise ValueError("stem-truss requires a truss directly attached to the retained stem")
             frame = joint_frame(stage, joint, 0)
             root_world = UsdGeom.Xformable(bodies[root]).ComputeLocalToWorldTransform(0)
             local = frame * root_world.GetInverse()

@@ -111,7 +111,7 @@ def source(tmp_path_factory):
     return path
 
 
-@pytest.mark.parametrize("scenario,internal", [("full", False), ("no-fruit", False), ("single", False), ("truss", False), ("trusses", False), ("single", True)])
+@pytest.mark.parametrize("scenario,internal", [("full", False), ("no-fruit", False), ("single", False), ("truss", False), ("trusses", False), ("stem-truss", False), ("single", True)])
 def test_ablation_preserves_rest_frames_and_retained_mass(source, scenario, internal):
     original = Usd.Stage.Open(str(source))
     stage = Usd.Stage.Open(original.Flatten())
@@ -121,6 +121,12 @@ def test_ablation_preserves_rest_frames_and_retained_mass(source, scenario, inte
                   art_position=32, art_velocity=4, fruit_position=32, fruit_velocity=1)
     result = prepare_stage(stage, config)
     assert result["errors"] == []
+    if scenario == "stem-truss":
+        assert result["reanchored_joints"] == []
+        stem_paths = {str(p.GetPath()) for p in original.Traverse()
+                      if p.GetAttribute("autotom:branchKind").Get() == "stem"}
+        assert stem_paths
+        assert all(stage.GetPrimAtPath(path) for path in stem_paths)
     old_masses = {x["body"]: x["mass_kg"] for x in before["masses"]}
     for record in result["masses"]:
         if record["body"] in old_masses:

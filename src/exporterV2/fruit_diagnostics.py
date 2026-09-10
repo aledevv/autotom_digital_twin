@@ -127,6 +127,9 @@ def run(stage, world, app, args, config):
             raise RuntimeError("GUI measurement requires an active viewport")
         config["viewport_resolution_at_start"] = list(viewport.resolution)
         config["viewport_camera_at_start"] = str(viewport.camera_path)
+        if config.get("camera_eye"):
+            from isaacsim.core.utils.viewports import set_camera_view
+            set_camera_view(eye=np.asarray(config["camera_eye"]), target=np.asarray(config["camera_target"]))
     config["executed_implementation_sha256"] = {
         relative: hashlib.sha256((Path(__file__).resolve().parents[2] / relative).read_bytes()).hexdigest()
         for relative in config.get("implementation_sha256", {})
@@ -209,6 +212,7 @@ def run(stage, world, app, args, config):
                  "articulation": articulation_info, "errors": mass_errors}
     _write_report(output / f"{prefix}-effective.json", json_finite(effective))
     events, errors = [], list(mass_errors)
+    observed_break_errors = []
     broken = set()
     start_time = float(world.current_time)
     first_failure = None
@@ -234,10 +238,13 @@ def run(stage, world, app, args, config):
             event_time = float(world.current_time) - start_time
             user_target = gui_interaction.handle_break(path, event_time) if gui_interaction else False
             if gui_interaction and not user_target:
-                errors.append(f"joint broke outside the selected fruit drag: {path}")
+                destination = (observed_break_errors if not args.headless and config.get("observe_spontaneous_breaks")
+                               else errors)
+                destination.append(f"joint broke outside the selected fruit drag: {path}")
             events.append({"time_s": event_time, "joint": path, "user_target": user_target,
                            "kind": "joint_break", "applied_force_n":
-                           None if target_record and config.get("interaction") == "native" else applied_force})
+                           None if ((target_record and config.get("interaction") == "native")
+                                    or config.get("record_native_mouse")) else applied_force})
             print(f"[FRUIT] joint_break t={current_time:.6f} {path}", flush=True)
     # Deliver events on the Python simulation thread after the step. A push
     # subscriber can run on a PhysX worker while the main thread holds the GIL.
@@ -285,6 +292,9 @@ def run(stage, world, app, args, config):
         from exporterV2.fruit_interaction import GuiDragBridge
         gui_interaction = GuiDragBridge(stage, view, paths, records, broken, output / "gui-interaction.jsonl", config,
                                        np.asarray(effective["gravity_direction"]) * effective["gravity_magnitude_mps2"])
+    elif not args.headless and config.get("record_native_mouse"):
+        from exporterV2.native_drag_observer import NativeDragObserver
+        gui_interaction = NativeDragObserver(records, output / "gui-native-interaction.jsonl")
     if errors:
         first_failure = {"time_s": 0.0, "error": errors[0]}
         steps = 0
@@ -406,6 +416,10 @@ def run(stage, world, app, args, config):
         flush_trace()
         subscription = None
     loop_wall_seconds = time.perf_counter() - wall_start
+    errors.extend(observed_break_errors)
+    if observed_break_errors and first_failure is None:
+        first_failure = {"time_s": next(e["time_s"] for e in events if not e.get("user_target")),
+                         "error": observed_break_errors[0]}
     if not args.headless:
         config["viewport_resolution_at_end"] = list(viewport.resolution)
         config["viewport_camera_at_end"] = str(viewport.camera_path)
@@ -471,7 +485,7 @@ def run(stage, world, app, args, config):
         if performance["gui_steady_fps"] is None or performance["gui_steady_fps"] < 20:
             errors.append("GUI steady frame rate is unavailable or below the required 20 FPS")
         if gui_interaction and not any(e.get("user_target") for e in events):
-            errors.append("no selected fruit detached during the manual bounded-drag review")
+            errors.append("no selected fruit detached during the manual drag review")
     report = {"schema_version": "exporter_v2_fruit_diagnostics/1.1", "status": "failed" if errors else ("passed" if args.headless else "awaiting_user_review"),
               "config": config, "errors": list(dict.fromkeys(errors)), "events": events,
               "simulated_seconds": current_time, "wall_seconds": time.perf_counter() - wall_start,
