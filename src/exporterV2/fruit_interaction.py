@@ -212,6 +212,8 @@ class GuiDragBridge:
         self.window = omni.appwindow.get_default_app_window()
         self.overlay, self.original_factory = overlay, overlay.get_physx_interface
         self.factory = lambda: self
+        from exporterV2.fruit_drag_visuals import DragVisuals
+        self.visuals = DragVisuals()
         overlay.get_physx_interface = self.factory
 
     def __getattr__(self, name):
@@ -250,6 +252,11 @@ class GuiDragBridge:
                 camera = self.stage.GetPrimAtPath(viewport.camera_path)
                 normal = np.asarray(UsdGeom.Xformable(camera).ComputeLocalToWorldTransform(0).TransformDir(Gf.Vec3d(0, 0, -1)))
                 self.capture, self.record = "bounded", record
+                from exporterV2.fruit_diagnostics import rotate
+                positions, quats = self.view.get_world_poses(indices=np.array([self.indices[body]]))
+                inverse = np.asarray(quats)[0].copy()
+                inverse[1:] *= -1
+                self.local_grip = rotate(inverse, np.asarray(hit["position"]) - np.asarray(positions)[0])
                 self.drag.begin(self.center(body), hit["position"], normal)
                 grab = {"body": body, "joint": record["joint"], "collider": str(hit.get("collision", "")),
                         "origin": origin.tolist(), "direction": direction.tolist(), "point": list(hit["position"]),
@@ -276,6 +283,8 @@ class GuiDragBridge:
         if self.drag.active:
             self.write({"event": "cancel", "reason": reason, "body": self.record["fruit"]})
         self.drag.end()
+        if self.visuals:
+            self.visuals.hide(reason)
 
     def handle_break(self, joint, time_s):
         self.time_s = time_s
@@ -303,11 +312,21 @@ class GuiDragBridge:
         magnitude = float(np.linalg.norm(command))
         self.summary["peak_command_n"] = max(magnitude, self.summary["peak_command_n"])
         self.write({"event": "force", "body": self.record["fruit"], "force_n": command.tolist()})
+        if self.visuals:
+            from exporterV2.fruit_diagnostics import rotate
+            positions, quats = self.view.get_world_poses(indices=np.array([self.indices[self.record["fruit"]]]))
+            grip = np.asarray(positions)[0] + rotate(np.asarray(quats)[0], self.local_grip)
+            self.visuals.update(self.center(self.record["fruit"]), grip,
+                                self.drag.hit + self.drag.target - self.drag.center,
+                                command, self.drag.normal, self.record["fruit"], time_s)
         return magnitude
 
     def close(self, time_s):
         self.time_s = time_s
         self.cancel("monitor_exit")
+        if self.visuals:
+            self.visuals.close()
+            self.visuals = None
         if self.overlay.get_physx_interface is self.factory:
             self.overlay.get_physx_interface = self.original_factory
         self.factory = None  # Break the adapter/factory reference cycle before Kit shutdown.

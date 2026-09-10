@@ -131,7 +131,12 @@ interaction; the mouse coefficient must stay in (0, 10], and is not a force
 in newtons. `--mouse-grab-mode bounded` selects the experimental fruit controller
 (60 N/m, 12 N cap, vector slew 2.4 N/s), retaining native grabs for other bodies.
 Pull away from the initial position and hold Shift plus the mouse button to
-build force. The monitor ends automatically at the requested duration;
+build force. A yellow point marks the grip, a thin line links it to the mouse
+target, and an arrow shows the actual commanded COM force (2.5 cm/N), with its
+magnitude beside it. These display-only overlays do not change the controller
+or the native 6 N break threshold. If the support follows the drag, the force
+can stay low even while the fruit moves; the displayed force makes this visible.
+The monitor ends automatically at the requested duration;
 Stop/Pause ends this measurement and requires a fresh run for another review.
 See [INTERACTION_RESULTS.md](INTERACTION_RESULTS.md) for the current acceptance
 status before treating this as a validated interaction preset.

@@ -108,3 +108,25 @@ CPU/PGS32/0,255/0 prevented detachment on the same archived structure, solver
 and iteration differences must be isolated before concluding that an entirely
 custom mouse controller is needed. The next single-change control enables one
 fruit velocity iteration in the current CPU/PGS scene, keeping everything else.
+
+The current-plant velocity controls completed 60 s with no breaks or nonfinite
+states: fruit velocity1 alone, articulation velocity1 alone, then articulation
+velocity4 alone all failed native detachment. The first two controls have
+bit-identical saved states to the 0/0 reference; velocity4 changes the motion
+but does not recover detachment. These requested counts are recorded on the
+loaded USD; they are not a direct measurement of an island's internal solver
+iteration count.
+
+Further controls retained the main structure, the same selected fruit and
+32/4 articulation,32/1 fruit counts. TGS/CPU and PGS/CPU each completed 60 s
+without a break (`main-native-joint-tgs-cpu`, `main-native-joint-pgs-cpu`).
+Thus changing only GPU dynamics from the positive TGS/GPU reference was
+enough to lose detachment for this replay. This is an observed backend effect,
+not a demonstrated explanation of native mouse-force generation.
+
+No matching NVIDIA explanation was found in the targeted documentation/forum
+search. NVIDIA's June 2025 response for Isaac4.5 confirms that a public API
+for the mouse-applied force/picked-body data was not supported at that time:
+[NVIDIA API response](https://forums.developer.nvidia.com/t/api-to-get-force-applied-my-mouse/335057).
+Keep the native force marked unknown; neither the configured coefficient nor
+the separate free-body calibration measures it in the constrained plant.

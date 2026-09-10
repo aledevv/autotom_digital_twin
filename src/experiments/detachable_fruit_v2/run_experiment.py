@@ -100,7 +100,7 @@ def main():
     config["source_truss_physics"] = physics
     config["implementation_sha256"] = {str(p.relative_to(ROOT)): sha(p) for p in [
         Path(__file__).resolve(), ROOT / "src/exporterV2/fruit_experiments.py",
-        ROOT / "src/exporterV2/fruit_interaction.py",
+        ROOT / "src/exporterV2/fruit_interaction.py", ROOT / "src/exporterV2/fruit_drag_visuals.py",
         ROOT / "src/exporterV2/fruit_diagnostics.py", ROOT / "src/exporterV2/isaac_app.py"]}
     isaac_root = Path(os.environ.get("ISAACSIM_DIR", str(Path.home() / "isaacsim")))
     config["isaac_version"] = (isaac_root / "VERSION").read_text().strip()

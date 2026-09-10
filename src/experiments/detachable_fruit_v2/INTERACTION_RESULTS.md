@@ -104,3 +104,33 @@ fruit-08 comparison. Its invisible-window FPS is not a desktop performance resul
 
 Earlier 33.48 GUI FPS belongs to the native-input candidate. The corrected
 controller has its own 33.16 FPS measurement but no final acceptance.
+
+## Bounded-controller visual feedback (2026-09-10)
+
+The user's last manual review could grab fruit, but found the gesture abrupt,
+with no contact marker/arrow and no detachment. Its maximum commanded force
+was 2.324 N. That review remains rejected despite 33.16 steady desktop FPS.
+The main-branch controls are documented in MAIN_COMPARISON.md.
+
+The bounded controller now displays the moving surface grip, cursor tether,
+COM force arrow and its actual commanded magnitude in newtons. The 60 N/m,
+12 N, 2.4 N/s force law and physical 6 N break threshold are unchanged.
+The native viewport toast was absent in an offscreen screenshot, so the force
+label is also rendered directly beside the arrow. No native grab is added.
+
+`probe_gui_input.py` buffers real Carb Shift/down/move/up events through the
+PhysX viewport overlay in an offscreen app. The local `bounded-gui-feedback-
+probe-v3` case completed 15 s (exit 0): one genuine break of r5 g421786 fruit07
+at 7.266667 s, commanded force 6.054328 N, continuity passed, no other breaks
+or functional-monitor errors. It hit fruit07 in front of the aimed-at fruit08;
+this is an input-routing smoke check, not an exact-fruit paired experiment.
+The same break time and force occurred without the new display.
+Screenshots at steps 300/420 show the point, arrow and force label; the
+offscreen scene itself is dark, so these images validate overlay presence,
+not desktop scene appearance. The offscreen render throughput is not desktop
+FPS evidence. The first graphics probe stopped on a screenshot-helper argv
+error; logs are retained, and v2/v3 completed after fixing the helper.
+
+Nine controller regression tests pass; the preceding focused exporter checks
+passed 38 tests. Final 60-second desktop interaction and acceptance remain
+pending for this display revision.

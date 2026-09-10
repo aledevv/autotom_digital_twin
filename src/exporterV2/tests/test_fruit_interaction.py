@@ -81,6 +81,7 @@ def test_gui_routes_attached_fruit_exclusively_and_preserves_native_support_drag
     bridge.indices, bridge.coms = {"/fruit": 0}, np.zeros((1, 3))
     bridge.view = SimpleNamespace(get_world_poses=lambda **kw: (np.zeros((1, 3)), np.array([[1., 0, 0, 0]])))
     bridge.drag, bridge.capture, bridge.record = LimitedDrag(), None, None
+    bridge.visuals = None
     bridge.time_s, bridge.log, bridge.summary = 0., io.StringIO(), {"grabs": []}
     bridge.query = lambda *args: {"hit": True, "rigidBody": "/fruit", "collision": "/fruit/shape", "position": [0, 0, .01]}
     class NativeGuiVector:
