@@ -57,3 +57,26 @@ There is also a separate `src/experiments/test_stable_truss.py` in main, with
 two fruits and different overrides (including a 200 N break threshold). It
 must not be conflated with the regular whole-plant 6 N configuration. The
 user has been asked which reference they remember.
+
+## Additional native-joint controls
+
+Two 60-second headless runs used native joint dragging, coefficient 10,
+30 seconds settling, a 60 cm downward ray-target trajectory over 5 seconds,
+then release and observation. Both used CPU PGS60, articulation32/0 and
+fruit255/0; masses, geometry and joint drives were retained from each source.
+The main copy only received diagnostic body labels and the explicit solver
+normalization. Its first loader attempt failed before physics because those
+labels were missing; the corrected case is `main-native-joint-normalized-v2`.
+
+| Scene / selected fruit | Native breaks | Tail attachment position error | Tail angle error |
+|---|---:|---:|---:|
+| Current / r5 g421786 fruit08 | 0 | 1.065 mm | 5.22° |
+| Main archive / r8 lateral pair1 right | 0 | 0.0071 mm | 0.0116° |
+
+Both completed without nonfinite states or persistent gross divergence but
+failed the required detachment. The normalized main structure converges much
+more closely. These controls differ in geometry, mass distribution, drives,
+fruit count and selected attachment, so they do not isolate one causal factor.
+They also do not reproduce main's original TGS/GPU runtime. Reproducing the
+user's known successful launcher/configuration remains the next reference
+check; the broader task is still open and final manual acceptance is absent.
