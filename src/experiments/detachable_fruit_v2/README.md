@@ -147,6 +147,13 @@ in newtons. `--mouse-grab-mode bounded` selects the experimental fruit controlle
 (60 N/m, 12 N cap, vector slew 2.4 N/s), retaining native grabs for other bodies.
 `--drag-slew-rate 4.8` explicitly selects the faster experimental force ramp
 for both bounded replay and manual GUI; it leaves the spring gain and cap unchanged.
+`--drag-damping 1` adds mouse damping in N s/m using the COM's measured
+displacement between steps. `--retain-fruit-grip` keeps the fruit gripped after
+native detachment until input release. That detached phase uses gravity
+compensation and mass-scaled velocity damping, with desired speed capped at
+2 m/s and commanded net acceleration at 20 m/s2. It does not overwrite poses
+or velocities; releasing leaves the acquired momentum to physics. These flags
+are explicit experimental settings, not changes to the fruit-free launcher.
 Pull away from the initial position and hold Shift plus the mouse button to
 build force. A yellow point marks the grip, a thin line links it to the mouse
 target, and an arrow shows the actual commanded COM force (2.5 cm/N), with its

@@ -39,15 +39,19 @@ class LimitedDrag:
     maximum_force = 12.0
     slew_rate = 2.4
 
-    def __init__(self, slew_rate=2.4):
+    def __init__(self, slew_rate=2.4, damping=0.):
         if not np.isfinite(slew_rate) or slew_rate <= 0:
             raise ValueError("force slew rate must be finite and positive")
         self.slew_rate = float(slew_rate)
+        if not np.isfinite(damping) or damping < 0:
+            raise ValueError("drag damping must be finite and nonnegative")
+        self.damping = float(damping)
         self.active = False
         self.force = np.zeros(3)
 
     def begin(self, center, hit, normal):
         self.center = np.asarray(center, dtype=float).copy()
+        self.previous_center = self.center.copy()
         self.hit = np.asarray(hit, dtype=float).copy()
         self.normal = unit(normal)
         self.target = self.center.copy()
@@ -70,7 +74,10 @@ class LimitedDrag:
     def step(self, current_center, dt):
         if not self.active:
             return np.zeros(3)
-        desired = self.stiffness * (self.target - current_center)
+        current_center = np.asarray(current_center, dtype=float)
+        velocity = (current_center - self.previous_center) / dt
+        self.previous_center = current_center.copy()
+        desired = self.stiffness * (self.target - current_center) - self.damping * velocity
         length = np.linalg.norm(desired)
         if length > self.maximum_force:
             desired *= self.maximum_force / length
@@ -87,7 +94,7 @@ class LimitedDrag:
 
 
 class InteractionReplay:
-    def __init__(self, config, view, index, target, output):
+    def __init__(self, config, view, index, target, output, gravity=(0., 0., -9.81)):
         from omni.physx import get_physx_interface, get_physx_scene_query_interface
         from omni.physx.bindings._physx import PhysicsInteractionEvent
         import carb.settings
@@ -100,13 +107,22 @@ class InteractionReplay:
         self.started, self.released = False, False
         self.local_hit = self.eye = self.hit = None
         self.direction = None
-        self.drag = LimitedDrag(config.get("drag_slew_rate", 2.4))
+        self.drag = LimitedDrag(config.get("drag_slew_rate", 2.4), config.get("drag_damping", 0.))
+        from exporterV2.free_fruit_grip import FreeFruitGrip
+        self.free_grip, self.free_phase = FreeFruitGrip(), False
+        self.retain_grip = config.get("retain_fruit_grip", False)
+        self.gravity = np.asarray(gravity, dtype=float)
+        self.mass = float(np.asarray(view.get_masses()).reshape(-1)[index])
         self.local_com = np.asarray(view.get_coms()[0])[index].reshape(3)
         self.log = output.open("w")
         self.summary = {"kind": self.kind, "body": target["fruit"],
                         "native_force_newtons": None, "selection": None}
         if self.kind == "bounded":
             self.summary["vector_slew_nps"] = self.drag.slew_rate
+            self.summary["drag_damping_ns_per_m"] = self.drag.damping
+            self.summary["retain_after_break"] = self.retain_grip
+            if self.retain_grip:
+                self.summary["free_grip"] = self.free_grip.settings()
         if self.kind == "native":
             settings = carb.settings.get_settings()
             for name, value in (("mouseInteractionEnabled", True), ("mouseGrab", True),
@@ -133,8 +149,12 @@ class InteractionReplay:
         from exporterV2.fruit_diagnostics import rotate
         start = self.config["force_start"]
         if self.target["joint"] in broken:
-            self.release(time_s, "joint_break")
-            return 0.0
+            if not self.retain_grip or self.kind != "bounded":
+                self.release(time_s, "joint_break")
+                return 0.0
+            if not self.free_phase and not self.released:
+                self.free_phase = True
+                self.write({"time_s": time_s, "event": "free_grip", "body": self.target["fruit"]})
         if time_s + dt < start or self.released:
             return 0.0
         hold = self.config.get("drag_profile") == "hold"
@@ -169,11 +189,19 @@ class InteractionReplay:
                 command = None
             else:
                 self.drag.move(self.eye, self.direction)
-                command = self.drag.step(pos + rotate(quat, self.local_com), dt)
+                center = pos + rotate(quat, self.local_com)
+                if self.free_phase:
+                    velocity = np.asarray(self.view.get_velocities(indices=np.array([self.index])))[0, :3]
+                    command = self.free_grip.force(center, velocity, self.drag.target, self.mass, self.gravity)
+                else:
+                    command = self.drag.step(center, dt)
                 self.view.apply_forces_and_torques_at_pos(forces=np.asarray([command], dtype=np.float32),
                                                         indices=np.array([self.index], dtype=np.int32), is_global=True)
             self.write({"time_s": time_s, "event": "move", "origin": self.eye.tolist(),
                         "direction": self.direction.tolist(), "target_point": target_point.tolist(),
+                        "phase": "free" if self.free_phase else "attached",
+                        "target_com": self.drag.target.tolist() if self.kind == "bounded" else None,
+                        "com_position": center.tolist() if self.kind == "bounded" else None,
                         "command_force_n": command.tolist() if command is not None else None})
             return float(np.linalg.norm(command)) if command is not None else 0.0
         force = (self.config.get("hold_force", 3.) if hold else 12) * fraction
@@ -198,7 +226,7 @@ class GuiDragBridge:
     This process-local adapter restores that factory on close; installed NVIDIA
     files and the global PhysX interface are never modified.
     """
-    def __init__(self, stage, view, paths, records, broken, output, config=None):
+    def __init__(self, stage, view, paths, records, broken, output, config=None, gravity=(0., 0., -9.81)):
         import carb.input
         import omni.appwindow
         import omni.physxui.scripts.physxViewportOverlays as overlay
@@ -211,11 +239,20 @@ class GuiDragBridge:
         self.indices = {p: i for i, p in enumerate(paths)}
         self.records = {r["fruit"]: r for r in records}
         self.coms = np.asarray(view.get_coms()[0]).reshape(len(paths), 3)
-        self.drag = LimitedDrag((config or {}).get("drag_slew_rate", 2.4))
+        self.drag = LimitedDrag((config or {}).get("drag_slew_rate", 2.4), (config or {}).get("drag_damping", 0.))
+        from exporterV2.free_fruit_grip import FreeFruitGrip
+        self.free_grip, self.free_phase = FreeFruitGrip(), False
+        self.retain_grip = (config or {}).get("retain_fruit_grip", False)
+        self.gravity = np.asarray(gravity, dtype=float)
+        self.masses = np.asarray(view.get_masses()).reshape(-1)
         self.capture, self.record = None, None
         self.time_s = 0.
         self.summary = {"mode": "bounded", "stiffness_npm": 60., "force_cap_n": 12.,
-                        "vector_slew_nps": self.drag.slew_rate, "grabs": [], "peak_command_n": 0.}
+                        "vector_slew_nps": self.drag.slew_rate, "grabs": [], "peak_command_n": 0.,
+                        "retain_after_break": self.retain_grip}
+        self.summary["drag_damping_ns_per_m"] = self.drag.damping
+        if self.retain_grip:
+            self.summary["free_grip"] = self.free_grip.settings()
         self.log = output.open("w")
         self.input = carb.input.acquire_input_interface()
         self.window = omni.appwindow.get_default_app_window()
@@ -253,6 +290,7 @@ class GuiDragBridge:
             return
         if event == self.events.MOUSE_DRAG_BEGAN:
             self.drag.end()
+            self.free_phase = False
             hit = self.query(tuple(origin), tuple(direction), 1e4)
             body = str(hit.get("rigidBody", ""))
             record = self.records.get(body)
@@ -292,6 +330,7 @@ class GuiDragBridge:
         if self.drag.active:
             self.write({"event": "cancel", "reason": reason, "body": self.record["fruit"]})
         self.drag.end()
+        self.free_phase = False
         if self.visuals:
             self.visuals.hide(reason)
 
@@ -299,7 +338,11 @@ class GuiDragBridge:
         self.time_s = time_s
         authorized = bool(self.capture == "bounded" and self.drag.active and self.record["joint"] == joint)
         if authorized:
-            self.cancel("joint_break")
+            if self.retain_grip:
+                self.free_phase = True
+                self.write({"event": "free_grip", "body": self.record["fruit"]})
+            else:
+                self.cancel("joint_break")
         return authorized
 
     def before_step(self, time_s, dt, broken):
@@ -312,22 +355,32 @@ class GuiDragBridge:
         shift = any(self.input.get_keyboard_value(keyboard, key) for key in
                     (carb.input.KeyboardInput.LEFT_SHIFT, carb.input.KeyboardInput.RIGHT_SHIFT))
         escape = self.input.get_keyboard_value(keyboard, carb.input.KeyboardInput.ESCAPE)
-        if not mouse_down or not shift or escape or self.record["joint"] in broken:
+        if not mouse_down or not shift or escape or (self.record["joint"] in broken and not self.free_phase):
             self.cancel("input_released_or_joint_broken")
             return 0.
-        command = self.drag.step(self.center(self.record["fruit"]), dt)
+        index = self.indices[self.record["fruit"]]
+        center = self.center(self.record["fruit"])
+        if self.free_phase:
+            velocity = np.asarray(self.view.get_velocities(indices=np.array([index])))[0, :3]
+            command = self.free_grip.force(center, velocity,
+                                           self.drag.target, self.masses[index], self.gravity)
+        else:
+            command = self.drag.step(center, dt)
         self.view.apply_forces_and_torques_at_pos(forces=np.asarray([command], dtype=np.float32),
                                                 indices=np.array([self.indices[self.record["fruit"]]], dtype=np.int32), is_global=True)
         magnitude = float(np.linalg.norm(command))
         self.summary["peak_command_n"] = max(magnitude, self.summary["peak_command_n"])
-        self.write({"event": "force", "body": self.record["fruit"], "force_n": command.tolist()})
+        self.write({"event": "force", "body": self.record["fruit"], "force_n": command.tolist(),
+                    "target_com": self.drag.target.tolist(), "com_position": center.tolist(),
+                    "phase": "free" if self.free_phase else "attached"})
         if self.visuals:
             from exporterV2.fruit_diagnostics import rotate
             positions, quats = self.view.get_world_poses(indices=np.array([self.indices[self.record["fruit"]]]))
             grip = np.asarray(positions)[0] + rotate(np.asarray(quats)[0], self.local_grip)
-            self.visuals.update(self.center(self.record["fruit"]), grip,
+            self.visuals.update(center, grip,
                                 self.drag.hit + self.drag.target - self.drag.center,
-                                command, self.drag.normal, self.record["fruit"], time_s)
+                                command, self.drag.normal, self.record["fruit"], time_s,
+                                phase="free" if self.free_phase else "attached")
         return magnitude
 
     def close(self, time_s):

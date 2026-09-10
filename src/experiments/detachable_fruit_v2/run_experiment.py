@@ -55,6 +55,10 @@ def main():
     parser.add_argument("--hold-seconds", type=float, default=10., help="Time from stimulation start to hold release")
     parser.add_argument("--drag-slew-rate", type=float, choices=(2.4, 4.8), default=2.4,
                         help="Bounded GUI/replay vector force growth limit, in N/s")
+    parser.add_argument("--retain-fruit-grip", action="store_true",
+                        help="Continue a damped mass-scaled grip after native detachment until mouse release")
+    parser.add_argument("--drag-damping", type=float, choices=(0., .5, 1., 2.), default=0.,
+                        help="Attached-fruit mouse damping in N s/m, before the existing vector slew limiter")
     parser.add_argument("--force-start", type=float, default=30)
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--gui", action="store_true")
@@ -123,6 +127,7 @@ def main():
     config["implementation_sha256"] = {str(p.relative_to(ROOT)): sha(p) for p in [
         Path(__file__).resolve(), ROOT / "src/exporterV2/fruit_experiments.py",
         ROOT / "src/exporterV2/fruit_interaction.py", ROOT / "src/exporterV2/fruit_drag_visuals.py",
+        ROOT / "src/exporterV2/free_fruit_grip.py",
         ROOT / "src/exporterV2/fruit_diagnostics.py", ROOT / "src/exporterV2/isaac_app.py"]}
     isaac_root = Path(os.environ.get("ISAACSIM_DIR", str(Path.home() / "isaacsim")))
     config["isaac_version"] = (isaac_root / "VERSION").read_text().strip()

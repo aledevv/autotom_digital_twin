@@ -216,3 +216,41 @@ reproduces the earlier detachments as physical breaks, not deleted joints.
 60.88 mm / 30.34 degrees during 17.5-20 s. This is the paired reference for
 the next single-change truss damping4-to7 comparison. These are offscreen
 measurements, not new desktop FPS evidence.
+
+The truss damping ratio7 control completed 60 s (exit 0), but held motion
+remained approximately 59.82 mm / 28.34 degrees: it is not a useful fix.
+A separate mouse damping control at 1 N s/m, with original truss ratio4,
+reduced the same held interval to approximately 0.80 mm / 2.60 degrees.
+`recorded-grip-mouse-damping1` completed 60 s, exit 0. Damping uses measured
+COM displacement between physics steps; the preexisting 12 N vector cap and
+4.8 N/s vector slew cap still apply. The default mouse damping remains zero
+for reproduction. This improvement has not yet been accepted manually.
+
+Following the user's explicit choice, `--retain-fruit-grip` now keeps the
+selected fruit under control after JOINT_BREAK until input release. Native
+PhysX still produces the break; no body, joint, pose or velocity is recreated
+or overwritten. The detached phase uses mass-scaled, velocity-damped tracking
+(position gain 5/s, velocity response 0.05 s), desired-speed cap 2 m/s, net
+acceleration cap 20 m/s2 and gravity compensation while held. Its force stays
+within 12 N and is much smaller for these fruit masses. The attached-phase
+vector slew rule does not apply to the detached phase; this replaces the old
+immediate-cancel-on-break requirement at the user's request. Release cancels
+commands and leaves momentum to physics. Per-step logs now include phase,
+COM target and measured COM position. Isaac validation of the combined change
+is in progress; the 33 focused controller/monitor tests passed.
+
+The combined candidate completed five independent 60-second headless tests
+(`retained-min`, `retained-median`, `retained-max`, `retained-rapid`,
+`retained-release`), all exit 0 and no functional-monitor errors. The four
+intended breaks were single and continuous, and early release caused none.
+The fruit remained controlled after break until the scheduled release. Local
+`grip-check.json` files verify attached force/slew limits, detached command
+acceleration and absence of commands after release.
+
+`retained-ui-probe` exercised real Carb mouse/Shift events offscreen for 15 s,
+exit 0: one break at 5.6333 s, grip retained until release at 10.0167 s, then
+no further force commands. At the end of the stationary hold the COM target
+error was 0.25 micrometres; peak free-phase force was 0.136 N. Screenshot
+`feedback-500.png` shows the retained-grip label. This is not manual acceptance
+or desktop FPS validation. The candidate still awaits a new 60-second user
+review including sustained load and post-break dragging.

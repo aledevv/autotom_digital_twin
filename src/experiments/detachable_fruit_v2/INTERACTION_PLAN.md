@@ -102,3 +102,15 @@ user's positive review. Headless throughput does not satisfy the FPS gate.
 The first deliverable is the controlled comparison in steps 1–2 and a decision
 on picking, force application or support response. The full objective remains
 open until step 4 passes; completing this plan is not completion of the goal.
+
+## Revisione richiesta dall'utente dopo la prova GUI del 10 settembre
+
+Il distacco e gli FPS sono stati confermati, ma il candidato resta non
+accettato per movimento persistente sotto trazione mantenuta e perdita della
+presa alla rottura. L'utente ha scelto esplicitamente che il frutto resti
+afferrato fino al rilascio del mouse: questo sostituisce l'azzeramento della
+forza alla rottura previsto sopra. Il vincolo deve ancora rompersi fisicamente
+a 6 N, senza ricreazione o spostamenti artificiali del corpo. La presa del
+frutto libero viene verificata separatamente dalla trazione sul frutto
+attaccato. La nuova prova finale deve includere tenuta intorno a 3 N, distacco,
+trascinamento del frutto libero e rilascio, oltre al recupero della pianta.

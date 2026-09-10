@@ -279,10 +279,12 @@ def run(stage, world, app, args, config):
     if target_record:
         from exporterV2.fruit_interaction import InteractionReplay
         interaction = InteractionReplay(config, view, indices[target_record["fruit"]], target_record,
-                                        output / f"{prefix}-interaction.jsonl")
+                                        output / f"{prefix}-interaction.jsonl",
+                                        np.asarray(effective["gravity_direction"]) * effective["gravity_magnitude_mps2"])
     elif not args.headless and config.get("mouse_grab_mode") == "bounded":
         from exporterV2.fruit_interaction import GuiDragBridge
-        gui_interaction = GuiDragBridge(stage, view, paths, records, broken, output / "gui-interaction.jsonl", config)
+        gui_interaction = GuiDragBridge(stage, view, paths, records, broken, output / "gui-interaction.jsonl", config,
+                                       np.asarray(effective["gravity_direction"]) * effective["gravity_magnitude_mps2"])
     if errors:
         first_failure = {"time_s": 0.0, "error": errors[0]}
         steps = 0

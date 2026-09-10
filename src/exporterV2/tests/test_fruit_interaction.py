@@ -90,7 +90,8 @@ def test_com_hold_keeps_world_force_plateau_then_releases():
     assert replay.released and len(commands) == count
 
 
-def test_gui_routes_attached_fruit_exclusively_and_preserves_native_support_drag(monkeypatch):
+@pytest.mark.parametrize("retain_grip", [False, True])
+def test_gui_routes_attached_fruit_exclusively_and_preserves_native_support_drag(monkeypatch, retain_grip):
     from pxr import Usd, UsdGeom
     stage = Usd.Stage.CreateInMemory()
     UsdGeom.Camera.Define(stage, "/Camera")
@@ -105,8 +106,9 @@ def test_gui_routes_attached_fruit_exclusively_and_preserves_native_support_drag
     bridge.indices, bridge.coms = {"/fruit": 0}, np.zeros((1, 3))
     bridge.view = SimpleNamespace(get_world_poses=lambda **kw: (np.zeros((1, 3)), np.array([[1., 0, 0, 0]])))
     bridge.drag, bridge.capture, bridge.record = LimitedDrag(), None, None
+    bridge.retain_grip, bridge.free_phase = retain_grip, False
     bridge.visuals = None
-    bridge.time_s, bridge.log, bridge.summary = 0., io.StringIO(), {"grabs": []}
+    bridge.time_s, bridge.log, bridge.summary = 0., io.StringIO(), {"grabs": [], "peak_command_n": 0.}
     bridge.query = lambda *args: {"hit": True, "rigidBody": "/fruit", "collision": "/fruit/shape", "position": [0, 0, .01]}
     class NativeGuiVector:
         # omni.ui.scene.Vector3 supports iteration, but direct np.asarray fails.
@@ -121,9 +123,29 @@ def test_gui_routes_attached_fruit_exclusively_and_preserves_native_support_drag
     assert bridge.drag.active and calls == []
     assert not bridge.handle_break("/another_joint", .2)
     assert bridge.handle_break("/joint", .3)
-    assert not bridge.drag.active
+    assert bridge.drag.active == retain_grip
+    assert bridge.free_phase == retain_grip
     bridge.update_interaction([0, 0, 1], [.2, 0, -1], 1)
+    forces = []
+    if retain_grip:
+        from exporterV2.free_fruit_grip import FreeFruitGrip
+        inputs = SimpleNamespace(MouseInput=SimpleNamespace(LEFT_BUTTON=0),
+                                 KeyboardInput=SimpleNamespace(LEFT_SHIFT=1, RIGHT_SHIFT=2, ESCAPE=3))
+        monkeypatch.setitem(sys.modules, "carb", SimpleNamespace(input=inputs))
+        monkeypatch.setitem(sys.modules, "carb.input", inputs)
+        bridge.input = SimpleNamespace(get_mouse_value=lambda *a: 1,
+                                       get_keyboard_value=lambda device, key: key != 3)
+        bridge.window = SimpleNamespace(get_mouse=lambda: None, get_keyboard=lambda: None)
+        bridge.view.get_velocities = lambda **kw: np.zeros((1, 6))
+        bridge.view.apply_forces_and_torques_at_pos = lambda **kw: forces.append(kw["forces"].copy())
+        bridge.free_grip, bridge.masses, bridge.gravity = FreeFruitGrip(), [.01], np.array([0, 0, -9.81])
+        assert 0 < bridge.before_step(.4, 1/60, {"/joint"}) < .3
+        assert len(forces) == 1 and calls == []
     bridge.update_interaction([0, 0, 1], [.2, 0, -1], 2)
+    assert not bridge.drag.active and not bridge.free_phase
+    if retain_grip:
+        assert bridge.before_step(.5, 1/60, {"/joint"}) == 0
+        assert len(forces) == 1
     assert calls == []  # Holding after detachment cannot start native grabbing.
     bridge.query = lambda *args: {"hit": True, "rigidBody": "/support"}
     for event in (0, 1, 2):
