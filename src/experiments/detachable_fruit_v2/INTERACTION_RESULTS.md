@@ -254,3 +254,16 @@ error was 0.25 micrometres; peak free-phase force was 0.136 N. Screenshot
 `feedback-500.png` shows the retained-grip label. This is not manual acceptance
 or desktop FPS validation. The candidate still awaits a new 60-second user
 review including sustained load and post-break dragging.
+
+Desktop review `retained-gui-review` ran candidate `74e043b` for 60.0000
+simulated seconds (3600 frames), exit 0, at 1280x720. Mean GUI FPS was
+32.7293 overall and 32.8097 after settling, with steady p05 FPS 28.8610.
+The loop took 109.9935 wall seconds, real-time factor 0.54549. All seven
+physical breaks targeted captured fruit on two trusses and passed the motion
+continuity check; all seven entered retained grip. Eight total grabs were
+recorded. Functional-monitor errors were empty. The eighth fruit remained
+held from 51.0333 s until monitor exit at 60 s, so the final ten seconds are
+not an unloaded recovery window; the recorded tail threshold advisories
+must not be presented as a rest-stability pass. User feedback was
+"non male. mi spieghi cosa hai fatto finora?". This is encouraging but not
+explicit final acceptance. Full reports, input events and traces stay local.
