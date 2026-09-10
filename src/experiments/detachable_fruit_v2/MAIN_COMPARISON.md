@@ -80,3 +80,31 @@ fruit count and selected attachment, so they do not isolate one causal factor.
 They also do not reproduce main's original TGS/GPU runtime. Reproducing the
 user's known successful launcher/configuration remains the next reference
 check; the broader task is still open and final manual acceptance is absent.
+
+## Measured main launcher defaults
+
+`probe_main_runtime.py` reproduced the main launcher's `World()` / reset /
+mouse-configuration sequence in headless mode on a private copy of the archived
+USD (`runtime-defaults`, process exit 0). The source starts with 480 Hz, but
+constructing `World()` changes it to **60 Hz**. Both physics and rendering dt
+remain 1/60 s after reset and mouse configuration. TGS and GPU dynamics remain
+enabled. The World tensor device says `cpu`; this is not evidence that scene
+GPU dynamics was disabled. This probe does not measure desktop FPS.
+
+Reset had advanced simulation time to 0.0333 s; the subsequent mouse UI setup
+advanced it to 0.0500 s. The modern monitor suspends gravity during its reset
+and prevents this extra UI-setup integration. That initialization difference
+is retained and disclosed when testing the old scene with the modern monitor.
+
+With these measured runtime settings restored (TGS/GPU60, articulation32/4,
+fruit32/1), the archived main scene **passed** the 60-second native-joint replay:
+one target break at 34.267 s, continuous motion, no other breaks or nonfinite
+states (`main-native-joint-original-runtime`, process exit 0). Headless
+throughput was 17.32 physics steps per wall second, not a GUI FPS measurement.
+The native drag coefficient stayed 10 and the joint threshold stayed 6 N.
+
+This is now a positive native-detachment reference. Since normalization to
+CPU/PGS32/0,255/0 prevented detachment on the same archived structure, solver
+and iteration differences must be isolated before concluding that an entirely
+custom mouse controller is needed. The next single-change control enables one
+fruit velocity iteration in the current CPU/PGS scene, keeping everything else.
