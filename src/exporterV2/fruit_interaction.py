@@ -231,10 +231,13 @@ class GuiDragBridge:
         from pxr import Gf, UsdGeom
         from omni.kit.viewport.utility import get_active_viewport
         try:
-            origin, direction = np.asarray(origin, dtype=float), unit(direction)
+            # omni.ui.scene.Vector3 is iterable but is not NumPy-array compatible.
+            # Materialize scalar components before converting the native GUI ray.
+            origin, direction = np.asarray(tuple(origin), dtype=float), unit(tuple(direction))
             if not np.isfinite(origin).all():
                 raise ValueError("nonfinite ray origin")
-        except ValueError:
+        except (TypeError, ValueError) as error:
+            self.write({"event": "invalid_ray", "error": str(error)})
             self.cancel("invalid_ray")
             return
         if event == self.events.MOUSE_DRAG_BEGAN:

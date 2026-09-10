@@ -83,7 +83,15 @@ def test_gui_routes_attached_fruit_exclusively_and_preserves_native_support_drag
     bridge.drag, bridge.capture, bridge.record = LimitedDrag(), None, None
     bridge.time_s, bridge.log, bridge.summary = 0., io.StringIO(), {"grabs": []}
     bridge.query = lambda *args: {"hit": True, "rigidBody": "/fruit", "collision": "/fruit/shape", "position": [0, 0, .01]}
-    bridge.update_interaction([0, 0, 1], [0, 0, -1], 0)
+    class NativeGuiVector:
+        # omni.ui.scene.Vector3 supports iteration, but direct np.asarray fails.
+        def __init__(self, values):
+            self.values = values
+        def __iter__(self):
+            return iter(self.values)
+        def __array__(self, *args, **kwargs):
+            raise ValueError("setting an array element with a sequence")
+    bridge.update_interaction(NativeGuiVector([0, 0, 1]), NativeGuiVector([0, 0, -1]), 0)
     bridge.update_interaction([0, 0, 1], [.1, 0, -1], 1)
     assert bridge.drag.active and calls == []
     assert not bridge.handle_break("/another_joint", .2)

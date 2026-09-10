@@ -30,6 +30,10 @@ are specific to the free body/trajectory and are not the mouse force in the
 constrained plant. Initial probe attempts saved complete measurements but
 crashed during interpreter cleanup; their logs are retained, and the harness
 now uses the same post-Kit exit strategy as the main Isaac loader.
+The final rerun (`native-force-probe-final`) completed with process exit 0.
+For its free-body trajectory, peak estimated resultants were 0.00130,
+0.00210 and 0.00364 N at gains 1, 3 and 10. The known-force reference
+recovered 0.01002785 N against a command of 0.01002784 N.
 
 ## Bounded controller and GUI integration
 
@@ -56,9 +60,43 @@ the original screening tolerances and must be judged during the GUI review.
 ## Validation status
 
 Core controller, ray selection, routing and existing monitor/loader checks:
-38 tests passed. One-minute bounded runs for minimum and median mass ratios
-passed; maximum-ratio, rapid movement and early-release cases are in progress.
+38 tests passed. Five independent one-minute bounded runs completed:
+
+| Mass-ratio target / gesture | Break time | Peak command | Other breaks | Result |
+|---|---:|---:|---:|---|
+| Minimum / slow | 32.667 s | 6.400 N | 0 | passed |
+| Median / slow | 32.500 s | 5.963 N | 0 | passed |
+| Maximum / slow | 32.467 s | 5.920 N | 0 | passed |
+| Maximum / rapid | 32.467 s | 5.920 N | 0 | passed |
+| Maximum / release after 0.5 s | none | 1.200 N | 0 | passed |
+
+All four detachments passed the movement-continuity check. No run reported
+nonfinite states, spontaneous breaks or persistent gross support divergence.
+Recorded command vectors obeyed the 2.4 N/s slew limit and the 12 N cap;
+no command followed a break. Early release stopped commands at 30.500 s,
+with no break through 60 s. The command at break is an externally applied
+force, not a measurement of the joint reaction; the joint threshold stays 6 N.
+
 The GUI FPS and manual detachment review for this controller remain pending.
+
+The first manual GUI attempt was rejected: no fruit could be grabbed. It
+ended when the timeline stopped at approximately 7.83 simulated seconds,
+before the required minute. Its approximately 33 FPS is only a partial run.
+An automatic UI-input probe subsequently reproduced the cause: native
+`omni.ui.scene.Vector3` rays are iterable but direct `numpy.asarray` conversion
+raises `ValueError: setting an array element with a sequence`. The original
+handler silently cancelled this input. Materializing the components as tuples
+before NumPy conversion fixes this boundary; invalid-ray rejection is now logged.
+The routing regression test exercises an iterable that rejects direct NumPy
+conversion. Temporary overlay and timeline hypotheses were discarded; the
+original native viewport event path is retained. Automated UI probes can run
+without a desktop window, avoiding interference with manual input.
+The corrected native-overlay route completed a 15-second automatic UI probe
+(`bounded-gui-vector-fix`, process exit 0): actual ray hit r5 fruit 07, one native
+break at 7.267 s with 6.054 N commanded, continuous movement, no other breaks,
+and force cancelled at the break. The camera aimed toward fruit 08 but fruit 07
+occluded it; this test establishes event routing, not a repeat of the controlled
+fruit-08 comparison. Its invisible-window FPS is not a desktop performance result.
 
 Earlier 33.48 GUI FPS belongs to the native-input candidate, not this new
 controller. No claim of final acceptance is made until the new GUI review.
