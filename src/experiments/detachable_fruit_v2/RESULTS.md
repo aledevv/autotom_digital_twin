@@ -1,5 +1,8 @@
 # Day-160 detachable fruit investigation, 2026-09-09
 
+Historical first-phase report. On 2026-09-10 the user changed the final review
+to one minute and requested 60 Hz / FPS comparisons; see [the follow-up](ITERATIONS_60HZ.md).
+
 This is the first instrumented reproduction and bounded ablation comparison.
 It does not certify a stable, interactively detachable plant. GUI acceptance is
 pending and still requires three minutes including the user's Shift+click.

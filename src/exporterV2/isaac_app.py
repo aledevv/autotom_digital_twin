@@ -19,11 +19,11 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--duration", type=float, default=5.0)
     parser.add_argument("--physics-preset", choices=("locked", "flexible"), required=True)
-    parser.add_argument("--physics-hz", type=int, choices=(480, 960), default=480)
+    parser.add_argument("--physics-hz", type=int, choices=(60, 120, 240, 480, 960), default=480)
     parser.add_argument(
         "--interactive-physics-hz",
         type=int,
-        choices=(60, 120, 240, 480),
+        choices=(60, 120, 240, 480, 960),
         default=60,
         help="GUI runtime rate; headless validation continues to use --physics-hz.",
     )

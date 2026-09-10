@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from pxr import Usd, UsdPhysics
 
-from exporterV2.fruit_diagnostics import attachment_errors, evaluate_tail, json_finite, motion_rates, unexpected_breaks
+from exporterV2.fruit_diagnostics import attachment_errors, evaluate_tail, json_finite, motion_rates, performance_summary, unexpected_breaks
 from exporterV2.fruit_experiments import audit, prepare_stage
 from exporterV2.plant_state_branches import build_truss_branches
 from exporterV2.plant_state_legacy_backend import export_incremental_checkpoint
@@ -14,6 +14,20 @@ from exporterV2.core.tree_config import TrussPhysicsConfig
 from plant_state import load_plant_state
 
 ROOT = Path(__file__).resolve().parents[3]
+
+
+def test_headless_throughput_is_not_rendered_fps():
+    result = performance_summary(600, 10, 20, [])
+    assert result["physics_steps_per_wall_second"] == 30
+    assert result["real_time_factor"] == .5
+    assert result["gui_fps"] is None
+
+
+def test_rendered_fps_includes_physics_and_monitor_time():
+    # Rendering alone takes 10 ms, but the whole frame takes 50 ms.
+    result = performance_summary(600, 10, 30, [[5., 20., .05, .01], [5.02, 20.05, .05, .01]])
+    assert result["gui_steady_fps"] == pytest.approx(20)
+    assert result["gui_steady_p05_fps"] == pytest.approx(20)
 
 
 def test_report_serializes_numpy_break_flags_and_infinite_limits():

@@ -84,6 +84,22 @@ def unexpected_breaks(broken, target, current_time, force_start, headless):
     return set(broken) if headless else set()
 
 
+def performance_summary(steps, simulated_seconds, wall_seconds, frames):
+    """Distinguish physics throughput from measured rendered frame cadence."""
+    result = {"physics_steps_per_wall_second": steps / wall_seconds if wall_seconds else None,
+              "real_time_factor": simulated_seconds / wall_seconds if wall_seconds else None,
+              "loop_wall_seconds": wall_seconds, "rendered_frames": len(frames),
+              "gui_fps": None, "gui_steady_fps": None, "gui_steady_p05_fps": None}
+    if frames:
+        values = np.asarray(frames)
+        result["gui_fps"] = float(1 / values[:, 2].mean())
+        steady = values[values[:, 0] >= 5]
+        if len(steady):
+            result["gui_steady_fps"] = float(1 / steady[:, 2].mean())
+            result["gui_steady_p05_fps"] = float(1 / np.quantile(steady[:, 2], .95))
+    return result
+
+
 def run(stage, world, app, args, config):
     from pxr import PhysicsSchemaTools, UsdPhysics
     from isaacsim.core.prims import RigidPrim
@@ -99,6 +115,15 @@ def run(stage, world, app, args, config):
     config["duration"] = args.duration
     config["simulation_threads"] = carb.settings.get_settings().get(SETTING_NUM_THREADS)
     config["task_threads"] = carb.settings.get_settings().get("/plugins/carb.tasking.plugin/threadCount")
+    config["render_settings"] = {key: app.config.get(key) for key in
+                                 ("renderer", "width", "height", "window_width", "window_height")}
+    if not args.headless:
+        from omni.kit.viewport.utility import get_active_viewport
+        viewport = get_active_viewport()
+        if viewport is None:
+            raise RuntimeError("GUI measurement requires an active viewport")
+        config["viewport_resolution_at_start"] = list(viewport.resolution)
+        config["viewport_camera_at_start"] = str(viewport.camera_path)
     config["executed_implementation_sha256"] = {
         relative: hashlib.sha256((Path(__file__).resolve().parents[2] / relative).read_bytes()).hexdigest()
         for relative in config.get("implementation_sha256", {})
@@ -224,7 +249,9 @@ def run(stage, world, app, args, config):
     first_threshold = None
     max_anchor_error = 0.0
     wall_start = time.perf_counter()
-    timing = {"physics_step_s": 0.0, "tensor_read_s": 0.0, "analysis_s": 0.0}
+    timing = {"physics_step_s": 0.0, "tensor_read_s": 0.0, "analysis_s": 0.0, "render_s": 0.0}
+    frames = []
+    last_frame_wall = wall_start
     _write_report(report_path, {"status": "running", "config": config, "paths": paths})
     def flush_trace():
         nonlocal chunk
@@ -328,7 +355,11 @@ def run(stage, world, app, args, config):
             if (step + 1) % (5 * hz) == 0 or errors:
                 flush_trace()
             if step == 0 or (step + 1) % hz == 0 or errors:
-                print(f"[FRUIT] t={current_time:.2f}/{args.duration:g} v={speed.max():.5g} w={angular.max():.5g} gap={p_error:.5g} breaks={len(broken)}", flush=True)
+                fps_note = ""
+                if frames:
+                    recent_frames = frames[-60:]
+                    fps_note = f" gui_recent_fps={len(recent_frames) / sum(frame[2] for frame in recent_frames):.2f}"
+                print(f"[FRUIT] t={current_time:.2f}/{args.duration:g} v={speed.max():.5g} w={angular.max():.5g} gap={p_error:.5g} angle_deg={math.degrees(a_error):.5g} breaks={len(broken)}{fps_note}", flush=True)
                 if step + 1 == hz:
                     print(f"[FRUIT] profiling={timing}", flush=True)
             if errors:
@@ -336,12 +367,22 @@ def run(stage, world, app, args, config):
                     first_failure = {"time_s": current_time, "error": errors[-1]}
                 break
             if not args.headless and (step + 1) % max(1, hz // 60) == 0:
+                render_start = time.perf_counter()
                 world.render()
+                frame_wall = time.perf_counter()
+                timing["render_s"] += frame_wall - render_start
+                frames.append([current_time, frame_wall - wall_start, frame_wall - last_frame_wall,
+                               frame_wall - render_start])
+                last_frame_wall = frame_wall
     except KeyboardInterrupt:
         errors.append("experiment interrupted before completion")
     finally:
         flush_trace()
         subscription = None
+    loop_wall_seconds = time.perf_counter() - wall_start
+    if not args.headless:
+        config["viewport_resolution_at_end"] = list(viewport.resolution)
+        config["viewport_camera_at_end"] = str(viewport.camera_path)
     completed = current_time >= args.duration - .5 / hz
     if tail:
         tail_values = [np.array(v) for v in zip(*tail)]
@@ -374,10 +415,10 @@ def run(stage, world, app, args, config):
         metrics, limits, gate_errors = {}, {}, ["no valid samples"]
     if target_record and target_record["joint"] not in broken:
         errors.append("target fruit did not detach under the force ramp")
-    if args.headless:
+    if args.headless and config.get("acceptance", "strict") == "strict":
         errors.extend(gate_errors)
-    elif not completed:
-        errors.append("GUI closed before three-minute validation completed")
+    if not completed:
+        errors.append(f"simulation ended before the requested {args.duration:g}-second validation completed")
     per_role = {role: {"peak_linear_mps": float(peak_lin[np.array(roles) == role].max()),
                        "peak_angular_radps": float(peak_ang[np.array(roles) == role].max())} for role in sorted(set(roles))}
     if first_failure:
@@ -393,10 +434,23 @@ def run(stage, world, app, args, config):
     np.savez_compressed(output / f"{prefix}-metrics.npz", samples=np.array(summaries),
                         columns=np.array(["time_s", "max_linear_mps", "max_angular_radps", "joint_gap_m", "joint_angle_rad", "applied_force_n",
                                           "kinematic_linear_mps", "kinematic_angular_radps"]))
+    if frames:
+        np.savez_compressed(output / "gui-frames.npz", samples=np.asarray(frames),
+                            columns=np.array(["simulation_s", "wall_s", "frame_interval_s", "render_call_s"]))
+    performance = performance_summary(len(summaries), current_time, loop_wall_seconds, frames)
+    if not args.headless and config.get("acceptance") == "functional":
+        if performance["gui_steady_fps"] is None or performance["gui_steady_fps"] < 20:
+            errors.append("GUI steady frame rate is unavailable or below the required 20 FPS")
     report = {"schema_version": "exporter_v2_fruit_diagnostics/1.1", "status": "failed" if errors else ("passed" if args.headless else "awaiting_user_review"),
               "config": config, "errors": list(dict.fromkeys(errors)), "events": events,
               "simulated_seconds": current_time, "wall_seconds": time.perf_counter() - wall_start,
               "timing": timing,
+              "performance": performance,
+              "numerical_gate_errors": gate_errors,
+              "acceptance_policy": config.get("acceptance", "strict"),
+              "final_attachments": [{**record, "broken": record["joint"] in broken,
+                                     "position_error_m": float(jp[i]), "angle_error_rad": float(ja[i])}
+                                    for i, record in enumerate(records)] if summaries else [],
               "runtime_physics_hz": hz, "samples": len(summaries), "body_count": len(paths), "fruit_count": len(records),
               "tail": metrics, "limits": limits, "gui_tail_advisories": gate_errors if not args.headless else [],
               "first_failure": first_failure, "first_attachment_threshold": first_threshold,

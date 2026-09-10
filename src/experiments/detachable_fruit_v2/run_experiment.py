@@ -29,7 +29,7 @@ def main():
     parser.add_argument("--attachment", choices=("external", "internal"), default="external")
     parser.add_argument("--solver", choices=("TGS", "PGS"), default="TGS")
     parser.add_argument("--cpu", action="store_true")
-    parser.add_argument("--hz", type=int, choices=(480, 960), default=480)
+    parser.add_argument("--hz", type=int, choices=(60, 120, 240, 480, 960), default=480)
     parser.add_argument("--art-position", type=int, choices=range(1, 256), default=32)
     parser.add_argument("--art-velocity", type=int, choices=range(0, 256), default=4)
     parser.add_argument("--fruit-position", type=int, choices=range(1, 256), default=32)
@@ -41,6 +41,8 @@ def main():
     damping.add_argument("--damping-ratio", type=float, choices=(1, 2, 4, 7),
                          help="Absolute ratio override for reproducing the initial diagnostic cases")
     parser.add_argument("--duration", type=float, default=20)
+    parser.add_argument("--acceptance", choices=("strict", "functional"), default="strict",
+                        help="Functional keeps numerical tolerances advisory; GUI requires 20 FPS and user review.")
     parser.add_argument("--force-target", choices=("min", "median", "max"))
     parser.add_argument("--force-start", type=float, default=30)
     parser.add_argument("--prepare-only", action="store_true")
@@ -53,8 +55,6 @@ def main():
         args.damping_scale = args.damping_ratio / 4.0
     if args.duration <= 0 or (args.force_target and (args.force_start < 10 or args.duration < args.force_start + 15)):
         parser.error("duration must be positive; force tests need >=10s settling and >=15s after ramp start")
-    if args.gui and args.hz != 480:
-        parser.error("GUI comparison currently requires 480 Hz")
     run_dir = args.run_dir.resolve()
     run_dir.mkdir(parents=True, exist_ok=True)
     if (run_dir / "config.json").exists():
@@ -106,7 +106,7 @@ def main():
         return 0
     command = [str(isaac_root / "python.sh"), str(ROOT / "src/exporterV2/isaac_app.py"),
                "--usd", str(output), "--physics-preset", "flexible", "--physics-hz", str(args.hz),
-               "--interactive-physics-hz", "480", "--duration", str(args.duration),
+               "--interactive-physics-hz", str(args.hz), "--duration", str(args.duration),
                "--fruit-experiment", str(run_dir / "config.json")]
     if not args.gui:
         command.append("--headless")
