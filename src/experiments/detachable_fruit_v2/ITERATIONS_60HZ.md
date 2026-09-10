@@ -105,4 +105,42 @@ externally applied ramp, not a measurement of the joint reaction force.
 Numerical advisories remain in the reports. Detached bodies are excluded from
 support settling metrics, but their free-fall motion remains in the traces.
 
-GUI FPS and manual interaction acceptance are still pending.
+## GUI review and mouse interaction
+
+The first GUI attempt failed before sampling: activating the grab UI called
+`app.update()` after reset while physics was playing. Fruit had moved 2.816 mm
+before the monitor started. The loader now disables `/app/player/playSimulations`
+around this UI update and restores the previous value, including on exceptions.
+The failed attempt is retained. The retry USD is byte-identical to the accepted
+headless functional scene.
+
+The retry completed 60 simulated seconds / 3600 rendered frames at 1280x720:
+33.48 steady FPS, 29.30 fifth-percentile frame FPS, real-time factor 0.559.
+The user reported very fluid simulation but could not detach fruit. There were
+zero native break events, so the interactive requirement was not met.
+
+The default mouse configuration uses D6 grabbing (`forceGrab=false`). NVIDIA
+[documents the force-based alternative and mass-scaled mouse coefficient](https://docs.omniverse.nvidia.com/kit/docs/omni_physics/107.3/extensions/ux/source/omni.physx.ui/docs/dev_guide/sim_management.html).
+A GUI comparison with `forceGrab=true`, coefficient 10, was also rejected by
+the user: the fruit moves but stays attached. Effective mouse settings are now
+recorded explicitly. `--mouse-grab-mode force --mouse-force-coefficient VALUE`
+changes only the interaction configuration, not the 6 N joint threshold.
+The coefficient is not a force in newtons. An excessive jump to 1000 caused
+16 native joint breaks from 17.9167 to 17.9833 simulated seconds. At 18.0333 s,
+the first nonfinite body in monitor path order was pedicel 08 of
+`Truss_r5_o0_g421786` (this ordering does not establish which body caused the
+failure). The user reported that the simulation and tomatoes exploded. The
+monitor stopped the run. This configuration is rejected.
+
+The native Isaac 4.5 UI exposes coefficient range 0–10 in
+`extsPhysics/omni.physx.ui/omni/physxui/scripts/settings.py:302`. The 1000 trial
+exceeded that range; it must not be interpreted as a calibrated force test.
+The experimental runner and GUI loader now reject coefficients outside
+(0, 10], including the archived rejected trial. There is no evidence here of
+the actual mouse force in newtons or of the exact raycast-selected body.
+
+Final status: the full plant meets the measured rendering target and passes
+one-minute headless rest plus three controlled COM-force detachments. Manual
+Shift+click detachment has **not** passed user acceptance. Keep the fluent
+60 Hz candidate and diagnose native picking/force application before further
+interactive gain sweeps. No high-gain preset is promoted.

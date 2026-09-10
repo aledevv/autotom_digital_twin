@@ -270,8 +270,11 @@ def _world_endpoints(positions, orientations, paths, metadata):
     return result
 
 
-def _configure_mouse_interaction(app, stage) -> dict:
+def _configure_mouse_interaction(app, stage, *, grab_with_force=False, force_coefficient=10.0) -> dict:
     """Restore the exact mouse-grab setup used by the interactive legacy V2."""
+
+    if not 0 < force_coefficient <= 10:
+        raise ValueError("mouse force coefficient must be in (0, 10], the native Physics Settings UI range")
 
     import carb.settings
 
@@ -280,8 +283,17 @@ def _configure_mouse_interaction(app, stage) -> dict:
         sys.path.insert(0, str(source_root))
     from exporterV2.core.skinning.runtime import configure_physx_mouse_interaction
 
-    configure_physx_mouse_interaction(app)
     settings = carb.settings.get_settings()
+    # Enabling the grab UI calls app.update(). After reset the timeline is
+    # playing, so that UI update must not integrate an unmonitored physics step.
+    playing = settings.get("/app/player/playSimulations")
+    settings.set("/app/player/playSimulations", False)
+    try:
+        configure_physx_mouse_interaction(app)
+    finally:
+        settings.set("/app/player/playSimulations", playing if playing is not None else True)
+    settings.set("/physics/forceGrab", grab_with_force)
+    settings.set("/physics/pickingForce", force_coefficient)
     interactive = 0
     for prim in stage.Traverse():
         kind = prim.GetAttribute("autotom:entityKind").Get()
@@ -862,7 +874,11 @@ def main() -> int:
                 f"effective {args.runtime_physics_hz}"
             )
         if not args.headless:
-            mouse_interaction = _configure_mouse_interaction(app, stage)
+            mouse_interaction = _configure_mouse_interaction(
+                app, stage,
+                grab_with_force=bool(experiment_config and experiment_config.get("mouse_grab_mode") == "force"),
+                force_coefficient=experiment_config.get("mouse_force_coefficient", 10.0) if experiment_config else 10.0,
+            )
         load_seconds = time.perf_counter() - load_started
         print(f"[OK] Isaac Sim opened canonical V2 stage: {usd_path}", flush=True)
         print(

@@ -117,6 +117,10 @@ After a headless candidate passes the selected policy, open the **same prepared 
 ```
 
 Set `--interactive-physics-hz` to the candidate's actual configured rate.
+`--mouse-grab-mode joint|force` chooses native interaction; the mouse coefficient
+must stay in (0, 10], and is not a force in newtons. The 60 Hz candidate meets
+the measured FPS target but has not passed manual detachment acceptance; see
+the follow-up results before using it as a validated interaction preset.
 GUI rendering targets 60 updates per simulated second: one physics step per
 render at 60 Hz, or eight at 480 Hz. Actual rendered FPS is measured from full
 frame intervals including physics, monitoring and rendering; it is not inferred

@@ -47,7 +47,12 @@ def main():
     parser.add_argument("--force-start", type=float, default=30)
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--gui", action="store_true")
+    parser.add_argument("--mouse-grab-mode", choices=("joint", "force"), default="joint")
+    parser.add_argument("--mouse-force-coefficient", type=float, default=10.0,
+                        help="Native mouse gain, not a force in newtons.")
     args = parser.parse_args()
+    if not 0 < args.mouse_force_coefficient <= 10:
+        parser.error("mouse force coefficient must be in (0, 10], the native Physics Settings UI range")
     if args.damping_ratio is None:
         args.damping_scale = args.damping_scale or 1.0
         args.damping_ratio = 4.0 * args.damping_scale

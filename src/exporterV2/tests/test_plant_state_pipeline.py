@@ -7,6 +7,7 @@ from dataclasses import replace
 import json
 from pathlib import Path
 import sys
+from types import ModuleType, SimpleNamespace
 
 import pytest
 from pxr import Sdf, Usd, UsdGeom
@@ -15,6 +16,7 @@ from exporterV2.cli import build_argument_parser, main
 from exporterV2.isaac_app import (
     _arguments,
     _authored_physics_hz,
+    _configure_mouse_interaction,
     _open_stage_and_wait,
     _timing_metrics,
     _world_endpoints,
@@ -341,6 +343,42 @@ def test_isolated_duration_override_is_exact_and_safe():
     assert "DURATION_DAYS = 160" in override_model_duration(source, 160)
     with pytest.raises(ValueError, match="locate"):
         override_model_duration("class P {}", 160)
+
+
+@pytest.mark.parametrize("ui_failure", [False, True])
+def test_mouse_ui_setup_does_not_advance_physics_and_restores_player(monkeypatch, ui_failure):
+    from exporterV2.core.skinning import runtime
+
+    values = {"/app/player/playSimulations": True}
+    settings = SimpleNamespace(get=values.get, set=values.__setitem__)
+    carb = ModuleType("carb")
+    carb.settings = ModuleType("carb.settings")
+    carb.settings.get_settings = lambda: settings
+    monkeypatch.setitem(sys.modules, "carb", carb)
+    monkeypatch.setitem(sys.modules, "carb.settings", carb.settings)
+    physics_steps = []
+
+    def ui_setup(app):
+        if settings.get("/app/player/playSimulations"):
+            physics_steps.append(1)
+        if ui_failure:
+            raise RuntimeError("UI setup failed")
+
+    monkeypatch.setattr(runtime, "configure_physx_mouse_interaction", ui_setup)
+    stage = SimpleNamespace(Traverse=lambda: [])
+    if ui_failure:
+        with pytest.raises(RuntimeError, match="UI setup failed"):
+            _configure_mouse_interaction(None, stage)
+    else:
+        _configure_mouse_interaction(None, stage)
+    assert physics_steps == []
+    assert settings.get("/app/player/playSimulations") is True
+
+
+@pytest.mark.parametrize("coefficient", [0, -1, 1000, float("inf"), float("nan")])
+def test_mouse_grab_rejects_unsupported_coefficients_before_loading_isaac(coefficient):
+    with pytest.raises(ValueError, match="native Physics Settings UI range"):
+        _configure_mouse_interaction(None, None, force_coefficient=coefficient)
 
 
 def test_isaac_arguments_do_not_leak_to_kit(monkeypatch, tmp_path):

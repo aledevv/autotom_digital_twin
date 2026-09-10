@@ -117,6 +117,9 @@ def run(stage, world, app, args, config):
     config["task_threads"] = carb.settings.get_settings().get("/plugins/carb.tasking.plugin/threadCount")
     config["render_settings"] = {key: app.config.get(key) for key in
                                  ("renderer", "width", "height", "window_width", "window_height")}
+    config["effective_mouse_settings"] = {name: carb.settings.get_settings().get(name) for name in
+                                           ("/physics/mouseGrab", "/physics/forceGrab", "/physics/pickingForce",
+                                            "/physics/mouseGrabIgnoreInvisible")}
     if not args.headless:
         from omni.kit.viewport.utility import get_active_viewport
         viewport = get_active_viewport()
