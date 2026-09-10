@@ -126,19 +126,24 @@ After a headless candidate passes the selected policy, open the **same prepared 
 ```
 
 Set `--interactive-physics-hz` to the candidate's actual configured rate.
-`--mouse-grab-mode joint|force` chooses native interaction; the mouse coefficient
-must stay in (0, 10], and is not a force in newtons. The 60 Hz candidate meets
-the measured FPS target but has not passed manual detachment acceptance; see
-the follow-up results before using it as a validated interaction preset.
+On the preparation command, `--mouse-grab-mode joint|force` chooses native
+interaction; the mouse coefficient must stay in (0, 10], and is not a force
+in newtons. `--mouse-grab-mode bounded` selects the experimental fruit controller
+(60 N/m, 12 N cap, vector slew 2.4 N/s), retaining native grabs for other bodies.
+Pull away from the initial position and hold Shift plus the mouse button to
+build force. The monitor ends automatically at the requested duration;
+Stop/Pause ends this measurement and requires a fresh run for another review.
+See [INTERACTION_RESULTS.md](INTERACTION_RESULTS.md) for the current acceptance
+status before treating this as a validated interaction preset.
 GUI rendering targets 60 updates per simulated second: one physics step per
 render at 60 Hz, or eight at 480 Hz. Actual rendered FPS is measured from full
 frame intervals including physics, monitoring and rendering; it is not inferred
 from the configured rate. The report includes overall FPS, FPS after five
 simulated seconds, the fifth-percentile frame FPS and the real-time factor.
 Headless reports only physics throughput and real-time factor, never GUI FPS.
-Shift+click uses the existing PhysX mouse-grab configuration. Natural
-break events during manual interaction are logged, not classified as automated
-test failures. GUI output is separate from headless output, and ends with
+Shift+click uses the existing PhysX viewport events. In bounded mode a native
+break is authorized only for the fruit currently being dragged; other breaks
+fail the review. GUI output is separate from headless output, and ends with
 `awaiting_user_review`; it never assigns the user's acceptance automatically.
 Both simulated and wall time are reported. Keep an unstimulated configuration
 for manual review; do not reuse an automated force-ramp configuration.

@@ -77,7 +77,11 @@ no command followed a break. Early release stopped commands at 30.500 s,
 with no break through 60 s. The command at break is an externally applied
 force, not a measurement of the joint reaction; the joint threshold stays 6 N.
 
-The GUI FPS and manual detachment review for this controller remain pending.
+The corrected 60-second manual review completed at 33.16 FPS (1280×720),
+but failed detachment acceptance: three grabs peaked at 2.324 N and no fruit
+detached. The user reported no instability, but an abrupt grab and missing
+native marker/arrow. See [MAIN_COMPARISON.md](MAIN_COMPARISON.md) for the
+requested comparison against the working main-branch truss.
 
 The first manual GUI attempt was rejected: no fruit could be grabbed. It
 ended when the timeline stopped at approximately 7.83 simulated seconds,
@@ -98,5 +102,5 @@ and force cancelled at the break. The camera aimed toward fruit 08 but fruit 07
 occluded it; this test establishes event routing, not a repeat of the controlled
 fruit-08 comparison. Its invisible-window FPS is not a desktop performance result.
 
-Earlier 33.48 GUI FPS belongs to the native-input candidate, not this new
-controller. No claim of final acceptance is made until the new GUI review.
+Earlier 33.48 GUI FPS belongs to the native-input candidate. The corrected
+controller has its own 33.16 FPS measurement but no final acceptance.
