@@ -176,3 +176,43 @@ functional-monitor errors. Its reported GUI controller slew is 4.8 N/s.
 With the identical slow pixel trajectory, grab-to-break time decreased from
 5.0667 to 4.2333 s; the factor-of-two reduction in rapid headless pulls does
 not imply that every mouse trajectory becomes twice as fast.
+
+## Latest manual rejection: held load and loss of grip after detachment
+
+`slew48-gui-review` completed 60 s, exited 0, at 1280x720. Steady desktop FPS
+was 31.947 (p05 27.801), RTF 0.53165. Four user-target breaks on r10 fruits08,
+07,06 and r5 g421786 fruit07 passed the pose-continuity check. The user rejects
+this candidate: under a held load near 3 N the truss keeps moving/rotating;
+after break the fruit appears to be recreated and drops instead of following
+the mouse. The user explicitly requests that grip persist until mouse release.
+
+No recreation or velocity reset is performed by the controller. Its immediate
+force cancellation on JOINT_BREAK explains loss of mouse following. The
+recorded positions remain continuous, but this does not establish acceptable
+perceived behavior. Post-break mouse following needs a separate free-body
+controller; applying the attached-fruit multi-newton force directly to a free
+6-11 g fruit would produce excessive acceleration.
+
+The held-load defect is present in saved poses: during 17.5-20 s at about
+3.4 N, r10 pedicel06 changes orientation by about 30.23 degrees and the truss
+supports span about 60.91 mm. Gross-divergence and post-release tail checks
+miss this defect. Their report status is not human acceptance.
+
+Added hold diagnostics: ramp for 1.25 s, hold until stimulation+10 s, then
+release; expect no break. `--force-direction` selects a normalized world
+direction; `--drag-plane-normal` can reproduce a recorded drag plane. The
+COM hold uses 3 N; the bounded hold keeps the cursor target fixed. All six
+initial cases (vertical/lateral reduced truss and the full plant) complete
+60 s with no breaks, but retain small pose drift under load. In the full
+plant's fresh attached state, the recorded 82.29 mm cursor offset gives
+3.40 N and only about 1.07 mm / 4.65 degrees motion during 37-40 s. This does
+not reproduce the user's much larger motion after earlier detachments.
+
+`replay_recorded_grip.py` replays the complete recorded ray sequence through
+the same GUI bridge, with offscreen rendering and synthetic button state.
+It checks selected body IDs and restores recorded drag-plane normals. It
+reproduces the earlier detachments as physical breaks, not deleted joints.
+`recorded-grip-reproduction` reproduces the held defect: approximately
+60.88 mm / 30.34 degrees during 17.5-20 s. This is the paired reference for
+the next single-change truss damping4-to7 comparison. These are offscreen
+measurements, not new desktop FPS evidence.

@@ -46,7 +46,13 @@ def main():
     parser.add_argument("--force-target", help="min, median, max, or an exact fruit rigid-body USD path")
     parser.add_argument("--interaction", choices=("com", "surface", "native", "bounded"), default="com")
     parser.add_argument("--drag-distance", type=float, default=.2, help="Replay displacement in metres")
-    parser.add_argument("--drag-profile", choices=("slow", "rapid", "early-release"), default="slow")
+    parser.add_argument("--drag-profile", choices=("slow", "rapid", "early-release", "hold"), default="slow")
+    parser.add_argument("--hold-force", type=float, default=3., help="COM force plateau for hold diagnostic, N")
+    parser.add_argument("--force-direction", type=float, nargs=3, default=(0., 0., -1.),
+                        help="World-space force / replay displacement direction")
+    parser.add_argument("--drag-plane-normal", type=float, nargs=3,
+                        help="Optional world-space plane normal for bounded replay")
+    parser.add_argument("--hold-seconds", type=float, default=10., help="Time from stimulation start to hold release")
     parser.add_argument("--drag-slew-rate", type=float, choices=(2.4, 4.8), default=2.4,
                         help="Bounded GUI/replay vector force growth limit, in N/s")
     parser.add_argument("--force-start", type=float, default=30)
@@ -56,6 +62,20 @@ def main():
     parser.add_argument("--mouse-force-coefficient", type=float, default=10.0,
                         help="Native mouse gain, not a force in newtons.")
     args = parser.parse_args()
+    from exporterV2.fruit_interaction import unit
+    try:
+        args.force_direction = unit(args.force_direction).tolist()
+        if args.drag_plane_normal is not None:
+            args.drag_plane_normal = unit(args.drag_plane_normal).tolist()
+    except ValueError:
+        parser.error("force direction must be finite and nonzero")
+    if args.drag_profile == "hold":
+        if args.interaction not in ("com", "bounded") or not args.force_target:
+            parser.error("hold diagnostic requires a force target and com or bounded interaction")
+        if not 0 < args.hold_force <= 3 or not 1.25 < args.hold_seconds <= 20:
+            parser.error("hold diagnostic requires force in (0,3] N and duration in (1.25,20] s")
+        if args.duration < args.force_start + args.hold_seconds + 15:
+            parser.error("hold diagnostic needs at least 15 s observation after release")
     if not 0 < args.drag_distance <= 2:
         parser.error("replay drag distance must be in (0, 2] metres")
     if args.interaction != "com" and not args.force_target:

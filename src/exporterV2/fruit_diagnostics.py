@@ -351,7 +351,7 @@ def run(stage, world, app, args, config):
                                            current_time, config["force_start"], args.headless)
             if unexpected:
                 errors.append("spontaneous joint break: " + sorted(unexpected)[0])
-            if target_record and config.get("interaction", "com") in ("com", "surface") and current_time >= config["force_start"] + 5 and target_record["joint"] not in broken:
+            if target_record and config.get("drag_profile") != "hold" and config.get("interaction", "com") in ("com", "surface") and current_time >= config["force_start"] + 5 and target_record["joint"] not in broken:
                 errors.append("target fruit did not detach within the 0-12 N, five-second ramp")
             if np.linalg.norm(pos[roots] - initial_pos[roots], axis=1).max() > .001:
                 errors.append("fixed root drift exceeds 1 mm")
@@ -437,10 +437,11 @@ def run(stage, world, app, args, config):
                 first_failure = min(anomalies, key=lambda event: event["time_s"])
     else:
         metrics, limits, gate_errors = {}, {}, ["no valid samples"]
-    if target_record and config.get("drag_profile") != "early-release" and target_record["joint"] not in broken:
+    expect_attached = config.get("drag_profile") in ("early-release", "hold")
+    if target_record and not expect_attached and target_record["joint"] not in broken:
         errors.append("target fruit did not detach during the requested interaction")
-    if target_record and config.get("drag_profile") == "early-release" and broken:
-        errors.append("unexpected joint break in early-release trial")
+    if target_record and expect_attached and broken:
+        errors.append(f"unexpected joint break in {config['drag_profile']} trial")
     if args.headless and config.get("acceptance", "strict") == "strict":
         errors.extend(gate_errors)
     if not completed:

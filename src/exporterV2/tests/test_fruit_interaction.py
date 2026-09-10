@@ -5,7 +5,7 @@ import io
 import sys
 from types import SimpleNamespace
 
-from exporterV2.fruit_interaction import GuiDragBridge, LimitedDrag, pick_ray, unit
+from exporterV2.fruit_interaction import GuiDragBridge, InteractionReplay, LimitedDrag, pick_ray, unit
 
 
 def test_occluding_support_is_not_accepted_as_fruit():
@@ -66,6 +66,28 @@ def test_ray_parallel_to_drag_plane_cancels_capture():
     drag.begin([0, 0, 0], [0, 0, 0], [1, 0, 0])
     drag.move(np.array([1., 0., 0.]), [0, 0, 1])
     assert not drag.active
+
+
+def test_com_hold_keeps_world_force_plateau_then_releases():
+    replay = InteractionReplay.__new__(InteractionReplay)
+    replay.config = {"force_start": 30., "drag_profile": "hold", "hold_seconds": 10.,
+                     "hold_force": 3., "force_direction": [0., .8, -.6]}
+    replay.kind, replay.index = "com", 0
+    replay.target = {"joint": "/joint", "fruit": "/fruit"}
+    replay.started, replay.released = True, False
+    replay.drag, replay.log = LimitedDrag(), io.StringIO()
+    commands = []
+    replay.view = SimpleNamespace(
+        get_world_poses=lambda **kw: (np.zeros((1, 3)), np.array([[1., 0, 0, 0]])),
+        apply_forces_and_torques_at_pos=lambda **kw: commands.append(kw["forces"][0]))
+    assert replay.before_step(30., 1/60, set()) < 3
+    for time in (31.25, 35., 39.99):
+        assert replay.before_step(time, 1/60, set()) == pytest.approx(3)
+        assert commands[-1] == pytest.approx([0., 2.4, -1.8])
+    count = len(commands)
+    assert replay.before_step(40., 1/60, set()) == 0
+    assert replay.before_step(41., 1/60, set()) == 0
+    assert replay.released and len(commands) == count
 
 
 def test_gui_routes_attached_fruit_exclusively_and_preserves_native_support_drag(monkeypatch):

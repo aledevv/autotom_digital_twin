@@ -25,6 +25,21 @@ in the direct-force metric means no force commanded by the runner, not zero
 native force. For manual review, use `--mouse-grab-mode bounded` with no
 `--force-target`; the latter selects automated stimulation.
 
+For sustained-load diagnosis, `--drag-profile hold` ramps over 1.25 s, holds
+until `--hold-seconds` (default 10), and releases. COM mode holds
+`--hold-force` (default 3 N); bounded mode holds the cursor offset specified
+by `--drag-distance`. These cases expect no break. `--force-direction X Y Z`
+selects the world direction; bounded replays can also set `--drag-plane-normal`.
+The post-release functional gate does not establish stability during the hold:
+inspect pose ranges in the held interval as well.
+
+`replay_recorded_grip.py --recorded-input GUI-INTERACTION.JSONL` accepts normal
+Isaac loader arguments and replays recorded rays/buttons with offscreen
+rendering. It restores recorded drag planes and verifies selected fruit IDs.
+Use a fresh prepared case and record the input log hash in its configuration.
+This diagnosis preserves the sequence of physical breaks and is not a desktop
+FPS measurement or manual acceptance.
+
 ## Run a case
 
 From the repository root, with the project environment and Isaac Sim installed:

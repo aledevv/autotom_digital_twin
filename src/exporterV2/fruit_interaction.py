@@ -137,8 +137,9 @@ class InteractionReplay:
             return 0.0
         if time_s + dt < start or self.released:
             return 0.0
-        release_after = .5 if self.config.get("drag_profile") == "early-release" else 5
-        if self.kind in ("native", "bounded") and time_s >= start + release_after:
+        hold = self.config.get("drag_profile") == "hold"
+        release_after = self.config.get("hold_seconds", 10.) if hold else (.5 if self.config.get("drag_profile") == "early-release" else 5)
+        if (self.kind in ("native", "bounded") or hold) and time_s >= start + release_after:
             self.release(time_s, "gesture_complete")
             return 0.0
         pos, quat = self.view.get_world_poses(indices=np.array([self.index]))
@@ -153,12 +154,15 @@ class InteractionReplay:
             if self.kind == "native":
                 self.native.update_interaction(tuple(self.eye), tuple(self.direction), self.events.MOUSE_DRAG_BEGAN)
             elif self.kind == "bounded":
-                self.drag.begin(pos + rotate(quat, self.local_com), self.hit, -self.direction)
+                normal = self.config.get("drag_plane_normal")
+                self.drag.begin(pos + rotate(quat, self.local_com), self.hit,
+                                -self.direction if normal is None else normal)
             self.started = True
-        duration = .2 if self.config.get("drag_profile") == "rapid" else 5
+        duration = .2 if self.config.get("drag_profile") == "rapid" else (1.25 if hold else 5)
         fraction = float(np.clip((time_s + dt - start) / duration, 0, 1))
+        force_direction = np.asarray(self.config.get("force_direction", [0., 0., -1.]))
         if self.kind in ("native", "bounded"):
-            target_point = self.hit + np.array([0., 0., -self.config.get("drag_distance", .2) * fraction])
+            target_point = self.hit + force_direction * self.config.get("drag_distance", .2) * fraction
             self.direction = unit(target_point - self.eye)
             if self.kind == "native":
                 self.native.update_interaction(tuple(self.eye), tuple(self.direction), self.events.MOUSE_DRAG_CHANGED)
@@ -172,13 +176,13 @@ class InteractionReplay:
                         "direction": self.direction.tolist(), "target_point": target_point.tolist(),
                         "command_force_n": command.tolist() if command is not None else None})
             return float(np.linalg.norm(command)) if command is not None else 0.0
-        force = 12 * fraction
+        force = (self.config.get("hold_force", 3.) if hold else 12) * fraction
         position = pos + rotate(quat, self.local_hit) if self.kind == "surface" else None
         self.view.apply_forces_and_torques_at_pos(
-            forces=np.array([[0., 0., -force]], dtype=np.float32),
+            forces=np.asarray([force_direction * force], dtype=np.float32),
             positions=np.asarray([position], dtype=np.float32) if position is not None else None,
             indices=np.array([self.index], dtype=np.int32), is_global=True)
-        self.write({"time_s": time_s, "event": "force", "force_n": [0., 0., -force],
+        self.write({"time_s": time_s, "event": "force", "force_n": (force_direction * force).tolist(),
                     "position": position.tolist() if position is not None else "center_of_mass"})
         return force
 
