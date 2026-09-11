@@ -97,3 +97,7 @@ The causal property and whether the break cascade causes or follows the
 underlying solver instability remain unproven. No further runtime matrix,
 lateral scene, stiffness tuning or custom-controller changes have been made
 following this first-pair result; discuss this evidence before proceeding.
+
+The subsequently approved construction audit and eight-case factorial experiment
+are documented in [STABILITY_FACTORIAL.md](STABILITY_FACTORIAL.md). All eight
+minimal v2.3 cases fail before0.12 s; no stable native candidate has been promoted.

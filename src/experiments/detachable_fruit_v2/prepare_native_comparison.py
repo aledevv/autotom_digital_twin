@@ -23,6 +23,9 @@ def main():
     p.add_argument('--duration', type=float, default=20)
     p.add_argument('--gui', action='store_true')
     p.add_argument('--break-force', type=float, default=6.)
+    p.add_argument('--variant', choices=('baseline', 'main-stiffness', 'main-damping', 'main-drives'), default='baseline')
+    p.add_argument('--reference-usd', type=Path, help='Audited main stage with diagnostic role labels')
+    p.add_argument('--zero-velocity-iterations', action='store_true')
     p.add_argument('--diagnostic-gui', action='store_true',
                    help='Observe spontaneous breaks in GUI; report remains failed')
     a = p.parse_args()
@@ -30,6 +33,8 @@ def main():
         p.error('break force must be finite and positive')
     if a.diagnostic_gui and not a.gui:
         p.error('--diagnostic-gui requires --gui')
+    if a.variant != 'baseline' and a.reference_usd is None:
+        p.error('Drive variants require --reference-usd')
     from pxr import Usd, Sdf, UsdPhysics
     from exporterV2.fruit_experiments import prepare_stage, bodies_and_joints
     build = json.loads((a.build_dir/'build.json').read_text())
@@ -76,9 +81,24 @@ def main():
                    for prim in stage.Traverse()), 'Removed leaves still contribute mass'
     if report['errors']:
         raise ValueError(report['errors'])
+    from exporterV2.drive_experiments import apply_drive_variant, zero_velocity_iterations
+    if build['method'] == 'main' and (a.variant != 'baseline' or a.zero_velocity_iterations):
+        raise ValueError('Keep the positive main reference unchanged')
+    reference = Usd.Stage.Open(str(a.reference_usd.resolve())) if a.reference_usd else None
+    changes = apply_drive_variant(stage, reference, a.variant)
+    runtime_changes = zero_velocity_iterations(stage) if a.zero_velocity_iterations else []
+    if a.zero_velocity_iterations:
+        assert len(runtime_changes) == 1 + build['selected']['fruit_count']
+        config.update(art_velocity=0, fruit_velocity=0)
+    config.update(variant=a.variant, drive_changes=changes,
+                  zero_velocity_iterations=a.zero_velocity_iterations,
+                  runtime_changes=runtime_changes,
+                  reference_usd=str(a.reference_usd.resolve()) if a.reference_usd else None,
+                  reference_sha256=sha(a.reference_usd) if a.reference_usd else None)
+    (out/'changes.json').write_text(json.dumps(changes + runtime_changes, indent=2)+'\n')
     stage.GetRootLayer().Export(str(out/'scene.usda'))
     config['scene_sha256'] = sha(out/'scene.usda')
-    files = ['src/exporterV2/fruit_experiments.py', 'src/exporterV2/fruit_diagnostics.py',
+    files = ['src/exporterV2/drive_experiments.py', 'src/exporterV2/fruit_experiments.py', 'src/exporterV2/fruit_diagnostics.py',
              'src/exporterV2/native_drag_observer.py', 'src/exporterV2/isaac_app.py',
              str(Path(__file__).resolve().relative_to(ROOT))]
     config['implementation_sha256'] = {f:sha(ROOT/f) for f in files}
