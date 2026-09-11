@@ -71,14 +71,17 @@ with just one fruit, while main completes20 s. The other seven pedicels/fruits
 are not necessary for this failure, but their presence accelerates it in the
 full rank6 fixture. Removing them changes load, contact opportunities and solver
 coupling together; this does not isolate a mass-only cause. Likewise the return
-of both stem and rachis compliance does not establish that rachis alone is at
-fault. The failed run stops at the first break and does not characterize a
+of the stem/rachis structure does not by itself establish which constraint is at
+fault. Correction after inspecting every joint: the stems are fixed chains in
+both fixtures; the earlier attribution to returned stem compliance was incorrect.
+The failed run stops at the first break and does not characterize a
 subsequent collapse.
 
-Next proposed discrimination: retain this one-fruit geometry and load while
-locking stem joints, rachis joints, or both, to separate their individual and
-combined compliance. This is a proposed follow-up, not an executed result or
-an accepted production fix. No new mass/segmentation/gain tuning is applied.
+The approved follow-up locks the rachis entry joint, internal rachis joints,
+or both, and compares diagnostic support densities2000/20000 kg/m^3.
+Locking the stem would be redundant. The original main builder deliberately
+inflates truss density to20000; v2.3 uses2000. These controls are not production
+fixes. The user also accepts considering a stiffer, simpler remake.
 
 Manual availability was requested as soon as the first paired headless checks
 were underway. `v23-rigid-gui` is prepared with native input for60 s; no new GUI

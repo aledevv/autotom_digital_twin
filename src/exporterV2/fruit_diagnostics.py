@@ -174,6 +174,15 @@ def run(stage, world, app, args, config):
     metatype = articulation_view.get_metatype(0)
     articulation_info = {"fixed_base": bool(metatype.fixed_base), "links": int(metatype.link_count),
                          "dofs": int(metatype.dof_count), "link_names": list(metatype.link_names)}
+    if config.get("expected_articulation_dofs") is not None and metatype.dof_count != config["expected_articulation_dofs"]:
+        mass_errors.append(f"unexpected articulation DOFs: {metatype.dof_count}, expected {config['expected_articulation_dofs']}")
+    for path, expected in config.get("expected_body_properties", {}).items():
+        i = indices[path]
+        actual = dict(mass_kg=masses[i], inertia=inertias[i], com=np.asarray(com_pos)[i],
+                      com_orientation=np.asarray(com_rot)[i])
+        for key, target in expected.items():
+            if not np.allclose(np.asarray(actual[key]).reshape(-1), np.asarray(target).reshape(-1), rtol=1e-5, atol=1e-12):
+                mass_errors.append(f"unexpected runtime {key}: {path}")
     expected_links = len(paths) - (len(records) if config["attachment"] == "external" else 0)
     if not metatype.fixed_base or metatype.link_count != expected_links:
         mass_errors.append(f"unexpected native articulation topology: {articulation_info['links']} links, expected {expected_links}")
