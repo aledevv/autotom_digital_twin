@@ -124,3 +124,7 @@ UV_CACHE_DIR=/tmp/autotom-uv-cache uv run --no-sync python src/experiments/detac
 The first passing candidate goes to manual native GUI review before completing
 the remaining matrix. Acceptance, three independent60-second runs, lateral
 support and full-plant validation remain pending until a candidate passes.
+
+The subsequently approved support-removal diagnosis is recorded in
+[SUPPORT_ABLATION.md](SUPPORT_ABLATION.md). It reproduces v2.3 failure with only
+one fruit once the stem/rachis support chain is present.
