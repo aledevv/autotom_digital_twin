@@ -155,3 +155,29 @@ fixed setting locks both and would not reproduce the preferred control. The
 compound-body remake removes more bodies/joints but also removes pedicel flexion
 and requires explicit collision/skinning remapping. Neither implementation has
 been substituted into the exporter during this diagnostic phase.
+
+## Requested manual main review: startup blocked before scene load
+
+The user emphasizes preserving useful truss mobility and requests main at the
+reduced density. Prepared `main-d2000-native-gui`: the same one-fruit fixture
+that passed20 s, density2000, entry/internal joints mobile, native joint grab,
+6 N break force and60 s requested duration. No production model was changed.
+
+The GUI launch failed on2026-09-11 around11:25 UTC during SimulationApp startup,
+before loading USD or stepping plant physics. Log:
+`artifacts/detachable_fruit_v2/2026-09-11/support-matrix/main-d2000-native-gui/gui.log`.
+First error: CUDA error3 / initialization failure, followed by GPU device creation
+failure, X BadMatch and segmentation fault. `nvidia-smi` still lists the RTX4080
+and driver575.57.08. An independent `/usr/bin/python3` call to
+`libcuda.so.1:cuInit(0)` also returns3 / `CUDA_ERROR_NOT_INITIALIZED`. This is not
+an observed truss failure, and no manual feedback or FPS was collected.
+
+The prepared scene remains available. After recovering CUDA, launch:
+
+```bash
+cd /home/alessandro/isaacsim/autotom_digital_twin
+/home/alessandro/isaacsim/python.sh src/exporterV2/isaac_app.py \
+  --usd artifacts/detachable_fruit_v2/2026-09-11/support-matrix/main-d2000-native-gui/scene.usda \
+  --physics-preset flexible --interactive-physics-hz 60 --duration 60 \
+  --fruit-experiment artifacts/detachable_fruit_v2/2026-09-11/support-matrix/main-d2000-native-gui/config.json
+```
