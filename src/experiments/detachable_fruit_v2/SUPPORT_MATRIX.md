@@ -51,8 +51,63 @@ results; GUI takes priority as soon as the user is available.
 
 ## Results
 
-Results are generated in `support_matrix_results.json`. Tests and final
-interpretation are recorded after the bounded matrix finishes.
+All18 headless runs completed or stopped at their first spontaneous break.
+Every runtime body-property and DOF check passed.30 focused tests passed.
+`support_matrix_results.json` contains the full compact matrix and evidence hashes.
+
+Main passes20 s in all eight combinations, including density2000 with all
+original drives and mobile joints. Both no-fruit controls pass20 s.
+
+| v2.3 density | Rachis entry | Rachis internal joints | Result |
+|---|---|---|---|
+|2000 | Mobile | Mobile | Fruit07 breaks at4.9000 s |
+|2000 | Locked | Mobile | Fruit07 breaks at7.8667 s |
+|2000 | Mobile | Locked |20 s, no break |
+|2000 | Locked | Locked |20 s, no break |
+|20000 | Mobile | Mobile |20 s, no break |
+|20000 | Locked | Mobile |20 s, no break |
+|20000 | Mobile | Locked |20 s, no break |
+|20000 | Locked | Locked |20 s, no break |
+
+These are functional screening outcomes, not strict numerical or GUI acceptance.
+At original density with only internal joints locked, v2.3 tail position excursion
+is0.2102 mm, pose-derived maximum speed0.0311 mm/s and angular speed0.001176 rad/s.
+The fruit attachment angle still reaches about1.26 degrees, and reported PhysX
+velocities exceed the strict thresholds despite much smaller pose motion.
+Increasing density alone instead leaves1.6397 mm tail excursion and pose-derived
+speed17.34 mm/s: it avoids early break but is not cleanly settled.
+
+Offline frame-gap analysis of all support joints (from the per-step physics
+poses) found only floating-point-scale separations, including before both failed
+runs. The dynamic failure is not accompanied by a demonstrated support-anchor
+position mismatch. Mobile-joint relative angles include intended bending and
+are not themselves counted as joint errors.
+
+Interpretation: loaded internal rachis mobility contributes to this v2.3 failure;
+entry mobility alone does not explain it. Increased support mass/inertia can mask
+the failure in this construction, but is not necessary for the main one-fruit
+fixture to survive20 s. Geometry, inertia distribution, segmentation and drive
+differences can still interact. This neither proves one broken builder formula
+nor establishes that a mass ratio or joint count alone is the cause.
+
+The preferred manual diagnostic is `v23-internal-locked-gui`: original mass,
+mobile entry and pedicel, internal rachis locked. A second diagnostic,
+`v23-d20000-gui`, retains all mobile joints with inflated support mass. Both are
+prepared for60 s with native input. Availability was requested early; no reply
+has arrived during this matrix, so no GUI was launched and no FPS or acceptance
+has been claimed. The installed SimulationApp default rendering resolution is
+1280x720; the monitor records actual GUI settings/resolution on launch.
+
+Launch the already prepared preferred case once (the runner refuses to overwrite
+existing reports):
+
+```bash
+cd /home/alessandro/isaacsim/autotom_digital_twin
+/home/alessandro/isaacsim/python.sh src/exporterV2/isaac_app.py \
+  --usd artifacts/detachable_fruit_v2/2026-09-11/support-matrix/v23-internal-locked-gui/scene.usda \
+  --physics-preset flexible --interactive-physics-hz 60 --duration 60 \
+  --fruit-experiment artifacts/detachable_fruit_v2/2026-09-11/support-matrix/v23-internal-locked-gui/config.json
+```
 
 ## Remake feasibility (proposal only)
 
@@ -92,3 +147,11 @@ eight-fruit screening and manual checks before full-plant integration. Isaac4.5
 [documented drive limitations](https://docs.isaacsim.omniverse.nvidia.com/4.5.0/physics/physics_resources.html)
 remain relevant to any mobile-entry design. No replacement builder is implemented
 before discussing the matrix results and this approximation with the user.
+
+Recommendation for discussion: first manually validate the internal-lock control
+at original mass. A limited builder change could retain separate links but expose
+internal locking separately from the entry joint: the current branch `joint_type`
+fixed setting locks both and would not reproduce the preferred control. The
+compound-body remake removes more bodies/joints but also removes pedicel flexion
+and requires explicit collision/skinning remapping. Neither implementation has
+been substituted into the exporter during this diagnostic phase.
