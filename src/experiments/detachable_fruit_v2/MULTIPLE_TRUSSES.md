@@ -90,3 +90,21 @@ UV_CACHE_DIR=/tmp/autotom-uv-cache uv run --no-sync python \
   --source-case artifacts/detachable_fruit_v2/multiple-trusses/five-120hz \
   --coherent-fruit --support-density 20000 --fruit-break-force 6
 ```
+
+### Observed GUI outcome (same launch)
+
+The manual run ended at 5.391667 simulated seconds / 18.43 loop wall seconds.
+Three JOINT_BREAK events were associated with the selected native drag (rank 8
+lat_3_R, rank 8 lat_3_L, rank 7 lat_3_L). Then rank 10 lat_0_R broke outside the
+selected fruit drag; the monitor stopped with physical_or_validation_error.
+Do not call this a spontaneous-at-rest event: interaction had already occurred.
+User assessment and the precise relationship to the last gesture remain pending.
+
+Measured mean GUI FPS was 17.55; after the 5 simulated-second cutoff, 17.39 FPS
+with a very short remaining window (about 0.39 simulated seconds). Real-time
+factor 0.2925. This is an early failed interaction trial, not a completed minute
+or a reliable long-duration steady-performance estimate. It fails the current
+functional/performance acceptance. Details: `five_trusses_120hz_gui.json`.
+120 Hz alone is therefore not an accepted solution despite the successful rest
+screen. The window shutdown was initiated by the monitor, not established as a
+GPU freeze. No further solver tuning was applied in this trial.
