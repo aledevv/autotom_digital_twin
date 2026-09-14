@@ -301,6 +301,8 @@ def run(stage, world, app, args, config):
             initial=np.asarray(articulation_view.get_dof_positions()).tolist(),
             joint_names=list(metatype.joint_names),
             joint_types=[str(t) for t in metatype.joint_types],
+            stiffnesses=np.asarray(articulation_view.get_dof_stiffnesses()).tolist(),
+            dampings=np.asarray(articulation_view.get_dof_dampings()).tolist(),
             angular_units='radians'))
     chunk = 0
     applied_force = 0.0
