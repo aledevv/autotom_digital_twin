@@ -203,3 +203,13 @@ out visually undesirable truss motion before closure. The user has been asked
 whether the complaint refers to window closure or visible uncontrolled motion.
 Tail motion metrics include ongoing manipulation and cannot assess unloaded
 recovery. No successful detachment or final acceptance is inferred from "va".
+
+User clarification: the window becomes unresponsive and interaction is no longer
+possible. This is a GUI/input-freeze symptom, not a reported truss collapse.
+Across the latest run's3600 recorded frames, maximum frame interval is26.474 ms
+at14.2167 simulated seconds (p95 12.216 ms, p99 13.771 ms; none above100 ms).
+The sampled simulation/render loop therefore contains no long stall. These
+measurements do not prove input responsiveness and do not cover application
+shutdown after the final frame. Clarification is pending on whether the image
+also freezes or continues animating while the mouse is unresponsive. A longer
+manual session would avoid confusing the automatic60-second end with this symptom.
