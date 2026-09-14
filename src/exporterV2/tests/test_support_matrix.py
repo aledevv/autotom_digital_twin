@@ -97,3 +97,14 @@ def test_rachis_controls_leave_other_properties_unchanged(damping,stiffness):
     assert float(after['/rachis/Joint.drive:rotX:physics:damping']) == pytest.approx(.1*damping)
     assert float(after['/rachis/Joint.drive:rotX:physics:stiffness']) == pytest.approx(10.*stiffness)
     assert result['expected_articulation_dofs'] == 10
+
+
+def test_break_force_changes_only_fruit_attachments():
+    s = source()
+    before = properties(s)
+    result = apply_controls(s,effective(s),1.,fruit_break_force=3.)
+    after = properties(s)
+    assert {k for k in before.keys() | after.keys() if before.get(k) != after.get(k)} == {
+        '/fruit/Joint.physics:breakForce', '/other_fruit/Joint.physics:breakForce'}
+    assert UsdPhysics.Joint(s.GetPrimAtPath('/fruit/Joint')).GetBreakForceAttr().Get() == 3.
+    assert not result['audit']['errors']

@@ -66,3 +66,19 @@ UV_CACHE_DIR=/tmp/autotom-uv-cache uv run --no-sync python \
   src/experiments/detachable_fruit_v2/run_gui_freeze.py \
   --coherent-fruit --support-density 2000
 ```
+
+## Intermediate stiffness and3N request
+
+The user subsequently requested an intermediate stiffness and3N detachment. Chosen
+intermediate: stiffness2/damping1, preserving all other settings. Added optional
+`--fruit-break-force`, changing only fruit joint breakForce and recorded config.
+The existing stiffness2/6N case passed20s; fresh `rachis-k2-3n-screen` loaded3N
+(confirmed in effective attachments) and failed at0.1333 simulated seconds with
+spontaneous JOINT_BREAK during startup. No manual GUI is opened for this failed
+combination. No automatic threshold, gravity ramp or constraint deletion was
+introduced. The working6N reference remains unchanged;3N is not promoted.
+Twelve targeted tests pass, including isolation of fruit breakForce changes.
+
+Prepared candidate flags (failed at3N; for reproducing the diagnosis):
+`--coherent-fruit --support-density 2000 --rachis-stiffness-scale 2 --fruit-break-force 3`.
+To inspect the already screened intermediate stiffness at6N, omit the last option.

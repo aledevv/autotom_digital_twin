@@ -58,11 +58,13 @@ def correct_fruit_scale(stage, body, density=1000.):
                 anchor_world=list(anchor))
 
 
-def apply_controls(stage, effective, ratio, lock_entry=False, lock_internal=False, without_fruit=False, coherent_fruit=False, rachis_damping_scale=1., rachis_stiffness_scale=1.):
+def apply_controls(stage, effective, ratio, lock_entry=False, lock_internal=False, without_fruit=False, coherent_fruit=False, rachis_damping_scale=1., rachis_stiffness_scale=1., fruit_break_force=None):
     if not math.isfinite(rachis_damping_scale) or rachis_damping_scale <= 0:
         raise ValueError("Rachis damping scale must be finite and positive")
     if not math.isfinite(rachis_stiffness_scale) or rachis_stiffness_scale <= 0:
         raise ValueError("Rachis stiffness scale must be finite and positive")
+    if fruit_break_force is not None and (not math.isfinite(fruit_break_force) or fruit_break_force <= 0):
+        raise ValueError("Fruit break force must be finite and positive")
     before = properties(stage)
     expected = {}
     fruit_corrections = []
@@ -105,6 +107,13 @@ def apply_controls(stage, effective, ratio, lock_entry=False, lock_internal=Fals
             if prim.HasAPI(UsdPhysics.FilteredPairsAPI):
                 rel = UsdPhysics.FilteredPairsAPI(prim).GetFilteredPairsRel()
                 rel.SetTargets([p for p in rel.GetTargets() if stage.GetPrimAtPath(p)])
+    if fruit_break_force is not None:
+        fruit_paths = {b['path'] for b in effective['bodies'] if b['role'] == 'fruit'}
+        for prim in stage.Traverse():
+            if prim.IsA(UsdPhysics.Joint):
+                joint = UsdPhysics.Joint(prim)
+                if any(str(p) in fruit_paths for p in joint.GetBody1Rel().GetTargets()):
+                    joint.CreateBreakForceAttr().Set(fruit_break_force)
     after = properties(stage)
     changes = [{'property':p,'original':before.get(p),'modified':after.get(p)}
                for p in sorted(before.keys()|after.keys()) if before.get(p)!=after.get(p)]
@@ -120,6 +129,7 @@ if __name__=='__main__':
     p.add_argument('--source-case',type=Path,required=True)
     p.add_argument('--run-dir',type=Path,required=True)
     p.add_argument('--density',type=int,choices=(1000,2000,20000),required=True)
+    p.add_argument('--fruit-break-force',type=float)
     p.add_argument('--rachis-stiffness-scale',type=float,default=1.)
     p.add_argument('--rachis-damping-scale',type=float,default=1.)
     p.add_argument('--coherent-fruit',action='store_true')
@@ -137,7 +147,7 @@ if __name__=='__main__':
     config=json.loads((a.source_case/'config.json').read_text())
     effective=json.loads((a.source_case/'headless-effective.json').read_text())
     ratio=a.density/(20000 if config['method']=='main' else 2000)
-    manifest=apply_controls(stage,effective,ratio,a.lock_entry,a.lock_internal,a.without_fruit,a.coherent_fruit,a.rachis_damping_scale,a.rachis_stiffness_scale)
+    manifest=apply_controls(stage,effective,ratio,a.lock_entry,a.lock_internal,a.without_fruit,a.coherent_fruit,a.rachis_damping_scale,a.rachis_stiffness_scale,a.fruit_break_force)
     config.update(run_dir=str(out), source_usd=str(source),source_sha256=sha(source),
         source_effective_sha256=sha(a.source_case/'headless-effective.json'),
         scenario='support-matrix',rachis_stiffness_scale=a.rachis_stiffness_scale,rachis_damping_scale=a.rachis_damping_scale,coherent_fruit=a.coherent_fruit,density=a.density,density_ratio=ratio,
@@ -146,6 +156,8 @@ if __name__=='__main__':
         expected_articulation_dofs=manifest['expected_articulation_dofs'],
         expected_body_properties=manifest['expected_body_properties'],
         current_commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip())
+    if a.fruit_break_force is not None:
+        config["break_force"] = a.fruit_break_force
     if a.without_fruit:
         config['fruit']=None
     out.mkdir(parents=True,exist_ok=True)
