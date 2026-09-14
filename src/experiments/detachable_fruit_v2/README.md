@@ -1,5 +1,7 @@
 # Detachable fruit stability experiments
 
+Current decision (2026-09-14): use standard trusses on the main stem only; lateral trusses are not accepted. See the [complete experiment history and final decision](DECISION_AND_HISTORY.md). Historical next-step proposals below are superseded by this decision.
+
 This opt-in investigation targets the complete day-160 ExporterV2 plant. The
 normal fruit-free launcher is unchanged. A headless pass is only a prerequisite
 for a one-minute GUI review, including the user's Shift+click interactions.

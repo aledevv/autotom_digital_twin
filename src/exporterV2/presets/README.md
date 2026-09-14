@@ -3,7 +3,15 @@
 `main-rank6-standard` is an opt-in v2.3 integration of the historical reference,
 not a validated full-plant preset. Default PlantState construction is unchanged.
 
-## Current gate
+## Current decision (2026-09-14)
+
+The user chose to retain direct-stem trusses only and stop the lateral-truss search.
+Use the `direct` fixture as the current reference. The `lateral` and `full` options
+remain diagnostic, not accepted configurations; this decision does not alter
+exporter defaults or implement a new full-plant exclusion filter.
+See the [experiment history and final decision](../../experiments/detachable_fruit_v2/DECISION_AND_HISTORY.md).
+
+## Recorded integration gate
 
 Template equivalence and export audits pass. The initial reduced integration
 (full canonical stem plus direct trusses 6–10, 110 bodies / 40 fruits) failed at
@@ -40,8 +48,8 @@ UV_CACHE_DIR=/tmp/autotom-uv-cache ./run_mainV2.sh \
 These select scenes before vegetation mass aggregation. `lateral` selects the
 first truss by numeric rank and ID, retaining its full ancestor chain. The
 selected `Truss_r5_o0_g421757` failed screening after 0.333 s with a spontaneous
-lat_0_L fruit break, without mouse input. No lateral GUI or parameter search
-was started; the cause remains undetermined. `full` retains vegetation and all nondegenerate
+lat_0_L fruit break, without mouse input. Subsequent lateral GUI trials and bounded controls failed acceptance; see the
+linked final decision. The cause remains undetermined. `full` retains vegetation and all nondegenerate
 standardized trusses, and has not passed its simulation gate either.
 
 The generator writes the USD, manifest and `<usd>.standard.json`. The regular
