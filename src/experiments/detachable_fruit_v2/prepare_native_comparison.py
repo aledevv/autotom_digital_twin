@@ -22,6 +22,7 @@ def main():
     p.add_argument('--runtime', choices=('main', 'candidate'), default='main')
     p.add_argument('--duration', type=float, default=20)
     p.add_argument('--gui', action='store_true')
+    p.add_argument('--coherent-fruit', action='store_true')
     p.add_argument('--break-force', type=float, default=6.)
     p.add_argument('--variant', choices=('baseline', 'main-stiffness', 'main-damping', 'main-drives'), default='baseline')
     p.add_argument('--reference-usd', type=Path, help='Audited main stage with diagnostic role labels')
@@ -81,6 +82,16 @@ def main():
                    for prim in stage.Traverse()), 'Removed leaves still contribute mass'
     if report['errors']:
         raise ValueError(report['errors'])
+    if a.coherent_fruit:
+        from experiments.detachable_fruit_v2.prepare_support_matrix import correct_fruit_scale
+        from exporterV2.fruit_experiments import audit
+        corrections=[]
+        for record in report['attachments']:
+            corrections.append(correct_fruit_scale(stage, dict(path=record['fruit'], mass_kg=record['fruit_mass_kg'])))
+        report.update(audit(stage))
+        if report['errors']:
+            raise ValueError(report['errors'])
+        config.update(coherent_fruit=True, fruit_corrections=corrections)
     from exporterV2.drive_experiments import apply_drive_variant, zero_velocity_iterations
     if build['method'] == 'main' and (a.variant != 'baseline' or a.zero_velocity_iterations):
         raise ValueError('Keep the positive main reference unchanged')
@@ -100,6 +111,8 @@ def main():
     config['scene_sha256'] = sha(out/'scene.usda')
     files = ['src/exporterV2/drive_experiments.py', 'src/exporterV2/fruit_experiments.py', 'src/exporterV2/fruit_diagnostics.py',
              'src/exporterV2/native_drag_observer.py', 'src/exporterV2/isaac_app.py',
+             'src/experiments/detachable_fruit_v2/build_native_reference.py',
+             'src/experiments/detachable_fruit_v2/prepare_support_matrix.py',
              str(Path(__file__).resolve().relative_to(ROOT))]
     config['implementation_sha256'] = {f:sha(ROOT/f) for f in files}
     config['isaac_version'] = (Path.home()/'isaacsim/VERSION').read_text().strip()

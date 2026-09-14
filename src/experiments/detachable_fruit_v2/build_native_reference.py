@@ -18,6 +18,7 @@ def main():
     p.add_argument('--method', choices=('main', 'v23'), required=True)
     p.add_argument('--output', type=Path, required=True)
     p.add_argument('--rank', type=int)
+    p.add_argument('--truss-count', type=int, default=1, help='Keep consecutive direct trusses from rank; 0 keeps all')
     p.add_argument('--build', action='store_true')
     args = p.parse_args()
     args.code = args.code.resolve()
@@ -59,10 +60,21 @@ def main():
         if not args.build:
             print(json.dumps(candidates, indent=2))
             return
-        selected = next(x for x in candidates if x['rank'] == args.rank)
-        keep = {trunk['id'], selected['branch'], *selected['pedicels']}
+        start = next((i for i,x in enumerate(candidates) if args.rank is None or x['rank']==args.rank), None)
+        if start is None or args.truss_count < 0:
+            raise ValueError('Invalid starting rank or truss count')
+        chosen = candidates[start:] if args.truss_count == 0 else candidates[start:start+args.truss_count]
+        if args.truss_count and len(chosen) != args.truss_count:
+            raise ValueError('Not enough direct trusses in input')
+        selected = chosen[0] if len(chosen)==1 else dict(trusses=chosen,
+            fruit_count=sum(x['fruit_count'] for x in chosen), ranks=[x['rank'] for x in chosen])
+        keep = {trunk['id']}
+        fruit_ids = set()
+        for x in chosen:
+            keep.update([x['branch'], *x['pedicels']])
+            fruit_ids.update(x['fruits'])
         branches = [b for b in branches if b['id'] in keep]
-        fruits = [f for f in fruits if f['id'] in selected['fruits']]
+        fruits = [f for f in fruits if f['id'] in fruit_ids]
         from exporterV2.core.usd import build_stage
         from exporterV2.core.physics import apply_physx_scene_settings, apply_physx_articulation_settings
         stage, stem = build_stage(str((args.output/'source.usda').resolve()), branches=branches,

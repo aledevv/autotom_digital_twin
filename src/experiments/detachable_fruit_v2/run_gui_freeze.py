@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--full-truss', action='store_true', help='Complete main reference truss with eight fruits and full stem')
+    parser.add_argument('--source-case', type=Path, help='Prepared and screened scene, including its loaded mass/inertia report')
     parser.add_argument('--disable-native-observer', action='store_true')
     parser.add_argument('--observe-spontaneous-breaks', action='store_true', help='Record spontaneous breaks without ending the manual observation')
     parser.add_argument('--coherent-fruit', action='store_true', help='Input-size fruit; support density defaults to 1000 kg/m3')
@@ -28,8 +29,9 @@ def main():
     os.chdir(ROOT)
     out = Path(tempfile.mkdtemp(prefix='gui-freeze-', dir=ROOT/'artifacts/detachable_fruit_v2'))
     subprocess.run([sys.executable, str(Path(__file__).with_name('prepare_support_matrix.py')),
-                    '--source-case', ('artifacts/detachable_fruit_v2/2026-09-10/native-comparison/main/tgs-6n-preflight'
-                                      if args.full_truss else 'artifacts/detachable_fruit_v2/2026-09-11/support-ablation/main-rachis'),
+                    '--source-case', (str(args.source_case) if args.source_case else
+                                      ('artifacts/detachable_fruit_v2/2026-09-10/native-comparison/main/tgs-6n-preflight'
+                                      if args.full_truss else 'artifacts/detachable_fruit_v2/2026-09-11/support-ablation/main-rachis')),
                     '--run-dir', str(out), '--density', str(args.support_density or (1000 if args.coherent_fruit else 2000)), '--gui', '--duration', '60', '--rachis-damping-scale', str(args.rachis_damping_scale), '--rachis-stiffness-scale', str(args.rachis_stiffness_scale),
                     *(['--coherent-fruit'] if args.coherent_fruit else []),
                     *(['--arm-after-settle'] if args.arm_after_settle else []),
