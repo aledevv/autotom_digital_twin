@@ -181,3 +181,25 @@ cd /home/alessandro/isaacsim/autotom_digital_twin
   --physics-preset flexible --interactive-physics-hz 60 --duration 60 \
   --fruit-experiment artifacts/detachable_fruit_v2/2026-09-11/support-matrix/main-d2000-native-gui/config.json
 ```
+
+## September14 manual feedback and termination diagnosis
+
+User feedback: main at reduced density feels considerably more stable; rapid
+back-and-forth oscillation is reported to make the simulation "crash". Preserve
+this observation, but distinguish window closure from physical instability.
+
+Latest recorded manual case: `artifacts/detachable_fruit_v2/main-2000-tHQNZF/`.
+It completes60.000003 simulated seconds in39.397582 wall seconds, with91.3762
+mean GUI FPS (steady91.3922, steady p05 81.9317), real-time factor1.52294.
+Native input contains631 events, five successful fruit grabs and one missed
+selection. Mouse movement is still recorded at the final physics step. There
+are no JOINT_BREAK events. The report fails solely because no selected fruit
+detached; it records no nonfinite state or fatal physical divergence.
+
+Kit log `kit_20260914_093250.log` reaches t=60/60, writes the report and shuts
+SimulationApp down through the runner's normal completion path. This supports
+scheduled closure for this recorded run, not an Isaac crash. It does not rule
+out visually undesirable truss motion before closure. The user has been asked
+whether the complaint refers to window closure or visible uncontrolled motion.
+Tail motion metrics include ongoing manipulation and cannot assess unloaded
+recovery. No successful detachment or final acceptance is inferred from "va".
