@@ -94,3 +94,12 @@ The functional headless passes do not imply the strict numerical tail gate passe
 
 Validation: nine standard-truss tests and eighteen diagnostics tests passed.
 The seven screening cases and the independent PGS minute were executed in Isaac.
+
+## Manual feedback
+
+User reports stable motion but fruits do not detach. The native observer confirms
+multiple fruit selections (and one pedicel selection); the effective break force
+is 6 N. No JOINT_BREAK was recorded in the reviewed snapshot. The PGS candidate
+is therefore not accepted. Cursor displacement/coefficient does not measure
+constraint force. A controlled force comparison is the next proposed diagnostic;
+no break threshold or mouse gain was changed following this feedback.
