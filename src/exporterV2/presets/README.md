@@ -5,20 +5,22 @@ not a validated full-plant preset. Default PlantState construction is unchanged.
 
 ## Current gate
 
-Template equivalence at the reference pose and export audits pass. The reduced
-v2.3 scene (full canonical stem plus direct trusses 6–10, 110 bodies / 40 fruits)
-FAILS its first rest screening: five fruit breaks are recorded at 0.20000001 s.
-The report's first failing fruit is rank 10, lat_3_L. Stop here: no lateral/full
-plant simulation or manual GUI acceptance has been performed for this integration.
-No solver retuning or geometry adjustment follows this failure.
+Template equivalence and export audits pass. The initial reduced integration
+(full canonical stem plus direct trusses 6–10, 110 bodies / 40 fruits) failed at
+0.20 s with five spontaneous breaks. The canonical attachment's transverse axes
+inverted the reference template: fruit centers were above their attachments.
+
+The corrected transformation retains the canonical origin and longitudinal axis,
+but preserves the reference roll relative to gravity. All 40 fruit centers now
+lie below their attachments. Internal geometry and physics are unchanged.
+The corrected scene passes 20 s of functional headless screening with no break
+events. Strict numerical velocity thresholds still produce advisories; this is
+not final stability acceptance. Corrected GUI review, 60 s confirmation, lateral
+support and full-plant gates remain pending.
 
 The older main-derived five-truss reference remains separately preserved at
-`b5272ee` and subsequent manual-test checkpoints; do not confuse it with this
-PlantState-anchored integration. Loaded solver/scene properties and corresponding
-truss masses, inertia and COMs match the older reference. Root attachment frames,
-positions and the PlantState stem differ; root rachis tilt is 72 degrees from
-vertical in the main reference versus 75 degrees in the PlantState fixture; the underlying dynamic cause has not
-been established. Physical attributes of the final export match the screened USD.
+`b5272ee`. The v2.3 parent stem, attachment positions and inclination still differ
+from that reference. See the adjacent compact report for before/after evidence.
 
 ## Reproduce the export
 
@@ -52,7 +54,8 @@ collider and visual definitions. `main_rank6.json` pins its checksum, source USD
 hash, branch definitions and loaded body properties. Neither generation nor tests
 require the archived main checkout or local experiment USDs.
 
-The template is re-expressed at the first canonical rachis frame and attached
+The template uses the first canonical rachis origin and axis, with main roll
+relative to gravity, and is attached
 to the original PlantState parent link. Internal relative body frames and joint
 properties are retained. The exporter bypasses the skinned branch constructor
 only for tagged standard trusses. Dedicated count/pose checks coexist with the
@@ -75,6 +78,6 @@ Runtime-side expected mass/inertia/COM checks cover all 100 standard bodies in
 the direct fixture. This is limited to day 160 and remains explicitly experimental.
 
 Verification: 65 tests in the initial targeted/regression batch passed; the final
-six preset tests also passed after adding the export/runtime consistency case.
+eight preset tests also passed including export/runtime consistency and orientation regression cases.
 Wrapper generate-only and shell syntax checks pass. Heavy evidence is local under
 `artifacts/detachable_fruit_v2/standard-integration/`; compact report is adjacent.

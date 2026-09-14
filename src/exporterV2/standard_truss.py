@@ -38,18 +38,44 @@ def world_frame(frame):
     return Gf.Matrix4d(*a.T.reshape(-1))
 
 
+def upright_attachment(reference, canonical):
+    """Keep the canonical origin/axis, but preserve main's roll relative to gravity.
+
+    A cylindrical PlantState axis does not define which side of the historical
+    truss should face down. Copying its full frame can invert the fruit layout.
+    """
+    source = np.array(reference).T
+    target = np.array(canonical).T
+
+    def basis(axis):
+        axis = axis / np.linalg.norm(axis)
+        up = np.array([0., 0., 1.])
+        side = np.cross(up, axis)
+        if np.linalg.norm(side) < 1e-6:
+            raise ValueError('Vertical standard truss needs an explicit roll convention')
+        side /= np.linalg.norm(side)
+        return np.column_stack((side, np.cross(axis, side), axis))
+
+    rotation = basis(target[:3, 2]) @ basis(source[:3, 2]).T
+    target[:3, :3] = rotation @ source[:3, :3]
+    return Gf.Matrix4d(*target.T.reshape(-1))
+
+
 def standardize(adapter):
     """Replace only nondegenerate trusses, retaining immutable source provenance."""
     data, source = template()
     cache = UsdGeom.XformCache()
-    inverse = cache.GetLocalToWorldTransform(source.GetPrimAtPath(data['root'])).GetInverse()
+    reference_frame = cache.GetLocalToWorldTransform(source.GetPrimAtPath(data['root']))
+    inverse = reference_frame.GetInverse()
     branches = [b for b in adapter.branches if b.get('truss_component') not in ('rachis', 'pedicel')]
     terminals = []
     replacements = []
     attachments = [a for a in adapter.attachment_map if a.get('kind') not in ('truss_rachis', 'pedicel')]
     for root in (b for b in adapter.branches if b.get('truss_component') == 'rachis'):
         base = root['id'].removesuffix('_rachis')
-        transform = inverse * world_frame(root['link_specs'][0]['rest_frame'])
+        canonical_frame = world_frame(root['link_specs'][0]['rest_frame'])
+        target_frame = upright_attachment(reference_frame, canonical_frame)
+        transform = inverse * target_frame
         original_pedicels = [b for b in adapter.branches if b.get('parent') == root['id']]
         original_fruits = [b for b in adapter.terminal_bodies if b['parent_branch_id'] in {x['id'] for x in original_pedicels}]
         mapping = {}
@@ -97,7 +123,10 @@ def standardize(adapter):
             mapping[old_path] = '/World/TerminalBodies/'+new['id']
         replacements.append(dict(branch_id=root['id'], original_fruit_count=len(original_fruits),
                                  original_fruits=original_fruits, original_supports=[root,*original_pedicels],
-                                 template=NAME, generated_fruit_count=8, body_mapping=mapping))
+                                 template=NAME, generated_fruit_count=8, body_mapping=mapping,
+                                 orientation_policy='reference_roll_relative_to_gravity',
+                                 canonical_attachment_frame=column_frame(canonical_frame),
+                                 authored_attachment_frame=column_frame(target_frame)))
     return replace(adapter, branches=tuple(branches), terminal_bodies=tuple(terminals),
                    attachment_map=tuple(attachments), standard_truss_replacements=tuple(replacements))
 

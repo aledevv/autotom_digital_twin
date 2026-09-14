@@ -101,3 +101,28 @@ def test_exported_preset_and_runtime_agree(tmp_path):
     assert not audit(stage)['errors']
     assert stage.GetPrimAtPath('/World/PhysicsScene').GetAttribute('physxScene:solverType').Get()=='TGS'
     assert stage.GetPrimAtPath('/World/PhysicsScene').GetAttribute('physxScene:timeStepsPerSecond').Get()==60
+
+
+def test_canonical_roll_does_not_invert_template():
+    from exporterV2.standard_truss import upright_attachment
+    data, source=template()
+    original=UsdGeom.XformCache().GetLocalToWorldTransform(source.GetPrimAtPath(data['root']))
+    # Same origin and rachis direction, but opposite transverse axes.
+    flipped=np.array(original).copy()
+    flipped[:2,:3]*=-1
+    result=upright_attachment(original,Gf.Matrix4d(*flipped.reshape(-1)))
+    assert np.allclose(result,original,atol=1e-7)
+    assert np.allclose(result.ExtractTranslation(),original.ExtractTranslation())
+
+
+def test_upright_attachment_keeps_canonical_direction_and_downward_fruit(adapter):
+    data, source=template()
+    original=UsdGeom.XformCache().GetLocalToWorldTransform(source.GetPrimAtPath(data['root']))
+    from exporterV2.standard_truss import upright_attachment, world_frame
+    root=next(b for b in adapter.branches if b.get('truss_component')=='rachis')
+    canonical=world_frame(root['link_specs'][0]['rest_frame'])
+    target=upright_attachment(original,canonical)
+    assert np.allclose(target.ExtractTranslation(),canonical.ExtractTranslation())
+    assert np.allclose(target.TransformDir(Gf.Vec3d(0,0,1)),canonical.TransformDir(Gf.Vec3d(0,0,1)),atol=1e-7)
+    delta=original.GetInverse()*target
+    assert delta.TransformDir(Gf.Vec3d(0,0,-1))[2]<-.99
