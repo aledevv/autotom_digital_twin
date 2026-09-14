@@ -213,3 +213,5 @@ detachment. Release the button to let go. Stop/Pause ends this finite review;
 rerun the command for a fresh initial state. Increase `--duration` for a longer
 session. If the archived source is absent in another checkout, omit
 `--source-usd` to regenerate the full source from the day-160 input.
+
+Follow-up requested after that decision: [mass distribution diagnosis](MASS_DISTRIBUTION.md), separating total mass from spatial profile; no preset changes.
