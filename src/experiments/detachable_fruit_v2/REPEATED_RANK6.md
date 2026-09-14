@@ -27,3 +27,13 @@ UV_CACHE_DIR=/tmp/autotom-uv-cache uv run --no-sync python \
   --source-case artifacts/detachable_fruit_v2/multiple-trusses/five-rank6-profile \
   --coherent-fruit --support-density 20000 --fruit-break-force 6
 ```
+
+## Manual result
+
+User feedback: "mi pare che sia bella stabile". Window closed explicitly after
+13.983334 simulated seconds / 47.920565 loop wall seconds. Monitor errors: none;
+status awaiting_user_review. Mean GUI 31.81 FPS, after startup 31.64 FPS, p05
+29.38 FPS. Real-time factor 0.292: visual frame cadence is distinct from simulated
+time speed. Positive observed stability/interaction reference, but the requested
+60 simulated-second full validation has not been completed. Event summary and
+feedback are preserved in repeated_rank6_results.json.
