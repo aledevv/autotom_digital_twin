@@ -293,6 +293,15 @@ def run(stage, world, app, args, config):
     hz = args.runtime_physics_hz
     tail = deque(maxlen=10 * hz)
     trace, summaries = [], []
+    dof_trace = []
+    if config.get('record_articulation_dofs'):
+        _write_report(output / f'{prefix}-dofs.json', dict(
+            paths=articulation_view.dof_paths,
+            limits=np.asarray(articulation_view.get_dof_limits()).tolist(),
+            initial=np.asarray(articulation_view.get_dof_positions()).tolist(),
+            joint_names=list(metatype.joint_names),
+            joint_types=[str(t) for t in metatype.joint_types],
+            angular_units='radians'))
     chunk = 0
     applied_force = 0.0
     peak_lin, peak_ang = np.zeros(len(paths)), np.zeros(len(paths))
@@ -307,6 +316,10 @@ def run(stage, world, app, args, config):
     def flush_trace():
         nonlocal chunk
         if trace:
+            if dof_trace:
+                np.savez_compressed(output / f'{prefix}-dofs-{chunk:04d}.npz',
+                                    positions=np.stack(dof_trace))
+                dof_trace.clear()
             np.savez_compressed(output / f"{prefix}-trace-{chunk:04d}.npz", paths=np.array(paths),
                                 state=np.stack(trace), columns=np.array(["x", "y", "z", "qw", "qx", "qy", "qz", "vx", "vy", "vz", "wx", "wy", "wz"]))
             trace.clear()
@@ -456,6 +469,8 @@ def run(stage, world, app, args, config):
             tail.append((pos.copy(), speed.copy(), angular.copy(), p_error, a_error,
                          motion_linear.copy(), motion_angular.copy()))
             trace.append(state)
+            if config.get('record_articulation_dofs'):
+                dof_trace.append(np.asarray(articulation_view.get_dof_positions()).copy())
             summaries.append([current_time, float(speed.max()), float(angular.max()), p_error, a_error, applied_force,
                               float(motion_linear.max()), float(motion_angular.max())])
             timing["analysis_s"] += time.perf_counter() - reads_done
