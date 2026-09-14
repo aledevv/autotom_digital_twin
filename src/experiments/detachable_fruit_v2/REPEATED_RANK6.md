@@ -48,3 +48,21 @@ factor 0.553. Process exits 0. This second positive manual observation strengthe
 the five-truss reference, but does not complete a continuous 60 simulated-second
 trial. Preserve the measured cadence and simulation speed as separate quantities;
 the first trial's 0.292 real-time factor is not a fixed property of this setup.
+
+## Sixty simulated seconds
+
+Fresh headless five-rank6-minute passed 60.000003 simulated seconds, no breaks,
+no functional errors, process exit 0. Same physics settings and expected loaded
+mass/inertia/COM. Reapplying coherent sizing changes five translation attributes
+only at floating-point roundoff, with attachment checks intact.
+
+Fresh GUI gui-freeze-mh31ktsu was observed beyond 60 simulated seconds without
+monitor errors or joint breaks. First-60-second frame data: 3600 frames, mean
+32.43 FPS, after-startup 32.42 FPS, p05 29.94 FPS, real-time factor 0.541. The
+native log does include a grip on a rank-7 pedicel around 48.75 seconds; therefore
+this is not strictly an untouched rest trial, but it contains no fruit detachment.
+The two preceding positive manual trials establish observed native detachment;
+a full minute containing fruit detachment and subsequent recovery remains a
+separate acceptance item. User feedback for this run is pending. GUI was left
+open, no automatic termination was introduced. Report captures a partial snapshot
+beyond the required observation window, not a final closed-session report.
