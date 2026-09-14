@@ -69,3 +69,24 @@ does not exclude additional multi-truss problems later. Next diagnosis should
 compare rank 10 against the accepted rank 6, including their geometry, joints,
 loads and attachment to the stem, before changing parameters. No failing GUI
 was launched and no physical model correction was applied in this follow-up.
+
+## Five trusses at 120 Hz
+
+Follow-up after the rank diagnosis: change only cadence to 120 Hz, keeping the
+original fruit masses and corrected geometry, TGS/GPU, iterations 32/4 and 32/1,
+6 N break force and original drives. All 110 loaded bodies retain masses,
+inertias and COMs relative to the five-truss 60 Hz case (rtol 1e-5, atol 1e-12).
+The fresh headless case `five-120hz` passes 20 simulated seconds with no breaks
+or functional errors; Isaac exits 0. Strict velocity advisories remain diagnostic.
+
+GUI opened as `gui-freeze-4owvne26`. The launcher now reads physics Hz from the
+prepared configuration instead of hardcoding 60; rendering remains scheduled
+at 60 per simulated second. No automatic manual-session deadline. User feedback
+and full-cycle GUI performance acceptance are pending.
+
+```bash
+UV_CACHE_DIR=/tmp/autotom-uv-cache uv run --no-sync python \
+  src/experiments/detachable_fruit_v2/run_gui_freeze.py \
+  --source-case artifacts/detachable_fruit_v2/multiple-trusses/five-120hz \
+  --coherent-fruit --support-density 20000 --fruit-break-force 6
+```

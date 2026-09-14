@@ -36,14 +36,14 @@ def main():
                     *(['--coherent-fruit'] if args.coherent_fruit else []),
                     *(['--arm-after-settle'] if args.arm_after_settle else []),
                     *(['--fruit-break-force', str(args.fruit_break_force)] if args.fruit_break_force is not None else [])], check=True)
+    config_path = out/'config.json'
+    config = json.loads(config_path.read_text())
     if args.observe_spontaneous_breaks:
-        config_path = out/'config.json'
-        config = json.loads(config_path.read_text())
         config['observe_spontaneous_breaks'] = True
         config_path.write_text(json.dumps(config, indent=2)+'\n')
     command = ['/home/alessandro/isaacsim/python.sh', 'src/exporterV2/isaac_app.py',
                '--usd', str(out/'scene.usda'), '--physics-preset', 'flexible',
-               '--interactive-physics-hz', '60', '--fruit-experiment', str(out/'config.json'),
+               '--interactive-physics-hz', str(config['hz']), '--fruit-experiment', str(out/'config.json'),
                '--gui-until-close']
     if args.disable_native_observer:
         command.append('--disable-native-observer')
