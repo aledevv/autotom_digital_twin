@@ -346,7 +346,8 @@ def test_isolated_duration_override_is_exact_and_safe():
 
 
 @pytest.mark.parametrize("ui_failure", [False, True])
-def test_mouse_ui_setup_does_not_advance_physics_and_restores_player(monkeypatch, ui_failure):
+@pytest.mark.parametrize("coefficient,experimental", [(10.,False),(50.,True)])
+def test_mouse_ui_setup_does_not_advance_physics_and_restores_player(monkeypatch, ui_failure, coefficient, experimental):
     from exporterV2.core.skinning import runtime
 
     values = {"/app/player/playSimulations": True}
@@ -368,14 +369,16 @@ def test_mouse_ui_setup_does_not_advance_physics_and_restores_player(monkeypatch
     stage = SimpleNamespace(Traverse=lambda: [])
     if ui_failure:
         with pytest.raises(RuntimeError, match="UI setup failed"):
-            _configure_mouse_interaction(None, stage)
+            _configure_mouse_interaction(None, stage, force_coefficient=coefficient, allow_experimental_coefficient=experimental)
     else:
-        _configure_mouse_interaction(None, stage)
+        _configure_mouse_interaction(None, stage, force_coefficient=coefficient, allow_experimental_coefficient=experimental)
+    if not ui_failure:
+        assert values["/physics/pickingForce"] == coefficient
     assert physics_steps == []
     assert settings.get("/app/player/playSimulations") is True
 
 
-@pytest.mark.parametrize("coefficient", [0, -1, 1000, float("inf"), float("nan")])
+@pytest.mark.parametrize("coefficient", [0, -1, 11, 1000, float("inf"), float("nan")])
 def test_mouse_grab_rejects_unsupported_coefficients_before_loading_isaac(coefficient):
     with pytest.raises(ValueError, match="native Physics Settings UI range"):
         _configure_mouse_interaction(None, None, force_coefficient=coefficient)

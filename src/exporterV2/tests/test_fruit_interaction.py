@@ -151,3 +151,39 @@ def test_gui_routes_attached_fruit_exclusively_and_preserves_native_support_drag
     for event in (0, 1, 2):
         bridge.update_interaction([0, 0, 1], [0, 0, -1], event)
     assert [call[-1] for call in calls] == [0, 1, 2]
+
+
+def test_recorded_native_rays_translate_and_release_without_forces():
+    from types import SimpleNamespace
+    from exporterV2.fruit_interaction import InteractionReplay
+    calls, log = [], []
+    replay = InteractionReplay.__new__(InteractionReplay)
+    replay.config = {'force_start': 1., 'native_recording': {
+        'reference_body_position': [1., 0., 0.], 'source': 'reference',
+        'source_log_sha256': 'fixture', 'events': [
+            {'relative_time_s': 0., 'event': 'begin', 'origin': [2., 0., 0.], 'direction': [-1., 0., 0.]},
+            {'relative_time_s': .1, 'event': 'move', 'origin': [2., 0., 0.], 'direction': [-1., 0., 1.]},
+            {'relative_time_s': .2, 'event': 'release', 'origin': [2., 0., 0.], 'direction': [-1., 0., 1.]},
+        ]}}
+    # No force-application method exists on this fake view.
+    replay.view = SimpleNamespace(get_world_poses=lambda **kwargs: (np.array([[11., 0., 0.]]), None))
+    replay.index = 0
+    replay.target = {'fruit': '/Fruit'}
+    replay.query = lambda *args: {'hit': True, 'rigidBody': '/Fruit', 'collision': '/Fruit/Sphere', 'position': [11., 0., 0.]}
+    replay.native = SimpleNamespace(update_interaction=lambda *args: calls.append(args))
+    replay.events = SimpleNamespace(MOUSE_DRAG_BEGAN=0, MOUSE_DRAG_CHANGED=1, MOUSE_DRAG_ENDED=2)
+    replay.kind = 'native'
+    replay.started = replay.released = False
+    replay.replay_cursor = 0
+    replay.replay_translation = None
+    replay.summary = {}
+    replay.drag = SimpleNamespace(end=lambda: None)
+    replay.write = log.append
+    replay.recorded_native_step(1., 1/60)
+    assert calls[0][0] == (12., 0., 0.)
+    replay.recorded_native_step(1.1, 1/60)
+    replay.recorded_native_step(1.2, 1/60)
+    assert [c[2] for c in calls] == [0, 1, 2]
+    assert replay.released
+    assert log[-1]['reason'] == 'recording_complete'
+    assert log[1]['command_force_n'] is None

@@ -275,11 +275,13 @@ def _world_endpoints(positions, orientations, paths, metadata):
     return result
 
 
-def _configure_mouse_interaction(app, stage, *, grab_with_force=False, force_coefficient=10.0) -> dict:
+def _configure_mouse_interaction(app, stage, *, grab_with_force=False, force_coefficient=10.0,
+                                 allow_experimental_coefficient=False) -> dict:
     """Restore the exact mouse-grab setup used by the interactive legacy V2."""
 
-    if not 0 < force_coefficient <= 10:
-        raise ValueError("mouse force coefficient must be in (0, 10], the native Physics Settings UI range")
+    maximum = 100.0 if allow_experimental_coefficient else 10.0
+    if not 0 < force_coefficient <= maximum:
+        raise ValueError(f"mouse force coefficient must be in (0, {maximum}]; native Physics Settings UI range is (0, 10], larger values require explicit experimental configuration")
 
     import carb.settings
 
@@ -904,6 +906,7 @@ def main() -> int:
                 app, stage,
                 grab_with_force=bool(experiment_config and experiment_config.get("mouse_grab_mode") == "force"),
                 force_coefficient=experiment_config.get("mouse_force_coefficient", 10.0) if experiment_config else 10.0,
+                allow_experimental_coefficient=bool(experiment_config and experiment_config.get("allow_experimental_native_coefficient")),
             )
         load_seconds = time.perf_counter() - load_started
         print(f"[OK] Isaac Sim opened canonical V2 stage: {usd_path}", flush=True)

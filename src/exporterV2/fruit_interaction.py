@@ -105,6 +105,8 @@ class InteractionReplay:
         self.query = get_physx_scene_query_interface().raycast_closest
         self.events = PhysicsInteractionEvent
         self.started, self.released = False, False
+        self.replay_cursor = 0
+        self.replay_translation = None
         self.local_hit = self.eye = self.hit = None
         self.direction = None
         self.drag = LimitedDrag(config.get("drag_slew_rate", 2.4), config.get("drag_damping", 0.))
@@ -125,6 +127,7 @@ class InteractionReplay:
                 self.summary["free_grip"] = self.free_grip.settings()
         if self.kind == "native":
             settings = carb.settings.get_settings()
+            self._native_settings = settings
             for name, value in (("mouseInteractionEnabled", True), ("mouseGrab", True),
                                 ("mouseGrabIgnoreInvisible", False),
                                 ("forceGrab", config.get("mouse_grab_mode", "force") == "force"),
@@ -157,6 +160,8 @@ class InteractionReplay:
                 self.write({"time_s": time_s, "event": "free_grip", "body": self.target["fruit"]})
         if time_s + dt < start or self.released:
             return 0.0
+        if self.kind == 'native' and self.config.get('native_recording'):
+            return self.recorded_native_step(time_s, dt)
         hold = self.config.get("drag_profile") == "hold"
         release_after = self.config.get("hold_seconds", 10.) if hold else (.5 if self.config.get("drag_profile") == "early-release" else 5)
         if (self.kind in ("native", "bounded") or hold) and time_s >= start + release_after:
@@ -213,6 +218,47 @@ class InteractionReplay:
         self.write({"time_s": time_s, "event": "force", "force_n": (force_direction * force).tolist(),
                     "position": position.tolist() if position is not None else "center_of_mass"})
         return force
+
+    def recorded_native_step(self, time_s, dt):
+        """Send recorded input rays to PhysX; never applies forces or edits joints."""
+        recording = self.config['native_recording']
+        events = recording['events']
+        if self.replay_translation is None:
+            pos, _ = self.view.get_world_poses(indices=np.array([self.index]))
+            self.replay_translation = np.asarray(pos)[0] - np.asarray(recording['reference_body_position'])
+        elapsed = time_s + dt - self.config['force_start']
+        while self.replay_cursor < len(events) and events[self.replay_cursor]['relative_time_s'] <= elapsed + 1e-8:
+            event = events[self.replay_cursor]
+            self.replay_cursor += 1
+            self.eye = np.asarray(event['origin']) + self.replay_translation
+            self.direction = unit(event['direction'])
+            if event['event'] == 'begin':
+                if hasattr(self, '_native_settings'):
+                    self.summary['native_settings_at_pick'] = {
+                        key: self._native_settings.get('/physics/' + key)
+                        for key in ('mouseGrab', 'forceGrab', 'pickingForce')}
+                hit = self.query(tuple(self.eye), tuple(self.direction), 10.)
+                selection = dict(origin=self.eye.tolist(), direction=self.direction.tolist(),
+                    hit=bool(hit.get('hit')), rigid_body=str(hit.get('rigidBody', '')),
+                    collider=str(hit.get('collision', '')))
+                if not selection['hit'] or selection['rigid_body'] != self.target['fruit']:
+                    raise ValueError(f'Retargeted recording did not select intended fruit: {selection}')
+                selection['point'] = list(hit['position'])
+                self.summary['selection'] = selection
+                self.summary['recording'] = dict(source=recording['source'],
+                    source_log_sha256=recording['source_log_sha256'],
+                    translation_m=self.replay_translation.tolist())
+                self.started = True
+                self.native.update_interaction(tuple(self.eye), tuple(self.direction), self.events.MOUSE_DRAG_BEGAN)
+                self.write(dict(time_s=time_s, event='begin', **selection))
+            elif event['event'] == 'move':
+                self.native.update_interaction(tuple(self.eye), tuple(self.direction), self.events.MOUSE_DRAG_CHANGED)
+                self.write(dict(time_s=time_s, event='move', origin=self.eye.tolist(),
+                    direction=self.direction.tolist(), command_force_n=None))
+            elif event['event'] == 'release':
+                self.release(time_s, 'recording_complete')
+                break
+        return 0.0
 
     def close(self, time_s):
         self.release(time_s, "monitor_exit")

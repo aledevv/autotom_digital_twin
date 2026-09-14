@@ -19,7 +19,10 @@ def main():
     assert hashlib.sha256(scene.read_bytes()).hexdigest()==config['scene_sha256']
     out=Path(tempfile.mkdtemp(prefix='gui-',dir=source.parent))
     shutil.copyfile(scene,out/'scene.usda')
-    config.update(run_dir=str(out),gui=True,duration=60.,observe_spontaneous_breaks=False)
+    config.update(run_dir=str(out),gui=True,duration=60.,observe_spontaneous_breaks=False,
+                  force_target=None)
+    # GUI validation is driven solely by the user, never by the headless replay.
+    config.pop('native_recording', None)
     (out/'config.json').write_text(json.dumps(config,indent=2)+'\n')
     cmd=[str(Path.home()/'isaacsim/python.sh'),str(ROOT/'src/exporterV2/isaac_app.py'),
          '--usd',str(out/'scene.usda'),'--physics-preset','flexible',

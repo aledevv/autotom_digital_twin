@@ -7,6 +7,7 @@ class NativeDragObserver:
     def __init__(self, records, output, watchdog=None):
         self.watchdog = watchdog
         import omni.physxui.scripts.physxViewportOverlays as overlay
+        import carb.settings
         from omni.physx import get_physx_interface, get_physx_scene_query_interface
         from omni.physx.bindings._physx import PhysicsInteractionEvent
         self.native = get_physx_interface()
@@ -16,7 +17,10 @@ class NativeDragObserver:
         self.active = None
         self.time_s = 0.
         self.log = output.open('w')
-        self.summary = {'mode': 'native_joint', 'native_force_newtons': None, 'grabs': []}
+        settings = carb.settings.get_settings()
+        self.summary = {'mode': 'native_force' if settings.get('/physics/forceGrab') else 'native_joint',
+                        'coefficient': settings.get('/physics/pickingForce'),
+                        'native_force_newtons': None, 'grabs': []}
         self.overlay, self.original_factory = overlay, overlay.get_physx_interface
         self.factory = lambda: self
         overlay.get_physx_interface = self.factory
