@@ -174,6 +174,10 @@ def run(stage, world, app, args, config):
     com_pos, com_rot = view.get_coms()
     mass_errors = []
     scene_prim = stage.GetPrimAtPath("/World/PhysicsScene")
+    if "diagnostic_gravity_magnitude" in config:
+        actual_gravity = float(UsdPhysics.Scene(scene_prim).GetGravityMagnitudeAttr().Get())
+        if not np.isclose(actual_gravity, config["diagnostic_gravity_magnitude"], atol=1e-7):
+            raise RuntimeError(f"diagnostic gravity mismatch: {actual_gravity}")
     for name, expected in (("physxScene:solverType", config["solver"]),
                            ("physxScene:enableGPUDynamics", config["gpu"]),
                            ("physxScene:timeStepsPerSecond", config["hz"])):

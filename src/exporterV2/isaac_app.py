@@ -860,6 +860,8 @@ def main() -> int:
             # World/PhysicsContext defaults overwrite an authored PGS scene
             # with TGS. Restore the requested solver before PhysX is cooked.
             world.get_physics_context().set_solver_type(experiment_config["solver"])
+            if "diagnostic_gravity_magnitude" in experiment_config:
+                world.get_physics_context().set_gravity(-float(experiment_config["diagnostic_gravity_magnitude"]))
         _register_runtime_physics_scene(stage)
         mouse_interaction = {}
         if not args.headless:
