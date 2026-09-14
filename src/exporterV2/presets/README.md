@@ -15,8 +15,10 @@ but preserves the reference roll relative to gravity. All 40 fruit centers now
 lie below their attachments. Internal geometry and physics are unchanged.
 The corrected scene passes 20 s of functional headless screening with no break
 events. Strict numerical velocity thresholds still produce advisories; this is
-not final stability acceptance. Corrected GUI review, 60 s confirmation, lateral
-support and full-plant gates remain pending.
+not final stability acceptance. Corrected GUI review is positive: four user-targeted breaks on four trusses,
+no reported errors, 31.02 steady FPS. The session lasted 22.95 simulated seconds
+(real-time factor 0.519), so the full 60 s manual cycle remains pending. A separate 60 s headless
+confirmation passed without errors or break events.
 
 The older main-derived five-truss reference remains separately preserved at
 `b5272ee`. The v2.3 parent stem, attachment positions and inclination still differ
@@ -36,8 +38,10 @@ UV_CACHE_DIR=/tmp/autotom-uv-cache ./run_mainV2.sh \
 
 `--experimental-truss-fixture` accepts `direct`, `lateral`, `full` (default).
 These select scenes before vegetation mass aggregation. `lateral` selects the
-first truss by numeric rank and ID, retaining its full ancestor chain; it has
-not passed its simulation gate. `full` retains vegetation and all nondegenerate
+first truss by numeric rank and ID, retaining its full ancestor chain. The
+selected `Truss_r5_o0_g421757` failed screening after 0.333 s with a spontaneous
+lat_0_L fruit break, without mouse input. No lateral GUI or parameter search
+was started; the cause remains undetermined. `full` retains vegetation and all nondegenerate
 standardized trusses, and has not passed its simulation gate either.
 
 The generator writes the USD, manifest and `<usd>.standard.json`. The regular
@@ -78,6 +82,6 @@ Runtime-side expected mass/inertia/COM checks cover all 100 standard bodies in
 the direct fixture. This is limited to day 160 and remains explicitly experimental.
 
 Verification: 65 tests in the initial targeted/regression batch passed; the final
-eight preset tests also passed including export/runtime consistency and orientation regression cases.
+nine preset tests also passed including direct/lateral export/runtime consistency and orientation regression cases.
 Wrapper generate-only and shell syntax checks pass. Heavy evidence is local under
 `artifacts/detachable_fruit_v2/standard-integration/`; compact report is adjacent.

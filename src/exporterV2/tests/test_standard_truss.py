@@ -86,17 +86,18 @@ def test_conflicting_overrides_rejected(extra):
     with pytest.raises(ValueError):generate_from_args(args)
 
 
-def test_exported_preset_and_runtime_agree(tmp_path):
+@pytest.mark.parametrize('fixture,fruit_count', [('direct',40),('lateral',8)])
+def test_exported_preset_and_runtime_agree(tmp_path, fixture, fruit_count):
     output=tmp_path/'standard.usda'
     args=build_argument_parser().parse_args(['--day','160','--debug-profile','full',
         '--allow-experimental-fruit-physics','--experimental-truss-preset','main-rank6-standard',
-        '--experimental-truss-fixture','direct','--leaf-shape-backend','legacy','--output',str(output)])
+        '--experimental-truss-fixture',fixture,'--leaf-shape-backend','legacy','--output',str(output)])
     _,plan,usd,_=generate_from_args(args)
     import json
     config=json.loads(Path(str(usd)+'.standard.json').read_text())
     assert config['hz']==60
-    assert len(config['expected_body_properties'])==100
-    assert len(plan.adapter.terminal_bodies)==40
+    assert len(config['expected_body_properties'])==fruit_count//8*20
+    assert len(plan.adapter.terminal_bodies)==fruit_count
     stage=Usd.Stage.Open(str(usd))
     assert not audit(stage)['errors']
     assert stage.GetPrimAtPath('/World/PhysicsScene').GetAttribute('physxScene:solverType').Get()=='TGS'
