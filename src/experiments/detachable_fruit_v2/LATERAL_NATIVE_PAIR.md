@@ -61,3 +61,31 @@ UV_CACHE_DIR=/tmp/autotom-uv-cache uv run --no-sync python \
 The preparer retains COM force as its default mode for previous commands.
 Validation consists of both real Isaac runs, matched-ray comparison, loaded
 body-property checks, Python compilation and diff whitespace checks.
+
+## Follow-up: fixed support, TGS versus PGS
+
+The same native gesture was executed with TGS, keeping the branch fixed.
+Verified config differences contain only `solver`; the authored USD difference
+is only `/World/PhysicsScene.physxScene:solverType`. GPU, 60 Hz, iterations,
+6 N, coefficient 10 and gesture remain unchanged. Replay ray directions match
+exactly between the two runs.
+
+Both complete 60 s with zero JOINT_BREAK events and fail the target-detachment
+requirement. Peak fruit-center displacement is 1.74 mm for PGS and 2.08 mm for
+TGS; the support remains fixed. Changing solver alone does not make this
+20 cm / 5 s native gesture effective. This does not invalidate the prior
+successful main GUI trials, whose actual gestures differed from this synthetic
+one. The next useful control is a recorded successful reference gesture,
+rather than assuming that this synthetic gesture should always detach fruit.
+
+Evidence: `lateral-native-pair/fixed-tgs/`; compact comparison:
+`lateral_native_solver_results.json`. No GUI was opened for this failed candidate.
+
+```bash
+UV_CACHE_DIR=/tmp/autotom-uv-cache uv run --no-sync python \
+  src/experiments/detachable_fruit_v2/prepare_lateral_diagnosis.py \
+  artifacts/detachable_fruit_v2/standard-integration/lateral-native-pair/fixed \
+  /tmp/lateral-native-fixed-tgs --variant tgs --duration 60
+UV_CACHE_DIR=/tmp/autotom-uv-cache uv run --no-sync python \
+  src/experiments/detachable_fruit_v2/run_batch.py /tmp/lateral-native-fixed-tgs
+```

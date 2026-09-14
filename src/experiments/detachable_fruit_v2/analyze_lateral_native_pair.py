@@ -6,10 +6,10 @@ from pathlib import Path
 import numpy as np
 
 
-def analyze(root):
+def analyze(root, names=('mobile','fixed')):
     result={'cases':{}}
     rays=[]
-    for name in ['mobile','fixed']:
+    for name in names:
         directory=root/name
         r=json.loads((directory/'report.json').read_text())
         events=[json.loads(l) for l in (directory/'headless-interaction.jsonl').read_text().splitlines()]
@@ -45,4 +45,5 @@ def analyze(root):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('root',type=Path);p.add_argument('--output',required=True,type=Path)
-    a=p.parse_args();a.output.write_text(json.dumps(analyze(a.root),indent=2)+'\n')
+    p.add_argument('--cases',nargs=2,default=['mobile','fixed'])
+    a=p.parse_args();a.output.write_text(json.dumps(analyze(a.root,a.cases),indent=2)+'\n')

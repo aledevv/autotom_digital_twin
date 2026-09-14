@@ -68,7 +68,7 @@ def prepare(source, output, variant, duration=20.):
                 assert delta < 2e-6,(str(j.GetPath()),i,delta)
     if variant=='tgs-zero':
         config.update(art_velocity=0,fruit_velocity=0)
-    if variant=='pgs':config['solver']='PGS'
+    if variant in ('pgs','tgs'):config['solver']=variant.upper()
     scene=stage.GetPrimAtPath('/World/PhysicsScene')
     scene.GetAttribute('physxScene:solverType').Set(config['solver'])
     stage.GetPrimAtPath('/World/Stem').GetAttribute('physxArticulation:solverVelocityIterationCount').Set(config['art_velocity'])
@@ -97,6 +97,6 @@ def prepare(source, output, variant, duration=20.):
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('source',type=Path);p.add_argument('output',type=Path)
-    p.add_argument('--variant',required=True,choices=['baseline','fixed','baseline-no-contacts','fixed-no-contacts','com-frame','tgs-zero','pgs'])
+    p.add_argument('--variant',required=True,choices=['baseline','fixed','baseline-no-contacts','fixed-no-contacts','com-frame','tgs-zero','pgs','tgs'])
     p.add_argument('--duration',type=float,default=20.)
     a=p.parse_args();prepare(a.source.resolve(),a.output.resolve(),a.variant,a.duration)
