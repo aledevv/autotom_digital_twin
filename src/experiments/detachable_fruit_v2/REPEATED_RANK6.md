@@ -37,3 +37,14 @@ status awaiting_user_review. Mean GUI 31.81 FPS, after startup 31.64 FPS, p05
 time speed. Positive observed stability/interaction reference, but the requested
 60 simulated-second full validation has not been completed. Event summary and
 feedback are preserved in repeated_rank6_results.json.
+
+## Second manual trial
+
+Fresh GUI gui-freeze-rpl5yne3, same settings. User: "a me sembra stabile".
+Explicit window close after 34.600002 simulated seconds / 62.611739 loop wall
+seconds. Four real joint breaks, all attributed to the selected fruit drag;
+no monitor errors. Mean FPS 33.16, after startup 33.22, p05 30.45. Real-time
+factor 0.553. Process exits 0. This second positive manual observation strengthens
+the five-truss reference, but does not complete a continuous 60 simulated-second
+trial. Preserve the measured cadence and simulation speed as separate quantities;
+the first trial's 0.292 real-time factor is not a fixed property of this setup.
