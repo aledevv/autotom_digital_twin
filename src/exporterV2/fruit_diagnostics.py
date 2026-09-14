@@ -321,6 +321,16 @@ def run(stage, world, app, args, config):
     elif not args.headless and config.get("record_native_mouse"):
         from exporterV2.native_drag_observer import NativeDragObserver
         gui_interaction = NativeDragObserver(records, output / "gui-native-interaction.jsonl", watchdog=watchdog)
+    gate = None
+    if config.get("arm_after_settle"):
+        from exporterV2.settling_gate import SettlingGate
+        if not config["breakable"] or not records:
+            raise ValueError("Settling gate requires detachable fruit")
+        gate = SettlingGate()
+        gate_indices = [i for i, role in enumerate(roles) if role in ("truss_rachis", "pedicel")]
+        if not gate_indices:
+            raise ValueError("No support bodies to monitor for arming")
+        print("[FRUIT] Detachment disabled until supports settle; drag remains native.", flush=True)
     if errors:
         first_failure = {"time_s": 0.0, "error": errors[0]}
         steps = 0
@@ -380,6 +390,17 @@ def run(stage, world, app, args, config):
                 break
             speed, angular = np.linalg.norm(velocities[:, :3], axis=1), np.linalg.norm(velocities[:, 3:], axis=1)
             motion_linear, motion_angular = motion_rates(previous_pos, previous_quat, pos, quat, np.asarray(com_pos), 1 / hz)
+            if gate and gate.update(current_time, 1 / hz,
+                    float(motion_linear[gate_indices].max()), float(motion_angular[gate_indices].max()),
+                    dragging=bool(gui_interaction and getattr(gui_interaction, "active", None))):
+                mark("arm_detachment")
+                for record in records:
+                    UsdPhysics.Joint(stage.GetPrimAtPath(record["joint"])).GetBreakForceAttr().Set(config["break_force"])
+                arming = dict(event="detachment_armed", simulation_s=current_time,
+                              wall_s=time.perf_counter()-wall_start, break_force_n=config["break_force"],
+                              joint_paths=[r["joint"] for r in records], **gate.summary())
+                _write_report(output / f"{prefix}-arming.json", arming)
+                print(f"[FRUIT] Detachment enabled at {current_time:.3f}s: {config['break_force']:g} N", flush=True)
             for event in events[captured_events:]:
                 record = next((r for r in records if r["joint"] == event["joint"]), None)
                 if record:
@@ -442,7 +463,8 @@ def run(stage, world, app, args, config):
                     last_frame_saved = len(frames)
                     _write_report(output / "gui-partial.json", json_finite(dict(simulation_s=current_time,
                         wall_s=time.perf_counter()-wall_start, events=events, first_failure=first_failure,
-                        errors=errors, last_metrics=summaries[-1], frames=len(frames))))
+                        errors=errors, last_metrics=summaries[-1], frames=len(frames),
+                        settling_gate=gate.summary() if gate else None)))
                 last_save = time.monotonic()
                 mark("analysis")
             if step == 0 or (step + 1) % hz == 0 or errors:
@@ -548,6 +570,8 @@ def run(stage, world, app, args, config):
     if frames:
         np.savez_compressed(output / "gui-frames.npz", samples=np.asarray(frames),
                             columns=np.array(["simulation_s", "wall_s", "frame_interval_s", "render_call_s"]))
+    if gate and args.headless and gate.armed_at is None:
+        errors.append("supports did not settle: detachment was never enabled")
     performance = performance_summary(len(summaries), current_time, loop_wall_seconds, frames)
     if not args.headless and config.get("acceptance") == "functional":
         if performance["gui_steady_fps"] is None or performance["gui_steady_fps"] < 20:
@@ -555,6 +579,8 @@ def run(stage, world, app, args, config):
         if not manual and gui_interaction and not any(e.get("user_target") for e in events):
             errors.append("no selected fruit detached during the manual drag review")
     report = {"schema_version": "exporter_v2_fruit_diagnostics/1.1", "status": "failed" if errors else ("passed" if args.headless else "awaiting_user_review"),
+              "settling_gate": gate.summary() if gate else None,
+              "final_break_forces_n": {r["joint"]: value(stage.GetPrimAtPath(r["joint"]), "physics:breakForce") for r in records},
               "termination_reason": termination_reason,
               "timeline_invalidated": timeline_invalidated,
               "native_break_attribution": "observed" if gui_interaction else "unclassified",

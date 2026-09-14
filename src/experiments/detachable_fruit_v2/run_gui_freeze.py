@@ -19,6 +19,7 @@ def main():
     parser.add_argument('--observe-spontaneous-breaks', action='store_true', help='Record spontaneous breaks without ending the manual observation')
     parser.add_argument('--coherent-fruit', action='store_true', help='Input-size fruit; support density defaults to 1000 kg/m3')
     parser.add_argument('--support-density', type=int, choices=(1000,2000,20000), help='Override support density for isolated comparisons')
+    parser.add_argument('--arm-after-settle',action='store_true')
     parser.add_argument('--fruit-break-force', type=float)
     parser.add_argument('--rachis-stiffness-scale', type=float, default=1.)
     parser.add_argument('--rachis-damping-scale', type=float, default=1.)
@@ -29,6 +30,7 @@ def main():
                     '--source-case', 'artifacts/detachable_fruit_v2/2026-09-11/support-ablation/main-rachis',
                     '--run-dir', str(out), '--density', str(args.support_density or (1000 if args.coherent_fruit else 2000)), '--gui', '--duration', '60', '--rachis-damping-scale', str(args.rachis_damping_scale), '--rachis-stiffness-scale', str(args.rachis_stiffness_scale),
                     *(['--coherent-fruit'] if args.coherent_fruit else []),
+                    *(['--arm-after-settle'] if args.arm_after_settle else []),
                     *(['--fruit-break-force', str(args.fruit_break_force)] if args.fruit_break_force is not None else [])], check=True)
     if args.observe_spontaneous_breaks:
         config_path = out/'config.json'

@@ -108,3 +108,14 @@ def test_break_force_changes_only_fruit_attachments():
         '/fruit/Joint.physics:breakForce', '/other_fruit/Joint.physics:breakForce'}
     assert UsdPhysics.Joint(s.GetPrimAtPath('/fruit/Joint')).GetBreakForceAttr().Get() == 3.
     assert not result['audit']['errors']
+
+
+def test_settling_gate_authors_unbreakable_fruit_only():
+    import math
+    s=source()
+    before=properties(s)
+    apply_controls(s,effective(s),1.,fruit_break_force=6.,arm_after_settle=True)
+    after=properties(s)
+    assert {k for k in before.keys() | after.keys() if before.get(k) != after.get(k)} <= {
+        '/fruit/Joint.physics:breakForce','/other_fruit/Joint.physics:breakForce'}
+    assert math.isinf(UsdPhysics.Joint(s.GetPrimAtPath('/fruit/Joint')).GetBreakForceAttr().Get())

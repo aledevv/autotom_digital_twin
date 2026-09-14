@@ -193,7 +193,7 @@ def prepare_stage(stage, config):
         bodies, joints = bodies_and_joints(stage)
     for joint in joints:
         if joint.GetPrim().GetName() == "TerminalBodyFixedJoint":
-            joint.CreateBreakForceAttr().Set(break_force if config["breakable"] else float("inf"))
+            joint.CreateBreakForceAttr().Set(break_force if config["breakable"] and not config.get("arm_after_settle") else float("inf"))
             joint.CreateExcludeFromArticulationAttr().Set(config["attachment"] == "external")
         if any(value(stage.GetPrimAtPath(p), "autotom:branchKind") in {"truss_rachis", "pedicel"}
                for p in joint.GetBody1Rel().GetTargets()):

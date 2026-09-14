@@ -58,7 +58,7 @@ def correct_fruit_scale(stage, body, density=1000.):
                 anchor_world=list(anchor))
 
 
-def apply_controls(stage, effective, ratio, lock_entry=False, lock_internal=False, without_fruit=False, coherent_fruit=False, rachis_damping_scale=1., rachis_stiffness_scale=1., fruit_break_force=None):
+def apply_controls(stage, effective, ratio, lock_entry=False, lock_internal=False, without_fruit=False, coherent_fruit=False, rachis_damping_scale=1., rachis_stiffness_scale=1., fruit_break_force=None, arm_after_settle=False):
     if not math.isfinite(rachis_damping_scale) or rachis_damping_scale <= 0:
         raise ValueError("Rachis damping scale must be finite and positive")
     if not math.isfinite(rachis_stiffness_scale) or rachis_stiffness_scale <= 0:
@@ -107,13 +107,13 @@ def apply_controls(stage, effective, ratio, lock_entry=False, lock_internal=Fals
             if prim.HasAPI(UsdPhysics.FilteredPairsAPI):
                 rel = UsdPhysics.FilteredPairsAPI(prim).GetFilteredPairsRel()
                 rel.SetTargets([p for p in rel.GetTargets() if stage.GetPrimAtPath(p)])
-    if fruit_break_force is not None:
+    if fruit_break_force is not None or arm_after_settle:
         fruit_paths = {b['path'] for b in effective['bodies'] if b['role'] == 'fruit'}
         for prim in stage.Traverse():
             if prim.IsA(UsdPhysics.Joint):
                 joint = UsdPhysics.Joint(prim)
                 if any(str(p) in fruit_paths for p in joint.GetBody1Rel().GetTargets()):
-                    joint.CreateBreakForceAttr().Set(fruit_break_force)
+                    joint.CreateBreakForceAttr().Set(float("inf") if arm_after_settle else fruit_break_force)
     after = properties(stage)
     changes = [{'property':p,'original':before.get(p),'modified':after.get(p)}
                for p in sorted(before.keys()|after.keys()) if before.get(p)!=after.get(p)]
@@ -129,6 +129,7 @@ if __name__=='__main__':
     p.add_argument('--source-case',type=Path,required=True)
     p.add_argument('--run-dir',type=Path,required=True)
     p.add_argument('--density',type=int,choices=(1000,2000,20000),required=True)
+    p.add_argument('--arm-after-settle',action='store_true')
     p.add_argument('--fruit-break-force',type=float)
     p.add_argument('--rachis-stiffness-scale',type=float,default=1.)
     p.add_argument('--rachis-damping-scale',type=float,default=1.)
@@ -147,10 +148,10 @@ if __name__=='__main__':
     config=json.loads((a.source_case/'config.json').read_text())
     effective=json.loads((a.source_case/'headless-effective.json').read_text())
     ratio=a.density/(20000 if config['method']=='main' else 2000)
-    manifest=apply_controls(stage,effective,ratio,a.lock_entry,a.lock_internal,a.without_fruit,a.coherent_fruit,a.rachis_damping_scale,a.rachis_stiffness_scale,a.fruit_break_force)
+    manifest=apply_controls(stage,effective,ratio,a.lock_entry,a.lock_internal,a.without_fruit,a.coherent_fruit,a.rachis_damping_scale,a.rachis_stiffness_scale,a.fruit_break_force,a.arm_after_settle)
     config.update(run_dir=str(out), source_usd=str(source),source_sha256=sha(source),
         source_effective_sha256=sha(a.source_case/'headless-effective.json'),
-        scenario='support-matrix',rachis_stiffness_scale=a.rachis_stiffness_scale,rachis_damping_scale=a.rachis_damping_scale,coherent_fruit=a.coherent_fruit,density=a.density,density_ratio=ratio,
+        scenario='support-matrix',arm_after_settle=a.arm_after_settle,rachis_stiffness_scale=a.rachis_stiffness_scale,rachis_damping_scale=a.rachis_damping_scale,coherent_fruit=a.coherent_fruit,density=a.density,density_ratio=ratio,
         lock_entry=a.lock_entry,lock_internal=a.lock_internal,without_fruit=a.without_fruit,
         duration=a.duration,gui=a.gui,observe_spontaneous_breaks=False,
         expected_articulation_dofs=manifest['expected_articulation_dofs'],
@@ -163,7 +164,7 @@ if __name__=='__main__':
     out.mkdir(parents=True,exist_ok=True)
     stage.GetRootLayer().Export(str(out/'scene.usda'))
     config['scene_sha256']=sha(out/'scene.usda')
-    files=set(config['implementation_sha256'])|{str(Path(__file__).relative_to(ROOT))}
+    files=set(config['implementation_sha256'])|{str(Path(__file__).relative_to(ROOT)), 'src/exporterV2/settling_gate.py'}
     config['implementation_sha256']={f:sha(ROOT/f) for f in sorted(files)}
     (out/'controls.json').write_text(json.dumps(manifest,indent=2)+'\n')
     (out/'config.json').write_text(json.dumps(config,indent=2)+'\n')
