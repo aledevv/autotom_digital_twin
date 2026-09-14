@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 import os
+import signal
 from pathlib import Path
 import sys
 import time
@@ -17,6 +18,8 @@ def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--usd", type=Path, required=True)
     parser.add_argument("--headless", action="store_true")
+    parser.add_argument("--gui-until-close", action="store_true")
+    parser.add_argument("--disable-native-observer", action="store_true")
     parser.add_argument("--duration", type=float, default=5.0)
     parser.add_argument("--physics-preset", choices=("locked", "flexible"), required=True)
     parser.add_argument("--physics-hz", type=int, choices=(60, 120, 240, 480, 960), default=480)
@@ -32,6 +35,8 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--fruit-experiment", type=Path,
                         help="Opt-in configuration for shared headless/GUI fruit diagnostics")
     args, kit_args = parser.parse_known_args()
+    if args.gui_until_close and (args.headless or not args.fruit_experiment):
+        parser.error("--gui-until-close requires GUI and --fruit-experiment")
     if args.duration <= 0.0:
         parser.error("--duration must be positive")
     # Kit also owns --usd; prevent a bootstrap open followed by a second open.
@@ -805,6 +810,13 @@ def main() -> int:
         if previous_report.exists():
             raise ValueError(f"refusing to overwrite previous fruit experiment: {previous_report}")
 
+    args.gui_watchdog = None
+    if args.gui_until_close:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from exporterV2.gui_watchdog import GuiWatchdog
+        args.gui_watchdog = GuiWatchdog(experiment_config["run_dir"])
+    if args.disable_native_observer and experiment_config:
+        experiment_config["record_native_mouse"] = False
     from isaacsim import SimulationApp
 
     if args.fruit_experiment:
@@ -812,6 +824,11 @@ def main() -> int:
         # worker count. Apply the same bounded pool to every experimental case.
         sys.argv.append("--/plugins/carb.tasking.plugin/threadCount=4")
     app = SimulationApp({"headless": args.headless, "fast_shutdown": not bool(args.fruit_experiment)})
+    if args.gui_until_close:
+        args.gui_interrupt_requested = False
+        def request_interrupt(signum, frame):
+            args.gui_interrupt_requested = True
+        signal.signal(signal.SIGINT, request_interrupt)
     try:
         import omni.usd
         from isaacsim.core.api import World
@@ -957,7 +974,11 @@ def main() -> int:
         traceback.print_exc()
         return 1
     finally:
+        if args.gui_watchdog:
+            args.gui_watchdog.mark("cleanup.app_close", mode="cleanup")
         app.close()
+        if args.gui_watchdog:
+            args.gui_watchdog.close()
 
 
 if __name__ == "__main__":

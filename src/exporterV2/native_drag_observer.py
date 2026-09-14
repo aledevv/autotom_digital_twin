@@ -1,9 +1,11 @@
 """Record native viewport drag events without replacing PhysX interaction."""
 import json
+import time
 
 
 class NativeDragObserver:
-    def __init__(self, records, output):
+    def __init__(self, records, output, watchdog=None):
+        self.watchdog = watchdog
         import omni.physxui.scripts.physxViewportOverlays as overlay
         from omni.physx import get_physx_interface, get_physx_scene_query_interface
         from omni.physx.bindings._physx import PhysicsInteractionEvent
@@ -23,11 +25,17 @@ class NativeDragObserver:
         return getattr(self.native, name)
 
     def update_interaction(self, origin, direction, event):
+        watchdog = self.__dict__.get("watchdog")
+        previous_phase = watchdog.state["phase"] if watchdog else None
+        def mark(phase):
+            if watchdog:
+                watchdog.mark(phase)
         # Forward the original objects/event exactly once, including on logging failure.
         try:
-            row = {'time_s': self.time_s, 'event': str(event),
+            row = {'time_s': self.time_s, 'monotonic_s': time.monotonic(), 'event': str(event),
                    'origin': list(origin), 'direction': list(direction)}
             if event == self.events.MOUSE_DRAG_BEGAN:
+                mark("mouse.raycast")
                 hit = self.query(tuple(origin), tuple(direction), 1e4)
                 body = str(hit.get('rigidBody', ''))
                 self.active = self.records.get(body)
@@ -39,11 +47,17 @@ class NativeDragObserver:
                 self.active = None
             else:
                 row['event'] = 'move'
+            mark("mouse.record")
             self.log.write(json.dumps(row)+'\n')
             self.log.flush()
         except Exception as error:
             self.summary.setdefault('logging_errors', []).append(str(error))
-        return self.native.update_interaction(origin, direction, event)
+        try:
+            mark("mouse.physx")
+            return self.native.update_interaction(origin, direction, event)
+        finally:
+            if watchdog:
+                mark(previous_phase)
 
     def before_step(self, time_s, dt, broken):
         self.time_s = time_s

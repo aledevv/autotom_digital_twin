@@ -5,6 +5,7 @@ from collections import deque
 import json
 import hashlib
 import math
+import itertools
 from pathlib import Path
 import time
 
@@ -113,6 +114,16 @@ def run(stage, world, app, args, config):
     output = Path(config["run_dir"])
     config = dict(config)
     config["duration"] = args.duration
+    manual = getattr(args, "gui_until_close", False)
+    watchdog = getattr(args, "gui_watchdog", None)
+    def mark(phase, **values):
+        if watchdog:
+            watchdog.mark(phase, **values)
+    config["gui_until_close"] = manual
+    termination_reason = "duration_limit"
+    last_save = time.monotonic()
+    previous_timeline = None
+    timeline_invalidated = False
     config["simulation_threads"] = carb.settings.get_settings().get(SETTING_NUM_THREADS)
     config["task_threads"] = carb.settings.get_settings().get("/plugins/carb.tasking.plugin/threadCount")
     config["render_settings"] = {key: app.config.get(key) for key in
@@ -243,8 +254,13 @@ def run(stage, world, app, args, config):
         if event.type == int(SimulationEvent.JOINT_BREAK):
             raw = event.payload["jointPath"]
             path = str(PhysicsSchemaTools.decodeSdfPath(raw[0], raw[1]))
-            broken.add(path)
             event_time = float(world.current_time) - start_time
+            if manual and (timeline_invalidated or event_time < current_time - .5 / hz):
+                with (output / "gui-events-after-reset.jsonl").open("a") as reset_log:
+                    reset_log.write(json.dumps(dict(kind="joint_break", joint=path,
+                        time_s=event_time, monotonic_s=time.monotonic(), classification="after_reset_unvalidated")) + "\n")
+                return
+            broken.add(path)
             user_target = gui_interaction.handle_break(path, event_time) if gui_interaction else False
             if gui_interaction and not user_target:
                 destination = (observed_break_errors if not args.headless and config.get("observe_spontaneous_breaks")
@@ -253,7 +269,7 @@ def run(stage, world, app, args, config):
             events.append({"time_s": event_time, "joint": path, "user_target": user_target,
                            "kind": "joint_break", "applied_force_n":
                            None if ((target_record and config.get("interaction") == "native")
-                                    or config.get("record_native_mouse")) else applied_force})
+                                    or (not args.headless and config.get("mouse_grab_mode") != "bounded")) else applied_force})
             print(f"[FRUIT] joint_break t={current_time:.6f} {path}", flush=True)
     # Deliver events on the Python simulation thread after the step. A push
     # subscriber can run on a PhysX worker while the main thread holds the GIL.
@@ -281,6 +297,7 @@ def run(stage, world, app, args, config):
     wall_start = time.perf_counter()
     timing = {"physics_step_s": 0.0, "tensor_read_s": 0.0, "analysis_s": 0.0, "render_s": 0.0}
     frames = []
+    last_frame_saved = 0
     last_frame_wall = wall_start
     _write_report(report_path, {"status": "running", "config": config, "paths": paths})
     def flush_trace():
@@ -303,14 +320,27 @@ def run(stage, world, app, args, config):
                                        np.asarray(effective["gravity_direction"]) * effective["gravity_magnitude_mps2"])
     elif not args.headless and config.get("record_native_mouse"):
         from exporterV2.native_drag_observer import NativeDragObserver
-        gui_interaction = NativeDragObserver(records, output / "gui-native-interaction.jsonl")
+        gui_interaction = NativeDragObserver(records, output / "gui-native-interaction.jsonl", watchdog=watchdog)
     if errors:
         first_failure = {"time_s": 0.0, "error": errors[0]}
         steps = 0
     try:
-        for step in range(steps):
-            if not args.headless and (not app.app.is_running() or app.is_exiting()):
+        for step in (itertools.count() if manual and not errors else range(steps)):
+            if manual and getattr(args, "gui_interrupt_requested", False):
+                termination_reason = "ctrl_c"
                 break
+            if not args.headless and (not app.app.is_running() or app.is_exiting()):
+                termination_reason = "window_close"
+                break
+            timeline_state = "playing" if world.is_playing() else ("stopped" if world.is_stopped() else "paused")
+            if timeline_state != previous_timeline:
+                mark("timeline." + timeline_state, timeline=timeline_state, mode="running" if world.is_playing() else "paused")
+                previous_timeline = timeline_state
+            if manual and (not world.is_playing() or timeline_invalidated):
+                mark("render.paused", mode="paused")
+                app.update()
+                mark("idle.paused", mode="paused")
+                continue
             if not world.is_playing():
                 errors.append("timeline stopped before completion")
                 break
@@ -318,13 +348,26 @@ def run(stage, world, app, args, config):
             if gui_interaction:
                 applied_force = gui_interaction.before_step(current_time, 1 / hz, broken)
             step_started = time.perf_counter()
+            mark("physics", mode="running", simulation_s=current_time, frame=len(frames))
             world.step(render=False)
+            mark("event_pump")
             physics_done = time.perf_counter()
-            current_time = float(world.current_time) - start_time
+            next_time = float(world.current_time) - start_time
+            if manual and next_time < current_time:
+                if app.is_exiting() or not app.app.is_running():
+                    termination_reason = "window_close"
+                    break
+                timeline_invalidated = True
+                mark("timeline.reset", mode="paused", timeline="reset", simulation_s=current_time)
+                print("[FRUIT] Timeline reset: physical recording stopped. Close the window explicitly; use a fresh run for further testing.", flush=True)
+                continue
+            current_time = next_time
             event_stream.pump()
+            mark("pose_read", simulation_s=current_time)
             pos, quat = view.get_world_poses()
             pos, quat, velocities = np.asarray(pos), np.asarray(quat), np.asarray(view.get_velocities())
             state = np.concatenate((pos, quat, velocities), axis=1).astype(np.float32)
+            mark("analysis")
             reads_done = time.perf_counter()
             timing["physics_step_s"] += physics_done - step_started
             timing["tensor_read_s"] += reads_done - physics_done
@@ -391,14 +434,23 @@ def run(stage, world, app, args, config):
             summaries.append([current_time, float(speed.max()), float(angular.max()), p_error, a_error, applied_force,
                               float(motion_linear.max()), float(motion_angular.max())])
             timing["analysis_s"] += time.perf_counter() - reads_done
-            if (step + 1) % (5 * hz) == 0 or errors:
+            if (manual and time.monotonic() - last_save >= 1) or (not manual and (step + 1) % (5 * hz) == 0) or errors:
+                mark("persistence")
                 flush_trace()
+                if manual:
+                    np.savez_compressed(output / f"gui-frames-part-{chunk:04d}.npz", samples=np.asarray(frames[last_frame_saved:]))
+                    last_frame_saved = len(frames)
+                    _write_report(output / "gui-partial.json", json_finite(dict(simulation_s=current_time,
+                        wall_s=time.perf_counter()-wall_start, events=events, first_failure=first_failure,
+                        errors=errors, last_metrics=summaries[-1], frames=len(frames))))
+                last_save = time.monotonic()
+                mark("analysis")
             if step == 0 or (step + 1) % hz == 0 or errors:
                 fps_note = ""
                 if frames:
                     recent_frames = frames[-60:]
                     fps_note = f" gui_recent_fps={len(recent_frames) / sum(frame[2] for frame in recent_frames):.2f}"
-                print(f"[FRUIT] t={current_time:.2f}/{args.duration:g} v={speed.max():.5g} w={angular.max():.5g} gap={p_error:.5g} angle_deg={math.degrees(a_error):.5g} breaks={len(broken)}{fps_note}", flush=True)
+                print(f"[FRUIT] t={current_time:.2f}/{'until-close' if manual else args.duration} v={speed.max():.5g} w={angular.max():.5g} gap={p_error:.5g} angle_deg={math.degrees(a_error):.5g} breaks={len(broken)}{fps_note}", flush=True)
                 if step + 1 == hz:
                     print(f"[FRUIT] profiling={timing}", flush=True)
             if errors:
@@ -409,15 +461,22 @@ def run(stage, world, app, args, config):
                 if gui_interaction:
                     gui_interaction.time_s = current_time
                 render_start = time.perf_counter()
+                mark("render")
                 world.render()
+                mark("render_complete")
                 frame_wall = time.perf_counter()
                 timing["render_s"] += frame_wall - render_start
                 frames.append([current_time, frame_wall - wall_start, frame_wall - last_frame_wall,
                                frame_wall - render_start])
                 last_frame_wall = frame_wall
     except KeyboardInterrupt:
-        errors.append("experiment interrupted before completion")
+        termination_reason = "ctrl_c"
+        if not manual:
+            errors.append("experiment interrupted before completion")
     finally:
+        if errors and termination_reason != "timeline_reset":
+            termination_reason = "physical_or_validation_error"
+        mark("cleanup.monitor", mode="cleanup", termination_reason=termination_reason)
         if interaction:
             interaction.close(current_time)
         if gui_interaction:
@@ -429,10 +488,10 @@ def run(stage, world, app, args, config):
     if observed_break_errors and first_failure is None:
         first_failure = {"time_s": next(e["time_s"] for e in events if not e.get("user_target")),
                          "error": observed_break_errors[0]}
-    if not args.headless:
+    if not args.headless and not app.is_exiting():
         config["viewport_resolution_at_end"] = list(viewport.resolution)
         config["viewport_camera_at_end"] = str(viewport.camera_path)
-    completed = current_time >= args.duration - .5 / hz
+    completed = (manual and termination_reason in ("window_close", "ctrl_c")) or current_time >= args.duration - .5 / hz
     if tail:
         tail_values = [np.array(v) for v in zip(*tail)]
         final_attached = np.ones(len(paths), dtype=bool)
@@ -493,9 +552,12 @@ def run(stage, world, app, args, config):
     if not args.headless and config.get("acceptance") == "functional":
         if performance["gui_steady_fps"] is None or performance["gui_steady_fps"] < 20:
             errors.append("GUI steady frame rate is unavailable or below the required 20 FPS")
-        if gui_interaction and not any(e.get("user_target") for e in events):
+        if not manual and gui_interaction and not any(e.get("user_target") for e in events):
             errors.append("no selected fruit detached during the manual drag review")
     report = {"schema_version": "exporter_v2_fruit_diagnostics/1.1", "status": "failed" if errors else ("passed" if args.headless else "awaiting_user_review"),
+              "termination_reason": termination_reason,
+              "timeline_invalidated": timeline_invalidated,
+              "native_break_attribution": "observed" if gui_interaction else "unclassified",
               "config": config, "errors": list(dict.fromkeys(errors)), "events": events,
               "simulated_seconds": current_time, "wall_seconds": time.perf_counter() - wall_start,
               "timing": timing,

@@ -213,3 +213,12 @@ measurements do not prove input responsiveness and do not cover application
 shutdown after the final frame. Clarification is pending on whether the image
 also freezes or continues animating while the mouse is unresponsive. A longer
 manual session would avoid confusing the automatic60-second end with this symptom.
+
+### GUI freeze instrumentation (2026-09-14)
+
+The user clarified that the entire image freezes. The new diagnostic evidence and
+confounded smoke runs are recorded in [GUI_FREEZE.md](GUI_FREEZE.md). The latest
+feedback describes good native movement and detachment before pressing Stop;
+a subsequent report of freezing on touch overlaps a tool-driven smoke-test close.
+Do not attribute either observation to support density or truss construction without
+the separate manual-only trial. No physical parameters were changed in this phase.
