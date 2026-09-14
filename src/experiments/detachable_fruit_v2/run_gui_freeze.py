@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--disable-native-observer', action='store_true')
+    parser.add_argument('--observe-spontaneous-breaks', action='store_true', help='Record spontaneous breaks without ending the manual observation')
     parser.add_argument('--coherent-fruit', action='store_true', help='Input-size fruit; support density defaults to 1000 kg/m3')
     parser.add_argument('--support-density', type=int, choices=(1000,2000,20000), help='Override support density for isolated comparisons')
     parser.add_argument('--fruit-break-force', type=float)
@@ -29,6 +30,11 @@ def main():
                     '--run-dir', str(out), '--density', str(args.support_density or (1000 if args.coherent_fruit else 2000)), '--gui', '--duration', '60', '--rachis-damping-scale', str(args.rachis_damping_scale), '--rachis-stiffness-scale', str(args.rachis_stiffness_scale),
                     *(['--coherent-fruit'] if args.coherent_fruit else []),
                     *(['--fruit-break-force', str(args.fruit_break_force)] if args.fruit_break_force is not None else [])], check=True)
+    if args.observe_spontaneous_breaks:
+        config_path = out/'config.json'
+        config = json.loads(config_path.read_text())
+        config['observe_spontaneous_breaks'] = True
+        config_path.write_text(json.dumps(config, indent=2)+'\n')
     command = ['/home/alessandro/isaacsim/python.sh', 'src/exporterV2/isaac_app.py',
                '--usd', str(out/'scene.usda'), '--physics-preset', 'flexible',
                '--interactive-physics-hz', '60', '--fruit-experiment', str(out/'config.json'),

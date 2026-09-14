@@ -82,3 +82,17 @@ Twelve targeted tests pass, including isolation of fruit breakForce changes.
 Prepared candidate flags (failed at3N; for reproducing the diagnosis):
 `--coherent-fruit --support-density 2000 --rachis-stiffness-scale 2 --fruit-break-force 3`.
 To inspect the already screened intermediate stiffness at6N, omit the last option.
+
+### User-requested manual observation at3N
+
+The user asked to inspect the failed candidate in GUI. First launch
+`gui-freeze-_3oncqia` exited the monitor on the spontaneous break at0.1333s and
+stalled in cleanup; its log eventually reports the process killed (origin not
+established). The user reported an immediate freeze. A second fresh launch
+`gui-freeze-77yfm53l` uses new explicit launcher flag
+`--observe-spontaneous-breaks`, enabling the existing observation policy before
+Isaac loads the config. It records such breaks as errors for the final report but
+does not end the GUI loop for that event; other fatal checks remain active.
+Physics, native mouse and3N threshold are unchanged. At the initial live check,
+the second launch continued rendering around90–95FPS after the spontaneous break,
+with no watchdog stall. This does not make3N a stable attachment configuration.
