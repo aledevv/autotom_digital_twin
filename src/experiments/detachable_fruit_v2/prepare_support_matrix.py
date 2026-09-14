@@ -58,7 +58,11 @@ def correct_fruit_scale(stage, body, density=1000.):
                 anchor_world=list(anchor))
 
 
-def apply_controls(stage, effective, ratio, lock_entry=False, lock_internal=False, without_fruit=False, coherent_fruit=False):
+def apply_controls(stage, effective, ratio, lock_entry=False, lock_internal=False, without_fruit=False, coherent_fruit=False, rachis_damping_scale=1., rachis_stiffness_scale=1.):
+    if not math.isfinite(rachis_damping_scale) or rachis_damping_scale <= 0:
+        raise ValueError("Rachis damping scale must be finite and positive")
+    if not math.isfinite(rachis_stiffness_scale) or rachis_stiffness_scale <= 0:
+        raise ValueError("Rachis stiffness scale must be finite and positive")
     before = properties(stage)
     expected = {}
     fruit_corrections = []
@@ -84,6 +88,10 @@ def apply_controls(stage, effective, ratio, lock_entry=False, lock_internal=Fals
             inertia=(inertia*factor).reshape(9).tolist(), com=body['com'], com_orientation=body['com_orientation'])
     locked = set()
     for row in drive_records(stage):
+        if row['role'] in ('rachis_attachment', 'rachis_internal') and rachis_stiffness_scale != 1.:
+            stage.GetPrimAtPath(row['joint']).GetAttribute(f"drive:{row['axis']}:physics:stiffness").Set(row['stiffness'] * rachis_stiffness_scale)
+        if row['role'] in ('rachis_attachment', 'rachis_internal') and rachis_damping_scale != 1.:
+            stage.GetPrimAtPath(row['joint']).GetAttribute(f"drive:{row['axis']}:physics:damping").Set(row['damping'] * rachis_damping_scale)
         if ((lock_entry and row['role']=='rachis_attachment') or
                 (lock_internal and row['role']=='rachis_internal')):
             prim = stage.GetPrimAtPath(row['joint'])
@@ -112,6 +120,8 @@ if __name__=='__main__':
     p.add_argument('--source-case',type=Path,required=True)
     p.add_argument('--run-dir',type=Path,required=True)
     p.add_argument('--density',type=int,choices=(1000,2000,20000),required=True)
+    p.add_argument('--rachis-stiffness-scale',type=float,default=1.)
+    p.add_argument('--rachis-damping-scale',type=float,default=1.)
     p.add_argument('--coherent-fruit',action='store_true')
     p.add_argument('--lock-entry',action='store_true')
     p.add_argument('--lock-internal',action='store_true')
@@ -127,10 +137,10 @@ if __name__=='__main__':
     config=json.loads((a.source_case/'config.json').read_text())
     effective=json.loads((a.source_case/'headless-effective.json').read_text())
     ratio=a.density/(20000 if config['method']=='main' else 2000)
-    manifest=apply_controls(stage,effective,ratio,a.lock_entry,a.lock_internal,a.without_fruit,a.coherent_fruit)
+    manifest=apply_controls(stage,effective,ratio,a.lock_entry,a.lock_internal,a.without_fruit,a.coherent_fruit,a.rachis_damping_scale,a.rachis_stiffness_scale)
     config.update(run_dir=str(out), source_usd=str(source),source_sha256=sha(source),
         source_effective_sha256=sha(a.source_case/'headless-effective.json'),
-        scenario='support-matrix',coherent_fruit=a.coherent_fruit,density=a.density,density_ratio=ratio,
+        scenario='support-matrix',rachis_stiffness_scale=a.rachis_stiffness_scale,rachis_damping_scale=a.rachis_damping_scale,coherent_fruit=a.coherent_fruit,density=a.density,density_ratio=ratio,
         lock_entry=a.lock_entry,lock_internal=a.lock_internal,without_fruit=a.without_fruit,
         duration=a.duration,gui=a.gui,observe_spontaneous_breaks=False,
         expected_articulation_dofs=manifest['expected_articulation_dofs'],

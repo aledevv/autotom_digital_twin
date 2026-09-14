@@ -76,3 +76,24 @@ def test_coherent_fruit_preserves_mass_and_attachment():
     assert (old_anchor-new_anchor).GetLength() < 1e-7
     assert result['preserved_overlap_m'] == pytest.approx(.002)
     assert joint.GetBreakForceAttr().Get() == 6.
+
+
+@pytest.mark.parametrize("damping,stiffness", [(4.,1.), (1.,4.), (2.,2.)])
+def test_rachis_controls_leave_other_properties_unchanged(damping,stiffness):
+    s = source()
+    for name in ('rachis', 'pedicel'):
+        prim = s.GetPrimAtPath('/'+name+'/Joint')
+        for axis in ('rotX','rotY'):
+            d = UsdPhysics.DriveAPI.Apply(prim, axis)
+            d.CreateTypeAttr('force')
+            d.CreateStiffnessAttr(10.)
+            d.CreateDampingAttr(.1)
+    before = properties(s)
+    result = apply_controls(s,effective(s),1.,rachis_damping_scale=damping,rachis_stiffness_scale=stiffness)
+    after = properties(s)
+    changed = [p for p in before if before[p] != after[p]]
+    fields = ([] if damping == 1 else ['damping']) + ([] if stiffness == 1 else ['stiffness'])
+    assert set(changed) == {f'/rachis/Joint.drive:{axis}:physics:{field}' for axis in ('rotX','rotY') for field in fields}
+    assert float(after['/rachis/Joint.drive:rotX:physics:damping']) == pytest.approx(.1*damping)
+    assert float(after['/rachis/Joint.drive:rotX:physics:stiffness']) == pytest.approx(10.*stiffness)
+    assert result['expected_articulation_dofs'] == 10
