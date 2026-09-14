@@ -50,3 +50,22 @@ Builder `--truss-count 2` retains two consecutive direct ranks from `--rank 6`;
 `--truss-count 0` retains all remaining direct ranks. Scene preparation now
 supports `--coherent-fruit` before screening. GUI launcher `--source-case`
 accepts another screened reference case with its loaded mass/inertia report.
+
+## Isolated rank-10 follow-up
+
+The user approved the isolated comparison. Rebuilt rank 10 alone on its original
+full stem, retaining all eight fruits: 30 bodies, unchanged runtime and drives.
+Static audit passed. The same lat_3_R fruit joint broke spontaneously at
+0.20000001 simulated seconds, exactly the first-failure time of the five-truss
+case. Screening stopped there (Isaac exit 1); this does not establish a GUI crash.
+
+Compared all attributes and relationships on 118 retained stem/rank-10 prims
+against the five-truss USD. The only difference is the absent collision-filter
+relationship to removed rank 9; the trunk filter remains. No retained physical
+property or attachment was changed.
+
+The other four trusses are therefore unnecessary for this first failure. This
+does not exclude additional multi-truss problems later. Next diagnosis should
+compare rank 10 against the accepted rank 6, including their geometry, joints,
+loads and attachment to the stem, before changing parameters. No failing GUI
+was launched and no physical model correction was applied in this follow-up.
