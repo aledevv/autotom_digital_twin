@@ -105,6 +105,7 @@ class StemBranchesResult:
     lateral_joint_policy: str = "dynamic"
     truss_calibration_preset: str = "current"
     truss_damping_override: float | None = None
+    standard_truss_replacements: tuple[dict[str, Any], ...] = ()
 
 
 def apply_checkpoint_physics_policy(
@@ -166,6 +167,9 @@ def apply_checkpoint_physics_policy(
     branches = []
     for source_branch in result.branches:
         branch = dict(source_branch)
+        if branch.get('standard_truss'):
+            branches.append(branch)
+            continue
         if branch.get("kind") == "lateral_branch" and lateral_joint_policy == "fixed":
             branch["joint_type"] = "fixed"
             branch["attachment_joint_type"] = "fixed"

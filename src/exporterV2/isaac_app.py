@@ -804,6 +804,13 @@ def main() -> int:
     experiment_config = None
     if args.fruit_experiment:
         experiment_config = json.loads(args.fruit_experiment.read_text())
+        if experiment_config.get('experimental_truss_preset') and args.fruit_experiment.name.endswith('.standard.json'):
+            import tempfile
+            evidence_root = usd_path.parent / (usd_path.stem + '-runs')
+            evidence_root.mkdir(parents=True, exist_ok=True)
+            experiment_config['run_dir'] = tempfile.mkdtemp(prefix='run-', dir=evidence_root)
+            experiment_config['duration'] = args.duration
+            Path(experiment_config['run_dir'], 'config.json').write_text(json.dumps(experiment_config, indent=2)+'\n')
         if hashlib.sha256(usd_path.read_bytes()).hexdigest() != experiment_config["scene_sha256"]:
             raise ValueError("fruit experiment USD does not match its recorded SHA-256")
         previous_report = Path(experiment_config["run_dir"]) / ("report.json" if args.headless else "gui-report.json")

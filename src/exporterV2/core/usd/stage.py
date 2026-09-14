@@ -152,7 +152,13 @@ def build_stage(
             leaf_shapes=leaf_shapes,
         ))
 
+    standard_records = []
     for b in branches_to_build:
+        if b.get('standard_truss'):
+            if b['id'] not in branch_registry:
+                from ...standard_truss import author
+                standard_records.extend(author(stage, b, branches, terminal_bodies, branch_registry))
+            continue
         bid     = b["id"]
         is_root = b.get("parent") is None
         h_world = scaled(b["height"])
@@ -259,10 +265,12 @@ def build_stage(
     terminal_body_records = build_terminal_bodies(
         stage,
         stem_path,
-        terminal_bodies,
+        [body for body in terminal_bodies if not body.get('standard_truss')],
         branch_registry,
         branch_defs,
     )
+
+    terminal_body_records.extend(standard_records)
 
     validate_terminal_body_clearance(
         terminal_body_records,

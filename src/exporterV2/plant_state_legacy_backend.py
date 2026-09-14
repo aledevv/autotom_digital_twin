@@ -931,7 +931,7 @@ def _audit_stage(
     }
 
     resolved = resolve_vegetative_graph(
-        list(adapter.branches), locked_joints=physics_preset == "locked"
+        [b for b in adapter.branches if not b.get('standard_truss')], locked_joints=physics_preset == "locked"
     )
     resolved_axes = build_visual_axes(resolved, "/World/PlantVisual")
 
@@ -947,7 +947,8 @@ def _audit_stage(
         else 0
     )
     expected_fixed = expected_support_count - expected_d6 + expected_terminal_physical
-    expected_axes = len({branch["visual_axis_id"] for branch in adapter.branches})
+    standard_count = sum(b['n_links'] for b in adapter.branches if b.get('standard_truss'))
+    expected_axes = len({branch["visual_axis_id"] for branch in adapter.branches if not branch.get('standard_truss')})
     branch_by_id = {branch["id"]: branch for branch in adapter.branches}
     expected_terminal_forks = sum(
         branch.get("kind") == "leaf_petiole"
@@ -965,18 +966,18 @@ def _audit_stage(
         errors.append(f"fixed joints {len(fixed_joints)} != expected {expected_fixed}")
     if len(d6_joints) != expected_d6:
         errors.append(f"D6 joints {len(d6_joints)} != expected {expected_d6}")
-    if len(organic_meshes) != expected_support_count:
+    if len(organic_meshes) != expected_support_count - standard_count:
         errors.append(
             f"organic meshes {len(organic_meshes)} != expected {expected_support_count}"
         )
-    if len(capsules) != expected_support_count * 2:
+    if len(capsules) != (expected_support_count - standard_count) * 2:
         errors.append(
             f"capsule colliders {len(capsules)} != expected {expected_support_count * 2}"
         )
     if len(resolved_axes) != expected_axes:
         errors.append(f"visual axes {len(resolved_axes)} != expected {expected_axes}")
     expected_truss_cylinders = 0
-    if len(cylinders) != 0:
+    if len(cylinders) != standard_count:
         errors.append(
             f"visual cylinders {len(cylinders)} != expected 0"
         )
@@ -1494,8 +1495,18 @@ def export_incremental_checkpoint(
     allow_over_budget: bool = False,
     allow_experimental_fruit_physics: bool = False,
     leaf_shape_config=None,
+    experimental_truss_preset: str | None = None,
+    experimental_fixture: str = 'full',
 ) -> tuple[IncrementalCheckpointPlan, Path, Path]:
     """Build and audit one PlantState profile with the original V2 backend."""
+
+    if experimental_truss_preset:
+        if (truss_calibration_preset != 'current' or truss_damping_override is not None
+                or truss_armature_multiplier != 0 or terminal_solver_preset != 'current'
+                or lateral_joint_policy != 'dynamic'):
+            raise IncrementalCheckpointError('Standard truss conflicts with physics overrides')
+    elif experimental_fixture != 'full':
+        raise IncrementalCheckpointError('Standard fixture requires the experimental preset')
 
     if debug_profile not in INCREMENTAL_PROFILES:
         raise IncrementalCheckpointError(
@@ -1599,6 +1610,13 @@ def export_incremental_checkpoint(
         adapter_kwargs["include_fruits"] = True
         adapter_kwargs["physical_fruits"] = debug_profile == "full"
     adapter = adapter_builders[debug_profile](state, **adapter_kwargs)
+    if experimental_truss_preset:
+        from .standard_truss import NAME, standardize, select_fixture
+        if experimental_truss_preset != NAME or debug_profile != 'full' or physics_preset != 'flexible' or physics_hz != 60:
+            raise IncrementalCheckpointError('Standard truss requires full/flexible at 60 Hz')
+        if int(state.metadata.simulation_time) != 160:
+            raise IncrementalCheckpointError('Standard truss is currently limited to day 160')
+        adapter = select_fixture(standardize(adapter), experimental_fixture)
     adapter = apply_checkpoint_physics_policy(
         adapter,
         lateral_joint_policy=lateral_joint_policy,
@@ -1677,6 +1695,9 @@ def export_incremental_checkpoint(
     )
     apply_physx_scene_settings(stage, physics_hz=physics_hz)
     apply_physx_articulation_settings(stage, stem_path)
+    if experimental_truss_preset:
+        from .standard_truss import configure_stage
+        configure_stage(stage)
     author_shape_manifest(stage, leaf_shapes)
     stage.GetRootLayer().Save()
     manifest = _audit_stage(
@@ -1696,9 +1717,14 @@ def export_incremental_checkpoint(
         allow_experimental_fruit_physics=allow_experimental_fruit_physics,
     )
     manifest.metadata["leaf_shapes"] = leaf_shapes.manifest()
+    if experimental_truss_preset:
+        manifest.metadata['standard_truss_replacements'] = list(adapter.standard_truss_replacements)
     manifest_path = save_manifest(manifest, manifest_path_for(destination))
     if manifest.errors:
         raise IncrementalCheckpointError("; ".join(manifest.errors))
+    if experimental_truss_preset:
+        from .standard_truss import write_runtime_config
+        write_runtime_config(stage, destination)
     return (
         IncrementalCheckpointPlan(
             adapter=adapter,

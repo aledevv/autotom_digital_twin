@@ -21,6 +21,9 @@ STIFFNESS_SCALE="1"
 LEAF_STIFFNESS_SCALE="1"
 TRUSS_STIFFNESS_SCALE="1"
 PHYSICS_HZ="480"
+PHYSICS_HZ_EXPLICIT="false"
+EXPERIMENTAL_TRUSS_PRESET=""
+EXPERIMENTAL_TRUSS_FIXTURE="full"
 INTERACTIVE_PHYSICS_HZ="60"
 BRANCH_BACKEND="skinned"
 SKINNING_VISUAL_MODE="segmented"
@@ -63,7 +66,9 @@ usage() {
   echo "  --stiffness-scale N          1|2|4"
   echo "  --leaf-stiffness-scale N     1|0.5|0.25|0.1"
   echo "  --truss-stiffness-scale N    1|0.5|0.25|0.1"
-  echo "  --physics-hz N               480|960"
+  echo "  --physics-hz N               480|960 (60 with standard truss preset)"
+  echo "  --experimental-truss-preset main-rank6-standard"
+  echo "  --experimental-truss-fixture full|direct|lateral"
   echo "  --interactive-physics-hz N   GUI only: 60|120|240|480 (default: 60)"
   echo "  --debug-profile PROFILE      truss-supports by default; full is experimental"
   echo "  --pose-mode MODE             canonical|legacy (PlantState, default: canonical)"
@@ -103,7 +108,9 @@ while [[ $# -gt 0 ]]; do
     --stiffness-scale) STIFFNESS_SCALE="${2:?Missing value for --stiffness-scale}"; shift 2 ;;
     --leaf-stiffness-scale) LEAF_STIFFNESS_SCALE="${2:?Missing value for --leaf-stiffness-scale}"; shift 2 ;;
     --truss-stiffness-scale) TRUSS_STIFFNESS_SCALE="${2:?Missing value for --truss-stiffness-scale}"; shift 2 ;;
-    --physics-hz) PHYSICS_HZ="${2:?Missing value for --physics-hz}"; shift 2 ;;
+    --physics-hz) PHYSICS_HZ="${2:?Missing value for --physics-hz}"; PHYSICS_HZ_EXPLICIT="true"; shift 2 ;;
+    --experimental-truss-preset) EXPERIMENTAL_TRUSS_PRESET="${2:?Missing preset}"; shift 2 ;;
+    --experimental-truss-fixture) EXPERIMENTAL_TRUSS_FIXTURE="${2:?Missing fixture}"; shift 2 ;;
     --interactive-physics-hz) INTERACTIVE_PHYSICS_HZ="${2:?Missing value for --interactive-physics-hz}"; shift 2 ;;
     --debug-profile) DEBUG_PROFILE="${2:?Missing value for --debug-profile}"; shift 2 ;;
     --pose-mode) POSE_MODE="${2:?Missing value for --pose-mode}"; shift 2 ;;
@@ -152,7 +159,18 @@ if [[ "$STIFFNESS_SCALE" != "1" && "$STIFFNESS_SCALE" != "2" && "$STIFFNESS_SCAL
   echo "--stiffness-scale must be 1, 2, or 4" >&2
   exit 2
 fi
-if [[ "$PHYSICS_HZ" != "480" && "$PHYSICS_HZ" != "960" ]]; then
+if [[ -n "$EXPERIMENTAL_TRUSS_PRESET" ]]; then
+  if [[ "$EXPERIMENTAL_TRUSS_PRESET" != "main-rank6-standard" || "$DEBUG_PROFILE" != "full" || "$ALLOW_EXPERIMENTAL_FRUIT_PHYSICS" != "true" ]]; then
+    echo "Standard truss requires --debug-profile full --allow-experimental-fruit-physics" >&2
+    exit 2
+  fi
+  if [[ "$PHYSICS_HZ_EXPLICIT" == "true" && "$PHYSICS_HZ" != "60" ]] || [[ "$INTERACTIVE_PHYSICS_HZ" != "60" ]]; then
+    echo "Standard truss requires 60 Hz for export and GUI" >&2
+    exit 2
+  fi
+  PHYSICS_HZ="60"
+fi
+if [[ "$PHYSICS_HZ" != "480" && "$PHYSICS_HZ" != "960" && ! ( "$PHYSICS_HZ" == "60" && -n "$EXPERIMENTAL_TRUSS_PRESET" ) ]]; then
   echo "--physics-hz must be 480 or 960" >&2
   exit 2
 fi
@@ -228,6 +246,9 @@ if [[ ! -f "$INPUT" ]]; then
 fi
 
 GENERATOR=(uv run python -m exporterV2 --day "$DAY" --plant-id "$PLANT_ID" --input "$INPUT" --output "$OUTPUT" --physics-preset "$PHYSICS_PRESET" --stiffness-scale "$STIFFNESS_SCALE" --leaf-stiffness-scale "$LEAF_STIFFNESS_SCALE" --truss-stiffness-scale "$TRUSS_STIFFNESS_SCALE" --physics-hz "$PHYSICS_HZ" --debug-profile "$DEBUG_PROFILE" --pose-mode "$POSE_MODE" --appendage-pose-mode "$APPENDAGE_POSE_MODE" --leaf-joint-policy "$LEAF_JOINT_POLICY" --lateral-joint-policy "$LATERAL_JOINT_POLICY" --truss-calibration-preset "$TRUSS_CALIBRATION_PRESET" --truss-armature-multiplier "$TRUSS_ARMATURE_MULTIPLIER" --terminal-solver-preset "$TERMINAL_SOLVER_PRESET" --visual-quality "$VISUAL_QUALITY" --initial-overlap-policy "$INITIAL_OVERLAP_POLICY")
+if [[ -n "$EXPERIMENTAL_TRUSS_PRESET" ]]; then
+  GENERATOR+=(--experimental-truss-preset "$EXPERIMENTAL_TRUSS_PRESET" --experimental-truss-fixture "$EXPERIMENTAL_TRUSS_FIXTURE")
+fi
 GENERATOR+=("${LEAF_SHAPE_ARGS[@]}")
 [[ -z "$TRUSS_DAMPING_OVERRIDE" ]] || GENERATOR+=(--truss-damping-override "$TRUSS_DAMPING_OVERRIDE")
 [[ "$OPTIMIZE" == "false" ]] || GENERATOR+=(--optimize)
@@ -250,6 +271,10 @@ if [[ ! -x "$ISAAC_PYTHON" ]]; then
   exit 2
 fi
 ISAAC_ARGS=(--usd "$OUTPUT" --duration "$DURATION" --physics-preset "$PHYSICS_PRESET" --physics-hz "$PHYSICS_HZ" --interactive-physics-hz "$INTERACTIVE_PHYSICS_HZ")
+if [[ -n "$EXPERIMENTAL_TRUSS_PRESET" ]]; then
+  ISAAC_ARGS+=(--fruit-experiment "$OUTPUT.standard.json")
+  [[ "$HEADLESS" == "true" ]] || ISAAC_ARGS+=(--gui-until-close)
+fi
 [[ "$DEBUG_PROFILE" == "full" ]] || ISAAC_ARGS+=(--diagnostic-monitor)
 [[ "$HEADLESS" == "false" ]] || ISAAC_ARGS+=(--headless)
 exec "$ISAAC_PYTHON" "$SCRIPT_DIR/src/exporterV2/isaac_app.py" "${ISAAC_ARGS[@]}"

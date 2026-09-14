@@ -97,7 +97,9 @@ def build_argument_parser() -> argparse.ArgumentParser:
         choices=DRIVE_SCALE_CHOICES,
         default=1.0,
     )
-    parser.add_argument("--physics-hz", type=int, choices=(480, 960), default=480)
+    parser.add_argument("--physics-hz", type=int, choices=(60, 480, 960), default=None)
+    parser.add_argument('--experimental-truss-preset', choices=('main-rank6-standard',))
+    parser.add_argument('--experimental-truss-fixture', choices=('full','direct','lateral'), default='full')
     parser.add_argument(
         "--debug-profile", choices=DEBUG_PROFILES, default="truss-supports"
     )
@@ -182,6 +184,25 @@ def build_argument_parser() -> argparse.ArgumentParser:
 
 
 def generate_from_args(args: argparse.Namespace):
+    standard = getattr(args, 'experimental_truss_preset', None)
+    if standard:
+        if not args.allow_experimental_fruit_physics:
+            raise V2PlantStateError('Standard truss requires --allow-experimental-fruit-physics and --debug-profile full')
+        if args.physics_hz not in (None,60):
+            raise V2PlantStateError('Standard truss requires 60 Hz')
+        for key,expected in {'physics_preset':'flexible','debug_profile':'full','truss_calibration_preset':'current',
+                             'terminal_solver_preset':'current','truss_armature_multiplier':0.,
+                             'stiffness_scale':1.,'leaf_stiffness_scale':1.,'truss_stiffness_scale':1.,
+                             'lateral_joint_policy':'dynamic'}.items():
+            if getattr(args,key)!=expected:
+                raise V2PlantStateError(f'Standard truss conflicts with {key}')
+        if args.truss_damping_override is not None or args.optimize:
+            raise V2PlantStateError('Standard truss forbids damping overrides and optimization')
+        args.physics_hz=60
+    else:
+        if args.physics_hz is None: args.physics_hz=480
+        if args.physics_hz==60 or getattr(args,'experimental_truss_fixture','full')!='full':
+            raise V2PlantStateError('60 Hz export and standard fixtures require the experimental truss preset')
     leaf_shape_config = load_leaf_shape_config(
         getattr(args, "leaf_shape_config", None),
         backend=getattr(args, "leaf_shape_backend", None),
@@ -248,6 +269,8 @@ def generate_from_args(args: argparse.Namespace):
                 appendage_pose_mode=args.appendage_pose_mode,
                 physics_preset=args.physics_preset,
                 physics_hz=args.physics_hz,
+                experimental_truss_preset=standard,
+                experimental_fixture=getattr(args,'experimental_truss_fixture','full'),
                 leaf_joint_policy=args.leaf_joint_policy,
                 lateral_joint_policy=args.lateral_joint_policy,
                 truss_calibration_preset=args.truss_calibration_preset,
