@@ -16,12 +16,15 @@ ROOT = Path(__file__).resolve().parents[3]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--disable-native-observer', action='store_true')
+    parser.add_argument('--coherent-fruit', action='store_true', help='Input-size fruit; support density defaults to 1000 kg/m3')
+    parser.add_argument('--support-density', type=int, choices=(1000,2000,20000), help='Override support density for isolated comparisons')
     args = parser.parse_args()
     os.chdir(ROOT)
     out = Path(tempfile.mkdtemp(prefix='gui-freeze-', dir=ROOT/'artifacts/detachable_fruit_v2'))
     subprocess.run([sys.executable, str(Path(__file__).with_name('prepare_support_matrix.py')),
                     '--source-case', 'artifacts/detachable_fruit_v2/2026-09-11/support-ablation/main-rachis',
-                    '--run-dir', str(out), '--density', '2000', '--gui', '--duration', '60'], check=True)
+                    '--run-dir', str(out), '--density', str(args.support_density or (1000 if args.coherent_fruit else 2000)), '--gui', '--duration', '60',
+                    *(['--coherent-fruit'] if args.coherent_fruit else [])], check=True)
     command = ['/home/alessandro/isaacsim/python.sh', 'src/exporterV2/isaac_app.py',
                '--usd', str(out/'scene.usda'), '--physics-preset', 'flexible',
                '--interactive-physics-hz', '60', '--fruit-experiment', str(out/'config.json'),

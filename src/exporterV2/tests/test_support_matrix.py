@@ -47,3 +47,32 @@ def test_no_fruit_preserves_support_load():
             assert UsdPhysics.MassAPI(s.GetPrimAtPath(b['path'])).GetMassAttr().Get()==b['mass_kg']
     assert not s.GetPrimAtPath('/fruit')
     assert s.GetPrimAtPath('/pedicel')
+
+
+def test_coherent_fruit_preserves_mass_and_attachment():
+    import math
+    from pxr import Gf, Usd, UsdGeom
+    from experiments.detachable_fruit_v2.prepare_support_matrix import correct_fruit_scale
+    s = Usd.Stage.CreateInMemory()
+    fruit = UsdGeom.Xform.Define(s, '/fruit')
+    fruit.AddTranslateOp().Set(Gf.Vec3d(.1, .2, .3))
+    fruit.AddOrientOp().Set(Gf.Quatf(Gf.Rotation(Gf.Vec3d(0,1,0),45).GetQuat()))
+    sphere = UsdGeom.Sphere.Define(s, '/fruit/Sphere')
+    sphere.CreateRadiusAttr(.025)
+    mass = UsdPhysics.MassAPI.Apply(fruit.GetPrim())
+    mass.CreateMassAttr(.008)
+    joint = UsdPhysics.FixedJoint.Define(s, '/fruit/Joint')
+    joint.CreateBody1Rel().SetTargets(['/fruit'])
+    joint.CreateLocalPos1Attr(Gf.Vec3f(0,0,.023))
+    joint.CreateBreakForceAttr(6.)
+    old_anchor = UsdGeom.XformCache().GetLocalToWorldTransform(fruit.GetPrim()).Transform(Gf.Vec3d(0,0,.023))
+    body = dict(path='/fruit', mass_kg=.008)
+    result = correct_fruit_scale(s,body)
+    r = sphere.GetRadiusAttr().Get()
+    assert .008 / (4/3*math.pi*r**3) == pytest.approx(1000.)
+    assert mass.GetMassAttr().Get() == pytest.approx(.008)
+    assert np.diag(np.asarray(body['inertia']).reshape(3,3)) == pytest.approx([.4*.008*r*r]*3)
+    new_anchor = UsdGeom.XformCache().GetLocalToWorldTransform(fruit.GetPrim()).Transform(Gf.Vec3d(joint.GetLocalPos1Attr().Get()))
+    assert (old_anchor-new_anchor).GetLength() < 1e-7
+    assert result['preserved_overlap_m'] == pytest.approx(.002)
+    assert joint.GetBreakForceAttr().Get() == 6.
