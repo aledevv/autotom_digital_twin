@@ -21,6 +21,7 @@ def main():
  p.add_argument('--target-rank',type=int,default=10)
  p.add_argument('--transfer',choices=('both','mass','inertia'),default='both')
  p.add_argument('--hz',type=int)
+ p.add_argument('--position-iterations',type=int,choices=(64,128),help='Increase articulation and fruit position iterations only')
  a=p.parse_args()
  if a.hz is not None and a.hz <= 0:
   p.error('--hz must be positive')
@@ -50,6 +51,11 @@ def main():
   set_attr(api.CreatePrincipalAxesAttr(),Gf.Quatf(float(q[0]),Gf.Vec3f(*q[1:])))
   expected[b['path']]={k:b[k] for k in ('mass_kg','inertia','com','com_orientation')}
  for prim in stage.Traverse():
+  if a.position_iterations:
+   for name in ('physxArticulation:solverPositionIterationCount','physxRigidBody:solverPositionIterationCount'):
+    attr=prim.GetAttribute(name)
+    if attr and attr.HasAuthoredValueOpinion():
+     set_attr(attr,a.position_iterations)
   if a.hz and prim.IsA(UsdPhysics.Scene):
    set_attr(prim.GetAttribute('physxScene:timeStepsPerSecond'),a.hz)
   if a.no_contacts and prim.HasAPI(UsdPhysics.CollisionAPI):
@@ -68,6 +74,9 @@ def main():
   config['diagnostic_gravity_magnitude']=0.
  if a.hz:
   config['hz']=a.hz
+ if a.position_iterations:
+  config.update(art_position=a.position_iterations,fruit_position=a.position_iterations)
+  config['diagnostic_controls']['position_iterations']=a.position_iterations
  config['implementation_sha256'][str(Path(__file__).resolve().relative_to(ROOT))]=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
  config['source_effective_sha256']=hashlib.sha256((a.source/'headless-effective.json').read_bytes()).hexdigest()
  if a.fruit_properties_from:
