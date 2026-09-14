@@ -48,3 +48,23 @@ interaction validation. Native manual quality still requires user feedback.
 
 Manual GUI `gui-freeze-8ng5unec` launched with the command above. No production or
 main/groPy default is changed. Heavy evidence remains in local artifacts.
+
+## One-fruit feedback and full-truss extension
+
+User feedback on `gui-freeze-8ng5unec`: behavior appears good; proceed to the full
+truss. The launcher now accepts `--full-truss`, selecting the original main
+rank6 truss with full stem, all eight pedicels and all eight fruit, rather than the
+one-fruit ablation. All corrections and arming settings are the same.
+
+`full-truss-k2-6n-gated-screen`: static audit passes,30 bodies,24 articulation DOFs,
+eight corrected spheres with diameters24.31–27.28mm, total fruit mass74.71g.
+Headless screening **fails at5.5167 simulated seconds**: attached structure moves
+more than5m. No JOINT_BREAK occurs, the supports never settle, and arming never
+happens. Oscillations grow before gross divergence. This is physical instability,
+not evidence of a GUI freeze. No manual GUI is opened for this failed candidate.
+
+The accepted one-fruit behavior does not transfer to the full load. This result
+alone does not separate total fruit load, multiple constraints/contact interactions
+or the unbreakable-startup policy. No additional parameter changes or architecture
+changes were made in this extension. Summary: `full_truss_gated_result.json`;
+heavy traces/logs remain in the local run folder.
