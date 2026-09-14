@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import sys
 import numpy as np
@@ -19,12 +20,16 @@ def main():
  p.add_argument('--fruit-properties-from',type=Path)
  p.add_argument('--reference-rank',type=int,default=6)
  p.add_argument('--target-rank',type=int,default=10)
+ p.add_argument('--all-target-ranks',action='store_true',help='Repeat reference fruit profile on every retained truss')
+ p.add_argument('--match-fruit-size',action='store_true',help='Recompute spherical fruit size/inertia at 1000 kg/m3, preserving attachments')
  p.add_argument('--transfer',choices=('both','mass','inertia'),default='both')
  p.add_argument('--hz',type=int)
  p.add_argument('--position-iterations',type=int,choices=(64,128),help='Increase articulation and fruit position iterations only')
  a=p.parse_args()
  if a.hz is not None and a.hz <= 0:
   p.error('--hz must be positive')
+ if (a.all_target_ranks or a.match_fruit_size) and not a.fruit_properties_from:
+  p.error('Reference fruit properties are required')
  out=a.output.resolve();out.mkdir(parents=True,exist_ok=False)
  stage=Usd.Stage.Open(Usd.Stage.Open(str(a.source/'scene.usda')).Flatten())
  config=json.loads((a.source/'config.json').read_text())
@@ -36,14 +41,20 @@ def main():
  def set_attr(attr,value):
   before=attr.Get();attr.Set(value);changes.append(dict(path=str(attr.GetPath()),before=str(before),after=str(value)))
  expected={}
+ geometry_changes=[]
  for b in effective['bodies']:
   b=dict(b)
   api=UsdPhysics.MassAPI(stage.GetPrimAtPath(b['path']))
   if reference and b['role']=='fruit':
-   other=reference[b['path'].replace(f'Truss_r{a.target_rank}_',f'Truss_r{a.reference_rank}_')]
+   reference_path=(re.sub(r'Truss_r\d+_',f'Truss_r{a.reference_rank}_',b['path']) if a.all_target_ranks
+                   else b['path'].replace(f'Truss_r{a.target_rank}_',f'Truss_r{a.reference_rank}_'))
+   other=reference[reference_path]
    keys=('mass_kg','inertia') if a.transfer=='both' else (('mass_kg',) if a.transfer=='mass' else ('inertia',))
    b.update({k:other[k] for k in keys})
    set_attr(api.CreateMassAttr(),b['mass_kg'])
+   if a.match_fruit_size:
+    from experiments.detachable_fruit_v2.prepare_support_matrix import correct_fruit_scale
+    geometry_changes.append(correct_fruit_scale(stage,b))
   mat=np.array(b['inertia']).reshape(3,3)
   assert np.allclose(mat,np.diag(np.diag(mat)),atol=1e-16)
   set_attr(api.CreateDiagonalInertiaAttr(),Gf.Vec3f(*np.diag(mat)))
@@ -77,6 +88,8 @@ def main():
  if a.position_iterations:
   config.update(art_position=a.position_iterations,fruit_position=a.position_iterations)
   config['diagnostic_controls']['position_iterations']=a.position_iterations
+ config['diagnostic_controls'].update(all_target_ranks=a.all_target_ranks,match_fruit_size=a.match_fruit_size)
+ config['fruit_geometry_changes']=geometry_changes
  config['implementation_sha256'][str(Path(__file__).resolve().relative_to(ROOT))]=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
  config['source_effective_sha256']=hashlib.sha256((a.source/'headless-effective.json').read_bytes()).hexdigest()
  if a.fruit_properties_from:
