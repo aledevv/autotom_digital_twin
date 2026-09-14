@@ -108,3 +108,10 @@ functional/performance acceptance. Details: `five_trusses_120hz_gui.json`.
 120 Hz alone is therefore not an accepted solution despite the successful rest
 screen. The window shutdown was initiated by the monitor, not established as a
 GPU freeze. No further solver tuning was applied in this trial.
+
+User feedback: the scene visibly runs slower and appeared to freeze during an
+interaction. Watchdog evidence places the prolonged non-progress in
+`cleanup.app_close`, after the monitor stopped the trial; cleanup lasted about
+30.6 seconds, then reached `finished`. Process exited 1. This supports an
+error-triggered stop followed by slow shutdown for this observed freeze, rather
+than evidence of a physics-step hang. The user's usability rejection stands.
