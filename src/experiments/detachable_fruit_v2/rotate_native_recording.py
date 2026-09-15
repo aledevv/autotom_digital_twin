@@ -16,7 +16,14 @@ def pose_at(directory, prefix, body, sample):
     for path in sorted(directory.glob(prefix+'-trace-*.npz')):
         z = np.load(path)
         if sample < len(z['state']):
-            return z['state'][sample, list(z['paths']).index(body), :7], dict(path=str(path), sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+            names = list(z['paths'])
+            if body not in names:
+                rank = re.search(r'Truss_r(\d+)_', body)[1]
+                matches = [x for x in names if re.fullmatch(r'/World/Stem/Truss_r'+rank+r'_.*_rachis_Link_01', x)]
+                if len(matches) != 1:
+                    raise ValueError(f'Expected one rachis frame for rank {rank}: {matches}')
+                body = matches[0]
+            return z['state'][sample, names.index(body), :7], dict(path=str(path), body=body, sha256=hashlib.sha256(path.read_bytes()).hexdigest())
         sample -= len(z['state'])
     raise ValueError('Requested pose not recorded')
 

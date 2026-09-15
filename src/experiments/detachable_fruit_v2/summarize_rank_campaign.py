@@ -33,6 +33,7 @@ def main():
             errors = [line.split('loader failed:', 1)[1].strip() for line in log_file.read_text(errors='replace').splitlines() if 'loader failed:' in line][:1]
         rows.append(dict(case=directory.name, status=status, errors=errors,
             force_target=config.get('force_target'),
+            body_count=report.get('body_count'), fruit_count=report.get('fruit_count'),
             simulated_seconds=report.get('simulated_seconds'), ranks=config['rank_campaign']['ranks'],
             fruit_mass_g_by_rank=config['rank_campaign']['fruit_mass_g_by_rank'],
             events=[{k:e.get(k) for k in ('time_s','fruit','continuity_passed')} for e in report.get('events',[])],
