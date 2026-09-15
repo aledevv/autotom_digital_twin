@@ -68,3 +68,12 @@ UV_CACHE_DIR=/tmp/autotom-uv-cache uv run --no-sync python \
 Scope remains day160, ranks6–10 on the main-derived fixed stem, artificial
 support density20000 kg/m3, native force50. Does not validate lateral support,
 full vegetation, canonical v2.3 construction, other days or arbitrary fruit counts.
+
+## Manual feedback
+
+User: "Sì, tutto accettabile". GUI closes normally at47.7333 s,12 selected
+breaks across all ranks6–10, no errors, steady59.9529 FPS, real-time ratio0.99925.
+Behavior accepted by user. The planned60 s manual duration and10 s final
+recovery were not completed; preserve that distinction rather than calling the
+whole manual protocol passed. `original_rank_gui_review.json` records feedback,
+exact last-release timing, performance and report hash. Integration still deferred.
