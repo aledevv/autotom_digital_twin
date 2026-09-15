@@ -97,3 +97,44 @@ Summary: `retained_native_results.json`; `prepare_retained_native.py` prepares
 the eight comparisons from local source evidence without modifying scenes.
 Native PhysX binary unchanged. Default replay still releases at break; retaining
 is opt-in for diagnostic coverage. GUI native behavior unchanged.
+
+## PGS manual feedback: accepted rank10 behavior, fast-time caveat
+
+`gui-or0qhc9i`: user reports stable, fruit follows mouse after detachment;
+fast-looking drop is acceptable for now but must be documented. Native force50,
+PGS/CPU60 Hz; no custom grip/controller and no fruit mass changes. Six selected
+breaks between338.8667 and419.8834 simulated seconds, followed by recovery.
+Mean steady153.92 FPS, simulation/wall ratio2.56379. All six post-release
+one-second velocity increments have vertical acceleration -9.809996 m/s2.
+Thus fast displayed free fall is consistent with accelerated simulation time,
+not increased fruit density. Attached-stage geometry is still main-derived;
+this does not establish generic v2.3 integration or other-rank acceptance.
+
+Run ended at447.8834 s because the fixed1000 m/s diagnostic gate falsely
+flagged normal unbounded gravity fall (first fruit released345.9500 s; no
+ground). This gate was adequate only for the60 s diagnostic horizon; it needs
+a gravity/time allowance for unlimited GUI sessions. Do not call this a physics
+crash or hide the raw failed report. Detailed analysis in
+`pgs_manual_release_analysis.json`. Manual acceptance of this rank10 case does
+not waive other-rank or full-scene checks.
+
+## Optional real-time GUI pacing
+
+User requests wall-clock1x review. `run_prepared_gui.py --real-time` enables
+optional pacing before physics; unchanged dt/solver/native input/masses. Headless
+is unpaced. Slow frames reset the wall anchor to avoid catch-up bursts; timeline
+pauses reset it. Wait cost is reported separately from physics/rendering.
+Regression checks:34 passed. Initial live GUI `gui-4u3l6ur_`:13.2000 simulated
+seconds /13.1913 wall seconds, ratio1.00066, approximately60 FPS, no errors.
+Manual review remains pending. This initial measure is not a full-run claim.
+
+The optional all-body speed guard now allows |gravity| times elapsed simulation
+time beyond its configured base bound, avoiding false positives from long
+unbounded falls. It still catches the prior enormous divergent speeds; it is
+a conservative gross-error diagnostic, not a realism criterion.
+
+```bash
+UV_CACHE_DIR=/tmp/autotom-uv-cache uv run --no-sync python \
+  src/experiments/detachable_fruit_v2/run_prepared_gui.py \
+  artifacts/detachable_fruit_v2/generic-truss-search/retained-pgs-force50 --real-time
+```

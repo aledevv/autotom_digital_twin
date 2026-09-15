@@ -319,7 +319,10 @@ def run(stage, world, app, args, config):
     first_threshold = None
     max_anchor_error = 0.0
     wall_start = time.perf_counter()
+    from exporterV2.realtime_pacing import RealtimePacer
+    pacer = RealtimePacer(1 / hz) if not args.headless and config.get('gui_real_time', False) else None
     timing = {"physics_step_s": 0.0, "tensor_read_s": 0.0, "analysis_s": 0.0, "render_s": 0.0}
+    timing['pacing_wait_s'] = 0.0
     frames = []
     last_frame_saved = 0
     last_frame_wall = wall_start
@@ -375,6 +378,8 @@ def run(stage, world, app, args, config):
                 mark("timeline." + timeline_state, timeline=timeline_state, mode="running" if world.is_playing() else "paused")
                 previous_timeline = timeline_state
             if manual and (not world.is_playing() or timeline_invalidated):
+                if pacer:
+                    pacer.reset()
                 mark("render.paused", mode="paused")
                 app.update()
                 mark("idle.paused", mode="paused")
@@ -382,6 +387,9 @@ def run(stage, world, app, args, config):
             if not world.is_playing():
                 errors.append("timeline stopped before completion")
                 break
+            if pacer:
+                mark('pacing', mode='running')
+                timing['pacing_wait_s'] += pacer.wait(current_time)
             applied_force = interaction.before_step(current_time, 1 / hz, broken) if interaction else 0.0
             if gui_interaction:
                 applied_force = gui_interaction.before_step(current_time, 1 / hz, broken)
@@ -420,6 +428,11 @@ def run(stage, world, app, args, config):
             # Optional diagnostic bound includes detached bodies: native picking
             # may remain active on them after the attachment breaks.
             speed_bound = config.get("diagnostic_all_body_speed_limit_m_s")
+            # Unlimited GUI sessions can accumulate arbitrarily large, valid
+            # free-fall speeds in scenes without a floor. Allow gravity's full
+            # elapsed-time contribution while retaining the runaway guard.
+            if speed_bound is not None:
+                speed_bound += abs(effective['gravity_magnitude_mps2']) * current_time
             if speed_bound is not None and speed.max() > speed_bound:
                 body_index = int(np.argmax(speed))
                 errors.append(f"all-body diagnostic speed limit exceeded: {paths[body_index]}")

@@ -13,6 +13,7 @@ ROOT=Path(__file__).resolve().parents[3]
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('source',type=Path)
+    p.add_argument('--real-time', action='store_true', help='Pace GUI physics to wall time; timestep stays unchanged')
     a=p.parse_args();source=a.source.resolve()
     config=json.loads((source/'config.json').read_text())
     scene=source/'scene.usda'
@@ -21,6 +22,14 @@ def main():
     shutil.copyfile(scene,out/'scene.usda')
     config.update(run_dir=str(out),gui=True,duration=60.,observe_spontaneous_breaks=False,
                   force_target=None)
+    config['gui_real_time'] = a.real_time
+    config['source_implementation_sha256'] = dict(config.get('implementation_sha256', {}))
+    implementation = set(config.get('implementation_sha256', {})) | {
+        'src/exporterV2/realtime_pacing.py', 'src/exporterV2/fruit_diagnostics.py',
+        'src/experiments/detachable_fruit_v2/run_prepared_gui.py'}
+    config['implementation_sha256'] = {
+        name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
+        for name in sorted(implementation) if (ROOT / name).is_file()}
     # GUI validation is driven solely by the user, never by the headless replay.
     config.pop('native_recording', None)
     (out/'config.json').write_text(json.dumps(config,indent=2)+'\n')
