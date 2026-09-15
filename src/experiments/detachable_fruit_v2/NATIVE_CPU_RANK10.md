@@ -60,3 +60,28 @@ and recovery review remain required. Evidence: `native-cpu-rank10-force50/native
 
 Native force GUI (manual review pending): `native-cpu-rank10-force50/gui-rnlo0ea2`.
 Reopen with `run_prepared_gui.py artifacts/detachable_fruit_v2/native-cpu-rank10-force50/native`; the GUI launcher removes automatic replay.
+
+## Manual force-mode rejection and residual-pose control
+
+User: fruit detaches, but slow pulling feels too strong and leaves the structure
+crooked (screenshot 2026-09-15 09-58-36). This candidate is **not accepted**.
+The final GUI report lasts 260.05 simulated seconds with four selected fruit
+breaks and no monitor errors. Last native release is at 105.1667 s, leaving
+about 154.88 s after release. Final joint angles remain within recorded limits;
+small tail motion does not establish correct recovery.
+
+A fresh CPU/TGS case removes exactly the four detached fruits from the initial
+scene, retains every pedicel/support and remaining fruit, and applies no mouse
+input. Loaded property checks and 60 s rest pass. Compare last-10-second mean
+poses: maximum remaining-body position difference is 51.03 mm, and maximum DOF
+angle difference is 7.99 degrees. Thus the GUI end pose is not reproduced merely
+by removing the same load from the initial scene. This establishes a
+history-dependent residual-pose discrepancy in this comparison, not a proven
+plasticity model or a unique native-engine cause. Native force magnitude is not
+measured; coefficient 50 is not 50 N.
+
+[Comparison evidence](post_detachment_comparison.json). Fresh case preparation:
+`prepare_post_detachment_control.py --source ORIGINAL_REST --gui GUI_RUN --output NEW_DIR`.
+Heavy control evidence: `artifacts/detachable_fruit_v2/native-cpu-post-detachment`.
+No mouse gain, drive stiffness, threshold or solver was changed following this
+feedback. Lowering gain alone would not demonstrate correction of recovery.
