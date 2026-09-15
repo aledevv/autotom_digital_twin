@@ -54,3 +54,46 @@ UV_CACHE_DIR=/tmp/autotom-uv-cache uv run --no-sync python \
   src/experiments/detachable_fruit_v2/run_prepared_gui.py \
   artifacts/detachable_fruit_v2/generic-truss-search/tgs-scheduled-native
 ```
+
+## First scheduled-TGS manual session: additional failure
+
+GUI `gui-wu5dikte` closes normally at67.2833 simulated seconds, mean141.22 FPS
+after startup, real-time factor2.3566. Four selected breaks. However all four
+detached fruits exceed100 m/s within0.10–0.133 s of break while mouse remains
+held, reaching extreme finite velocities. Attached supports settle. Candidate
+is not accepted pending diagnosis; no all-rank expansion. Human feedback pending.
+The rapid headless replay releases automatically at break and therefore did not
+cover continued native dragging of the free fruit. Existing gross-error gates
+exclude broken bodies and missed this failure; passing status is insufficient.
+Evidence: `generic_gui_results.json`, full native event and per-step trace locally.
+
+User confirms: detachment works but tomato flies away. PhysX source modification
+is an explicitly deferred last resort: stop and discuss before attempting it.
+
+Replay instrumentation now has opt-in `native_replay_hold_after_break`: keep
+sending original PhysX input events until recorded release, without custom forces.
+A separate opt-in all-body1000 m/s diagnostic bound catches detached runaways
+while allowing normal free fall during this60 s test. Regression tests33 passed.
+
+First slow GUI gesture replayed from30 s, release at36.2833 s:
+- Scheduled TGS/CPU force50 reproduces runaway:1786 m/s at33.5667 s.
+- Default TGS/CPU force50 detaches at33.3167 s and completes60 s without runaway.
+- Scheduled TGS/CPU joint10 completes60 s but does not detach.
+
+Next bounded comparison: scheduled force10 andforce25, same full gesture.
+No PhysX binary edits. No changes to body masses, drive stiffness or6 N threshold.
+
+## Retained-native comparison completed
+
+Scheduled TGS force10/25/35 and joint10/50 do not detach with this clip.
+PGS/CPU force50 does detach at33.3667 s and completes60 s, with native hold
+continued to36.2833 s. No divergent free-fruit acceleration; however target peak
+speed during gesture is12.41 m/s, so gentle interaction is NOT established.
+Tail support pose excursion0.0193 mm, but correct post-removal equilibrium
+still needs manual review. This is a candidate, not a generic solution.
+User review requested before further expansion.
+
+Summary: `retained_native_results.json`; `prepare_retained_native.py` prepares
+the eight comparisons from local source evidence without modifying scenes.
+Native PhysX binary unchanged. Default replay still releases at break; retaining
+is opt-in for diagnostic coverage. GUI native behavior unchanged.

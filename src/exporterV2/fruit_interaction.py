@@ -151,7 +151,8 @@ class InteractionReplay:
     def before_step(self, time_s, dt, broken):
         from exporterV2.fruit_diagnostics import rotate
         start = self.config["force_start"]
-        if self.target["joint"] in broken:
+        native_hold = self.kind == "native" and self.config.get("native_replay_hold_after_break", False)
+        if self.target["joint"] in broken and not native_hold:
             if not self.retain_grip or self.kind != "bounded":
                 self.release(time_s, "joint_break")
                 return 0.0

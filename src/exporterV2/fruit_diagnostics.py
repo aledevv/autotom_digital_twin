@@ -417,6 +417,17 @@ def run(stage, world, app, args, config):
                                     paths=np.asarray(paths), state=state, finite=finite)
                 break
             speed, angular = np.linalg.norm(velocities[:, :3], axis=1), np.linalg.norm(velocities[:, 3:], axis=1)
+            # Optional diagnostic bound includes detached bodies: native picking
+            # may remain active on them after the attachment breaks.
+            speed_bound = config.get("diagnostic_all_body_speed_limit_m_s")
+            if speed_bound is not None and speed.max() > speed_bound:
+                body_index = int(np.argmax(speed))
+                errors.append(f"all-body diagnostic speed limit exceeded: {paths[body_index]}")
+                first_failure = {"time_s": current_time, "body": paths[body_index],
+                                 "speed_m_s": float(speed[body_index]), "limit_m_s": speed_bound}
+                np.savez_compressed(output / f"{prefix}-failure-state.npz", time_s=current_time,
+                                    paths=np.asarray(paths), state=state)
+                break
             motion_linear, motion_angular = motion_rates(previous_pos, previous_quat, pos, quat, np.asarray(com_pos), 1 / hz)
             if gate and gate.update(current_time, 1 / hz,
                     float(motion_linear[gate_indices].max()), float(motion_angular[gate_indices].max()),

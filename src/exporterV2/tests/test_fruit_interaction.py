@@ -153,7 +153,8 @@ def test_gui_routes_attached_fruit_exclusively_and_preserves_native_support_drag
     assert [call[-1] for call in calls] == [0, 1, 2]
 
 
-def test_recorded_native_rays_translate_and_release_without_forces():
+@pytest.mark.parametrize("hold_after_break", [False, True])
+def test_recorded_native_rays_translate_and_release_without_forces(hold_after_break):
     from types import SimpleNamespace
     from exporterV2.fruit_interaction import InteractionReplay
     calls, log = [], []
@@ -168,7 +169,9 @@ def test_recorded_native_rays_translate_and_release_without_forces():
     # No force-application method exists on this fake view.
     replay.view = SimpleNamespace(get_world_poses=lambda **kwargs: (np.array([[11., 0., 0.]]), None))
     replay.index = 0
-    replay.target = {'fruit': '/Fruit'}
+    replay.target = {'fruit': '/Fruit', 'joint': '/Joint'}
+    replay.retain_grip = False
+    replay.config['native_replay_hold_after_break'] = hold_after_break
     replay.query = lambda *args: {'hit': True, 'rigidBody': '/Fruit', 'collision': '/Fruit/Sphere', 'position': [11., 0., 0.]}
     replay.native = SimpleNamespace(update_interaction=lambda *args: calls.append(args))
     replay.events = SimpleNamespace(MOUSE_DRAG_BEGAN=0, MOUSE_DRAG_CHANGED=1, MOUSE_DRAG_ENDED=2)
@@ -181,9 +184,10 @@ def test_recorded_native_rays_translate_and_release_without_forces():
     replay.write = log.append
     replay.recorded_native_step(1., 1/60)
     assert calls[0][0] == (12., 0., 0.)
-    replay.recorded_native_step(1.1, 1/60)
-    replay.recorded_native_step(1.2, 1/60)
-    assert [c[2] for c in calls] == [0, 1, 2]
+    replay.before_step(1.1, 1/60, {'/Joint'})
+    replay.before_step(1.2, 1/60, {'/Joint'})
+    assert [c[2] for c in calls] == ([0, 1, 2] if hold_after_break else [0, 2])
     assert replay.released
-    assert log[-1]['reason'] == 'recording_complete'
-    assert log[1]['command_force_n'] is None
+    assert log[-1]['reason'] == ('recording_complete' if hold_after_break else 'joint_break')
+    if hold_after_break:
+        assert log[1]['command_force_n'] is None
