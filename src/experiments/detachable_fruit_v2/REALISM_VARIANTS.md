@@ -67,8 +67,15 @@ The preceding softer-leaf GUI ran47.5s, with four correctly attributed breaks,
 no monitor errors and58.35 mean steady FPS. The user reset the timeline, then
 closed the window later. Whole-loop wall time includes that idle interval;
 the report's whole-loop time ratio does not measure active simulation pacing.
-This session is shorter than the requested minute; final appearance/motion
-acceptance remains pending. The new droop GUI must be reviewed separately.
+This session is shorter than the requested minute. The new droop GUI was
+reviewed separately, as recorded below.
+
+Final visual feedback on the droop variant: "niente male." The resulting
+appearance is retained as the user's accepted reference. The latest GUI was
+reset at about4.8s, so it does not establish a new full-minute manual stability
+test. Increased support compliance and recovery are evidenced by the paired
+headless probes; no separate explicit manual motion acceptance was received.
+No further aesthetic or physics changes are planned for this variant.
 
 Do not interpret a resting pass alone as improved realism: compare displacement
 under equal force, recovery after release and the user's GUI feedback.
