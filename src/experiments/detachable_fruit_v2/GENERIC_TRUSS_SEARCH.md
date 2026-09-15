@@ -159,3 +159,22 @@ Peak selected-fruit speed during the identical gesture:6 N12.410 m/s,
 No mass, geometry, drive, solver or mouse-coefficient changes. Rank10 only;
 no generalization to other ranks. Request manual real-time3 N GUI review.
 Evidence: `threshold_results.json`.
+
+## Real-time3 N feedback and native mouse coefficient
+
+`gui-yyurc8k5`: user accepts basic detachment but objects to fruit rapidly
+reaching pointer; wants a visible elastic pull with gravity after detachment.
+Confirmed config: native force50, force_target=None, no retain_fruit_grip custom
+controller. Recorded four breaks with continuity passing; no explicit reposition.
+Do not label the gesture fully accepted.
+
+Compare3 N force10/25 against existing force50, same recorded retained-native
+clip. Threshold, PGS/CPU60 Hz and all scene properties unchanged.
+`prepare_break_threshold.py --mouse-coefficient` can reproduce these variants
+from the original6 N source. Force10 completes60 s but does not detach.
+
+Force25 completes60 s with one intended break at33.2167 s, but peak target
+speed8.473 m/s exceeds force50's6.956 m/s (break31.3667 s). Same input clip,
+different detachment time/target displacement: lowering gain is not established
+as a solution to perceived snapping. No new GUI candidate claimed.
+See `three_newton_mouse_results.json`.

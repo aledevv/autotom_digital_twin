@@ -18,6 +18,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--threshold', type=float, choices=(3., 4.), required=True)
     parser.add_argument('--test', choices=('rest', 'native'), required=True)
+    parser.add_argument('--mouse-coefficient', type=float, choices=(10., 25., 50.))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     scene = args.source / 'scene.usda'
@@ -35,6 +36,11 @@ def main():
     assert not check['errors'], check['errors']
     stage.GetRootLayer().Export(str(args.output / 'scene.usda'))
     config = json.loads((args.source / 'config.json').read_text())
+    if args.mouse_coefficient is not None:
+        config['mouse_coefficient_trial'] = dict(before=config.get('mouse_force_coefficient'),
+                                               after=args.mouse_coefficient)
+        config.update(mouse_force_coefficient=args.mouse_coefficient,
+                      allow_experimental_native_coefficient=args.mouse_coefficient > 10.)
     config.update(run_dir=str(args.output.resolve()), break_force=args.threshold,
                   duration=60., gui=False, gui_real_time=False, arm_after_settle=False)
     if args.test == 'rest':
