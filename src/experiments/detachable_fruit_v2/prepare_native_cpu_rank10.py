@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -13,7 +14,12 @@ ROOT=Path(__file__).resolve().parents[3]
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--case',choices=('rest','native','com'))
-    a=p.parse_args();a.output.mkdir(parents=True,exist_ok=False)
+    p.add_argument('--mouse-mode',choices=('joint','force'),default='joint')
+    p.add_argument('--coefficient',type=float,default=10.)
+    a=p.parse_args()
+    if not math.isfinite(a.coefficient) or not 0<a.coefficient<=100:
+        p.error('coefficient must be finite and in (0,100]')
+    a.output.mkdir(parents=True,exist_ok=False)
     source=ROOT/'artifacts/detachable_fruit_v2/mass-distribution-v1/profile10-total10'
     replay_source=ROOT/'artifacts/detachable_fruit_v2/standard-integration/native-attempts/01-joint10/config.json'
     recording=json.loads(replay_source.read_text())['native_recording']
@@ -24,7 +30,8 @@ def main():
         stage=Usd.Stage.Open(str(out/'scene.usda'))
         stage.GetPrimAtPath('/World/PhysicsScene').GetAttribute('physxScene:enableGPUDynamics').Set(False)
         stage.GetRootLayer().Save();c=json.loads((out/'config.json').read_text())
-        c.update(gpu=False,duration=60.,mouse_grab_mode='joint',mouse_force_coefficient=10.,force_target=None)
+        c.update(gpu=False,duration=60.,mouse_grab_mode=a.mouse_mode,mouse_force_coefficient=a.coefficient,force_target=None,
+                 allow_experimental_native_coefficient=a.coefficient>10)
         if name=='native':
             c.update(force_target='/World/TerminalBodies/Truss_r10_o0_rachis_pedicel_lat_3_R_tomato',
                      interaction='native',native_recording=recording,force_start=30.)

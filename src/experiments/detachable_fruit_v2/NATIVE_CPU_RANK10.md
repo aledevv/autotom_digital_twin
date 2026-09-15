@@ -41,3 +41,22 @@ Preparation: `prepare_native_cpu_rank10.py --output NEW_ROOT` for rest/native;
 with `run_batch.py`. [Compact results](native_cpu_rank10_results.json) preserve
 report hashes, outcomes and interaction metadata. Heavy evidence is local.
 No default exporter/preset behavior has been changed.
+
+## Completed manual joint-mode review
+
+User: "Si muovono ma non si staccano". Window closed explicitly at 79.2333
+simulated seconds, no breaks or monitor errors. Native observer records fruit
+picks. Mean 134.30 FPS, after startup 134.01 FPS, real-time factor 2.2383.
+The candidate fails detachment acceptance despite good cadence. No threshold
+compensation is applied.
+
+## Built-in native force mode comparison
+
+Same CPU/TGS scene and recorded gesture, native force mode coefficient 50
+(explicit experimental coefficient flag, not newtons). Target breaks at
+30.2833 simulated seconds, continuity passes, no other breaks/errors through
+60 s. This is PhysX native picking; no custom controller is used. Manual gesture
+and recovery review remain required. Evidence: `native-cpu-rank10-force50/native`.
+
+Native force GUI (manual review pending): `native-cpu-rank10-force50/gui-rnlo0ea2`.
+Reopen with `run_prepared_gui.py artifacts/detachable_fruit_v2/native-cpu-rank10-force50/native`; the GUI launcher removes automatic replay.
