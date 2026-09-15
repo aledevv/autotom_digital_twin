@@ -54,5 +54,21 @@ The first wrapper runs produced completed physical reports but exit1 on shutdown
 the wrapper now uses the same explicit process-exit mechanism as isaac_app.
 The0.05N paired runs both exited0. Core code was not modified.
 
+## Static petiolule pose
+
+`leaf_visual_pose.py CANDIDATE DROOP --droop-degrees 10` rotates each static
+petiolule visual subtree toward world-down around its unchanged attachment.
+The leaf blade follows the petiolule.106 subtrees are adjusted; no physics
+shapes or mass properties change.74 organic leaf-support meshes receive smooth
+vertex normals only: their points and dimensions stay unchanged. The10degree
+inclination is aesthetic and bounded to0–15degrees, not a gravity simulation.
+
+The preceding softer-leaf GUI ran47.5s, with four correctly attributed breaks,
+no monitor errors and58.35 mean steady FPS. The user reset the timeline, then
+closed the window later. Whole-loop wall time includes that idle interval;
+the report's whole-loop time ratio does not measure active simulation pacing.
+This session is shorter than the requested minute; final appearance/motion
+acceptance remains pending. The new droop GUI must be reviewed separately.
+
 Do not interpret a resting pass alone as improved realism: compare displacement
 under equal force, recovery after release and the user's GUI feedback.
