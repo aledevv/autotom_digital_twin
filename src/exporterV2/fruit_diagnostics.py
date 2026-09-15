@@ -198,7 +198,16 @@ def run(stage, world, app, args, config):
         for key, target in expected.items():
             if not np.allclose(np.asarray(actual[key]).reshape(-1), np.asarray(target).reshape(-1), rtol=1e-5, atol=1e-12):
                 mass_errors.append(f"unexpected runtime {key}: {path}")
-    expected_links = len(paths) - (len(records) if config["attachment"] == "external" else 0)
+    external_supports = config.get("diagnostic_external_kinematic_supports", [])
+    if len(set(external_supports)) != len(external_supports):
+        raise ValueError("duplicate diagnostic external supports")
+    for path in external_supports:
+        prim = stage.GetPrimAtPath(path)
+        if (path not in indices or value(prim, "autotom:role") != "diagnostic_support"
+                or not value(prim, "physics:kinematicEnabled")
+                or prim.GetName() in metatype.link_names):
+            raise ValueError(f"invalid diagnostic external kinematic support: {path}")
+    expected_links = len(paths) - (len(records) if config["attachment"] == "external" else 0) - len(external_supports)
     if not metatype.fixed_base or metatype.link_count != expected_links:
         mass_errors.append(f"unexpected native articulation topology: {articulation_info['links']} links, expected {expected_links}")
     eigenvalues = np.linalg.eigvalsh(inertias.reshape(-1, 3, 3))

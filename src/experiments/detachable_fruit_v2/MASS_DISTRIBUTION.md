@@ -94,3 +94,10 @@ is actually exposed for the EXTERNAL fruit FixedJoint; articulation incoming-for
 APIs alone do not measure that joint. A matched timestep/solver comparison on this
 same fixture can distinguish robustness of the result from other earlier scenes.
 No further physical configurations are launched in this session after the matrix.
+
+## 2026-09-15 follow-up
+
+The [break-scaling diagnosis](BREAK_SCALING_DIAGNOSIS.md) localizes the observed
+first-break sensitivity to the tested TGS/GPU external-articulation path using
+prospective known-weight controls. See that report for the updated conclusion;
+the earlier resonance/scheduling possibilities above are not established causes.
