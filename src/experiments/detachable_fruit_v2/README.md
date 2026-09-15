@@ -215,3 +215,5 @@ session. If the archived source is absent in another checkout, omit
 `--source-usd` to regenerate the full source from the day-160 input.
 
 Follow-up requested after that decision: [mass distribution diagnosis](MASS_DISTRIBUTION.md), separating total mass from spatial profile; no preset changes.
+
+Native follow-up: [original rank-10 TGS/CPU candidate](NATIVE_CPU_RANK10.md), with original masses; headless rest and controlled force pass, native replay does not detach, manual review pending.
