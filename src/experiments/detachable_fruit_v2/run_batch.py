@@ -15,20 +15,29 @@ ROOT = Path(__file__).resolve().parents[3]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("run_dirs", nargs="+", type=Path)
+    parser.add_argument("--leaf-probe", action="store_true", help="Use the separate headless leaf-force wrapper")
     parser.add_argument("--timeout", type=float,
                         help="Wall seconds per case; default max(3600, 60 * simulated seconds)")
     args = parser.parse_args()
     if args.timeout is not None and args.timeout <= 0:
         parser.error("timeout must be positive")
+    # Fail before starting Isaac when any requested case is only partly prepared.
+    for directory in args.run_dirs:
+        for filename in ("config.json", "scene.usda"):
+            if not (directory / filename).is_file():
+                parser.error(f"incomplete prepared case: {directory / filename}")
     isaac = Path(os.environ.get("ISAACSIM_DIR", str(Path.home() / "isaacsim"))) / "python.sh"
     for directory in args.run_dirs:
         directory = directory.resolve()
         config = json.loads((directory / "config.json").read_text())
         if (directory / "report.json").exists():
             raise ValueError(f"report already exists: {directory}; prepare a new case")
-        command = [str(isaac), str(ROOT / "src/exporterV2/isaac_app.py"), "--usd", str(directory / "scene.usda"),
+        entrypoint = ("src/experiments/detachable_fruit_v2/run_leaf_probe.py" if args.leaf_probe
+                      else "src/exporterV2/isaac_app.py")
+        command = [str(isaac), str(ROOT / entrypoint), "--usd", str(directory / "scene.usda"),
                    "--physics-preset", "flexible", "--physics-hz", str(config["hz"]), "--duration", str(config["duration"]),
                    "--headless", "--fruit-experiment", str(directory / "config.json")]
+        (directory / "launch.json").write_text(json.dumps({"command": command, "cwd": str(ROOT)}, indent=2) + "\n")
         print(f"[START] {directory.name}", flush=True)
         start = time.monotonic()
         with (directory / "isaac.log").open("w") as log:

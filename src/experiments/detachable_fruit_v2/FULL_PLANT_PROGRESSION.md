@@ -61,3 +61,33 @@ UV_CACHE_DIR=/tmp/autotom-uv-cache uv run --no-sync python \
   src/experiments/detachable_fruit_v2/run_prepared_gui.py \
   artifacts/detachable_fruit_v2/full-plant-progression/full-rest --real-time
 ```
+# Visual-only proportions variant
+
+User feedback on the slender GUI: "allora in gui tutto stabile". This is a
+qualitative stability report, not a new measured timing/FPS acceptance gate.
+
+Next visual fixture: `full-plant-progression/full-calyx-visuals`, prepared with
+`natural_truss_visuals.py full-slender-visuals full-calyx-visuals` (use full paths).
+The user explicitly chose to preserve GroIMP fruit radii. Forty decorative
+calyces (216 vertices each) follow the fruit bodies through detachment. Pedicel
+visual diameters are reduced to2.4mm at base and1.92mm at tip, keeping the rachis
+at3mm. Calyces and this further taper are photo-inspired aesthetic choices,
+not measured GroIMP properties. No extra rigid bodies or colliders are added.
+Existing attributes, relationships and applied schemas are checked for equality,
+apart from the allowed pedicel mesh points and extents. Manual appearance review
+of this second variant remains pending.
+
+`slender_truss_visuals.py SOURCE OUTPUT` prepares a separate fixture from the
+verified full plant. It reads day160 GroIMP support radii: rachis diameter3mm,
+pedicel base diameter3mm. Pedicels taper visually to2.4mm; this taper is an
+aesthetic choice, not a measured source property. Existing curved centerlines,
+fruit sizes and support lengths are preserved.
+
+The original rachis cylinders remain invisible collision shapes, with separate
+non-colliding visual cylinders. Only the non-colliding pedicel mesh is thinned.
+All existing attributes except the permitted visual points, extent and visibility
+are asserted unchanged. This does not restore canonical GroIMP truss construction:
+the wider invisible colliders and artificial support density remain as verified.
+
+Prepared local fixture: `full-plant-progression/full-slender-visuals`.
+Run with `run_prepared_gui.py PATH_TO_FIXTURE --real-time`.
