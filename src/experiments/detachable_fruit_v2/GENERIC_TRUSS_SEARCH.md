@@ -138,3 +138,24 @@ UV_CACHE_DIR=/tmp/autotom-uv-cache uv run --no-sync python \
   src/experiments/detachable_fruit_v2/run_prepared_gui.py \
   artifacts/detachable_fruit_v2/generic-truss-search/retained-pgs-force50 --real-time
 ```
+
+Real-time GUI review completed: `gui-4u3l6ur_`,101.2500 simulated seconds,
+101.2449 wall seconds, steady60.0002 FPS, real-time ratio1.00005, no monitor
+errors. User: stable, but detachment gesture remains abrupt. This validates
+pacing on this rank10 scene, not other ranks.
+
+User asks whether lowering break threshold avoids spontaneous detachment.
+Prepare4 N and3 N from the same PGS/CPU force50 original-rank10 scene. Each
+threshold is active from startup, all eight fruit joints; no arming delay.
+One60 s rest run and one60 s retained-native slow-gesture run per threshold.
+Only authored breakForce changes; all body and drive properties retained.
+`prepare_break_threshold.py` records/verifies the complete attribute difference.
+
+Threshold comparison completed:4 N and3 N each pass60 s rest with zero breaks
+and60 s native held-after-break gesture with exactly one intended break and
+continuity passing. Runtime final joint thresholds verified on all eight fruits.
+Peak selected-fruit speed during the identical gesture:6 N12.410 m/s,
+4 N8.655 m/s,3 N6.956 m/s. Lower speed is not proof of a gentle gesture.
+No mass, geometry, drive, solver or mouse-coefficient changes. Rank10 only;
+no generalization to other ranks. Request manual real-time3 N GUI review.
+Evidence: `threshold_results.json`.
