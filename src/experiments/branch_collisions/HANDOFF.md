@@ -3,6 +3,18 @@
 Work paused at the user's request. Continue on
 `experiment/v2-detachable-fruit-stability`; main and groPy are unchanged.
 
+## Default local launch
+
+After the user's subsequent positive feedback, `./run_mainV2.sh` (no arguments)
+opens the last shown organic leaf collision scene. `--latest-simulation` is an
+explicit alias. Scene and source-config hashes are pinned; each launch creates
+fresh GUI output and runs until explicit closure. The fixture stays local and
+must be restored separately on a fresh clone. `ISAACSIM_DIR` is respected.
+Use `./run_mainV2.sh --exporter --day 160` for the existing exporter workflow,
+or `./run_mainV2.sh --exporter` for the historical static demo. Existing explicit
+`--day` invocations retain their behavior. This shortcut does not generalize
+the experiment into the canonical exporter or enable all petiolule collisions.
+
 ## Saved state
 
 - Reference: `realism-leaf-droop`, original checkpoint `3c2e6cf`.

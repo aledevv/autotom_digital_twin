@@ -3,6 +3,36 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ISAACSIM_DIR="${ISAACSIM_DIR:-$HOME/isaacsim}"
+
+# The accepted local experiment is the no-argument entry point on this branch.
+# Explicit exporter arguments retain the existing generation workflow.
+if [[ $# -eq 0 || "${1:-}" == "--latest-simulation" ]]; then
+  if [[ $# -gt 1 ]]; then
+    echo "--latest-simulation does not accept exporter overrides; use --exporter --day N instead." >&2
+    exit 2
+  fi
+  LATEST_CASE="$SCRIPT_DIR/artifacts/branch_collisions/C-organic-leaf-pair-settle60"
+  for REQUIRED_FILE in scene.usda config.json; do
+    if [[ ! -f "$LATEST_CASE/$REQUIRED_FILE" ]]; then
+      echo "Saved experimental scene is missing: $LATEST_CASE/$REQUIRED_FILE" >&2
+      echo "These artifacts are local. Restore this fixture, or use --exporter --day 160 for the regular exporter." >&2
+      exit 2
+    fi
+  done
+  if [[ ! -x "$ISAACSIM_DIR/python.sh" ]]; then
+    echo "Isaac Sim launcher not found or not executable: $ISAACSIM_DIR/python.sh" >&2
+    exit 2
+  fi
+  echo "Opening saved day-160 organic leaf collision experiment (PGS/CPU, 60 Hz, 3 N)."
+  echo "Fresh logs are created for each launch; close the GUI to finish."
+  export ISAACSIM_DIR
+  exec python3 "$SCRIPT_DIR/src/experiments/branch_collisions/run.py" "$LATEST_CASE" --gui \
+    --expected-scene-sha256 e21c37aae8d16339c69d5ed24258c11a6b6dc6c6c3339b9e3e34504086b4579a \
+    --expected-config-sha256 7353bc7f0e9a8f21487eb5dddbe93188120bc2317452616203b61211a87923d5
+fi
+if [[ "${1:-}" == "--exporter" ]]; then
+  shift
+fi
 DAY=""
 LEAF_SHAPE_ARGS=()
 PLANT_ID="1"
@@ -46,7 +76,9 @@ usage() {
   echo "Usage: $0 [--day N] [options]"
   echo
   echo "With --day: generate V2 from plant_state/1.0 and open it in Isaac Sim."
-  echo "Without --day: retain the BRANCHES static demo from tree_config.py."
+  echo "Without arguments (or --latest-simulation): open the saved day-160 organic collision experiment."
+  echo "--exporter: use the regular exporter; without --day, open the original static demo."
+  echo "Other existing exporter options keep their previous behavior."
   echo
   echo "  --leaf-shape-backend MODE    gaussian (default)|i3|legacy; requires --day"
   echo "  --leaf-shape-seed N          Global non-negative seed (default: YAML, 42)"

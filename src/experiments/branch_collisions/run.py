@@ -1,5 +1,6 @@
 """Launch a prepared collision experiment; contact instrumentation stays outside core."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -91,7 +92,13 @@ def launch():
     p.add_argument('--gui',action='store_true')
     p.add_argument('--benchmark',action='store_true',help='Fresh unpaced 30-second GUI benchmark, then close')
     p.add_argument('--no-contact-recording',action='store_true')
+    p.add_argument('--expected-scene-sha256',help='Refuse to launch a different saved scene')
+    p.add_argument('--expected-config-sha256',help='Refuse to launch a different saved configuration')
     a=p.parse_args();directory=a.case.resolve()
+    for filename, expected in [('scene.usda', a.expected_scene_sha256),
+                               ('config.json', a.expected_config_sha256)]:
+        if expected and hashlib.sha256((directory/filename).read_bytes()).hexdigest()!=expected:
+            p.error(f'Saved reference mismatch: {directory/filename}; no simulation launched')
     config=json.loads((directory/'config.json').read_text())
     if a.gui or a.benchmark:
         source=directory
@@ -104,7 +111,8 @@ def launch():
         (directory/'config.json').write_text(json.dumps(config,indent=2)+'\n')
     elif (directory/'report.json').exists() or (directory/'process.json').exists():
         raise ValueError('Use a fresh case; existing evidence will not be overwritten')
-    command=[str(Path.home()/'isaacsim/python.sh'),str(Path(__file__).resolve()),'--inside',
+    isaac_dir=Path(os.environ.get('ISAACSIM_DIR',str(Path.home()/'isaacsim')))
+    command=[str(isaac_dir/'python.sh'),str(Path(__file__).resolve()),'--inside',
         '--usd',str(directory/'scene.usda'),'--physics-preset','flexible','--physics-hz',str(config['hz']),
         '--duration',str(config['duration']),'--fruit-experiment',str(directory/'config.json')]
     command += ([] if a.benchmark else ['--gui-until-close']) if (a.gui or a.benchmark) else ['--headless']
