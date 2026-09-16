@@ -297,8 +297,13 @@ def run(stage, world, app, args, config):
         errors.append("nonfinite initial pose")
     authored, _ = args.fruit_authored_geometry
     reset_errors = np.linalg.norm(initial_pos - np.array([authored[p] for p in paths]), axis=1)
-    if reset_errors.max() > 1e-6:
+    reset_projection_limit = float(config.get("diagnostic_reset_projection_limit_m", 1e-6))
+    if not math.isfinite(reset_projection_limit) or not 1e-6 <= reset_projection_limit <= .01:
+        raise ValueError("diagnostic reset projection limit must be between 1 um and 10 mm")
+    if reset_errors.max() > reset_projection_limit:
         errors.append(f"reset projection: {paths[int(reset_errors.argmax())]} {reset_errors.max():.6g} m")
+    if reset_projection_limit > 1e-6 and np.max(reset_errors[roots], initial=0.) > 1e-6:
+        errors.append("fixed root reset projection exceeds 1 um")
     hz = args.runtime_physics_hz
     tail = deque(maxlen=10 * hz)
     trace, summaries = [], []
@@ -655,7 +660,9 @@ def run(stage, world, app, args, config):
               "per_body": [{"path": p, "role": roles[i], "parent": parent_map.get(p),
                             "peak_linear_mps": float(peak_lin[i]), "peak_angular_radps": float(peak_ang[i])}
                            for i, p in enumerate(paths)],
-              "max_reset_projection_m": float(reset_errors.max()), "peak_linear_body": paths[int(peak_lin.argmax())],
+              "max_reset_projection_m": float(reset_errors.max()),
+              "reset_projection_limit_m": reset_projection_limit,
+              "peak_linear_body": paths[int(peak_lin.argmax())],
               "peak_angular_body": paths[int(peak_ang.argmax())], "force_target": target_record,
               "interaction": interaction.summary if interaction else (gui_interaction.summary if gui_interaction else None),
               "user_acceptance": None}
