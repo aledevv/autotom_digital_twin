@@ -17,8 +17,18 @@ def main():
     parser.add_argument(
         "--runtime", choices=["baseline", "optimized"], default="optimized"
     )
-    parser.add_argument("--branches", type=int, choices=[1, 2, 5, 10], default=1)
+    parser.add_argument("--branches", type=int, choices=[1, 2, 3, 5, 10], default=1)
+    parser.add_argument("--shared-stem", action="store_true")
+    parser.add_argument("--fixed-stem", action="store_true")
     a = parser.parse_args()
+    if a.shared_stem and (
+        a.branches != 3 or not a.tomato or a.fixed or a.runtime != "optimized"
+    ):
+        parser.error(
+            "Shared stem requires three elastic branches, tomato mode and optimized runtime"
+        )
+    if a.fixed_stem and not a.shared_stem:
+        parser.error("--fixed-stem requires --shared-stem")
     from isaacsim import SimulationApp
 
     app = SimulationApp(
@@ -125,8 +135,22 @@ def main():
     from branch_layout import attachment_error, isolate, replicate
 
     prefixes, shifts, offsets = replicate(
-        stage, a.branches, paths, animations, geometries, offsets
+        stage,
+        a.branches,
+        paths,
+        animations,
+        geometries,
+        offsets,
+        shifts=np.array([[0.0, 0, 0.12 * i] for i in range(3)])
+        if a.shared_stem
+        else None,
     )
+    stem_local_roots = None
+    if a.shared_stem:
+        from shared_stem import attachment_frames, connect
+
+        stem_local_roots = connect(stage, prefixes, shifts, a.fixed_stem)
+    target_branches = [2] if a.shared_stem else list(range(a.branches))
     leaf_count = 3 * a.branches
     if a.branches > 1:
         centre = shifts.mean(0) + [0.04, 0.14, 0.17]
@@ -136,12 +160,23 @@ def main():
             target=centre,
             camera_prim_path="/World/Camera",
         )
+    if a.shared_stem:
+        set_camera_view(
+            eye=np.array([0.8, -0.9, 0.65]),
+            target=np.array([0.03, 0.13, 0.24]),
+            camera_prim_path="/World/Camera",
+        )
     tomato = None
     tomatoes = []
     if a.tomato:
         from branch_tomato import BranchTomato
 
-        tomatoes = [BranchTomato(stage, prefix) for prefix in prefixes]
+        tomatoes = [BranchTomato(stage, prefixes[i]) for i in target_branches]
+        if a.shared_stem:
+            floor = stage.GetPrimAtPath(prefixes[2] + "/Floor")
+            floor.GetAttribute("xformOp:translate").Set(
+                Gf.Vec3d(0.1, 0.1, -0.015 - shifts[2, 2])
+            )
         tomato = tomatoes[0]
         world.get_physics_context().enable_ccd(True)
     if a.branches > 1:
@@ -156,17 +191,25 @@ def main():
         settings.set_bool("/physics/updateToUsd", False)
         settings.set_bool("/physics/updateVelocitiesToUsd", False)
     world.reset()
+    mouse_settings = None
+    if a.gui:
+        from mouse_grab import configure
+
+        mouse_settings = configure(app)
+        save(a.run_dir / "mouse_interaction.json", mouse_settings)
     for ball in tomatoes:
         ball.initialize(world)
     view = world.physics_sim_view.create_rigid_body_view(
         paths
         + [prefix + "/Branch" for prefix in prefixes]
         + [ball.path for ball in tomatoes]
+        + (["/World/Stem"] if a.shared_stem else [])
     )
     order = list(view.prim_paths)
     leaf_ids = np.array([order.index(x) for x in paths])
     branch_ids = np.array([order.index(prefix + "/Branch") for prefix in prefixes])
     tomato_ids = [order.index(ball.path) for ball in tomatoes]
+    stem_id = order.index("/World/Stem") if a.shared_stem else None
     animation_channels = [
         (anim.CreateTranslationsAttr(), anim.CreateRotationsAttr())
         for anim in animations
@@ -194,6 +237,17 @@ def main():
             "runtime": a.runtime,
             "pose_paths": order,
             "branches": a.branches,
+            "shared_stem": a.shared_stem,
+            "fixed_stem": a.fixed_stem,
+            "tomato_target_branches": target_branches,
+            "stem_parameters": {
+                "length_m": 0.5,
+                "mass_kg": 0.06,
+                "stiffness_Nm_rad": 3.0,
+                "damping_Nms_rad": 0.25,
+            }
+            if a.shared_stem
+            else None,
             "branch_shifts_m": shifts.tolist(),
             "physics_hz": 480,
             "render_hz": 30,
@@ -204,7 +258,9 @@ def main():
             "leaf_mass_kg": float(area(p, f).sum() * c.thickness * c.density),
             "petiole_mass_kg": 0.01,
             "tip_load_N_per_leaf": 0 if tomato else 0.03,
-            "scope": "Independent hinged branches with three skinned leaves each; not full plant integration",
+            "scope": "Three branches on a shared hinged stem"
+            if a.shared_stem
+            else "Independent hinged branches with three skinned leaves each; not full plant integration",
         },
     )
     state = {"quit": False, "repeat": False, "release": False}
@@ -212,7 +268,13 @@ def main():
     if a.gui:
         from omni import ui
 
-        window = ui.Window("Moving branch + skinned leaves", width=500, height=220)
+        window = ui.Window(
+            "Shared stem + branches + leaves"
+            if a.shared_stem
+            else "Moving branch + skinned leaves",
+            width=520,
+            height=280,
+        )
         with window.frame, ui.VStack():
             ui.Label(f"{a.branches} branches | {leaf_count} leaves | physics 480 Hz")
             ui.Label(
@@ -220,11 +282,14 @@ def main():
                 if tomato
                 else "Downward force: 0.03 N per leaf tip; no water model"
             )
+            if a.shared_stem:
+                ui.Label("Tomato contacts: upper branch only (coupling test)")
+            ui.Label("Shift + left-drag: pull stem, branches or leaves")
             label = ui.Label("Settling...")
             ui.Button(
                 (
                     "Drop tomatoes / Repeat test"
-                    if a.branches > 1
+                    if len(tomatoes) > 1
                     else "Drop tomato / Repeat test"
                 )
                 if tomato
@@ -232,7 +297,7 @@ def main():
                 clicked_fn=lambda: state.update(repeat=True),
             )
             ui.Button(
-                ("Remove tomatoes" if a.branches > 1 else "Remove tomato")
+                ("Remove tomatoes" if len(tomatoes) > 1 else "Remove tomato")
                 if tomato
                 else "Release load",
                 clicked_fn=lambda: state.update(release=True),
@@ -325,16 +390,43 @@ def main():
             "recovery": recovery < 0.002,
             "residual_oscillation": oscillation < 0.0005,
             "lamina_response": (
-                all(bending[3 * i + 2] > 0.0001 for i in range(a.branches))
+                all(bending[3 * i + 2] > 0.0001 for i in target_branches)
                 if tomato
                 else all(v > 0.0001 for v in bending)
             )
             if completed
             else False,
-            "branch_response": bool(np.all(branch_motions > 0.0001))
+            "branch_response": bool(np.all(branch_motions[target_branches] > 0.0001))
             if not a.fixed and completed
             else True,
         }
+        stem_motion = None
+        if a.shared_stem:
+            stem_motion = float(
+                np.linalg.norm(loaded[:, stem_id, :3] - eq[stem_id, :3], axis=1).max()
+            )
+            checks["shared_stem_response"] = (
+                stem_motion < 0.00001 if a.fixed_stem else stem_motion > 0.0001
+            )
+            if not a.fixed_stem:
+                checks["passive_branches_respond"] = bool(
+                    np.all(branch_motions[:2] > 0.0001)
+                )
+            else:
+                checks["passive_branches_quiet"] = bool(
+                    np.all(branch_motions[:2] < 0.0001)
+                )
+        if a.shared_stem:
+            checks["isolated_load_path"] = all(
+                all(
+                    e["leaf_body"].startswith(ball.prefix + "/Leaves/")
+                    for e in ball.events
+                )
+                and all(
+                    actor == ball.prefix + "/Floor" for actor in ball.other_contacts
+                )
+                for ball in tomatoes
+            )
         if tomato:
             checks.update(
                 tomato_fell=all(ball.fall_distance > 0.04 for ball in tomatoes),
@@ -344,7 +436,10 @@ def main():
                     for ball in tomatoes
                 ),
                 target_contact=all(
-                    any("/L002/" in e["leaf_body"] for e in ball.events)
+                    any(
+                        e["leaf_body"].startswith(ball.prefix + "/Leaves/L002/")
+                        for e in ball.events
+                    )
                     for ball in tomatoes
                 ),
                 contact_penetration=all(
@@ -373,6 +468,8 @@ def main():
                 "checks": checks,
                 "runtime": a.runtime,
                 "gui_paced": a.gui,
+                "native_mouse_grab": mouse_settings,
+                "manual_input_tracking": "not recorded" if a.gui else "headless",
                 "performance_window": "load start to trial end, excluding initialization and settling",
                 "performance": {
                     "frames": len(work_frames),
@@ -400,6 +497,9 @@ def main():
                 },
                 "branch_max_motion_from_equilibrium_m": branch_motion,
                 "branch_motions_m": branch_motions.tolist(),
+                "stem_motion_m": stem_motion,
+                "shared_stem": a.shared_stem,
+                "fixed_stem": a.fixed_stem,
                 "branches": a.branches,
                 "leaf_recovery_error_m": recovery,
                 "lamina_tip_motion_in_petiole_frame_m": bending,
@@ -465,7 +565,7 @@ def main():
                 before = np.asarray(view.get_transforms()).copy()
                 if i == 0:
                     equilibrium = before.copy()
-                ball.drop(before[leaf_ids[12 * i + 10], :3])
+                ball.drop(before[leaf_ids[12 * target_branches[i] + 10], :3])
         if envelope and not tomato:
             force[:] = 0
             force[tips, 2] = -0.03 * envelope
@@ -484,6 +584,12 @@ def main():
             raise RuntimeError("Nonfinite poses")
         if equilibrium is None and t >= load_at:
             equilibrium = poses.copy()
+        root_positions = None
+        if a.shared_stem:
+            root_positions, stem_error = attachment_frames(
+                poses[stem_id], stem_local_roots
+            )
+            max_error = max(max_error, stem_error)
         if optimized:
             max_error = max(
                 max_error,
@@ -492,6 +598,7 @@ def main():
                     poses[leaf_ids[::4], :3],
                     shifts,
                     attachment_offsets,
+                    root_positions=root_positions,
                 ),
             )
         else:

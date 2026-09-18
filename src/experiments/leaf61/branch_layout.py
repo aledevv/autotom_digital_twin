@@ -2,11 +2,16 @@
 
 import numpy as np
 
+from model import rotation
 
-def replicate(stage, count, paths, animations, geometries, offsets):
+
+def replicate(stage, count, paths, animations, geometries, offsets, shifts=None):
     from pxr import Gf, Sdf, Usd, UsdGeom, UsdSkel
 
-    shifts = np.array([[0.30 * (i % 4), 0.38 * (i // 4), 0.0] for i in range(count)])
+    if shifts is None:
+        shifts = np.array(
+            [[0.30 * (i % 4), 0.38 * (i // 4), 0.0] for i in range(count)]
+        )
     prefixes = ["/World"] + [f"/World/Replicas/B{i:03d}" for i in range(1, count)]
     original_paths, original_geo, original_offsets = (
         list(paths),
@@ -79,13 +84,14 @@ def isolate(stage, prefixes):
         )
 
 
-def attachment_error(branch_poses, petiole_positions, shifts, local_offsets):
+def attachment_error(
+    branch_poses, petiole_positions, shifts, local_offsets, root_positions=None
+):
     """Full-rate attachment check for all branches in one NumPy batch."""
-    from model import rotation
-
     rotations = rotation(branch_poses[:, [6, 3, 4, 5]])
+    targets = shifts + [0, 0, 0.20] if root_positions is None else root_positions
     root_error = np.linalg.norm(
-        branch_poses[:, :3] - 0.14 * rotations[:, :, 1] - shifts - [0, 0, 0.20], axis=1
+        branch_poses[:, :3] - 0.14 * rotations[:, :, 1] - targets, axis=1
     )
     expected = branch_poses[:, None, :3] + np.einsum(
         "bij,bkj->bki", rotations, local_offsets.reshape(-1, 3, 3)

@@ -18,8 +18,18 @@ def main():
     parser.add_argument(
         "--runtime", choices=["baseline", "optimized"], default="optimized"
     )
-    parser.add_argument("--branches", type=int, choices=[1, 2, 5, 10], default=1)
+    parser.add_argument("--branches", type=int, choices=[1, 2, 3, 5, 10], default=1)
+    parser.add_argument("--shared-stem", action="store_true")
+    parser.add_argument("--fixed-stem", action="store_true")
     a = parser.parse_args()
+    if a.shared_stem and (
+        a.branches != 3 or not a.tomato or a.fixed or a.runtime != "optimized"
+    ):
+        parser.error(
+            "Shared stem requires three elastic branches, tomato mode and optimized runtime"
+        )
+    if a.fixed_stem and not a.shared_stem:
+        parser.error("--fixed-stem requires --shared-stem")
     root = Path(__file__).resolve().parents[3]
     out = (
         a.run_dir
@@ -42,6 +52,10 @@ def main():
     cmd += ["--runtime", a.runtime, "--branches", str(a.branches)]
     if not a.headless:
         cmd += ["--gui"]
+    if a.shared_stem:
+        cmd += ["--shared-stem"]
+    if a.fixed_stem:
+        cmd += ["--fixed-stem"]
     if a.fixed:
         cmd += ["--fixed"]
     if a.tomato:

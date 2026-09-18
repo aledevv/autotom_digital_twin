@@ -128,3 +128,41 @@ A five-branch GUI is the next visual trial. Start it using:
 ```
 
 Use `--branches 2` or `--branches 10` to inspect the other counts; the scale launcher defaults to 2. Buttons release/remove all tomatoes together. Each trial records all branches and contact evidence per tomato. The comparison is reproducible with `branch_compare.py --reference artifacts/leaf61/branch-perf-optimized --output PATH RUN_DIR...`.
+
+## Shared dynamic stem — verified 2026-09-18
+
+Three branches, nine skinned leaves, one tomato on the outer leaf of the upper branch. Branch roots are at 0.20 / 0.32 / 0.44 m on a shared 0.5 m stem. The stem is a rigid segment on an elastic X hinge, with mass 60 g, stiffness 3 Nm/rad, damping 0.25 Nms/rad and ±35 degree limits. It is a coupling fixture, not distributed stem curvature or the main plant. All original branch/leaf parameters and 480 Hz CPU/PGS physics are retained. A single articulation is rooted at a fixed anchor under the stem hinge.
+
+Cross-branch collision groups limit the tomato to the upper branch. Its contact logger now records all leaf contacts regardless of prefix and records other contacted actors. Target checks use the full leaf path. Both runs verify that leaf contacts remain on the upper branch and the only other contacted actor is its floor; neither passive branch nor stem is directly hit. Root attachment checks follow the moving stem frame and additionally check the stem's base constraint.
+
+Matched headless runs: `artifacts/leaf61/shared-stem-verified-0918` and `artifacts/leaf61/shared-stem-fixed-control-0918`. In the control only the stem hinge is fixed; branch hinges remain elastic. Comparison: `artifacts/leaf61/shared-stem-comparison-0918.json`.
+
+| Metric | Dynamic stem | Fixed stem control |
+|---|---:|---:|
+| Stem centre motion from gravity equilibrium | 2.5437 mm | 0 mm |
+| Lower passive branch centre motion | 2.2894 mm | 0 mm |
+| Middle passive branch centre motion | 3.3076 mm | 0 mm |
+| Impacted upper branch centre motion | 12.2566 mm | 12.1493 mm |
+| Maximum segment recovery error | 0.3800 mm | 0.2528 mm |
+| Maximum attachment error | 0.000182 mm | 0.000153 mm |
+| Maximum sampled edge extension | 4.0276% | 3.7378% |
+| Maximum reported collider penetration | 0.04474 mm | 0.03210 mm |
+| Offscreen throughput | 46.14 FPS | 46.49 FPS |
+| Frame work p95 | 24.85 ms | 24.59 ms |
+
+Both pass finite poses, attachment, sampled deformation, recovery, residual oscillation, falling, target contact, isolated load path and eight seconds without leaf contact before final recovery. The comparison additionally checks passive motion <0.1 mm in the fixed-stem control. This establishes load transfer through the mobile stem for this fixture. Measurements of response/surface geometry are sampled at 10 Hz; attachments and finite poses are checked at physics frequency. Numbers are single-run diagnostics, not a multi-repeat performance certification or biological calibration. GUI stays capped at 30 Hz.
+
+Pure tests now cover rotating stem attachment frames, base drift and branch attachment targets on a moving parent. The isolated attachment test module (3 tests), full suite (31 tests), lint and diff checks pass. Neither final run logs Error/Traceback. Visual acceptance of this shared-stem variant remains pending; the GUI was launched as `artifacts/leaf61/shared-stem-gui-0918`.
+
+```bash
+./run_leaf61_shared_stem.sh
+./run_leaf61_shared_stem.sh --headless --fixed-stem
+```
+
+The automatic drop follows settling; **Drop tomato / Repeat test** repeats it, **Remove tomato** clears it, and **Finish and save** ends the session. Contacts with lower branches are deliberately filtered in this causal coupling test; this is not a multi-leaf cascade test.
+
+## Native mouse interaction — 2026-09-18
+
+All branch/shared-stem GUI launchers now enable native PhysX **Shift + left-drag**, including picking invisible lamina colliders. Configuration follows the V2 joint-grab setup: mouse interaction and grab enabled, ignore-invisible false, forceGrab false, pickingForce 10. The PhysX UI/support UI extensions are enabled after reset; automatic player simulation is temporarily disabled around the UI update to avoid an untracked physics step. Effective settings are saved to `mouse_interaction.json`.
+
+Hold Shift, press and hold the left mouse button on the stem, a branch or a leaf, then drag. Release the mouse button to release the grab. Picking uses physical colliders; visual skinned contours may not coincide exactly. Existing GUI processes run source snapshots, so close and relaunch to enable the new configuration. Lint and diff checks passed; the new gesture still needs the user's live GUI check. GUI reports disclose that manual input is not tracked; use headless runs for the undisturbed automatic protocol.

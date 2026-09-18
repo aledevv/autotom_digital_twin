@@ -51,6 +51,7 @@ class BranchTomato:
         self.removed = False
         self.cleanup_reason = None
         self.events = []
+        self.other_contacts = set()
         self.traces = []
         self.time = 0.0
         self.release_position = None
@@ -73,18 +74,17 @@ class BranchTomato:
                 ]
                 if self.path not in names:
                     continue
-                leaves = [
-                    x
-                    for x in names
-                    if x.startswith(self.prefix + "/Leaves/") and "/Link" in x
-                ]
-                if not leaves:
-                    continue
+                leaves = [x for x in names if "/Leaves/" in x and "/Link" in x]
                 for d in details[
                     h.contact_data_offset : h.contact_data_offset + h.num_contact_data
                 ]:
                     impulse = float(np.linalg.norm(d.impulse))
                     if impulse > 0:
+                        if not leaves:
+                            self.other_contacts.update(
+                                x for x in names if x != self.path
+                            )
+                            continue
                         self.events.append(
                             {
                                 "time_s": self.time,
@@ -146,6 +146,7 @@ class BranchTomato:
             if self.release_position is not None
             else None,
             "contact_events": self.events,
+            "other_contact_actors": sorted(self.other_contacts),
             "maximum_contact_penetration_m": max(
                 [max(0, -e["separation_m"]) for e in self.events], default=0
             ),
