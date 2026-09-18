@@ -1,4 +1,4 @@
-"""Presentation of an actual recorded leaf; deliberately no live physics stepping."""
+"""Surface-aligned illustrative leaf rig; no live physics stepping."""
 
 import argparse
 import json
@@ -12,7 +12,10 @@ ROOT = Path(__file__).resolve().parents[3]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--headless", action="store_true")
 parser.add_argument("--capture", type=Path)
-parser.add_argument("--mode", choices=("surface", "segments", "joints"), default="segments")
+parser.add_argument(
+    "--mode", choices=("surface", "segments", "joints"), default="joints"
+)
+parser.add_argument("--time", type=float, default=0.0)
 args = parser.parse_args()
 
 from isaacsim import SimulationApp
@@ -21,8 +24,9 @@ app = SimulationApp({"headless": args.headless, "width": 1280, "height": 720})
 import omni.usd
 from isaacsim.core.api import World
 from isaacsim.core.utils.viewports import set_camera_view
+from model_view_geometry import connected_poses, surface_pivots
 from omni import ui
-from pxr import Gf, UsdGeom, UsdLux, Vt
+from pxr import Gf, UsdGeom, UsdLux, UsdPhysics, UsdSkel, Vt
 from soft_leaf import build_soft
 
 from model import rotation
@@ -38,6 +42,32 @@ stage = world.stage
 _, _, anim, _, _ = build_soft(
     world, SimpleNamespace(**row["config"]), points, faces, "/World/Model"
 )
+# This is a new presentation rig, not a replay of the old physical translations.
+old_centers = centers.copy()
+pivots = surface_pivots(points, faces, np.arange(7) * row["config"]["length"] / 7)
+centers = centers.copy()
+centers[1:] = surface_pivots(points, faces, centers[1:, 0])
+centers[0, 2] = pivots[0, 2]
+for j in range(8):
+    path = "/World/Model/" + ("Petiole" if j == 0 else f"Link{j - 1}")
+    UsdGeom.Xformable(stage.GetPrimAtPath(path)).GetOrderedXformOps()[0].Set(
+        Gf.Vec3d(*centers[j])
+    )
+    if j:
+        mesh = UsdGeom.Mesh(stage.GetPrimAtPath(path + "/Collider"))
+        cp = np.asarray(mesh.GetPointsAttr().Get()) + old_centers[j] - centers[j]
+        mesh.GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(cp.astype(np.float32)))
+for j, pivot in enumerate(pivots):
+    joint = UsdPhysics.Joint(stage.GetPrimAtPath(f"/World/Model/Joint{j}"))
+    joint.GetLocalPos0Attr().Set(Gf.Vec3f(*(pivot - centers[j])))
+    joint.GetLocalPos1Attr().Set(Gf.Vec3f(*(pivot - centers[j + 1])))
+UsdPhysics.FixedJoint(
+    stage.GetPrimAtPath("/World/Model/FixedPetiole")
+).GetLocalPos0Attr().Set(Gf.Vec3f(*centers[0]))
+skeleton = UsdSkel.Skeleton(stage.GetPrimAtPath("/World/Model/Leaf/Skeleton"))
+binds = Vt.Matrix4dArray([Gf.Matrix4d().SetTranslate(Gf.Vec3d(*v)) for v in centers])
+skeleton.GetBindTransformsAttr().Set(binds)
+skeleton.GetRestTransformsAttr().Set(binds)
 world.pause()
 light = UsdLux.DomeLight.Define(stage, "/World/Light")
 light.CreateIntensityAttr().Set(1200)
@@ -73,6 +103,7 @@ frame = host_rot @ np.asarray(row["host_frame"])
 anchor = poses[:, row["host_id"], :3] + np.einsum("tij,j->ti", host_rot, row["anchor"])
 positions = np.einsum("tji,tkj->tki", frame, poses[:, row["ids"], :3] - anchor[:, None])
 rotations = np.einsum("tji,tkjl->tkil", frame, rot[:, row["ids"]])
+positions = connected_poses(rotations, centers, pivots)
 quats = [
     [
         Gf.Quatf(Gf.Matrix3d(*r.T.ravel().tolist()).ExtractRotation().GetQuat())
@@ -80,7 +111,7 @@ quats = [
     ]
     for sample in rotations
 ]
-state = {"playing": False, "time": 9.5, "mode": 1}
+state = {"playing": False, "time": args.time, "mode": 2}
 
 
 def display_mode(mode):
@@ -107,13 +138,13 @@ def select_joint(j):
     )
 
 
-window = ui.Window("Leaf modelling | recorded test", width=430, height=330)
+window = ui.Window("Leaf modelling | curved joint chain", width=430, height=330)
 with window.frame:  # noqa: SIM117 - explicit UI nesting
     with ui.VStack(spacing=6):
         ui.Label("7 rigid strips + elastic bend/twist joints", height=22)
-        ui.Label("RECORDED CONTACT REPLAY - no live physics", height=22)
+        ui.Label("ILLUSTRATIVE RIG - no live physics", height=22)
         ui.Label(
-            "Moving petiole removed from view; actual recorded bending.",
+            "Pivots follow the curved surface. Recorded angles retargeted to this new rig.",
             word_wrap=True,
             height=35,
         )
@@ -126,7 +157,7 @@ with window.frame:  # noqa: SIM117 - explicit UI nesting
                 "Play / Pause",
                 clicked_fn=lambda: state.update(playing=not state["playing"]),
             )
-            ui.Button("Before contact", clicked_fn=lambda: jump(8))
+            ui.Button("Rest shape", clicked_fn=lambda: jump(0))
             ui.Button("Peak contact", clicked_fn=lambda: jump(9.5))
             ui.Button("Recovered", clicked_fn=lambda: jump(20))
         time_label = ui.Label("", height=25)
@@ -154,17 +185,17 @@ def update():
     for j, ops in enumerate(link_ops):
         ops[0].Set(Gf.Vec3d(*positions[i, j]))
         ops[1].Set(quats[i][j])
-        pivot = np.array([j * row["config"]["length"] / 7, 0, 0])
+        pivot = pivots[j]
         marker = positions[i, j] + rotations[i, j] @ (pivot - centers[j + 1])
         markers[j].Set(Gf.Vec3d(*marker))
-    time_label.text = f"Recorded simulation time: {times[i]:.1f} s | samples: 10 Hz"
+    time_label.text = f"Source motion time: {times[i]:.1f} s | samples: 10 Hz"
 
 
 display_mode({"surface": 0, "segments": 1, "joints": 2}[args.mode])
 set_camera_view(eye=np.array([0.125, -0.14, 0.135]), target=np.array([0.045, 0, 0.008]))
 update()
 stage.GetRootLayer().Export(
-    str(ROOT / "artifacts/leaf61/notion-conclusions/leaf-model-view.usda")
+    str(ROOT / "artifacts/leaf61/notion-conclusions/leaf-model-view-curved.usda")
 )
 if args.capture:
     import asyncio
