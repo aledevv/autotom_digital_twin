@@ -1,5 +1,15 @@
 # Updated Leaf Physics Test Plan — Isaac Sim 4.5
 
+Implementation checkpoint (2026-09-16): the isolated **D0** bench is available in
+[`src/experiments/deformable_leaf`](../src/experiments/deformable_leaf/README.md).
+Numerical acceptance and user GUI review are required before advancing to D1.
+The later stages below remain the roadmap, not completed experiments.
+
+After the D0 GUI rejection, the bounded interactive-prototype work moved to the
+alternative [D6 + continuous skin bench](../src/experiments/interactive_leaf/README.md).
+This is an isolated rigid-body prototype with dynamic petiole, sphere pressure
+and falling-object contact. Its results do not promote the deformable track.
+
 ## Goal
 
 Compare two approaches for interactive tomato leaves:
