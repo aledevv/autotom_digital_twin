@@ -43,6 +43,9 @@ HEADLESS="false"
 DURATION="5"
 PHYSICS_PRESET="flexible"
 OPTIMIZE="false"
+JOINT_BUDGET=""
+OPTIMIZER_TECHNIQUES="lock"
+MERGE_STIFFNESS_POLICY="load"
 ALLOW_NEAR_BUDGET="false"
 ALLOW_OVER_BUDGET="false"
 INITIAL_OVERLAP_POLICY="filter"
@@ -91,6 +94,9 @@ usage() {
   echo "  --duration SECONDS           Headless simulated duration (default: 5)"
   echo "  --physics-preset MODE        locked|flexible (default: flexible fruit-free)"
   echo "  --optimize                   Optimize physics only when over budget"
+  echo "  --joint-budget N             Run the joint-budget optimizer until D6 joints <= N"
+  echo "  --optimizer-techniques SET   lock|full (default: lock; full also merges links)"
+  echo "  --merge-stiffness-policy P   load|series|keep (default: load)"
   echo "  --allow-near-budget          Permit 221-230 reviewed joints"
   echo "  --initial-overlap-policy P   filter|error (default: filter)"
   echo "  --physical-petiolules        EXPENSIVE: restore petiolule rigid bodies and D6 joints"
@@ -133,6 +139,9 @@ while [[ $# -gt 0 ]]; do
     --duration) DURATION="${2:?Missing value for --duration}"; shift 2 ;;
     --physics-preset) PHYSICS_PRESET="${2:?Missing value for --physics-preset}"; shift 2 ;;
     --optimize) OPTIMIZE="true"; shift ;;
+    --joint-budget) JOINT_BUDGET="${2:?Missing value for --joint-budget}"; shift 2 ;;
+    --optimizer-techniques) OPTIMIZER_TECHNIQUES="${2:?Missing value for --optimizer-techniques}"; shift 2 ;;
+    --merge-stiffness-policy) MERGE_STIFFNESS_POLICY="${2:?Missing value for --merge-stiffness-policy}"; shift 2 ;;
     --allow-near-budget) ALLOW_NEAR_BUDGET="true"; shift ;;
     --allow-over-budget) ALLOW_OVER_BUDGET="true"; shift ;;
     --initial-overlap-policy) INITIAL_OVERLAP_POLICY="${2:?Missing value for --initial-overlap-policy}"; shift 2 ;;
@@ -284,6 +293,7 @@ fi
 GENERATOR+=("${LEAF_SHAPE_ARGS[@]}")
 [[ -z "$TRUSS_DAMPING_OVERRIDE" ]] || GENERATOR+=(--truss-damping-override "$TRUSS_DAMPING_OVERRIDE")
 [[ "$OPTIMIZE" == "false" ]] || GENERATOR+=(--optimize)
+[[ -z "$JOINT_BUDGET" ]] || GENERATOR+=(--joint-budget "$JOINT_BUDGET" --optimizer-techniques "$OPTIMIZER_TECHNIQUES" --merge-stiffness-policy "$MERGE_STIFFNESS_POLICY")
 [[ "$ALLOW_NEAR_BUDGET" == "false" ]] || GENERATOR+=(--allow-near-budget)
 [[ "$ALLOW_OVER_BUDGET" == "false" ]] || GENERATOR+=(--allow-over-budget)
 [[ "$PHYSICAL_PETIOLULES" == "false" ]] || GENERATOR+=(--physical-petiolules)

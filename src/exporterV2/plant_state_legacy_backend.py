@@ -1497,8 +1497,18 @@ def export_incremental_checkpoint(
     leaf_shape_config=None,
     experimental_truss_preset: str | None = None,
     experimental_fixture: str = 'full',
+    joint_budget: int | None = None,
+    joint_budget_techniques: str = "lock",
+    merge_stiffness_policy: str = "load",
 ) -> tuple[IncrementalCheckpointPlan, Path, Path]:
-    """Build and audit one PlantState profile with the original V2 backend."""
+    """Build and audit one PlantState profile with the original V2 backend.
+
+    ``joint_budget`` runs the PlantState budget optimizer before the 220/230
+    checks. ``joint_budget_techniques`` is ``lock`` (joint locking only) or
+    ``full`` (also link merging). Merged links are authored and audited like
+    any other link, then absorbed into their upstream body with
+    ``merge_stiffness_policy`` (see ``core.usd.body_merge``).
+    """
 
     if experimental_truss_preset:
         if (truss_calibration_preset != 'current' or truss_damping_override is not None
@@ -1624,15 +1634,33 @@ def export_incremental_checkpoint(
         truss_damping_override=truss_damping_override,
     )
     locked = physics_preset == "locked"
-    predicted_d6 = (
-        sum(
-            branch["n_links"]
-            for branch in adapter.branches
-            if branch["joint_type"] != "fixed"
-        )
-        if not locked
-        else 0
+    optimization = None
+    if joint_budget is not None:
+        if experimental_truss_preset:
+            raise IncrementalCheckpointError(
+                "joint-budget optimization conflicts with the standard truss"
+            )
+        if not locked:
+            from .plant_state_optimization import optimize_plant_state_branches
+
+            adapter, optimization = optimize_plant_state_branches(
+                adapter, joint_budget, techniques=joint_budget_techniques
+            )
+    from .plant_state_merge_techniques import (
+        MAX_ARTICULATION_LINKS,
+        merged_links,
+        plant_state_bodies,
+        plant_state_d6,
     )
+
+    predicted_d6 = plant_state_d6(adapter.branches) if not locked else 0
+    articulation_links = plant_state_bodies(adapter.branches)
+    if articulation_links > MAX_ARTICULATION_LINKS:
+        raise IncrementalCheckpointError(
+            f"{articulation_links} articulation links exceed the PhysX limit of "
+            f"{MAX_ARTICULATION_LINKS} (256+ crashes Isaac Sim 4.5 on GPU and CPU); "
+            "use --joint-budget N --optimizer-techniques full to merge links"
+        )
     if predicted_d6 > 230 and not allow_over_budget:
         raise IncrementalCheckpointError(
             f"predicted D6 joints {predicted_d6} exceed the hard diagnostic "
@@ -1717,6 +1745,55 @@ def export_incremental_checkpoint(
         allow_experimental_fruit_physics=allow_experimental_fruit_physics,
     )
     manifest.metadata["leaf_shapes"] = leaf_shapes.manifest()
+    manifest.metadata["joint_budget"] = joint_budget
+    manifest.metadata["joint_budget_techniques"] = (
+        joint_budget_techniques if joint_budget is not None else None
+    )
+    manifest.physics["joint_budget"]["optimization"] = optimization
+    merge_targets = {
+        branch["id"]: merged_links(branch)
+        for branch in adapter.branches
+        if merged_links(branch)
+    }
+    if merge_targets and not manifest.errors:
+        from .core.usd.body_merge import merge_rigid_links
+
+        absorbed = [
+            str(prim.GetPath())
+            for prim in stage.Traverse()
+            if prim.GetAttribute("autotom:entityKind").Get() == "physical_link"
+            and prim.GetAttribute("autotom:branchLinkIndex").Get()
+            in merge_targets.get(prim.GetAttribute("autotom:branchId").Get(), ())
+        ]
+        expected_absorbed = sum(len(links) for links in merge_targets.values())
+        if len(absorbed) != expected_absorbed:
+            raise IncrementalCheckpointError(
+                f"found {len(absorbed)} links to merge, expected {expected_absorbed}"
+            )
+        merge_report = merge_rigid_links(
+            stage, absorbed, stiffness_policy=merge_stiffness_policy
+        )
+        stage.GetRootLayer().Save()
+        optimization["body_merge"] = merge_report
+        manifest.authored["post_merge"] = merge_report["after"]
+        manifest.physics["authored_body_masses"] = [
+            {
+                "body_path": str(prim.GetPath()),
+                "mass_kg": float(UsdPhysics.MassAPI(prim).GetMassAttr().Get()),
+                "center_of_mass": [
+                    float(v) for v in UsdPhysics.MassAPI(prim).GetCenterOfMassAttr().Get()
+                ],
+                "aggregated_leaf_visual_mass_kg": float(
+                    prim.GetAttribute("autotom:aggregatedLeafVisualMassKg").Get() or 0.0
+                ),
+            }
+            for prim in stage.Traverse()
+            if prim.HasAPI(UsdPhysics.RigidBodyAPI)
+        ]
+        if predicted_d6 != merge_report["after"]["d6_joints"]:
+            raise IncrementalCheckpointError(
+                f"merged D6 joints {merge_report['after']['d6_joints']} != predicted {predicted_d6}"
+            )
     if experimental_truss_preset:
         manifest.metadata['standard_truss_replacements'] = list(adapter.standard_truss_replacements)
     manifest_path = save_manifest(manifest, manifest_path_for(destination))
@@ -1728,7 +1805,9 @@ def export_incremental_checkpoint(
     return (
         IncrementalCheckpointPlan(
             adapter=adapter,
-            physical_link_count=sum(branch["n_links"] for branch in adapter.branches),
+            physical_link_count=sum(
+                branch["n_links"] - len(merged_links(branch)) for branch in adapter.branches
+            ),
             predicted_d6_joints=predicted_d6,
             debug_profile=debug_profile,
         ),

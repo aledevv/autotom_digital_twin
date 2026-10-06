@@ -57,6 +57,16 @@ class BudgetConfig:
         with open(path, 'r') as f:
             config = yaml.safe_load(f)
 
+        return cls.from_mapping(config, max_joints=max_joints)
+
+    @classmethod
+    def from_mapping(
+        cls,
+        config: Dict,
+        max_joints: Optional[int] = None,
+    ) -> 'BudgetConfig':
+        """Build a configuration from an already parsed YAML mapping."""
+
         required_sections = ['budget', 'structural_limits', 'techniques']
         for section in required_sections:
             if section not in config:
@@ -242,14 +252,23 @@ class BudgetOptimizer:
         ...     print(f"Reduced from {report.original_joints} to {report.final_joints} joints")
     """
     
-    def __init__(self, config_path: Optional[str] = None, max_joints: Optional[int] = None):
+    def __init__(
+        self,
+        config_path: Optional[str] = None,
+        max_joints: Optional[int] = None,
+        config: Optional[BudgetConfig] = None,
+    ):
         """
         Initialize optimizer with configuration.
         
         Args:
             max_joints: Maximum number of joints (overrides config)
             config_path: Path to budget_config.yaml (default: auto-detect)
+            config: Pre-built configuration; takes precedence over config_path
         """
+        if config is not None:
+            self.config = config
+            return
         if config_path is None:
             # Auto-detect config path (same directory as this file)
             config_path = Path(__file__).parent / "budget_config.yaml"
@@ -374,6 +393,7 @@ class BudgetOptimizer:
                 LateralBranchReductionTechnique,
                 StemCollapseTechnique,
                 TrussStaticTechnique,
+                PedicelLockTechnique,
                 LeafBranchReductionTechnique,
             )
         except ImportError:
@@ -383,6 +403,7 @@ class BudgetOptimizer:
                 LateralBranchReductionTechnique,
                 StemCollapseTechnique,
                 TrussStaticTechnique,
+                PedicelLockTechnique,
                 LeafBranchReductionTechnique,
             )
         
@@ -398,6 +419,7 @@ class BudgetOptimizer:
                 target_segments=params.get("target_segments", 3)
             ),
             "truss_static": lambda: TrussStaticTechnique(params=params),
+            "pedicel_lock": lambda: PedicelLockTechnique(params=params),
             "leaf_branch_reduce": LeafBranchReductionTechnique,
         }
 

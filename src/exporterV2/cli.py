@@ -11,6 +11,7 @@ from plant_state import PlantStateValidationError, load_plant_state
 
 from .plant_state_adapter import (
     DEBUG_PROFILES,
+    JOINT_TARGET,
     V2PlantStateError,
     build_v2_authoring_plan,
 )
@@ -65,7 +66,31 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--physics-preset", choices=("locked", "flexible"), default="flexible"
     )
-    parser.add_argument("--optimize", action="store_true")
+    parser.add_argument(
+        "--optimize",
+        action="store_true",
+        help="Lock joints until the D6 count fits the 220 target (same as --joint-budget 220).",
+    )
+    parser.add_argument(
+        "--joint-budget",
+        type=_positive_int,
+        default=None,
+        help="Run the joint-budget optimizer until D6 joints <= N.",
+    )
+    parser.add_argument(
+        "--optimizer-techniques",
+        choices=("lock", "full"),
+        default="lock",
+        help="lock: joint locking only; full: all budget_config.yaml techniques, "
+        "including link merging.",
+    )
+    parser.add_argument(
+        "--merge-stiffness-policy",
+        choices=("load", "series", "keep"),
+        default="load",
+        help="load: removed joints add gravity-weighted compliance upstream; "
+        "series: full compliance; keep: merged parts become rigid.",
+    )
     parser.add_argument("--allow-near-budget", action="store_true")
     parser.add_argument(
         "--initial-overlap-policy",
@@ -285,6 +310,13 @@ def generate_from_args(args: argparse.Namespace):
                 allow_experimental_fruit_physics=(
                     args.allow_experimental_fruit_physics
                 ),
+                joint_budget=(
+                    args.joint_budget
+                    if args.joint_budget is not None
+                    else (JOINT_TARGET if args.optimize else None)
+                ),
+                joint_budget_techniques=args.optimizer_techniques,
+                merge_stiffness_policy=args.merge_stiffness_policy,
             ),
         )
     plan = build_v2_authoring_plan(

@@ -53,8 +53,10 @@ class PetioleLockTechnique(BaseLockTechnique):
         """
         Check if a branch is a petiolule.
         
-        Petiolules are identified by naming pattern containing "petiolule"
-        (e.g., "Leaf_r1_o0_rachis_petiolule_lat_0_left").
+        Petiolules are identified by an explicit PlantState ``kind`` or, for
+        BRANCHES without one, by a name containing "petiolule"
+        (e.g., "Leaf_r1_o0_rachis_petiolule_lat_0_left"). PlantState terminal
+        petiolules are named "..._rachis_terminal_..." and need the kind.
         
         Args:
             branch: Branch configuration dict
@@ -62,5 +64,7 @@ class PetioleLockTechnique(BaseLockTechnique):
         Returns:
             True if branch is a petiolule
         """
+        if branch.get("kind") == "petiolule":
+            return True
         branch_id = branch.get("id", "").lower()
         return "petiolule" in branch_id
