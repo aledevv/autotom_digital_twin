@@ -1499,7 +1499,7 @@ def export_incremental_checkpoint(
     experimental_fixture: str = 'full',
     joint_budget: int | None = None,
     joint_budget_techniques: str = "lock",
-    merge_stiffness_policy: str = "load",
+    merge_stiffness_policy: str = "blend",
 ) -> tuple[IncrementalCheckpointPlan, Path, Path]:
     """Build and audit one PlantState profile with the original V2 backend.
 

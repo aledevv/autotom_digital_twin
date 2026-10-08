@@ -352,7 +352,7 @@ def merge_rigid_links(
     stage,
     absorbed_paths: Iterable[str],
     *,
-    stiffness_policy: str = "load",
+    stiffness_policy: str = "blend",
     tolerance: float = 1e-6,
 ) -> dict[str, Any]:
     """Absorb each listed body into its upstream body and audit the result."""

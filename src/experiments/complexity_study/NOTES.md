@@ -65,7 +65,7 @@ Phase J measured legacy 4.4-6.5× slower than PlantState at day 50 at the same p
 
 ## BudgetOptimizer on PlantState
 
-Status: **step 1 (joint locking) and step 2 (link merging) implemented.** CLI: `--joint-budget N --optimizer-techniques lock|full --merge-stiffness-policy load|series|keep`. The default technique set is `lock` until merged stages are validated in the GUI.
+Status: **step 1 (joint locking) and step 2 (link merging) implemented.** CLI: `--joint-budget N --optimizer-techniques lock|full --merge-stiffness-policy load|tip|blend|series|keep`. Defaults: technique set `lock` (until merged stages are validated in the GUI), compliance policy `blend` (since 2026-10-08).
 
 ### Step 1 – joint locking (`src/exporterV2/plant_state_optimization.py`)
 
@@ -112,7 +112,7 @@ Merge audit (raises on failure):
 Compliance policies, where `1/K_U' = 1/K_U + w/K_J`:
 - `keep`: w = 0, merged parts are rigid (legacy behaviour);
 - `series`: w = 1;
-- `load` (default): w = (M_J·d_J)/(M_U·d_U), the rest-pose gravity moment times the arm to the downstream centre of mass, clamped to [0, 1].
+- `load`: w = (M_J·d_J)/(M_U·d_U), the rest-pose gravity moment times the arm to the downstream centre of mass, clamped to [0, 1].
 
 At day 160 with budget 40, the `load` weights are min 0.005, median 0.17, max 0.59, so `series` over-transfers compliance about 6× at the median.
 
@@ -166,7 +166,7 @@ Tool: `src/experiments/complexity_study/fidelity_bench.py`.
 Wall time is pure `world.step(render=False)` at 480 Hz on an RTX 4080 Laptop / i9-13900HK with GPU dynamics and TGS 32/4.
 
 Reading:
-- **`load` is the right compliance policy.** It is about 2.5× more accurate than `keep` (the legacy behaviour: merged parts become rigid) and 12× more accurate than `series`. Now the default.
+- **`load` is the right compliance policy.** It is about 2.5× more accurate than `keep` (the legacy behaviour: merged parts become rigid) and 12× more accurate than `series` *for statics*. The push test later showed it is too stiff dynamically; `blend` is the default since 2026-10-08.
 - Most of the error appears already at b120, with pedicels locked and laterals/stem merged. Going from 120 to 40 D6 adds only 0.5 mm of mean error but nearly halves the time.
 - **Cost follows DOF more than bodies.**
   - At 206 D6, 216 → 255 bodies costs +10% time (138.9 → 152.9 s).
@@ -233,7 +233,7 @@ Reading:
 
 ## Next steps (resume here)
 
-1. Choose the default `--merge-stiffness-policy` (currently `load`; `blend` recommended for interactive use) and the default `--optimizer-techniques` (still `lock`).
+1. Decide the default `--optimizer-techniques` (still `lock`). The compliance policy default is now `blend`.
 2. Interactive GUI benchmark (`interactive_bench.py`, plan step 3): 60 Hz with RTX rendering, idle and with a scripted drag. The headless 480 Hz numbers above are not the interactive frame time.
 3. Cost model fit (`cost_bench.py` with N repeats in fresh processes, then `analyze.py`) on more points: days 50/80/160, budgets 40–206, solver iterations 8/16/32/64, CPU-PGS vs GPU-TGS.
 4. Update `core/optimizations/docs/RESEARCH_VALIDATION.md` (64-link claim) and the `budget_config.yaml` comment ("~250 joints") with the measured 255-link limit.
