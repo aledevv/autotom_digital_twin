@@ -231,10 +231,53 @@ Reading:
 - `blend` almost exactly matches the reference oscillation frequency, so it is the most natural choice for interactive use. `load` is best for static poses (e.g. perception datasets), `tip` for contact or push tasks.
 - Timing noise: identical topologies (same budget, different policy) took 102.6 / 104.5 / 126.3 s at b120, i.e. up to 20% run-to-run variation. `figures/cost_vs_fidelity.png` uses the median wall time per budget. The cost model must use repeated, isolated runs (`cost_bench.py`).
 
+## Interactive-regime cost (2026-10-08)
+
+Tool: `interactive_bench.py`.
+- Each run is one GUI process: RTX viewport 1600x900, physics at 60 Hz, no real-time pacing (this measures capacity).
+- Phases: idle (playing, plant at rest); push (the approved push, repeated); paused (static render only); physics-only (`world.step(render=False)`).
+- `--solver` and `--device` override the authored PhysicsScene, as `fruit_experiments.py` does.
+
+Setup: 5 variants × {GPU, CPU} dynamics × 2 runs in alternating order, TGS 32/4.
+Data: `results/interactive/`, `results/interactive_cost_day160.json`. Figure: `figures/interactive_cost.png`. Fit: `analyze.py`.
+
+Medians of 2 runs:
+
+| Dynamics | D6 / bodies | Physics | Static render | Sync + moving geometry | Frame | FPS | Push frame p95 | Run spread (physics) |
+|---|---|---|---|---|---|---|---|---|
+| CPU | 206 / 216 (reference) | 10.2 ms | 6.0 | 2.5 | 18.8 ms | 53 | 22.6 ms | 3% |
+| CPU | 206 / 255 | 11.5 | 5.8 | 3.0 | 20.3 | 49 | 23.8 | 8% |
+| CPU | 116 / 191 | 8.9 | 6.0 | 2.3 | 17.2 | 58 | 21.9 | 3% |
+| CPU | 60 / 135 | 5.9 | 6.0 | 1.9 | 13.8 | 73 | 16.3 | 0% |
+| CPU | 40 / 115 | 5.0 | 5.9 | 1.9 | 12.8 | 78 | 15.9 | 1% |
+| GPU | 206 / 216 (reference) | 67.6 | 8.1 | 5.5 | 81.2 | 12 | 102.0 | 25% |
+| GPU | 206 / 255 | 66.0 | 6.0 | 13.7 | 85.8 | 12 | 120.5 | 30% |
+| GPU | 116 / 191 | 45.4 | 5.7 | 12.8 | 63.9 | 16 | 84.6 | 32% |
+| GPU | 60 / 135 | 31.8 | 8.6 | 7.5 | 47.9 | 22 | 67.3 | 43% |
+| GPU | 40 / 115 | 25.6 | 5.9 | 11.2 | 42.7 | 25 | 58.1 | 41% |
+
+Hardware: i9-13900HK (20 threads), RTX 4080 Laptop 12 GB, Isaac Sim 4.5.
+
+Fitted cost models (`physics_ms = a + b·DOF + c·bodies`):
+- **CPU:** 0.11 ms + 2.8 µs/DOF + 41 µs/body. R² 0.995, leave-one-out error 7%.
+  - On CPU, **bodies cost about 15× more than DOFs**. The g206 pair (same DOF, +39 bodies) confirms it independently: +1.3 ms, about 33 µs/body.
+  - Merging fixed links (`fixed_link_merge`, no fidelity cost) is therefore worth doing on CPU.
+- **GPU:** 16.6 ms + 122 µs/DOF, DOF-only, because the body term came out negative: DOF and bodies are collinear and GPU timings vary 25–43% between runs. R² 0.998.
+  - The **~17 ms fixed cost per step** is the GPU pipeline overhead (kernel launches and synchronisation for one small articulation).
+- Frame budget, with static render + sync taken as the variant mean:
+  - CPU: 60 FPS up to about 257 DOF (128 D6); 20 FPS up to about 2190 DOF. That extrapolation is far outside the data, and the PhysX limit of 255 links per articulation applies anyway.
+  - GPU: 60 FPS is not reachable at any DOF count for this plant; 20 FPS up to about 134 DOF (67 D6).
+
+Messages for the thesis:
+1. **For a single plant, CPU dynamics is 5–7× faster than GPU dynamics** (10 vs 68 ms at 206 D6). The production model runs at 53 FPS interactive on a laptop CPU; the GPU only pays off with many environments in parallel. This supports the "no big GPU needed" claim with data.
+2. On CPU the optimizer (206 → 40 D6, 216 → 115 bodies) takes the frame from 18.8 to 12.8 ms (53 → 78 FPS). Rendering (about 6 ms static) becomes the main cost.
+3. The authored scene (`core/physics.py`: TGS + GPU dynamics) is the slow configuration for interactive use. Consider authoring CPU dynamics for the interactive profile, after checking stability: the push test and fidelity so far were run on GPU.
+4. Timing noise is device-dependent: under 10% on CPU, up to 43% on the laptop GPU. Report medians of repeated, alternating runs.
+
 ## Next steps (resume here)
 
-1. Decide the default `--optimizer-techniques` (still `lock`). The compliance policy default is now `blend`.
-2. Interactive GUI benchmark (`interactive_bench.py`, plan step 3): 60 Hz with RTX rendering, idle and with a scripted drag. The headless 480 Hz numbers above are not the interactive frame time.
-3. Cost model fit (`cost_bench.py` with N repeats in fresh processes, then `analyze.py`) on more points: days 50/80/160, budgets 40–206, solver iterations 8/16/32/64, CPU-PGS vs GPU-TGS.
+1. Re-run fidelity and push on **CPU dynamics** (all results so far are GPU-TGS); if stable and equivalent, switch the interactive default to CPU.
+2. Extend the cost data: days 50/80, solver iterations 8/16/32/64, PGS vs TGS on CPU, thread counts (1/4/8/default). This needs more points to separate DOF and body costs on GPU.
+3. Decide the default `--optimizer-techniques` (still `lock`).
 4. Update `core/optimizations/docs/RESEARCH_VALIDATION.md` (64-link claim) and the `budget_config.yaml` comment ("~250 joints") with the measured 255-link limit.
 5. After a 256+ link crash, CUDA can stay unusable for a while (`cudaErrorInitializationError`). Check with a 0.5 s probe before a batch.
