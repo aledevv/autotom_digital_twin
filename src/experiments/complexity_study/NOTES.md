@@ -143,15 +143,42 @@ Start: day 160 with physical petiolules (337 D6). Optimized to 40 D6 / 246 bodie
 - Wall time for 5 s simulated (2400 steps) was about 2.5–3.75 min for these 246-body stages. The production default (216 bodies, 206 D6) took 186 s. These are not clean timings: other jobs were running.
 - The unoptimized 347-body stages never ran (255-link limit, see top).
 
+## Fidelity vs cost from the production default (2026-10-08)
+
+Reference: `d160_truss-supports` (production default: 216 bodies, 206 D6, petiolules visual-only). Variants come from the same plant with `--joint-budget N --optimizer-techniques full`. `g206` is `--physical-petiolules --joint-budget 206 --optimizer-techniques full`: 255 bodies, also 206 D6.
+
+Tool: `src/experiments/complexity_study/fidelity_bench.py`.
+- `run` settles the plant 5 s under gravity at 480 Hz, headless, and records the world position of every visual mesh centre.
+- `compare` matches all 558 meshes by a key that survives merging.
+- Re-running the reference gives exactly 0 mm error and 138.9 s vs 138.4 s wall time, so PhysX is deterministic here and every millimetre below is a real model difference.
+- Reference displacement under gravity: median 15.2 mm, max 53.3 mm.
+
+| Variant | Bodies | D6 | Wall time for 2400 steps | Speed-up | Mean error | p95 | Max | Median error / ref sag | Stability |
+|---|---|---|---|---|---|---|---|---|---|
+| reference | 216 | 206 | 138.9 s | 1.00× | 0 | 0 | 0 | 0 | passed |
+| b120 `load` | 191 | 116 | 102.6 s | 1.35× | 2.5 mm | 6.8 mm | 10.2 mm | 0.16 | passed |
+| b60 `load` | 135 | 60 | 65.8 s | 2.11× | 2.8 mm | 6.9 mm | 10.3 mm | 0.18 | passed |
+| b40 `load` | 115 | 40 | 52.9 s | 2.63× | 3.0 mm | 7.1 mm | 10.7 mm | 0.18 | passed |
+| b40 `keep` | 115 | 40 | 52.8 s | 2.63× | 7.7 mm | 19.6 mm | 30.6 mm | 0.50 | passed |
+| b40 `series` | 115 | 40 | 52.3 s | 2.66× | 37.6 mm | 75.4 mm | 96.1 mm | 2.30 | passed |
+| g206 (physical petiolules) | 255 | 206 | 152.9 s | 0.91× | 1.7 mm | 7.5 mm | 12.2 mm | 0.07 | passed |
+
+Wall time is pure `world.step(render=False)` at 480 Hz on an RTX 4080 Laptop / i9-13900HK with GPU dynamics and TGS 32/4.
+
+Reading:
+- **`load` is the right compliance policy.** It is about 2.5× more accurate than `keep` (the legacy behaviour: merged parts become rigid) and 12× more accurate than `series`. Now the default.
+- Most of the error appears already at b120, with pedicels locked and laterals/stem merged. Going from 120 to 40 D6 adds only 0.5 mm of mean error but nearly halves the time.
+- **Cost follows DOF more than bodies.**
+  - At 206 D6, 216 → 255 bodies costs +10% time (138.9 → 152.9 s).
+  - 206 → 40 D6 (with 216 → 115 bodies) gives 2.6× faster.
+  - A first rough model (not yet the proper fit): time is roughly linear in D6, and bodies add about 0.15 s per 1000 steps per body (14.0 s / 2.4 / 39).
+- The headless validation in `isaac_app.py` reads every body pose at every step, so its steps/s (13.7 → 32.3) include Python overhead. Use the `fidelity_bench.py` wall times or `cost_bench.py` for the cost model.
+
 ## Next steps (resume here)
 
-1. Fidelity batch from the **production default** as reference (`d160_truss-supports`, 216 bodies / 206 D6):
-   - `--joint-budget 120|60|40 --optimizer-techniques full` with `load`;
-   - 40 with `keep` and `series`;
-   - `--physical-petiolules --joint-budget 206 --optimizer-techniques full` (255 vs 216 bodies at equal D6).
-
-   Run them one at a time. After a 256+ link crash, CUDA can stay unusable for a while (`cudaErrorInitializationError`); check with a 0.5 s probe first.
-2. Per-organ fidelity metric (tip error vs reference after settling), instead of the maxima in the stability report. This is the plan's `fidelity_bench.py`.
-3. Interactive GUI benchmark (`interactive_bench.py`) and the cost-model fit (`analyze.py`), as in the plan.
-4. Decide the default `--optimizer-techniques` (still `lock`) once merged stages pass a GUI review.
+1. Interactive GUI benchmark (`interactive_bench.py`, plan step 3), at 60 Hz with RTX rendering, idle and with a scripted drag. The headless 480 Hz numbers above are not the interactive frame time.
+2. Cost model fit (`analyze.py`) on more points: days 50/80/160, budgets 40–206, solver iterations 8/16/32/64, CPU-PGS vs GPU-TGS.
+3. Push/impulse fidelity test (dynamic response). The gravity settle above only checks statics.
+4. Decide the default `--optimizer-techniques` (still `lock`) after a GUI review of a `full`/`load` stage.
 5. Update `core/optimizations/docs/RESEARCH_VALIDATION.md` (64-link claim) and the `budget_config.yaml` comment ("~250 joints") with the measured 255-link limit.
+6. After a 256+ link crash, CUDA can stay unusable for a while (`cudaErrorInitializationError`). Check with a 0.5 s probe before a batch.

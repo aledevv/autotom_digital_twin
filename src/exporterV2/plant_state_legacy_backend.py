@@ -1654,13 +1654,6 @@ def export_incremental_checkpoint(
     )
 
     predicted_d6 = plant_state_d6(adapter.branches) if not locked else 0
-    articulation_links = plant_state_bodies(adapter.branches)
-    if articulation_links > MAX_ARTICULATION_LINKS:
-        raise IncrementalCheckpointError(
-            f"{articulation_links} articulation links exceed the PhysX limit of "
-            f"{MAX_ARTICULATION_LINKS} (256+ crashes Isaac Sim 4.5 on GPU and CPU); "
-            "use --joint-budget N --optimizer-techniques full to merge links"
-        )
     if predicted_d6 > 230 and not allow_over_budget:
         raise IncrementalCheckpointError(
             f"predicted D6 joints {predicted_d6} exceed the hard diagnostic "
@@ -1670,6 +1663,13 @@ def export_incremental_checkpoint(
         raise IncrementalCheckpointError(
             f"predicted D6 joints {predicted_d6} are in the 221-230 review "
             "band; use --allow-near-budget"
+        )
+    articulation_links = plant_state_bodies(adapter.branches)
+    if articulation_links > MAX_ARTICULATION_LINKS:
+        raise IncrementalCheckpointError(
+            f"{articulation_links} articulation links exceed the PhysX limit of "
+            f"{MAX_ARTICULATION_LINKS} (256+ crashes Isaac Sim 4.5 on GPU and CPU); "
+            "use --joint-budget N --optimizer-techniques full to merge links"
         )
     if allow_over_budget and predicted_d6 > 230:
         print(
