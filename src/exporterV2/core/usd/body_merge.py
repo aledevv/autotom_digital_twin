@@ -20,6 +20,10 @@ absorbed into the body upstream of them. Absorbing link ``X`` into ``P``
     is the rest-pose gravity moment carried by a joint and ``d`` its distance
     to the centre of mass of the part downstream of ``J``. This keeps the
     small-rotation displacement of that part under self-weight;
+  - ``"tip"``: ``w = (d_J / d_U)**2`` clamped to [0, 1], where ``d`` is the
+    distance from a joint to the farthest link endpoint downstream of ``J``.
+    This keeps the tip displacement under a point load at the tip;
+  - ``"blend"``: the mean of the ``load`` and ``tip`` weights;
   - ``"series"``: ``w = 1``, which keeps the rotation under an end moment but
     over-predicts sag under gravity (the root carries the full moment);
   - ``"keep"``: ``w = 0``, the merged section becomes rigid (legacy
@@ -33,7 +37,7 @@ from typing import Any, Iterable
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
 
 
-STIFFNESS_POLICIES = ("load", "series", "keep")
+STIFFNESS_POLICIES = ("load", "tip", "blend", "series", "keep")
 _ANGULAR_AXES = ("rotX", "rotY", "rotZ", "angular")
 _TRACK_ATTR = "autotom:mergeTrackPath"
 _TIME = Usd.TimeCode.Default()
@@ -142,6 +146,30 @@ def _load_weight(stage, removed, upstream) -> float:
     return min(max(moment_times_arm(removed) / up, 0.0), 1.0)
 
 
+def _tip_weight(stage, removed, upstream) -> float:
+    """Share of the tip displacement under a tip load produced by ``removed``.
+
+    A point load P at the tip T rotates joint j by P*d_j/K_j and moves T by
+    P*d_j**2/K_j (d_j = |T - joint j|), so one equivalent joint at U keeps the
+    tip displacement with w = (d_J / d_U)**2. T is the farthest link endpoint
+    downstream of the removed joint.
+    """
+
+    pivot = _joint_world_position(stage, removed)
+    tip, best = pivot, -1.0
+    for path in _bodies_below(stage, _target(removed, "physics:body1")):
+        prim = stage.GetPrimAtPath(path)
+        length = prim.GetAttribute("autotom:sourceLength").Get() or 0.0
+        end = _world(stage, path).Transform(Gf.Vec3d(0.0, 0.0, float(length)))
+        distance = (end - pivot).GetLength()
+        if distance > best:
+            tip, best = end, distance
+    d_up = (tip - _joint_world_position(stage, upstream)).GetLength()
+    if d_up <= 0.0:
+        return 1.0
+    return min(max((best / d_up) ** 2, 0.0), 1.0)
+
+
 def _transfer_compliance(stage, removed, upstream, policy: str) -> dict[str, Any]:
     removed_axes = {
         axis: UsdPhysics.DriveAPI(removed, axis).GetStiffnessAttr().Get() or 0.0
@@ -158,7 +186,11 @@ def _transfer_compliance(stage, removed, upstream, policy: str) -> dict[str, Any
         record["status"] = "compliance_lost_no_driven_upstream"
         return record
     record["upstream_joint"] = str(upstream.GetPath())
-    weight = 1.0 if policy == "series" else _load_weight(stage, removed, upstream)
+    weights = {"series": lambda: 1.0, "load": lambda: _load_weight(stage, removed, upstream),
+               "tip": lambda: _tip_weight(stage, removed, upstream),
+               "blend": lambda: 0.5 * (_load_weight(stage, removed, upstream)
+                                       + _tip_weight(stage, removed, upstream))}
+    weight = weights[policy]()
     record["weight"] = weight
     changed = {}
     for axis in _drive_axes(upstream):

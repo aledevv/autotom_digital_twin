@@ -96,7 +96,7 @@ usage() {
   echo "  --optimize                   Optimize physics only when over budget"
   echo "  --joint-budget N             Run the joint-budget optimizer until D6 joints <= N"
   echo "  --optimizer-techniques SET   lock|full (default: lock; full also merges links)"
-  echo "  --merge-stiffness-policy P   load|series|keep (default: load)"
+  echo "  --merge-stiffness-policy P   load|tip|blend|series|keep (default: load)"
   echo "  --allow-near-budget          Permit 221-230 reviewed joints"
   echo "  --initial-overlap-policy P   filter|error (default: filter)"
   echo "  --physical-petiolules        EXPENSIVE: restore petiolule rigid bodies and D6 joints"

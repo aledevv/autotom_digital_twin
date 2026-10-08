@@ -86,10 +86,10 @@ def build_argument_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--merge-stiffness-policy",
-        choices=("load", "series", "keep"),
+        choices=("load", "tip", "blend", "series", "keep"),
         default="load",
         help="load: removed joints add gravity-weighted compliance upstream; "
-        "series: full compliance; keep: merged parts become rigid.",
+        "tip: tip-load-weighted; blend: mean of load and tip; series: full compliance; keep: merged parts become rigid.",
     )
     parser.add_argument("--allow-near-budget", action="store_true")
     parser.add_argument(

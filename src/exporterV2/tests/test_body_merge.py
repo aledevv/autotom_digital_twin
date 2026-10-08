@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from pxr import Gf, Usd, UsdGeom, UsdPhysics
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
 
 from exporterV2.core.usd.body_merge import BodyMergeError, merge_rigid_links
 
@@ -114,3 +114,14 @@ def test_chain_merge_in_any_order(stage):
     assert report["after"]["rigid_bodies"] == 1
     assert report["after"]["d6_joints"] == 0
     assert stage.GetPrimAtPath("/World/Stem/A/Merged_B/Merged_C/Collider_01")
+
+
+def test_tip_policy_weights_by_squared_distance_to_the_tip(stage):
+    for path, length in (("/World/Stem/A", 0.1), ("/World/Stem/B", 0.1), ("/World/Stem/C", 0.1)):
+        stage.GetPrimAtPath(path).CreateAttribute("autotom:sourceLength", Sdf.ValueTypeNames.Double).Set(length)
+    report = merge_rigid_links(stage, ["/World/Stem/C"], stiffness_policy="tip")
+    weight = report["merges"][0]["compliance"]["weight"]
+    # C's joint is closer to the tip than B's joint, so 0 < w < 1.
+    assert 0.0 < weight < 1.0
+    drive = UsdPhysics.DriveAPI(stage.GetPrimAtPath("/World/Stem/B/Joint"), "rotX")
+    assert drive.GetStiffnessAttr().Get() == pytest.approx(1.0 / (0.25 + weight / 4.0))

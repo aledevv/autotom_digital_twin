@@ -208,11 +208,33 @@ Reading:
 - For a point load P at the tip, joint j gives θ_j = P·d_j/K_j, so the exact single-joint equivalent is `1/K_eq = Σ (d_j/d_0)² / K_j`. A `tip` policy with `w = (d_J/d_U)²` is the natural next candidate; a blend of `load` and `tip` could cover both load cases.
 - The reference truss tip does not return to zero (≈ −5 mm residual). The 3 s settle at 60 Hz is not fully at rest before the push. Lengthen `--settle` before using residuals as a metric.
 
+## Tip and blend compliance policies (2026-10-08)
+
+New `--merge-stiffness-policy` values in `core/usd/body_merge.py`:
+- `tip`: w = (d_J / d_U)², where d is the distance to the farthest link endpoint downstream of the removed joint. Exact single-joint equivalent for a point load at the tip.
+- `blend`: the mean of the `load` and `tip` weights.
+
+Median weights at b40: load 0.17, tip 0.35.
+
+The push was re-run with `--settle 6`; the reference residuals drop to 4.1 / 0.6 / 0.5 mm. The reference is identical across the three push runs, which are merged in `results/push_day160.json`. Static results are in `results/fidelity_day160.json`.
+
+| Policy | Budget (D6) | Static mean error | Dynamic mean peak error | Dynamic frequency error |
+|---|---|---|---|---|
+| load | 120 / 60 / 40 | 2.5 / 2.8 / 3.0 mm | 22.9 / 29.0 / 43.3 % | 12.0 / 12.0 / 14.5 % |
+| tip | 120 / 60 / 40 | 8.1 / 8.9 / 9.4 mm | 7.2 / 12.3 / 18.0 % | 7.3 / 7.5 / 11.0 % |
+| blend | 120 / 40 | 4.4 / 5.1 mm | 13.0 / 28.6 % | **0.2 / 1.3 %** |
+| keep | 40 | 7.7 mm | 70.2 % | 57.7 % |
+| series | 40 | 37.6 mm | 33.0 % | 38.3 % |
+
+Reading:
+- `load`, `tip` and `blend` are all on the Pareto front between static and dynamic fidelity. `keep` (legacy) and `series` are dominated.
+- `blend` almost exactly matches the reference oscillation frequency, so it is the most natural choice for interactive use. `load` is best for static poses (e.g. perception datasets), `tip` for contact or push tasks.
+- Timing noise: identical topologies (same budget, different policy) took 102.6 / 104.5 / 126.3 s at b120, i.e. up to 20% run-to-run variation. `figures/cost_vs_fidelity.png` uses the median wall time per budget. The cost model must use repeated, isolated runs (`cost_bench.py`).
+
 ## Next steps (resume here)
 
-1. Try a `tip` compliance policy (`w = (d_J/d_U)²`) and a load/tip blend; re-run `fidelity_bench.py` and `push_bench.py`, then regenerate the figures (`make_figures.py`).
+1. Choose the default `--merge-stiffness-policy` (currently `load`; `blend` recommended for interactive use) and the default `--optimizer-techniques` (still `lock`).
 2. Interactive GUI benchmark (`interactive_bench.py`, plan step 3): 60 Hz with RTX rendering, idle and with a scripted drag. The headless 480 Hz numbers above are not the interactive frame time.
-3. Cost model fit (`analyze.py`) on more points: days 50/80/160, budgets 40–206, solver iterations 8/16/32/64, CPU-PGS vs GPU-TGS.
-4. Decide the default `--optimizer-techniques` (still `lock`) after (1).
-5. Update `core/optimizations/docs/RESEARCH_VALIDATION.md` (64-link claim) and the `budget_config.yaml` comment ("~250 joints") with the measured 255-link limit.
-6. After a 256+ link crash, CUDA can stay unusable for a while (`cudaErrorInitializationError`). Check with a 0.5 s probe before a batch.
+3. Cost model fit (`cost_bench.py` with N repeats in fresh processes, then `analyze.py`) on more points: days 50/80/160, budgets 40–206, solver iterations 8/16/32/64, CPU-PGS vs GPU-TGS.
+4. Update `core/optimizations/docs/RESEARCH_VALIDATION.md` (64-link claim) and the `budget_config.yaml` comment ("~250 joints") with the measured 255-link limit.
+5. After a 256+ link crash, CUDA can stay unusable for a while (`cudaErrorInitializationError`). Check with a 0.5 s probe before a batch.
