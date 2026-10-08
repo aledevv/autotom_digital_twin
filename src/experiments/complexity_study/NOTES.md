@@ -174,11 +174,45 @@ Reading:
   - A first rough model (not yet the proper fit): time is roughly linear in D6, and bodies add about 0.15 s per 1000 steps per body (14.0 s / 2.4 / 39).
 - The headless validation in `isaac_app.py` reads every body pose at every step, so its steps/s (13.7 → 32.3) include Python overhead. Use the `fidelity_bench.py` wall times or `cost_bench.py` for the cost model.
 
+## Dynamic fidelity: lateral push (2026-10-08)
+
+Tool: `push_bench.py`.
+- All stages are placed side by side in one scene and receive identical pushes.
+- They settle 3 s at 60 Hz (the interactive regime), then three probe organs get a horizontal force tangential to the stem for 0.2 s: the most cantilevered lateral tip, truss rachis tip and leaf blade.
+- The force equals the weight of the plant part downstream of the probe: 0.36 / 0.03 / 0.10 N.
+- The response is recorded for 4 s.
+- `--gui` shows the same test with an overlay (`push_overlay.py`): force vectors and labels, contact discs, a caption per plant, and a live panel with displacement and a plot. It was approved visually on 2026-10-08.
+- Data: `results/push_day160.json`. Figures: `figures/push_trajectories.png`, `figures/cost_vs_fidelity.png`.
+- Consistency checks:
+  - the reference result is identical in the 2-plant and the 7-plant scenes;
+  - the leaf probe in b120/b60 equals the reference, because leaves are only merged at b40.
+
+Peak displacement (mm) / free-response frequency (Hz):
+
+| Variant | Lateral tip | Truss tip | Leaf blade |
+|---|---|---|---|
+| reference (206 D6) | 91.7 / 2.03 | 8.6 / 1.98 | 146.1 / 3.28 |
+| b120 load | 56.6 / 2.46 | 8.2 / 2.35 | 146.1 / 3.28 |
+| b60 load | 56.8 / 2.46 | 5.5 / 2.35 | 146.1 / 3.28 |
+| b40 load | 56.8 / 2.46 | 5.5 / 2.36 | 83.5 / 3.52 |
+| b40 keep | 30.7 / 3.19 | 2.6 / 3.41 | 43.8 / 4.89 |
+| b40 series | 131.8 / 1.27 | 17.5 / 1.28 | 200.7 / 1.95 |
+| g206 (255 bodies) | 87.3 / 1.96 | 12.9 / 1.97 | 149.0 / 2.88 |
+
+Reading:
+- **Statics and dynamics disagree on the best policy.**
+  - `load` is calibrated on rest-pose gravity moments. It matches the gravity settle (3 mm) but is **too stiff for a tip push**: about 60% of the reference peak and +20% frequency.
+  - `series` is too soft: about 145% of the peak, −37% frequency.
+  - `keep` is far too stiff: about 33% of the peak.
+  - Mean dynamic peak error: load 14% (b120) → 39% (b40), series 62%, keep 69%.
+- For a point load P at the tip, joint j gives θ_j = P·d_j/K_j, so the exact single-joint equivalent is `1/K_eq = Σ (d_j/d_0)² / K_j`. A `tip` policy with `w = (d_J/d_U)²` is the natural next candidate; a blend of `load` and `tip` could cover both load cases.
+- The reference truss tip does not return to zero (≈ −5 mm residual). The 3 s settle at 60 Hz is not fully at rest before the push. Lengthen `--settle` before using residuals as a metric.
+
 ## Next steps (resume here)
 
-1. Interactive GUI benchmark (`interactive_bench.py`, plan step 3), at 60 Hz with RTX rendering, idle and with a scripted drag. The headless 480 Hz numbers above are not the interactive frame time.
-2. Cost model fit (`analyze.py`) on more points: days 50/80/160, budgets 40–206, solver iterations 8/16/32/64, CPU-PGS vs GPU-TGS.
-3. Push/impulse fidelity test (dynamic response). The gravity settle above only checks statics.
-4. Decide the default `--optimizer-techniques` (still `lock`) after a GUI review of a `full`/`load` stage.
+1. Try a `tip` compliance policy (`w = (d_J/d_U)²`) and a load/tip blend; re-run `fidelity_bench.py` and `push_bench.py`, then regenerate the figures (`make_figures.py`).
+2. Interactive GUI benchmark (`interactive_bench.py`, plan step 3): 60 Hz with RTX rendering, idle and with a scripted drag. The headless 480 Hz numbers above are not the interactive frame time.
+3. Cost model fit (`analyze.py`) on more points: days 50/80/160, budgets 40–206, solver iterations 8/16/32/64, CPU-PGS vs GPU-TGS.
+4. Decide the default `--optimizer-techniques` (still `lock`) after (1).
 5. Update `core/optimizations/docs/RESEARCH_VALIDATION.md` (64-link claim) and the `budget_config.yaml` comment ("~250 joints") with the measured 255-link limit.
 6. After a 256+ link crash, CUDA can stay unusable for a while (`cudaErrorInitializationError`). Check with a 0.5 s probe before a batch.
