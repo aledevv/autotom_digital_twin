@@ -182,6 +182,11 @@ Exporter V2.2 is organized around reusable layers:
 
 ## Running
 
+Realistic leaflets come from the `external/real_leaves` submodule, pinned to a
+tested commit. Clone with `git clone --recurse-submodules`, or run
+`git submodule update --init` in an existing checkout; without it, use
+`--leaf-shape-backend legacy`.
+
 The current PlantState V2 runner supports realistic Gaussian leaflets by default
 and I3 as an alternative, with an individual deterministic seed per leaflet:
 

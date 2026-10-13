@@ -13,6 +13,7 @@ Run with: uv run python src/exporterV2/core/optimizations/tests/visual_collision
 
 import sys
 import os
+import tempfile
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -22,6 +23,10 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 script_dir = os.path.dirname(os.path.abspath(__file__))
 optimizations_dir = os.path.join(script_dir, "../..")
 sys.path.insert(0, optimizations_dir)
+
+# Under pytest the images go to a temp folder so tracked PNGs stay untouched;
+# main() regenerates the reference images next to this script.
+image_dir = tempfile.gettempdir()
 
 from collision import (
     Vec3, CylinderGeometry,
@@ -157,7 +162,7 @@ def test_scenario_1_no_collision():
     plt.tight_layout()
     
     # Save
-    output_path = os.path.join(script_dir, 'collision_test1_no_collision.png')
+    output_path = os.path.join(image_dir, 'collision_test1_no_collision.png')
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     print(f"  ✓ Saved: {output_path}")
     print(f"    Sphere overlap: {sphere_overlap}, AABB overlap: {aabb_overlap}")
@@ -213,7 +218,7 @@ def test_scenario_2_collision():
     plt.tight_layout()
     
     # Save
-    output_path = os.path.join(script_dir, 'collision_test2_collision.png')
+    output_path = os.path.join(image_dir, 'collision_test2_collision.png')
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     print(f"  ✓ Saved: {output_path}")
     print(f"    Sphere overlap: {sphere_overlap}, AABB overlap: {aabb_overlap}")
@@ -269,7 +274,7 @@ def test_scenario_3_false_positive():
     plt.tight_layout()
     
     # Save
-    output_path = os.path.join(script_dir, 'collision_test3_false_positive.png')
+    output_path = os.path.join(image_dir, 'collision_test3_false_positive.png')
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     print(f"  ✓ Saved: {output_path}")
     print(f"    Sphere overlap: {sphere_overlap}, AABB overlap: {aabb_overlap}")
@@ -278,6 +283,8 @@ def test_scenario_3_false_positive():
 
 
 def main():
+    global image_dir
+    image_dir = script_dir
     print("=" * 70)
     print("  Visual Collision Detection Tests")
     print("=" * 70)

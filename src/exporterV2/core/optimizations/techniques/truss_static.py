@@ -252,3 +252,19 @@ class TrussStaticTechnique(OptimizationTechnique):
             errors.append("Truss optimization increased the D6 joint count")
 
         return ValidationResult(valid=not errors, errors=errors, warnings=[])
+
+
+class PedicelLockTechnique(TrussStaticTechnique):
+    """Only the pedicel stage of ``truss_static``: lock one truss per pass.
+
+    The rachis keeps its links, so no geometry is regenerated. This is the
+    variant that is safe for PlantState branches, whose links carry
+    per-organ ``link_specs``.
+    """
+
+    @property
+    def name(self) -> str:
+        return "pedicel_lock"
+
+    def _static_candidates(self, branches: List[dict]) -> List[dict]:
+        return []
