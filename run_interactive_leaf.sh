@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
-exec /usr/bin/python3 src/experiments/interactive_leaf/run.py --gui "$@"

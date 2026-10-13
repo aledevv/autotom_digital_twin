@@ -135,18 +135,30 @@ rationale, terminal leaf junctions, and module ownership.
 
 ## Repository Layout
 
+Thesis material (physics experiments in `src/experiments/`, `model_randomized/`,
+demo videos, historical notes and generated outputs) lives on the
+[`thesis-archive`](https://github.com/aledevv/autotom_digital_twin/tree/thesis-archive)
+branch. `main` keeps only the working pipeline.
+
 ```text
 .
-├── assets/                         # Demo videos and visual assets
-│   └── gallery/                    # V2.2 screenshots used in the README
-├── data/                           # GroIMP input data and preserved datasets
-├── output/                         # Generated day outputs
+├── assets/gallery/                 # V2.2 screenshots used in the README
+├── data/
+│   ├── plant_states/               # plant_state/1.0 JSON input (one file per day)
+│   ├── simulation_output/          # GroIMP CSV exports (CSV adapter and its tests)
+│   └── usd_models/                 # Generated USD (not tracked)
+├── external/real_leaves/           # Leaf-shape generator submodule
+├── model/                          # GroIMP model (RGG sources, inputs, params)
+├── tests/                          # Synthetic CSV scenarios for the CSV adapter
+├── extract_plant_states.sh         # Extract JSON plant states from a running GroIMP
 ├── run_mainV1.sh                   # Canonical static V1 + Isaac runner
 ├── run_mainV2.sh                   # Active V2.2 runner
+├── run_debugV2.sh                  # V2 debug runner (per-organ profiles)
 └── src/
     ├── exporterV1/                 # Static baseline exporter
     ├── exporterV2/                 # Active modular exporter
-    └── experiments/                # Focused validation and mechanics experiments
+    ├── groimp_bridge/              # GroIMP API client and extraction
+    └── plant_state/                # plant_state/1.0 schema and helpers
 ```
 
 Exporter V2.2 is organized around reusable layers:
