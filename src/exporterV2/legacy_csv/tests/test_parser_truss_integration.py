@@ -2,13 +2,13 @@
 test_parser_truss_integration.py - CSV parser integration tests for trunk trusses.
 
 Run with:
-    uv run python src/exporterV2/adapters/groimp_csv/tests/test_parser_truss_integration.py
+    uv run python src/exporterV2/legacy_csv/tests/test_parser_truss_integration.py
 """
 
 import sys
 from pathlib import Path
 
-src_dir = Path(__file__).resolve().parents[4]
+src_dir = Path(__file__).resolve().parents[3]
 if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 

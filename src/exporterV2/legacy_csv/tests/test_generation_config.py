@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 
-SRC_DIR = Path(__file__).resolve().parents[4]
+SRC_DIR = Path(__file__).resolve().parents[3]
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
@@ -277,7 +277,7 @@ def test_parse_pipeline_reads_csv_once(monkeypatch):
 
 
 def test_standalone_loaders_read_their_own_dataframe(monkeypatch):
-    project_root = Path(__file__).resolve().parents[5]
+    project_root = Path(__file__).resolve().parents[4]
     csv_path = (
         project_root
         / "data/simulation_output/dynamic_output/graphs/graph_day_30.csv"

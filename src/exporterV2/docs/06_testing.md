@@ -1,98 +1,71 @@
 # Testing
 
-The repository now separates ordinary tests, Isaac/PhysX tests, and visual demos.
-
-## Ordinary Python Tests
-
-Run these in the project virtualenv:
+There is no CI. Run the suite by hand before merging:
 
 ```bash
-uv run pytest \
-  src/exporterV2/adapters/groimp_csv/tests \
-  src/exporterV2/core/optimizations/tests \
+uv run pytest -q \
+  src/plant_skeleton/tests \
   src/exporterV2/tests \
-  -v
+  src/exporterV2/core/optimizations/tests \
+  src/exporterV2/core/skinning/tests \
+  src/exporterV2/legacy_csv/tests \
+  src/groimp_bridge/tests \
+  tests
 ```
 
-These cover CSV parsing, single-read behavior, generation switches, truss builder output, optimizer behavior, collision geometry, and cantilever validation helpers.
+Live GroIMP tests in `src/groimp_bridge/tests` skip unless a GroIMP server is
+running.
 
-## USD and PhysX Tests
+## What the main tests cover
 
-Tests that inspect `UsdPhysics` or `PhysxSchema` should run under Isaac Sim when the regular virtualenv does not provide the required modules:
+| Test | Covers |
+| --- | --- |
+| `src/plant_skeleton/tests/test_skeleton.py` | format, JSON round trip, validation messages |
+| `tests/test_groimp_adapter.py` | adapter counts per day, leaflet sides, pedicel scaling, committed `input/skeleton.json` |
+| `tests/test_skeleton_branches.py` | chain rules, attachment, physics per kind, visual switches, poses |
+| `tests/test_config.py` | commented YAML files equal the defaults, bad values rejected, `global_scale: auto` |
+| `tests/test_exporter.py` | small plant end to end, fruit modes, scale, joint budget, CLI, day-160 regression |
+| `tests/test_joint_budget*.py` | lock and merge on the day-160 plant |
+| `tests/test_real_leaf_shapes.py` | `simple`, `real_leaves`, `real_leaves_i3` leaflets |
+| `tests/test_fruit_diagnostics.py` | physical-fruit diagnostics |
+| `legacy_csv/tests`, `core/*/tests`, root `tests/` | generic core builder, using the legacy CSV builder as a fixture |
+
+(`tests/` in the table means `src/exporterV2/tests/`.)
+
+The day-160 regression compares against
+`src/exporterV2/tests/data/groimp_day160_reference.json`, recorded from the
+previous PlantState exporter: same bodies (216), D6 (206) and fixed (10)
+joints, capsules, meshes, link poses, masses and drive gains. If a deliberate
+change alters them, regenerate the reference and say why in the commit.
+
+## USD and PhysX tests under Isaac Python
+
+Tests that need `PhysxSchema` run with Isaac Sim's Python:
 
 ```bash
-~/isaacsim/python.sh -m pytest \
-  src/exporterV2/core/usd/tests \
-  src/exporterV2/core/optimizations/tests/11_truss_static/test_truss_static_usd.py \
-  -v
+~/isaacsim/python.sh -m pytest src/exporterV2/core/usd/tests -v
 ```
 
-These validate authored scene settings, runtime iterations, FixedJoints, break force, `excludeFromArticulation`, terminal body placement, and collision filters.
+## Manual checks in Isaac Sim
+
+```bash
+./run_mainV2.sh                    # GUI: Shift+drag a branch, a leaf and a truss
+./run_mainV2.sh --headless         # 5 s physics run, prints the stability check
+```
 
 ## Performance comparison
 
-Use the same Isaac process, render cadence and physics rates for legacy/new
-comparisons:
-
 ```bash
 uv run python -m exporterV2.performance_benchmark \
-  --baseline legacy=/tmp/tree_legacy.usda \
-  --candidate candidate=/tmp/tree_candidate.usda \
+  --baseline before=/tmp/before.usda \
+  --candidate after=/tmp/after.usda \
   --physics-hz 60,120,240,480 \
-  --require-candidate-faster \
-  --output /tmp/exporter_v2_performance.json
+  --output /tmp/performance.json
 ```
 
-The generated `exporter_v2_performance_comparison/1.0` JSON includes both raw
-stage counts and measured render/PhysX throughput. Timing values naturally
-vary between runs; field order, labels and rate ordering are deterministic.
-The lightweight orchestrator starts one clean Isaac worker per rate; within
-each worker legacy and candidate are loaded sequentially in the same process.
+One clean Isaac worker runs per rate; both stages load in the same process.
 
-To compare the two PlantState leaf-joint policies without changing geometry:
+## Manual demos
 
-```bash
-./run_debugV2.sh --day 50 --organ leaves --leaf-joint-policy optimized --generate-only \
-  --output /tmp/day50_leaves_optimized.usda
-./run_debugV2.sh --day 50 --organ leaves --leaf-joint-policy distributed --generate-only \
-  --output /tmp/day50_leaves_distributed.usda
-uv run python -m exporterV2.performance_benchmark \
-  --baseline optimized=/tmp/day50_leaves_optimized.usda \
-  --candidate distributed=/tmp/day50_leaves_distributed.usda \
-  --physics-hz 60,120,240,480 \
-  --output /tmp/day50_leaf_joint_comparison.json
-```
-
-The day-50 acceptance threshold for `distributed` is 20 rendered updates/s at
-the 60 Hz interactive cadence, plus a five-second 480 Hz headless stability
-pass. Visual bending and Shift+drag remain manual GUI checks.
-
-To compare visual quality without changing physics topology:
-
-```bash
-./run_debugV2.sh --day 50 --organ leaves --visual-quality realistic --generate-only \
-  --output /tmp/day50_leaves_realistic.usda
-./run_debugV2.sh --day 50 --organ leaves --visual-quality performance --generate-only \
-  --output /tmp/day50_leaves_performance.usda
-```
-
-The manifest records the selected profile, mesh complexity and visual leaf
-mass aggregated into each physical support.
-
-## Manual Demos
-
-Manual visual assets live in `src/exporterV2/demos/` and are not part of pytest collection. They are intended for paper figures, screenshots, videos, and Isaac Sim inspection:
-
-- truss visual lab
-- primitive sphere/fixed-joint demos
-- optimization before/after visual validation
-- generated comparison USDA files
-
-## Runner Scripts
-
-Root contains only:
-
-- `run_mainV1.sh`
-- `run_mainV2.sh`
-
-Experiment-specific runners live beside their experiments, for example `src/experiments/cantilever_test/run_cantilever_test.sh` and `src/experiments/three_point_test/run_threepoint_test.sh`.
+`src/exporterV2/demos/` holds small Isaac demos (sphere, fixed joint, real leaf
+shape) outside pytest collection.

@@ -969,8 +969,8 @@ def parse_csv_to_branches(
     
     # Build paths
     script_dir = Path(__file__).parent
-    # From adapters/groimp_csv/ → adapters/ → exporterV2/ → src/ → project_root
-    project_root = script_dir.parent.parent.parent.parent
+    # From legacy_csv/ → exporterV2/ → src/ → project_root
+    project_root = script_dir.parent.parent.parent
     if csv_path is None:
         csv_path = (
             project_root

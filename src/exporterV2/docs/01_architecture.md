@@ -1,49 +1,64 @@
 # Exporter V2 Architecture
 
-Exporter V2 converts GroIMP graph exports into OpenUSD stages for Isaac Sim. Its main invariant is that physical authoring, visual authoring, and source-data adaptation remain separate.
+The exporter turns a `plant_skeleton/1.0` graph into an OpenUSD stage for
+Isaac Sim. Its main invariant: source adaptation, physics authoring and visual
+authoring stay separate. Adapters know the source, `skeleton_branches.py`
+knows the skeleton, `core/` knows nothing about either.
 
 ## Pipeline
 
-1. `adapters/groimp_csv/` reads the graph and emits generic branch definitions plus terminal-body metadata.
-2. `profiles/` and generation config decide which tomato organs are present.
-3. Optional optimization changes the physical joint budget while preserving compatible visual metadata.
-4. `core/usd/stage.py` orchestrates stage construction.
-5. Isaac Sim applies scene and articulation settings and runs the generated stage.
+1. `adapters/<source>.py` (outside the export) writes `input/skeleton.json`.
+2. `config.py` loads `config/physics.yaml` and `config/visuals.yaml`, fills
+   defaults and rejects unknown keys or bad values.
+3. `exporter.resolve_global_scale` sets `tree_config.GLOBAL_SCALE` (a number,
+   or `auto` from the thinnest radius) and copies the simulation settings into
+   `PhysicsRuntimeConfig`.
+4. `skeleton_branches.build_branch_plan` groups nodes into chains and returns
+   a `BranchPlan`: branch definitions in the generic BRANCHES format (one
+   link spec per node, physics per segment kind, visual profile, parent and
+   attach link), leaflet records and fruit records. It also computes the
+   `v2-aesthetic` pose (pedicels tilted 56° and alternating, leaflets at their
+   inclination) or keeps the skeleton frames (`canonical`).
+5. `joint_budget.py` optionally locks or merges joints to fit the PhysX
+   articulation limit.
+6. `core/usd/stage.build_stage(branch_backend="skinned",
+   skinning_visual_mode="segmented")` authors rigid links, colliders, D6
+   joints with drives, organic segmented meshes and tomato bodies.
+7. `visuals/leaves.py` and `visuals/trusses.py` add leaflets, truss material
+   and curved pedicels.
+8. `collisions.auto_filter_initial_overlaps` filters colliders overlapping at
+   rest; PhysX scene settings are applied; `audit_stage` compares authored
+   counts with the plan and the manifest is written.
 
 ## Authoring Boundaries
 
-- `core/tree_config.py` is the source of truth for current geometry, mechanics, detachment, collision-filter, material-color, and runtime defaults.
-- `core/usd/branch_chains.py` authors articulated rigid chains used by the legacy backend and by legacy truss branches in hybrid scenes.
-- `core/usd/terminal_bodies.py` owns tomato and legacy leaf terminal bodies, curved pedicel visuals, breakable attachment joints, clearance validation, and terminal collision filters.
-- `core/usd/materials.py` owns shared leaf, stem, and maturation-bucketed fruit materials under `/World/Looks`.
-- `core/skinning/` resolves vegetative physics and authors organic visuals independently from truss geometry.
-- `core/optimizations/` contains joint-budget techniques. It does not own rendering.
-
-## Backends And Visual Modes
-
-`build_stage()` supports both branch backends:
-
-- `legacy` authors all branches through rigid cylinder chains.
-- `skinned` uses the vegetative backend for stems and leaves while retaining the legacy chain authoring required by trusses.
-
-The `skinned` backend supports four visual modes without removing any physical branches:
-
-| Mode | Implementation | Runtime role |
-| --- | --- | --- |
-| `segmented` | `visual_segmented.py` | Current realtime default; one organic mesh per rigid link |
-| `skinned` | `mesh.py` | Continuous UsdSkel reference mode |
-| `static` | `visual_static.py` | Smooth world-space benchmark |
-| `rigid-single` | `visual_rigid.py` | Direct visual attachment for one-link axes |
-
-`visual_modes.py` only re-exports the non-UsdSkel authoring functions for import compatibility.
+- `core/tree_config.py`: runtime constants (global scale, runtime physics
+  settings, colours) that the core reads.
+- `core/skinning/`: vegetative rigid links (`branch_physics.py`) and organic
+  visuals (`visual_segmented.py`, `mesh.py`, `terminal_fork.py`,
+  `leaf_blade.py`).
+- `core/usd/terminal_bodies.py`: tomato spheres, breakable attachment
+  joints for physical fruits, clearance checks and terminal collision filters.
+- `core/usd/materials.py`: shared leaf, stem, truss and ripeness-bucketed
+  fruit materials under `/World/Looks`.
+- `core/optimizations/`: joint-budget techniques. It does not render.
+- `visuals/README.md` maps every mesh generator to its config switch.
 
 ## Stage Structure
 
 - `/World` is the default prim.
-- `/World/Stem` is the main articulation root.
-- `/World/Stem/Vegetative` contains vegetative collision proxies and rigid links.
-- `/World/PlantVisual` contains visual-axis roots when the selected mode requires them.
-- `/World/TerminalBodies` contains tomatoes excluded from the main articulation when detachment configuration requires it.
+- `/World/Stem` is the articulation root; it carries `autotom:skeletonSchema`,
+  `autotom:fruitMode` and `autotom:globalScale`, which `isaac_app.py` reads.
+- `/World/Stem/Vegetative` contains rigid links and collision capsules.
+  Each link records its source node in `autotom:skeletonNodeId`.
+- `/World/PlantVisual` contains visual-axis roots when the visual mode needs them.
+- `/World/TerminalBodies` contains physical tomatoes, excluded from the
+  articulation so they can detach.
 - `/World/Looks` contains shared materials.
 
-Generated prim paths, organ order, topology, joint frames, bindings, and collision relationships are compatibility surfaces. Refactors must preserve them unless a behavior change is explicitly requested.
+## Naming
+
+Branch ids follow fixed patterns because the optimizer and the terminal-fork
+code match on them: `trunk`, `Branch_<node>`, `Leaf_<base>_petiole`,
+`Leaf_<base>_rachis`, `Truss_<node>_rachis`, `Truss_<node>_pedicel_NN`.
+Keep these patterns when changing `skeleton_branches._branch_ids`.

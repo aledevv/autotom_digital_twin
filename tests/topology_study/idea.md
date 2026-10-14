@@ -92,9 +92,9 @@ metric_scale
 camera_or_reconstruction_scale_source
 Phase 2 — Stop exporter information loss
 Files to modify
-src/exporterV2/adapters/groimp_csv/parser.py
-src/exporterV2/adapters/groimp_csv/leaf_builder.py
-src/exporterV2/adapters/groimp_csv/truss_builder.py
+src/exporterV2/legacy_csv/parser.py
+src/exporterV2/legacy_csv/leaf_builder.py
+src/exporterV2/legacy_csv/truss_builder.py
 src/exporterV2/core/...
 Main-stem change
 

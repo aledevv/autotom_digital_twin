@@ -39,7 +39,7 @@ def _load_tree_config():
     except ImportError:
         import importlib.util
 
-        config_path = Path(__file__).parent.parent.parent / "core" / "tree_config.py"
+        config_path = Path(__file__).parent.parent / "core" / "tree_config.py"
         spec = importlib.util.spec_from_file_location("tree_config", config_path)
         tree_config = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(tree_config)

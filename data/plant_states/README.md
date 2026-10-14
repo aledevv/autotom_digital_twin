@@ -1,11 +1,18 @@
-# Canonical PlantState inputs
+# Canonical PlantState snapshots
 
-ExporterV1 resolves serverless inputs here using:
+These GroIMP `plant_state/1.0` snapshots feed the GroIMP adapter, which
+converts them into the exporter's `plant_skeleton/1.0` input:
 
-```text
-plant_state_day_N.json
-plant_state_day_N_plant_P.json  # plant IDs other than 1
+```bash
+uv run python -m exporterV2.adapters.groimp --day 160          # -> input/skeleton.json
+uv run python -m exporterV2.adapters.groimp --input data/plant_states/plant_state_day_50_plant_2.json \
+  --output input/day50_plant2.json
 ```
+
+`--day N` reads `plant_state_day_N.json`; use `--input` for other files, such
+as `plant_state_day_N_plant_P.json` for plant IDs other than 1. See
+[`src/exporterV2/adapters/README.md`](../../src/exporterV2/adapters/README.md).
+The adapter tests also read these files.
 
 Generate or refresh a snapshot explicitly with the GroIMP extractor:
 
@@ -39,5 +46,5 @@ instead of the opened project directory. The bridge therefore rewrites
 `parameters_derived.rgg` fails around its `listFiles()[0]` initialization and
 GroIMP can leave an empty, unresponsive workbench behind.
 
-Once generated, the JSON contains everything ExporterV1 needs. Neither
-`python -m exporterV1` nor `run_mainV1.sh` contacts GroIMP or falls back to CSV.
+Once generated, the JSON contains everything the adapter needs; neither the
+adapter nor the exporter contacts GroIMP.

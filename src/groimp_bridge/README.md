@@ -1,4 +1,4 @@
-# GroIMP Inspector, Turtle Resolver, Migration Validator, and Canonical Extractor
+# GroIMP Inspector, Turtle Resolver and Canonical Extractor
 
 The inspector reads the native GroIMP ProjectGraph before any USD- or
 PhysX-specific adaptation. The shared turtle resolver reconstructs full world
@@ -139,39 +139,22 @@ The day-80 case currently validates 301 nodes, 300 edges, 121 branch edges,
 and all 285 nodes carrying native GroIMP anchors are compared within an
 absolute tolerance of `1e-6` for position and head direction.
 
-## Rendered geometry and legacy comparison
+## Rendered geometry
 
-Phases C and D add an end-to-end command that uses one isolated workbench and
-writes all diagnostics to a caller-selected directory:
+`build_rendered_geometry(...)` (`geometry.py`) expands the tomato RGG
+productions into internodes, petioles, leaf rachides, petiolules, truss
+rachides, pedicels and fruit spheres. The extractor uses it to build
+`PlantState` axes.
 
-```bash
-uv run python -m groimp_bridge.migration_validation \
-  --project model/project_bridge.gsz \
-  --steps 25 \
-  --output-dir /tmp/groimp_migration_day_25
-```
-
-The directory contains the raw inspection, graph CSV, generated V1 USDA, V2
-branch configuration, GroIMP OBJ subscenes, both versioned JSON reports, a
-Markdown summary, and a line-based debug OBJ. No Isaac Sim process is used.
-
-`build_rendered_geometry(...)` expands the tomato RGG productions into
-internodes, petioles, leaf rachides, petiolules, truss rachides, pedicels, and
-fruit spheres. OBJ coordinates are converted from `(x,y,z)` to GroIMP world
-`(x,z,y)`. Because GroIMP emits triangle-local indexes and no useful object
-groups, matching uses world axis, endpoint, and radius.
-
-The live GSZ exposes `Dynamic_Model` but not the newer `exportPlantGraph`
-helper found in the source checkout. In that case the validator creates a
-same-state projection in the legacy CSV wire shape and labels it
-`same_run_native_projection_for_legacy_gsz`. This is a Phase D diagnostic, not
-the future Phase G compatibility adapter.
-
-For mature growing organs, ProjectGraph anchors can lead the rendered-scene
-cache by one update. Validation records the raw offset, then applies only that
-per-organ translation before testing local directions, lengths, endpoints,
-and radii. It never rotates or rescales the prediction. Overlapped components
-that cannot be isolated uniquely are reported as `ambiguous`.
+`geometry.py` can also match these primitives against GroIMP OBJ subscenes
+(live geometry tests). OBJ coordinates are converted from `(x,y,z)` to GroIMP
+world `(x,z,y)`. Because GroIMP emits triangle-local indexes and no useful
+object groups, matching uses world axis, endpoint and radius. For mature
+growing organs, ProjectGraph anchors can lead the rendered-scene cache by one
+update; the matcher records the raw offset and applies only that per-organ
+translation before testing directions, lengths, endpoints and radii. It never
+rotates or rescales the prediction. Overlapped components that cannot be
+isolated uniquely are reported as `ambiguous`.
 
 When live tests are not enabled, or the local GroIMP server cannot be reached,
 they skip with an explicit reason.
@@ -204,12 +187,24 @@ excludes the zero-organ `PlantBase`/sphere marker present at day 80 while
 retaining the 251-node biological subtree and its already-resolved world
 placement. See `src/plant_state/README.md` for the canonical wire contract.
 
+## Producing exporter input
+
+The exporter does not read `PlantState` directly. The GroIMP adapter converts
+a snapshot from `data/plant_states/` into the generic `plant_skeleton/1.0`
+input:
+
+```bash
+uv run python -m exporterV2.adapters.groimp --day 160            # -> input/skeleton.json
+uv run python -m exporterV2.adapters.groimp --day 50 --output input/day50.json
+./run_mainV2.sh --input input/day50.json
+```
+
+See `src/exporterV2/adapters/README.md` for the conversion rules.
+
 ## Deliberate limitations
 
 Leaf-blade surface meshes remain in the OBJ artifacts, but only their validated
 supporting axes are canonicalized. Renderer-cache offsets remain explicit and
-are not applied to `PlantState`. The temporary legacy CSV adapter was skipped
-by design. ExporterV1 is migrated and validated; ExporterV2 is supported
-through dynamic truss rachides and pedicels. Physical tomatoes on the mature
-GroIMP plant remain an explicitly guarded, unsupported experiment. The live
-in-memory GroIMP-to-Isaac connection remains future work.
+are not applied to `PlantState`. Physical tomatoes on the mature GroIMP plant
+remain an experimental, unsupported setting (`fruits.mode: physical`). The
+live in-memory GroIMP-to-Isaac connection remains future work.
