@@ -82,6 +82,8 @@ def apply_physics_config(physics: PhysicsConfig, scale: float) -> None:
     runtime.TERMINAL_BODY_SOLVER_POSITION_ITERATIONS = int(simulation["fruit_solver_position_iterations"])
     runtime.TERMINAL_BODY_SOLVER_VELOCITY_ITERATIONS = int(simulation["fruit_solver_velocity_iterations"])
     runtime.ENABLE_GPU_DYNAMICS = bool(simulation["gpu_dynamics"])
+    # The core welds the root branch when RIGID_TRUNK is set; follow the config.
+    runtime.RIGID_TRUNK = physics.segment("stem")["joint"] == "fixed"
 
 
 def _custom(prim, name: str, value_type, value) -> None:
@@ -232,6 +234,21 @@ def _merge_links(stage, plan: BranchPlan, manifest, physics: PhysicsConfig, opti
         )
 
 
+def _expected_organic_meshes(plan: BranchPlan) -> int:
+    """One mesh per link, except a visual axis welded by fixed joints gets one
+    continuous mesh (see core/skinning/visual_segmented.py)."""
+
+    axes: dict[str, list[dict]] = {}
+    for branch in plan.branches:
+        axes.setdefault(branch.get("visual_axis_id") or branch["id"], []).append(branch)
+    total = 0
+    for members in axes.values():
+        links = sum(branch["n_links"] for branch in members)
+        rigid = all(branch["joint_type"] == "fixed" for branch in members)
+        total += 1 if rigid else links
+    return total
+
+
 def audit_stage(stage, skeleton, plan: BranchPlan, scale: float, leaf_visuals, truss_visuals, filters) -> dict[str, Any]:
     """Count what was authored and check every rigid link sits where the skeleton says."""
 
@@ -256,8 +273,13 @@ def audit_stage(stage, skeleton, plan: BranchPlan, scale: float, leaf_visuals, t
     expected = {
         "rigid_bodies": len(specs) + physical_fruits,
         # Before link merging (joints.optimize: full merges after this audit).
-        "d6_joints": sum(branch["n_links"] for branch in plan.branches if branch["joint_type"] != "fixed"),
-        "organic_meshes": len(specs),
+        # The root link is anchored to the world, so it never gets a D6.
+        "d6_joints": sum(
+            branch["n_links"] - (branch.get("parent") is None)
+            for branch in plan.branches
+            if branch["joint_type"] != "fixed"
+        ),
+        "organic_meshes": _expected_organic_meshes(plan),
         "capsule_colliders": 2 * len(specs),
         "leaflets": len(plan.rigid_leaf_visuals),
         "fruit_spheres": len(plan.terminal_bodies),

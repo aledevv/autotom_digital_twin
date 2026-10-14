@@ -51,6 +51,22 @@ def test_small_hand_written_plant(tmp_path):
     assert {"stem1", "shoot2", "pedicel3"} <= nodes
 
 
+def test_welded_stem_is_one_continuous_mesh(tmp_path):
+    result = _export(tmp_path)
+    assert result.manifest["authored"]["organic_meshes"] == 16 - 3  # 4 stem links -> 1 mesh
+    stage = Usd.Stage.Open(str(result.usd_path))
+    stem_meshes = [prim for prim in stage.Traverse() if "/trunk/" in str(prim.GetPath()) and prim.GetName().startswith("OrganicVisual_")]
+    assert [prim.GetName() for prim in stem_meshes] == ["OrganicVisual_01"]
+
+
+def test_bending_stem_keeps_one_mesh_per_link(tmp_path):
+    result = _export(tmp_path, physics={"segments": {"stem": {"joint": "d6"}}})
+    authored = result.manifest["authored"]
+    assert result.manifest["errors"] == []
+    assert authored["d6_joints"] == 12 + 3
+    assert authored["organic_meshes"] == 16
+
+
 def test_physical_fruits_become_rigid_bodies(tmp_path):
     result = _export(tmp_path, physics={"fruits": {"mode": "physical"}})
     assert result.manifest["authored"]["rigid_bodies"] == 16 + 3
@@ -101,11 +117,14 @@ def test_groimp_day_160_matches_the_old_exporter(day160):
     assert authored["fixed_joints"] == expected_counts["fixed_joints"]
     assert authored["d6_joints"] == expected_counts["d6_joints"]
     assert authored["capsule_colliders"] == expected_counts["capsule_colliders"]
-    assert authored["organic_meshes"] == expected_counts["organic_meshes"]
+    # The welded stem is now one continuous mesh instead of one per link.
+    stem_links = sum("/trunk/" in pose["body_path"] for pose in day160.manifest["poses"])
+    merged = stem_links - 1
+    assert authored["organic_meshes"] == expected_counts["organic_meshes"] - merged
     assert authored["leaf_blades"] == expected_counts["leaf_blades"]
     assert authored["petiolule_meshes"] == expected_counts["petiolule_visual_meshes"]
     assert authored["terminal_forks"] == expected_counts["terminal_fork_shoots"]
-    assert authored["total_meshes"] == expected_counts["total_meshes"]
+    assert authored["total_meshes"] == expected_counts["total_meshes"] - merged
     assert authored["truss_visuals"] == reference["truss_visuals"]
 
     poses = sorted(pose["start"] + pose["direction"] for pose in day160.manifest["poses"])

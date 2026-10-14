@@ -7,7 +7,7 @@ Physics never depends on these meshes; colliders are simple capsules built in
 
 | Part of the plant | Generator | Code | Switches in `config/visuals.yaml` |
 | --- | --- | --- | --- |
-| Stems, side shoots, petioles, leaf rachis, truss rachis, pedicels | Organic swept tube, one mesh per rigid link: taper, smooth radius changes, root flare, junction bulge | `core/skinning/visual_segmented.py` (`author_segmented_visual_axis`), shape maths in `core/skinning/mesh.py` (`_visual_radius`, `build_axis_tube_data`), defaults in `core/skinning/model.py` (`VisualProfile`) | `quality`, `stems.junction_bulge` |
+| Stems, side shoots, petioles, leaf rachis, truss rachis, pedicels | Organic swept tube, one mesh per rigid link (a branch welded by fixed joints, such as the default stem, gets one continuous mesh): taper, smooth radius changes, root flare, junction bulge | `core/skinning/visual_segmented.py` (`author_segmented_visual_axis`), shape maths in `core/skinning/mesh.py` (`_visual_radius`, `build_axis_tube_data`), defaults in `core/skinning/model.py` (`VisualProfile`) | `quality`, `stems.junction_bulge` |
 | Decorative twig at a branch tip that ends in a leaf | Small curved shoot plus a tiny leaf | `core/skinning/terminal_fork.py` (`author_terminal_visual_forks`) | `stems.terminal_forks` |
 | Leaflet stalk (petiolule) | Same organic tube as the stems | `visuals/leaves.py` (`author_leaf_visuals`) | `pose` |
 | Leaflet blade, `simple` | Procedural blade: width profile, fold, arch, gravity sag | `core/skinning/leaf_blade.py` (`author_leaf_blade`) | `leaves.generator: simple` |
