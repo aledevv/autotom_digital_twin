@@ -17,13 +17,15 @@ except ImportError:
 
 # Import the threshold and scale from tree_config
 try:
-    from ...tree_config import MIN_LINK_RADIUS_WORLD, GLOBAL_SCALE
+    from ... import tree_config
+    from ...tree_config import MIN_LINK_RADIUS_WORLD
 except ImportError:
     # Fallback if imported directly
     import sys
     import os
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-    from tree_config import MIN_LINK_RADIUS_WORLD, GLOBAL_SCALE
+    import tree_config
+    from tree_config import MIN_LINK_RADIUS_WORLD
 
 
 class ThinLinkLockTechnique(BaseLockTechnique):
@@ -57,6 +59,6 @@ class ThinLinkLockTechnique(BaseLockTechnique):
         if branch.get("physics_profile") == "truss":
             return False
 
-        radius_world = branch.get("radius", 0.0) * GLOBAL_SCALE
+        radius_world = branch.get("radius", 0.0) * tree_config.GLOBAL_SCALE
         # Also include branches clamped exactly to the minimum threshold (within epsilon tolerance)
         return radius_world <= (MIN_LINK_RADIUS_WORLD + 1e-6)

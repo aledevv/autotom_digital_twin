@@ -1,14 +1,14 @@
-"""Joint-budget optimization for PlantState BRANCHES.
+"""Joint-budget optimization for skeleton branches.
 
-PlantState links carry per-organ ``link_specs`` (geometry, mass, canonical
+skeleton links carry per-organ ``link_specs`` (geometry, mass, canonical
 ids), so techniques never move or resize a link. Two technique sets exist:
 
 * ``lock`` -- joint locking only (``thin_link_lock``, ``petiole_lock``,
   ``pedicel_lock``): D6 joints become fixed, every body is kept;
 * ``full`` -- every technique enabled in ``budget_config.yaml``, in its
-  priority order, with PlantState link merging for ``lateral_reduce``,
+  priority order, with skeleton link merging for ``lateral_reduce``,
   ``stem_collapse``, ``truss_static`` and ``leaf_branch_reduce``
-  (see ``plant_state_merge_techniques``). Merged links are absorbed into
+  (see ``joint_budget_merges``). Merged links are absorbed into
   their upstream body after the stage is built
   (``core.usd.body_merge.merge_rigid_links``).
 """
@@ -22,14 +22,14 @@ from typing import Any, Dict, List
 import yaml
 
 from .core.optimizations.optimizer import BudgetConfig, BudgetOptimizer
-from .plant_state_branches import PlantStateBranchesError, StemBranchesResult
-from .plant_state_merge_techniques import (
+from .skeleton_branches import BranchPlan, SkeletonBranchesError
+from .joint_budget_merges import (
     MAX_ARTICULATION_LINKS,
     MERGE_TECHNIQUES,
     FixedLinkMergeTechnique,
     merged_links,
-    plant_state_bodies,
-    plant_state_d6,
+    count_bodies,
+    count_d6,
 )
 
 
@@ -49,13 +49,13 @@ def _technique_ids(techniques: str | tuple[str, ...], mapping: dict) -> tuple[st
             entry["id"] for entry in mapping["techniques"] if entry.get("enabled", True)
         )
     if isinstance(techniques, str):
-        raise PlantStateBranchesError(
+        raise SkeletonBranchesError(
             f"technique set must be one of {PLANT_STATE_TECHNIQUE_SETS}, got {techniques!r}"
         )
     return tuple(techniques)
 
 
-def plant_state_budget_config(
+def budget_config(
     joint_budget: int,
     techniques: str | tuple[str, ...] = "lock",
     config_path: str | Path = _DEFAULT_CONFIG,
@@ -66,8 +66,8 @@ def plant_state_budget_config(
     ids = _technique_ids(techniques, mapping)
     unsupported = set(ids) - _SUPPORTED
     if unsupported:
-        raise PlantStateBranchesError(
-            f"PlantState optimization does not implement {sorted(unsupported)}"
+        raise SkeletonBranchesError(
+            f"Joint-budget optimization does not implement {sorted(unsupported)}"
         )
     by_id = {entry["id"]: entry for entry in mapping["techniques"]}
     selected = []
@@ -85,14 +85,14 @@ def plant_state_budget_config(
     )
 
 
-class PlantStateBudgetOptimizer(BudgetOptimizer):
-    """Budget optimizer that counts merged links and uses PlantState merges."""
+class SkeletonBudgetOptimizer(BudgetOptimizer):
+    """Budget optimizer that counts merged links and uses link merges."""
 
     def calculate_total_joints(self, branches: List[Dict]) -> int:
-        return plant_state_d6(branches)
+        return count_d6(branches)
 
     def calculate_total_rigid_bodies(self, branches: List[Dict], terminal_body_count: int = 0) -> int:
-        return plant_state_bodies(branches) + int(terminal_body_count)
+        return count_bodies(branches) + int(terminal_body_count)
 
     def calculate_lower_bound(self, branches: List[Dict]) -> int:
         """D6 joints left if every technique ran to completion."""
@@ -120,35 +120,31 @@ class PlantStateBudgetOptimizer(BudgetOptimizer):
         return super()._get_technique(technique_config)
 
 
-def optimize_plant_state_branches(
-    result: StemBranchesResult,
+def optimize_branches(
+    result: BranchPlan,
     joint_budget: int,
     *,
     techniques: str | tuple[str, ...] = "lock",
-) -> tuple[StemBranchesResult, dict[str, Any]]:
+) -> tuple[BranchPlan, dict[str, Any]]:
     """Lock and/or merge links until the D6 count fits ``joint_budget``.
 
     Returns the new result and a JSON-serializable report. Raises
-    ``PlantStateBranchesError`` when the selected techniques cannot meet the
+    ``SkeletonBranchesError`` when the selected techniques cannot meet the
     budget.
     """
 
     if joint_budget < 1:
-        raise PlantStateBranchesError("joint_budget must be positive")
-    if any(branch.get("standard_truss") for branch in result.branches):
-        raise PlantStateBranchesError(
-            "joint-budget optimization is not supported with the standard truss"
-        )
-    config = plant_state_budget_config(joint_budget, techniques)
+        raise SkeletonBranchesError("joint_budget must be positive")
+    config = budget_config(joint_budget, techniques)
     enabled = [entry["id"] for entry in config.techniques]
-    optimizer = PlantStateBudgetOptimizer(config=config)
+    optimizer = SkeletonBudgetOptimizer(config=config)
     terminal_bodies = sum(body.get("physical", True) for body in result.terminal_bodies)
     optimized, report = optimizer.optimize(
         [dict(branch) for branch in result.branches],
         terminal_body_count=terminal_bodies,
     )
     if not report.success:
-        raise PlantStateBranchesError(
+        raise SkeletonBranchesError(
             f"joint budget {joint_budget} is not reachable with "
             f"{', '.join(enabled)}: {report.error_message}"
         )
@@ -172,17 +168,17 @@ def optimize_plant_state_branches(
     if merging:
         fixed_merge = FixedLinkMergeTechnique()
         while (
-            plant_state_bodies(optimized) > MAX_ARTICULATION_LINKS
+            count_bodies(optimized) > MAX_ARTICULATION_LINKS
             and fixed_merge.can_apply(optimized)
         ):
             optimized, _ = fixed_merge.apply(optimized)
             link_limit_merges += 1
-    final_bodies = plant_state_bodies(optimized)
+    final_bodies = count_bodies(optimized)
     if final_bodies > MAX_ARTICULATION_LINKS:
         hint = (
-            "" if merging else "; --optimizer-techniques full can merge fixed links"
+            "" if merging else "; set joints.optimize: full in config/physics.yaml to merge fixed links"
         )
-        raise PlantStateBranchesError(
+        raise SkeletonBranchesError(
             f"optimized plant has {final_bodies} articulation links, above the "
             f"PhysX limit of {MAX_ARTICULATION_LINKS}{hint}"
         )

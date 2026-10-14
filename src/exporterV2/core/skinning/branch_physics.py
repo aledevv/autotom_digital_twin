@@ -124,9 +124,14 @@ def author_rigid_links(stage, branch: BranchData) -> None:
             "autotom:colliderRadius", Sdf.ValueTypeNames.Double, custom=True
         ).Set(float(collider_radius))
         if metadata:
-            prim.CreateAttribute(
-                "autotom:groimpNodeId", Sdf.ValueTypeNames.Int64, custom=True
-            ).Set(int(metadata["groimp_node_id"]))
+            if metadata.get("groimp_node_id") is not None:
+                prim.CreateAttribute(
+                    "autotom:groimpNodeId", Sdf.ValueTypeNames.Int64, custom=True
+                ).Set(int(metadata["groimp_node_id"]))
+            if metadata.get("canonical_node_id") is not None:
+                prim.CreateAttribute(
+                    "autotom:skeletonNodeId", Sdf.ValueTypeNames.String, custom=True
+                ).Set(str(metadata["canonical_node_id"]))
             for key, attribute_name in (
                 ("canonical_organ_id", "autotom:canonicalOrganId"),
                 ("canonical_axis_id", "autotom:canonicalPrimitiveId"),

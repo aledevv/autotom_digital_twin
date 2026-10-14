@@ -1,6 +1,6 @@
-"""Link-merging optimization techniques for PlantState BRANCHES.
+"""Link-merging optimization techniques for skeleton branches.
 
-PlantState links carry exact canonical geometry, so these techniques never
+skeleton links carry exact canonical geometry, so these techniques never
 change ``n_links``, lengths or poses. They mark links in ``merged_links``
 (1-based link indices): a marked link is later absorbed into the rigid body
 upstream of it by ``core.usd.body_merge.merge_rigid_links`` and its joint is
@@ -45,7 +45,7 @@ def branch_bodies(branch: dict) -> int:
     return int(branch["n_links"]) - len(merged_links(branch))
 
 
-def plant_state_d6(branches: List[Dict]) -> int:
+def count_d6(branches: List[Dict]) -> int:
     """D6 joints after merges: one per surviving link of a non-fixed branch."""
 
     return sum(
@@ -55,7 +55,7 @@ def plant_state_d6(branches: List[Dict]) -> int:
     )
 
 
-def plant_state_bodies(branches: List[Dict]) -> int:
+def count_bodies(branches: List[Dict]) -> int:
     return sum(branch_bodies(branch) for branch in branches)
 
 
@@ -88,15 +88,15 @@ def _with_merged(branch: dict, indices) -> dict:
 
 
 def _report(name: str, before: List[Dict], after: List[Dict], **details) -> OptimizationReport:
-    joints_before, joints_after = plant_state_d6(before), plant_state_d6(after)
+    joints_before, joints_after = count_d6(before), count_d6(after)
     return OptimizationReport(
         technique_name=name,
         joints_before=joints_before,
         joints_after=joints_after,
         joints_saved=joints_before - joints_after,
         details={
-            "bodies_before": plant_state_bodies(before),
-            "bodies_after": plant_state_bodies(after),
+            "bodies_before": count_bodies(before),
+            "bodies_after": count_bodies(after),
             **details,
         },
     )
@@ -128,7 +128,7 @@ def validate_merges(original: List[Dict], modified: List[Dict]) -> ValidationRes
             errors.append(f"{branch_id}: merged link outside 1..n_links")
         if branch.get("parent") is None and 1 in indices:
             errors.append(f"{branch_id}: the world-anchored root link cannot merge")
-    if plant_state_d6(modified) > plant_state_d6(original):
+    if count_d6(modified) > count_d6(original):
         errors.append("D6 count increased")
     return ValidationResult(not errors, errors, [])
 
@@ -211,7 +211,7 @@ class StemLinkMergeTechnique(_MergeTechnique):
 
 
 class TrussRigidRachisTechnique(PedicelLockTechnique):
-    """PlantState ``truss_static``: lock one truss's pedicels per pass, then
+    """Skeleton ``truss_static``: lock one truss's pedicels per pass, then
     turn one rachis per pass into a single body with its root D6."""
 
     @property
