@@ -130,3 +130,19 @@ def test_leaflets_hang_from_their_rachis(day160):
             continue
         assert prim.GetParent().GetParent().HasAPI(UsdPhysics.RigidBodyAPI)
         assert prim.GetChild("LeafBlade").IsA(UsdGeom.Mesh)
+
+
+@pytest.mark.parametrize(
+    "visuals",
+    [
+        {"stems": {"junction_bulge": False}},
+        {"stems": {"terminal_forks": False}},
+        {"pedicels": {"gravity_curve": False}},
+        {"quality": "performance"},
+        {"pose": "canonical"},
+    ],
+)
+def test_every_visual_switch_exports(tmp_path, visuals):
+    result = _export(tmp_path, visuals=visuals)
+    assert result.manifest["errors"] == []
+    assert result.manifest["authored"]["rigid_bodies"] == 16

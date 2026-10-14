@@ -41,6 +41,7 @@ def _visual_profile(branch: dict) -> VisualProfile:
         "radial_segments",
         "axial_spacing_m",
         "radius_transition_samples",
+        "junction_bulge_amplitude",
     }
     unknown = sorted(set(raw) - allowed)
     if unknown:
@@ -53,6 +54,7 @@ def _visual_profile(branch: dict) -> VisualProfile:
         radial_segments=int(raw.get("radial_segments", 14)),
         axial_spacing_m=float(raw.get("axial_spacing_m", 0.005)),
         radius_transition_samples=int(raw.get("radius_transition_samples", 9)),
+        junction_bulge_amplitude=float(raw.get("junction_bulge_amplitude", 0.18)),
     )
     if profile.radial_segments < 6:
         raise ValueError(
