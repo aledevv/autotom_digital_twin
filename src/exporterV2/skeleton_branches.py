@@ -185,31 +185,56 @@ def _chains(graph: _Graph) -> list[list[str]]:
                 )
             chain_of[node_id] = len(chains)
             chains.append([node_id])
-    return chains
+    # Keep the order of the input file; the core resolves parents in any order.
+    return sorted(chains, key=lambda chain: graph.order[chain[0]])
 
 
 def _branch_ids(graph: _Graph, chains: list[list[str]]) -> list[str]:
-    ids = []
-    used: set[str] = set()
+    """Readable, unique USD names.
+
+    The joint-budget techniques (core/optimizations) recognise trusses by
+    name: a truss is ``<base>_rachis`` and its pedicels ``<base>_pedicel_NN``.
+    core/skinning only adds terminal forks to ids containing ``petiole``.
+    """
+
+    nodes = graph.nodes
+    owner = {node_id: index for index, chain in enumerate(chains) for node_id in chain}
+    bases: list[str] = []
     for chain in chains:
-        first = graph.nodes[chain[0]]
+        first = nodes[chain[0]]
         name = _safe(first.id)
-        prefix = {
-            "branch": "Branch_",
-            "petiole": "Leaf_",
-            "leaf_rachis": "Leaf_",
-            "truss_rachis": "Truss_",
-            "pedicel": "Pedicel_",
-        }
-        base = "trunk" if first.kind == "stem" else prefix[first.kind] + name
-        # core/skinning only adds terminal forks to ids containing "petiole".
-        if first.kind == "petiole" and "petiole" not in base.lower():
-            base += "_petiole"
-        candidate, suffix = base, 2
-        while candidate in used:
-            candidate, suffix = f"{base}_{suffix}", suffix + 1
-        used.add(candidate)
-        ids.append(candidate)
+        if first.kind == "stem":
+            base = "trunk"
+        elif first.kind == "branch":
+            base = f"Branch_{name}"
+        elif first.kind == "petiole":
+            base = "Leaf_" + name.removesuffix("_petiole")
+        elif first.kind == "leaf_rachis" and nodes[first.parent].kind == "petiole":
+            base = bases[owner[first.parent]]
+        elif first.kind == "leaf_rachis":
+            base = f"Leaf_{name}"
+        elif first.kind == "truss_rachis":
+            base = f"Truss_{name}"
+        else:
+            base = ""  # pedicels are named after their truss below
+        bases.append(base)
+
+    ids: list[str] = []
+    used: set[str] = set()
+    pedicel_count: dict[int, int] = {}
+    for index, chain in enumerate(chains):
+        first = nodes[chain[0]]
+        suffix = {"petiole": "_petiole", "leaf_rachis": "_rachis", "truss_rachis": "_rachis"}.get(first.kind, "")
+        candidate = bases[index] + suffix
+        if first.kind == "pedicel":
+            truss = owner[first.parent]
+            pedicel_count[truss] = pedicel_count.get(truss, 0) + 1
+            candidate = f"{bases[truss]}_pedicel_{pedicel_count[truss]:02d}"
+        unique, number = candidate, 2
+        while unique in used:
+            unique, number = f"{candidate}_{number}", number + 1
+        used.add(unique)
+        ids.append(unique)
     return ids
 
 
@@ -266,7 +291,7 @@ def build_branch_plan(skeleton: PlantSkeleton, physics: PhysicsConfig, visuals: 
         first = nodes[chain[0]]
         visual_axis[branch_id] = branch_id
         if first.kind == "petiole":
-            visual_axis[branch_id] = f"{branch_id}_axis"
+            visual_axis[branch_id] = branch_id.removesuffix("_petiole") + "_axis"
         if first.kind == "leaf_rachis" and nodes[first.parent].kind == "petiole":
             parent_branch = location[first.parent][0]
             siblings = [child for child in graph.children[first.parent] if nodes[child].kind == "leaf_rachis"]

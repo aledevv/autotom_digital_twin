@@ -18,7 +18,7 @@ SCRIPT_DIR = Path(__file__).parent
 ROOT_DIR = SCRIPT_DIR.parent.parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
-from exporterV2.adapters.groimp_csv import parse_csv_to_branches
+from exporterV2.legacy_csv import parse_csv_to_branches
 from exporterV2.core.optimizations import BudgetOptimizer
 from exporterV2.core.optimizations.techniques.base import count_d6_joints
 

@@ -35,6 +35,7 @@ DEFAULT_PHYSICS: dict[str, Any] = {
     "global_scale": 2.0,
     "simulation": {
         "physics_hz": 480,
+        "interactive_physics_hz": 60,
         "solver_position_iterations": 32,
         "solver_velocity_iterations": 4,
         "fruit_solver_position_iterations": 32,
@@ -99,6 +100,7 @@ _PHYSICS_CHOICES = {
     ("fruits", "mode"): ("none", "visual", "physical"),
     ("collisions", "initial_overlaps"): ("filter", "error"),
     ("simulation", "physics_hz"): (60, 120, 240, 480, 960),
+    ("simulation", "interactive_physics_hz"): (60, 120, 240, 480, 960),
 }
 _VISUALS_CHOICES = {
     ("quality",): ("realistic", "performance"),
@@ -127,6 +129,27 @@ def _merge(defaults: Mapping[str, Any], override: Mapping[str, Any], where: str)
         else:
             result[key] = value
     return result
+
+
+def _coerce_numbers(values: dict[str, Any], defaults: Mapping[str, Any], where: str) -> None:
+    """Accept numbers YAML read as text (PyYAML reads ``30e6`` as a string)."""
+
+    for key, default in defaults.items():
+        path = f"{where}.{key}"
+        value = values[key]
+        if key == "global_scale" and value == "auto":
+            continue
+        if isinstance(default, Mapping):
+            _coerce_numbers(value, default, path)
+        elif isinstance(default, (int, float)) and not isinstance(default, bool):
+            if isinstance(value, str):
+                try:
+                    value = float(value)
+                except ValueError:
+                    raise ConfigError(f"{path} must be a number, got {value!r}") from None
+                values[key] = int(value) if isinstance(default, int) and value.is_integer() else value
+            elif isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ConfigError(f"{path} must be a number, got {value!r}")
 
 
 def _check_choices(values: Mapping[str, Any], choices: Mapping[tuple, tuple], name: str) -> None:
@@ -207,8 +230,11 @@ class VisualsConfig:
         return self.values["fruits"]
 
 
-def load_physics_config(path: str | Path | None = DEFAULT_PHYSICS_PATH) -> PhysicsConfig:
-    values = _merge(DEFAULT_PHYSICS, _read(Path(path) if path else None), "")
+def physics_config_from_dict(data: Mapping[str, Any] | None = None, source: str = "dict") -> PhysicsConfig:
+    """Defaults overridden by ``data`` (same keys as config/physics.yaml)."""
+
+    values = _merge(DEFAULT_PHYSICS, data or {}, "")
+    _coerce_numbers(values, DEFAULT_PHYSICS, "physics")
     _check_choices(values, _PHYSICS_CHOICES, "physics")
     scale = values["global_scale"]
     if scale != "auto" and (isinstance(scale, bool) or not isinstance(scale, (int, float)) or scale <= 0):
@@ -218,17 +244,33 @@ def load_physics_config(path: str | Path | None = DEFAULT_PHYSICS_PATH) -> Physi
         for key, allowed in _SEGMENT_CHOICES.items():
             if segment[key] not in allowed:
                 raise ConfigError(f"physics: segments.{kind}.{key} must be one of {list(allowed)}")
-        for key in ("young_modulus", "damping_ratio", "density", "bend_limit_deg"):
+        for key in ("young_modulus", "damping_ratio", "density", "bend_limit_deg", "drive_stiffness_scale"):
             if float(segment[key]) <= 0.0:
                 raise ConfigError(f"physics: segments.{kind}.{key} must be positive")
     if values["joints"]["joint_target"] > values["joints"]["joint_max"]:
         raise ConfigError("physics: joints.joint_target cannot exceed joints.joint_max")
-    return PhysicsConfig(values, str(path) if path and Path(path).exists() else "defaults")
+    return PhysicsConfig(values, source)
 
 
-def load_visuals_config(path: str | Path | None = DEFAULT_VISUALS_PATH) -> VisualsConfig:
-    values = _merge(DEFAULT_VISUALS, _read(Path(path) if path else None), "")
+def load_physics_config(path: str | Path | None = DEFAULT_PHYSICS_PATH) -> PhysicsConfig:
+    """Read config/physics.yaml; a missing file means all defaults."""
+
+    exists = path is not None and Path(path).exists()
+    return physics_config_from_dict(_read(Path(path) if path else None), str(path) if exists else "defaults")
+
+
+def visuals_config_from_dict(data: Mapping[str, Any] | None = None, source: str = "dict") -> VisualsConfig:
+    """Defaults overridden by ``data`` (same keys as config/visuals.yaml)."""
+
+    values = _merge(DEFAULT_VISUALS, data or {}, "")
     _check_choices(values, _VISUALS_CHOICES, "visuals")
     if type(values["leaves"]["seed"]) is not int or values["leaves"]["seed"] < 0:
         raise ConfigError("visuals: leaves.seed must be a non-negative integer")
-    return VisualsConfig(values, str(path) if path and Path(path).exists() else "defaults")
+    return VisualsConfig(values, source)
+
+
+def load_visuals_config(path: str | Path | None = DEFAULT_VISUALS_PATH) -> VisualsConfig:
+    """Read config/visuals.yaml; a missing file means all defaults."""
+
+    exists = path is not None and Path(path).exists()
+    return visuals_config_from_dict(_read(Path(path) if path else None), str(path) if exists else "defaults")

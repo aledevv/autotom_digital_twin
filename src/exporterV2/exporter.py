@@ -54,7 +54,8 @@ class ExportResult:
 
     @property
     def d6_joints(self) -> int:
-        return int(self.manifest["authored"]["d6_joints"])
+        authored = self.manifest["authored"]
+        return int(authored.get("post_merge", authored)["d6_joints"])
 
 
 def manifest_path_for(path: Path) -> Path:
@@ -254,7 +255,8 @@ def audit_stage(stage, skeleton, plan: BranchPlan, scale: float, leaf_visuals, t
     physical_fruits = sum(bool(body["physical"]) for body in plan.terminal_bodies)
     expected = {
         "rigid_bodies": len(specs) + physical_fruits,
-        "d6_joints": count_d6(plan.branches),
+        # Before link merging (joints.optimize: full merges after this audit).
+        "d6_joints": sum(branch["n_links"] for branch in plan.branches if branch["joint_type"] != "fixed"),
         "organic_meshes": len(specs),
         "capsule_colliders": 2 * len(specs),
         "leaflets": len(plan.rigid_leaf_visuals),
@@ -354,6 +356,13 @@ def audit_stage(stage, skeleton, plan: BranchPlan, scale: float, leaf_visuals, t
                 for branch in plan.branches
             ],
             "attachment_map": list(plan.attachment_map),
+            "leaflets": [
+                {
+                    key: record[key]
+                    for key in ("id", "leaflet_id", "leaflet_role", "host_body_path", "root_path", "rest_frame", "length")
+                }
+                for record in leaf_visuals
+            ],
         },
         "poses": poses,
         "physics": {"body_masses": masses},

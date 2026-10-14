@@ -10,8 +10,14 @@ from pxr import Gf, Usd, UsdGeom, UsdPhysics, UsdShade
 
 from exporterV2.leaf_shapes.config import load_leaf_shape_config, PROJECT_ROOT
 from exporterV2.leaf_shapes.client import prepare_leaf_shapes, leaflet_seed
-from exporterV2.plant_state_legacy_backend import export_incremental_checkpoint
+from exporterV2.adapters.groimp import plant_state_to_skeleton
+from exporterV2.config import physics_config_from_dict, visuals_config_from_dict
+from exporterV2.exporter import export_plant
 from plant_state import load_plant_state
+
+
+def _day10():
+    return plant_state_to_skeleton(load_plant_state(PROJECT_ROOT / "data/plant_states/plant_state_day_10.json"))
 
 
 def test_config_precedence_and_errors(tmp_path):
@@ -69,16 +75,17 @@ def test_legacy_does_not_start_worker(monkeypatch):
         batch.for_leaf("missing")
 
 
-def test_missing_model_fails_without_fallback(tmp_path):
+def test_missing_model_fails_without_fallback(tmp_path, monkeypatch):
     config = load_leaf_shape_config()
     config = replace(config, generator={**config.generator, "model": str(tmp_path/"absent")})
     with pytest.raises(ValueError, match="gaussian leaf generation failed"):
         prepare_leaf_shapes([("a", "left")], plant_id=1, config=config)
-    state = load_plant_state(PROJECT_ROOT / "data/plant_states/plant_state_day_10.json")
     destination = tmp_path/"existing.usda"
     destination.write_text("preserve previous export")
+    from exporterV2.leaf_shapes import config as leaf_config
+    monkeypatch.setattr(leaf_config, "load_leaf_shape_config", lambda **_: config)
     with pytest.raises(ValueError, match="gaussian leaf generation failed"):
-        export_incremental_checkpoint(state, destination, debug_profile="leaves", leaf_shape_config=config)
+        export_plant(_day10(), destination, physics_config_from_dict(), visuals_config_from_dict())
     assert destination.read_text() == "preserve previous export"
 
 
@@ -111,15 +118,15 @@ def structural_signature(stage):
 
 @pytest.fixture(scope="module")
 def day10_exports(tmp_path_factory):
-    state = load_plant_state(PROJECT_ROOT / "data/plant_states/plant_state_day_10.json")
+    skeleton = _day10()
     folder = tmp_path_factory.mktemp("leaf-plants")
     result = {}
-    for backend in ("legacy", "gaussian", "i3"):
-        _, usd, manifest = export_incremental_checkpoint(
-            state, folder/f"{backend}.usda", debug_profile="leaves",
-            leaf_shape_config=load_leaf_shape_config(backend=backend),
+    for backend, generator in (("legacy", "simple"), ("gaussian", "real_leaves"), ("i3", "real_leaves_i3")):
+        export = export_plant(
+            skeleton, folder/f"{backend}.usda", physics_config_from_dict(),
+            visuals_config_from_dict({"leaves": {"generator": generator}}),
         )
-        result[backend] = (Usd.Stage.Open(str(usd)), json.loads(manifest.read_text()))
+        result[backend] = (Usd.Stage.Open(str(export.usd_path)), json.loads(export.manifest_path.read_text()))
     return result
 
 
@@ -139,7 +146,7 @@ def test_backends_only_change_blades(day10_exports):
 @pytest.mark.parametrize("backend", ["gaussian", "i3"])
 def test_generated_blades_attach_and_keep_material(day10_exports, backend):
     stage, manifest = day10_exports[backend]
-    for record in manifest["topology"]["rigid_leaf_visuals"]:
+    for record in manifest["topology"]["leaflets"]:
         root = stage.GetPrimAtPath(record["root_path"])
         prim = root.GetChild("LeafBlade")
         mesh = UsdGeom.Mesh(prim)
@@ -157,43 +164,3 @@ def test_generated_blades_attach_and_keep_material(day10_exports, backend):
         assert UsdShade.MaterialBindingAPI(prim).GetDirectBinding().GetMaterial()
         assert not prim.HasAPI(UsdPhysics.RigidBodyAPI) and not prim.HasAPI(UsdPhysics.CollisionAPI)
         assert prim.GetAttribute("autotom:leafletRole").Get() == record["leaflet_role"]
-
-
-@pytest.fixture(scope="module")
-def physical_leaf_case():
-    from exporterV2.plant_state_branches import build_leaf_branches
-    state = load_plant_state(PROJECT_ROOT / "data/plant_states/plant_state_day_10.json")
-    adapter = build_leaf_branches(state, physical_petiolules=True, leaf_joint_policy="optimized")
-    shapes = prepare_leaf_shapes([(r["leaflet_id"], r["leaflet_role"]) for r in adapter.rigid_leaf_visuals], plant_id=1)
-    return adapter, shapes
-
-
-@pytest.mark.parametrize("mode", ["segmented", "static", "skinned", "rigid-single"])
-def test_physical_petiolules_receive_same_blades_in_visual_modes(tmp_path, physical_leaf_case, mode):
-    from exporterV2.core.usd.stage import build_stage
-    adapter, shapes = physical_leaf_case
-    stage, _ = build_stage(str(tmp_path/f"{mode}.usda"), branches=list(adapter.branches),
-                           branch_backend="skinned", skinning_visual_mode=mode, leaf_shapes=shapes)
-    blades = [p for p in stage.Traverse() if p.GetName() == "LeafBlade"]
-    assert len(blades) == len(shapes.shapes)
-    for prim in blades:
-        identity = prim.GetAttribute("autotom:leafShapeStructuralId").Get()
-        shape = shapes.for_leaf(identity)
-        assert prim.GetAttribute("autotom:leafShapeSeed").Get() == shape["seed"]
-        assert prim.GetAttribute("autotom:leafletRole").Get() == shape["role"]
-        assert len(UsdGeom.Mesh(prim).GetPointsAttr().Get()) == 1024
-
-
-def test_direct_plant_state_exporter_uses_same_generator(tmp_path):
-    from exporterV2.plant_state_adapter import build_v2_authoring_plan
-    from exporterV2.plant_state_usd import export_plant_state_v2, audit_v2_stage
-    state = load_plant_state(PROJECT_ROOT / "data/plant_states/plant_state_day_10.json")
-    plan = build_v2_authoring_plan(state, physics_preset="locked", debug_profile="leaves")
-    path = export_plant_state_v2(plan, tmp_path/"direct.usda")
-    manifest = audit_v2_stage(plan, path)
-    assert not manifest.errors
-    assert manifest.metadata["leaf_shapes"]["config"]["backend"] == "gaussian"
-    stage = Usd.Stage.Open(str(path))
-    blades = [p for p in stage.Traverse() if p.GetName().startswith("LeafBlade")]
-    assert len(blades) == 23
-    assert all(len(UsdGeom.Mesh(p).GetPointsAttr().Get()) == 1024 for p in blades)

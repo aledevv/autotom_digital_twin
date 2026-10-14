@@ -1,381 +1,54 @@
-"""Serverless ExporterV2 command line for canonical PlantState inputs."""
+"""Command line: skeleton + configs -> USDA. Every argument has a default.
+
+    uv run python -m exporterV2            # input/skeleton.json -> output/plant.usda
+    uv run python -m exporterV2 --input other.json --output output/other.usda
+"""
 
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
 import sys
-from .leaf_shapes.config import BACKENDS, load_leaf_shape_config
 
-from plant_state import PlantStateValidationError, load_plant_state
+from plant_skeleton import SkeletonFormatError, SkeletonValidationError, load_skeleton
 
-from .plant_state_adapter import (
-    DEBUG_PROFILES,
-    JOINT_TARGET,
-    V2PlantStateError,
-    build_v2_authoring_plan,
-)
-from .plant_state_usd import (
-    DRIVE_SCALE_CHOICES,
-    V2ExportError,
-    audit_v2_stage,
-    export_plant_state_v2,
-    manifest_path_for,
-    save_v2_manifest,
-)
-from .plant_state_branches import (
-    APPENDAGE_POSE_MODES,
-    LATERAL_JOINT_POLICIES,
-    LEAF_JOINT_POLICIES,
-    POSE_MODES,
-    TRUSS_CALIBRATION_PRESETS,
-    TRUSS_DAMPING_CHOICES,
-    VISUAL_QUALITY_MODES,
-)
-from .plant_state_legacy_backend import (
-    INITIAL_OVERLAP_POLICIES,
-    INCREMENTAL_PROFILES,
-    StemCheckpointError,
-    TERMINAL_SOLVER_PRESETS,
-    TRUSS_ARMATURE_MULTIPLIERS,
-    export_incremental_checkpoint,
-)
+from .config import DEFAULT_PHYSICS_PATH, DEFAULT_VISUALS_PATH, PROJECT_ROOT, ConfigError, load_physics_config, load_visuals_config
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-
-def _positive_int(value: str) -> int:
-    result = int(value)
-    if result < 1:
-        raise argparse.ArgumentTypeError("must be a positive integer")
-    return result
+DEFAULT_INPUT_PATH = PROJECT_ROOT / "input" / "skeleton.json"
+DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "output" / "plant.usda"
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Generate an articulated ExporterV2 USDA from plant_state/1.0."
-    )
-    parser.add_argument("--day", type=_positive_int, required=True)
-    parser.add_argument("--plant-id", type=_positive_int, default=1)
-    parser.add_argument("--input", type=Path)
-    parser.add_argument("--output", type=Path)
-    parser.add_argument("--leaf-shape-backend", choices=BACKENDS, default=None)
-    parser.add_argument("--leaf-shape-seed", type=int, default=None)
-    parser.add_argument("--leaf-shape-config", type=Path, default=None)
-    parser.add_argument(
-        "--physics-preset", choices=("locked", "flexible"), default="flexible"
-    )
-    parser.add_argument(
-        "--optimize",
-        action="store_true",
-        help="Lock joints until the D6 count fits the 220 target (same as --joint-budget 220).",
-    )
-    parser.add_argument(
-        "--joint-budget",
-        type=_positive_int,
-        default=None,
-        help="Run the joint-budget optimizer until D6 joints <= N.",
-    )
-    parser.add_argument(
-        "--optimizer-techniques",
-        choices=("lock", "full"),
-        default="lock",
-        help="lock: joint locking only; full: all budget_config.yaml techniques, "
-        "including link merging.",
-    )
-    parser.add_argument(
-        "--merge-stiffness-policy",
-        choices=("load", "tip", "blend", "series", "keep"),
-        default="blend",
-        help="load: removed joints add gravity-weighted compliance upstream; "
-        "tip: tip-load-weighted; blend: mean of load and tip; series: full compliance; keep: merged parts become rigid.",
-    )
-    parser.add_argument("--allow-near-budget", action="store_true")
-    parser.add_argument(
-        "--initial-overlap-policy",
-        choices=INITIAL_OVERLAP_POLICIES,
-        default="filter",
-        help="Filter precise authored overlap pairs or fail the canonical audit.",
-    )
-    # WARNING: this restores one rigid body, collider set, and D6 joint per
-    # petiolule.  It is intentionally off because it can substantially slow
-    # down and destabilize large PlantState articulations.
-    parser.add_argument("--physical-petiolules", action="store_true")
-    parser.add_argument(
-        "--allow-over-budget",
-        action="store_true",
-        help="Unsafe diagnostic override; requires --physical-petiolules.",
-    )
-    parser.add_argument(
-        "--stiffness-scale", type=float, choices=(1.0, 2.0, 4.0), default=1.0
-    )
-    parser.add_argument(
-        "--leaf-stiffness-scale",
-        type=float,
-        choices=DRIVE_SCALE_CHOICES,
-        default=1.0,
-    )
-    parser.add_argument(
-        "--truss-stiffness-scale",
-        type=float,
-        choices=DRIVE_SCALE_CHOICES,
-        default=1.0,
-    )
-    parser.add_argument("--physics-hz", type=int, choices=(60, 480, 960), default=None)
-    parser.add_argument('--experimental-truss-preset', choices=('main-rank6-standard',))
-    parser.add_argument('--experimental-truss-fixture', choices=('full','direct','lateral'), default='full')
-    parser.add_argument(
-        "--debug-profile", choices=DEBUG_PROFILES, default="truss-supports"
-    )
-    parser.add_argument(
-        "--allow-experimental-fruit-physics",
-        action="store_true",
-        help=(
-            "Required for the unsupported full profile with physical fruits. "
-            "The stable default stops at dynamic truss supports."
-        ),
-    )
-    parser.add_argument(
-        "--pose-mode",
-        choices=POSE_MODES,
-        default="canonical",
-        help="PlantState rest pose for the conservative V2 backend.",
-    )
-    parser.add_argument(
-        "--appendage-pose-mode",
-        choices=APPENDAGE_POSE_MODES,
-        default="v2-aesthetic",
-        help="Leaflet/pedicel authored pose: historical V2 recipe or raw GroIMP.",
-    )
-    parser.add_argument(
-        "--leaf-joint-policy",
-        choices=LEAF_JOINT_POLICIES,
-        default="distributed",
-        help=(
-            "PlantState leaf supports: optimized fixes rachides to petioles; "
-            "distributed restores D6 bending along both."
-        ),
-    )
-    parser.add_argument(
-        "--lateral-joint-policy",
-        choices=LATERAL_JOINT_POLICIES,
-        default="dynamic",
-        help="PlantState laterals remain D6 or become a fixed support scaffold.",
-    )
-    parser.add_argument(
-        "--truss-calibration-preset",
-        choices=TRUSS_CALIBRATION_PRESETS,
-        default="current",
-        help="In-memory day-160 truss calibration; does not rewrite tree_config.",
-    )
-    parser.add_argument(
-        "--truss-damping-override",
-        type=float,
-        choices=TRUSS_DAMPING_CHOICES,
-        help="Override both truss damping ratios after selecting a preset.",
-    )
-    parser.add_argument(
-        "--truss-armature-multiplier",
-        type=float,
-        choices=TRUSS_ARMATURE_MULTIPLIERS,
-        default=0.0,
-        help="Fallback armature: 0, 1x or 4x each truss link local inertia.",
-    )
-    parser.add_argument(
-        "--terminal-solver-preset",
-        choices=TERMINAL_SOLVER_PRESETS,
-        default="current",
-        help="Tomato solver iterations: current (32/1) or stabilized (64/4).",
-    )
-    parser.add_argument(
-        "--visual-quality",
-        choices=VISUAL_QUALITY_MODES,
-        default="realistic",
-        help=(
-            "PlantState skinned mesh quality: realistic restores the original "
-            "V2 sampling; performance keeps the lighter diagnostic mesh."
-        ),
-    )
-    parser.add_argument("--debug-no-colliders", action="store_true")
-    parser.add_argument("--debug-no-drives", action="store_true")
-    parser.add_argument("--debug-no-articulation", action="store_true")
-    parser.add_argument(
-        "--generate-only",
-        action="store_true",
-        help="Compatibility flag; module execution is always serverless.",
-    )
+    parser = argparse.ArgumentParser(description="Build an articulated Isaac Sim USDA from a plant skeleton.")
+    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT_PATH, help="plant_skeleton/1.0 JSON (default: input/skeleton.json)")
+    parser.add_argument("--physics", type=Path, default=DEFAULT_PHYSICS_PATH, help="default: config/physics.yaml")
+    parser.add_argument("--visuals", type=Path, default=DEFAULT_VISUALS_PATH, help="default: config/visuals.yaml")
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH, help="default: output/plant.usda")
     return parser
-
-
-def generate_from_args(args: argparse.Namespace):
-    standard = getattr(args, 'experimental_truss_preset', None)
-    if standard:
-        if not args.allow_experimental_fruit_physics:
-            raise V2PlantStateError('Standard truss requires --allow-experimental-fruit-physics and --debug-profile full')
-        if args.physics_hz not in (None,60):
-            raise V2PlantStateError('Standard truss requires 60 Hz')
-        for key,expected in {'physics_preset':'flexible','debug_profile':'full','truss_calibration_preset':'current',
-                             'terminal_solver_preset':'current','truss_armature_multiplier':0.,
-                             'stiffness_scale':1.,'leaf_stiffness_scale':1.,'truss_stiffness_scale':1.,
-                             'lateral_joint_policy':'dynamic'}.items():
-            if getattr(args,key)!=expected:
-                raise V2PlantStateError(f'Standard truss conflicts with {key}')
-        if args.truss_damping_override is not None or args.optimize:
-            raise V2PlantStateError('Standard truss forbids damping overrides and optimization')
-        args.physics_hz=60
-    else:
-        if args.physics_hz is None: args.physics_hz=480
-        if args.physics_hz==60 or getattr(args,'experimental_truss_fixture','full')!='full':
-            raise V2PlantStateError('60 Hz export and standard fixtures require the experimental truss preset')
-    leaf_shape_config = load_leaf_shape_config(
-        getattr(args, "leaf_shape_config", None),
-        backend=getattr(args, "leaf_shape_backend", None),
-        seed=getattr(args, "leaf_shape_seed", None),
-    )
-    if args.allow_experimental_fruit_physics and args.debug_profile != "full":
-        raise V2PlantStateError(
-            "--allow-experimental-fruit-physics is valid only with "
-            "--debug-profile full"
-        )
-    if args.debug_profile == "full" and not args.allow_experimental_fruit_physics:
-        raise V2PlantStateError(
-            "full PlantState fruit physics is unsupported and requires "
-            "--allow-experimental-fruit-physics; use the default "
-            "truss-supports profile"
-        )
-    if args.debug_profile == "full":
-        print(
-            "[WARNING] physical PlantState fruits are experimental and "
-            "unsupported on mature plants; no stability guarantee is made",
-            file=sys.stderr,
-        )
-    source = args.input
-    if source is None:
-        suffix = "" if args.plant_id == 1 else f"_plant_{args.plant_id}"
-        source = PROJECT_ROOT / "data" / "plant_states" / (
-            f"plant_state_day_{args.day}{suffix}.json"
-        )
-    destination = args.output
-    if destination is None:
-        suffix = "" if args.plant_id == 1 else f"_plant_{args.plant_id}"
-        if args.debug_profile == "truss-supports":
-            destination = PROJECT_ROOT / "data" / "usd_models" / (
-                f"tree_v2_day_{args.day}{suffix}.usda"
-            )
-        else:
-            destination = Path("/tmp/autotom-phase-j-debug") / f"day_{args.day}" / (
-                f"tree_v2_day_{args.day}{suffix}_{args.debug_profile}.usda"
-            )
-    state = load_plant_state(source)
-    if state.metadata.plant_id != args.plant_id:
-        raise V2PlantStateError(
-            f"requested plant_id {args.plant_id}, input contains {state.metadata.plant_id}"
-        )
-    if state.metadata.simulation_time is None or int(state.metadata.simulation_time) != args.day:
-        raise V2PlantStateError(
-            f"requested day {args.day}, input metadata contains "
-            f"{state.metadata.simulation_time}"
-        )
-    if args.debug_profile in INCREMENTAL_PROFILES:
-        if args.debug_no_colliders or args.debug_no_drives or args.debug_no_articulation:
-            raise V2PlantStateError(
-                f"the conservative {args.debug_profile} checkpoint requires "
-                "colliders, joints, and articulation"
-            )
-        return (
-            state,
-            *export_incremental_checkpoint(
-                state,
-                destination,
-                leaf_shape_config=leaf_shape_config,
-                debug_profile=args.debug_profile,
-                pose_mode=args.pose_mode,
-                appendage_pose_mode=args.appendage_pose_mode,
-                physics_preset=args.physics_preset,
-                physics_hz=args.physics_hz,
-                experimental_truss_preset=standard,
-                experimental_fixture=getattr(args,'experimental_truss_fixture','full'),
-                leaf_joint_policy=args.leaf_joint_policy,
-                lateral_joint_policy=args.lateral_joint_policy,
-                truss_calibration_preset=args.truss_calibration_preset,
-                truss_damping_override=args.truss_damping_override,
-                truss_armature_multiplier=args.truss_armature_multiplier,
-                terminal_solver_preset=args.terminal_solver_preset,
-                visual_quality=args.visual_quality,
-                physical_petiolules=args.physical_petiolules,
-                initial_overlap_policy=args.initial_overlap_policy,
-                allow_near_budget=args.allow_near_budget,
-                allow_over_budget=args.allow_over_budget,
-                allow_experimental_fruit_physics=(
-                    args.allow_experimental_fruit_physics
-                ),
-                joint_budget=(
-                    args.joint_budget
-                    if args.joint_budget is not None
-                    else (JOINT_TARGET if args.optimize else None)
-                ),
-                joint_budget_techniques=args.optimizer_techniques,
-                merge_stiffness_policy=args.merge_stiffness_policy,
-            ),
-        )
-    plan = build_v2_authoring_plan(
-        state,
-        physics_preset=args.physics_preset,
-        allow_near_budget=args.allow_near_budget,
-        optimize=args.optimize,
-        debug_profile=args.debug_profile,
-        colliders_enabled=not args.debug_no_colliders,
-        drives_enabled=not args.debug_no_drives,
-        articulation_enabled=not args.debug_no_articulation,
-    )
-    usd_path = export_plant_state_v2(
-        plan,
-        destination,
-        leaf_shape_config=leaf_shape_config,
-        stiffness_scale=args.stiffness_scale,
-        leaf_stiffness_scale=args.leaf_stiffness_scale,
-        truss_stiffness_scale=args.truss_stiffness_scale,
-        physics_hz=args.physics_hz,
-    )
-    manifest = audit_v2_stage(plan, usd_path)
-    manifest_path = save_v2_manifest(manifest, manifest_path_for(usd_path))
-    if manifest.errors:
-        raise V2ExportError("; ".join(manifest.errors))
-    return state, plan, usd_path, manifest_path
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_argument_parser().parse_args(argv)
     try:
-        state, plan, usd_path, manifest_path = generate_from_args(args)
-    except (
-        FileNotFoundError,
-        PlantStateValidationError,
-        V2PlantStateError,
-        V2ExportError,
-        StemCheckpointError,
-        ValueError,
-    ) as exc:
+        from .exporter import ExportError, export_plant
+
+        skeleton = load_skeleton(args.input)
+        physics = load_physics_config(args.physics)
+        visuals = load_visuals_config(args.visuals)
+        result = export_plant(skeleton, args.output, physics, visuals)
+    except FileNotFoundError as exc:
+        print(f"[ERROR] file not found: {exc.filename}", file=sys.stderr)
+        return 1
+    except (SkeletonFormatError, SkeletonValidationError, ConfigError, ExportError, ValueError) as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)
         return 1
-    physical_links = getattr(plan, "physical_link_count", None)
-    if physical_links is None:
-        physical_links = len(plan.physical_links)
+    authored = result.manifest["authored"]
     print(
-        f"[OK] V2 PlantState stage: day={args.day}, plant_id={args.plant_id}, "
-        f"axes={len(state.axes)}, physical_links={physical_links}, "
-        f"d6={plan.predicted_d6_joints}, spheres={len(state.spheres)}, "
-        f"profile={plan.debug_profile}, pose_mode={args.pose_mode}, "
-        f"appendage_pose_mode={args.appendage_pose_mode}, "
-        f"leaf_joint_policy={args.leaf_joint_policy}, "
-        f"lateral_joint_policy={args.lateral_joint_policy}, "
-        f"truss_calibration_preset={args.truss_calibration_preset}, "
-        f"truss_armature_multiplier={args.truss_armature_multiplier}, "
-        f"terminal_solver_preset={args.terminal_solver_preset}, "
-        f"physical_petiolules={args.physical_petiolules}, "
-        f"visual_quality={args.visual_quality}"
+        f"[OK] {len(skeleton.nodes)} segments -> {authored['rigid_bodies']} rigid bodies, "
+        f"{authored['d6_joints']} D6 joints, {authored['leaflets']} leaflets, "
+        f"{authored['fruit_spheres']} fruits (scale {result.manifest['metadata']['global_scale']:g})"
     )
-    print(f"[OK] USDA: {usd_path}")
-    print(f"[OK] Manifest: {manifest_path}")
+    print(f"[OK] USDA: {result.usd_path}")
+    print(f"[OK] Manifest: {result.manifest_path}")
     return 0

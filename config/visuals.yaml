@@ -1,0 +1,31 @@
+# How the plant looks. Every key is optional; the values here are the defaults.
+# The mesh generators themselves live in src/exporterV2/visuals/ (see its README).
+
+# Mesh density of stems, petioles and stalks:
+#   realistic    dense rings, smooth organic look (default)
+#   performance  lighter meshes for big scenes or slow GPUs
+quality: realistic
+
+# Where leaflets and pedicels point:
+#   v2-aesthetic  leaflets spread left/right at their inclination, pedicels
+#                 alternate around the truss (default, looks natural)
+#   canonical     use the frames written in the skeleton as they are
+pose: v2-aesthetic
+
+stems:
+  generator: organic_segmented  # only option: the procedural organic mesh
+  junction_bulge: true          # slight swelling where internodes meet; false = plain tubes
+  terminal_forks: true          # small decorative twig + leaf where a leaf ends a branch tip
+
+leaves:
+  # real_leaves     shapes sampled from scanned tomato leaflets (default)
+  # real_leaves_i3  same generator, alternative i3 model
+  # simple          procedural blade, no extra dependencies
+  generator: real_leaves
+  seed: 42                      # change it for different leaflet shapes
+
+pedicels:
+  gravity_curve: true           # pedicels bend down like real ones; false = straight
+
+fruits:
+  generator: sphere             # only option for now: a sphere coloured by ripeness
