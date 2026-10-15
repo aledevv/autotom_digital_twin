@@ -1,6 +1,6 @@
-"""Thesis scene: day-160 tomato with the five original main-stem trusses.
+"""Main scene: day-160 tomato with the five original main-stem trusses.
 
-This is the look used in the thesis (photo with small tomatoes and calyces).
+Small tomatoes with calyces, slender pedicels, continuous stem.
 It is rebuilt from the exporter in four steps:
 
 1. export the day-160 PlantState with the ``main-rank6-standard`` scaffold
@@ -19,8 +19,8 @@ drives and colliders are the tested ones. Ported from the thesis experiments
 graft_original_trusses, slender_truss_visuals, natural_truss_visuals}.py``
 on branch ``thesis-archive``.
 
-Usage: ``uv run python -m exporterV2.thesis_scene [--output DIR]``, or
-``./run_thesis.sh`` to build and open it in Isaac Sim.
+Usage: ``uv run python -m exporterV2.main_scene [--output DIR]``, or
+``./run_mainV2.sh`` (no arguments) to build and open it in Isaac Sim.
 """
 
 from __future__ import annotations
@@ -330,7 +330,7 @@ def build(output: Path, plant_state: Path = DAY160) -> Path:
         expected_body_properties=expected,
     )
     (output / "config.json").write_text(json.dumps(config, indent=2) + "\n")
-    print(f"[OK] thesis scene {scene}: 5 main-stem trusses, {fruits} fruits with calyces")
+    print(f"[OK] main scene {scene}: 5 main-stem trusses, {fruits} fruits with calyces")
     return scene
 
 
@@ -357,8 +357,8 @@ def prepare_gui_run(output: Path, *, real_time: bool = True) -> Path:
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="Build the thesis day-160 scene.")
-    parser.add_argument("--output", type=Path, default=ROOT / "output" / "thesis")
+    parser = argparse.ArgumentParser(description="Build the day-160 main scene.")
+    parser.add_argument("--output", type=Path, default=ROOT / "output" / "main_scene")
     parser.add_argument("--input", type=Path, default=DAY160, help="day-160 PlantState JSON")
     parser.add_argument("--prepare-gui-run", action="store_true",
                         help="do not build; copy the built scene into a fresh run folder and print it")

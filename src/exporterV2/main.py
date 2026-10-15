@@ -7,7 +7,7 @@ Run with static config:
     ~/isaacsim/python.sh src/exporterV2/main.py
 
 Or use wrapper script:
-    ./run_mainV2.sh                 # static BRANCHES demo
+    ./run_mainV2.sh --optimize      # static BRANCHES demo (any static option, no --day)
     ./run_mainV2.sh --day 25        # canonical PlantState workflow
 """
 

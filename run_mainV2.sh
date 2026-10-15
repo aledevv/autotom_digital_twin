@@ -4,6 +4,31 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ISAACSIM_DIR="${ISAACSIM_DIR:-$HOME/isaacsim}"
 
+# Main scene: no arguments (or only --rebuild / --generate-only) builds the
+# day-160 plant with the five main-stem trusses (src/exporterV2/main_scene.py)
+# into output/main_scene/ and opens it in Isaac Sim.
+#   ./run_mainV2.sh                  build once, then open
+#   ./run_mainV2.sh --rebuild        rebuild, then open
+#   ./run_mainV2.sh --generate-only  rebuild only, no Isaac Sim
+if [[ $# -eq 0 || ( $# -eq 1 && ( "$1" == "--rebuild" || "$1" == "--generate-only" ) ) ]]; then
+  OUTPUT="$SCRIPT_DIR/output/main_scene"
+  cd "$SCRIPT_DIR"
+  if [[ $# -eq 1 || ! -f "$OUTPUT/scene.usda" ]]; then
+    uv run python -m exporterV2.main_scene --output "$OUTPUT"
+  fi
+  [[ "${1:-}" != "--generate-only" ]] || exit 0
+  ISAAC_PYTHON="$ISAACSIM_DIR/python.sh"
+  if [[ ! -x "$ISAAC_PYTHON" ]]; then
+    echo "Isaac Sim launcher not found or not executable: $ISAAC_PYTHON" >&2
+    exit 2
+  fi
+  RUN="$(uv run python -m exporterV2.main_scene --output "$OUTPUT" --prepare-gui-run | tail -n 1)"
+  HZ="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["hz"])' "$RUN/config.json")"
+  exec "$ISAAC_PYTHON" "$SCRIPT_DIR/src/exporterV2/isaac_app.py" \
+    --usd "$RUN/scene.usda" --physics-preset flexible --interactive-physics-hz "$HZ" \
+    --duration 60 --fruit-experiment "$RUN/config.json" --gui-until-close
+fi
+
 # --exporter is accepted for compatibility; the exporter is always used.
 if [[ "${1:-}" == "--exporter" ]]; then
   shift
@@ -51,10 +76,12 @@ DEBUG_NO_ARTICULATION="false"
 ALLOW_EXPERIMENTAL_FRUIT_PHYSICS="false"
 
 usage() {
-  echo "Usage: $0 [--day N] [options]"
+  echo "Usage: $0 [--rebuild|--generate-only] | [--day N] [options]"
   echo
+  echo "No arguments: build (once) and open the main scene; --rebuild forces a rebuild,"
+  echo "--generate-only rebuilds without Isaac Sim."
   echo "With --day: generate V2 from plant_state/1.0 and open it in Isaac Sim."
-  echo "Without --day: open the original static demo."
+  echo "Without --day but with static options: open the original static demo."
   echo "Other existing exporter options keep their previous behavior."
   echo
   echo "  --leaf-shape-backend MODE    gaussian (default)|i3|legacy; requires --day"

@@ -1,16 +1,16 @@
-"""The thesis scene rebuilds from the exporter plus the stored five trusses."""
+"""The main scene rebuilds from the exporter plus the stored five trusses."""
 import json
 
 import numpy as np
 import pytest
 from pxr import Usd, UsdGeom, UsdPhysics
 
-from exporterV2.thesis_scene import ASSETS, build, prepare_gui_run
+from exporterV2.main_scene import ASSETS, build, prepare_gui_run
 
 
 @pytest.fixture(scope='module')
 def built(tmp_path_factory):
-    output = tmp_path_factory.mktemp('thesis')
+    output = tmp_path_factory.mktemp('main_scene')
     scene = build(output)
     return output, Usd.Stage.Open(str(scene))
 

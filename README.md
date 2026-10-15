@@ -20,20 +20,20 @@ materials and optionally equipped with articulated PhysX dynamics. Static V1
 and the current V2 `--day` runner consume canonical `plant_state/1.0` snapshots.
 The older CSV adapter remains available for historical workflows.
 
-## Thesis Scene (start here)
+## Main Scene (start here)
 
-The scene used in the thesis: the day-160 plant with the five tested trusses on
+The default scene: the day-160 plant with the five tested trusses on
 the main stem (ranks 6-10, 40 tomatoes), small tomatoes with calyces, slender
 pedicels and a continuous stem. It runs at 60 Hz with PGS on the CPU and the
 tomatoes detach when pulled (Shift+click drag).
 
 ```bash
-./run_thesis.sh                  # build once into output/thesis/ and open Isaac Sim
-./run_thesis.sh --rebuild        # rebuild after changing the exporter, then open
-./run_thesis.sh --generate-only  # rebuild only, no Isaac Sim
+./run_mainV2.sh                  # build once into output/main_scene/ and open Isaac Sim
+./run_mainV2.sh --rebuild        # rebuild after changing the exporter, then open
+./run_mainV2.sh --generate-only  # rebuild only, no Isaac Sim
 ```
 
-How it is built (`src/exporterV2/thesis_scene.py`): the exporter writes the
+How it is built (`src/exporterV2/main_scene.py`): the exporter writes the
 plant with placeholder trusses, the placeholders are replaced by the five
 trusses stored in `assets/thesis_trusses/` (lateral trusses are removed), then
 two visual-only steps thin the pedicels and add calyces. Leaves, stems and
@@ -177,7 +177,7 @@ branch. `main` keeps only the working pipeline.
 ├── tests/                          # Synthetic CSV scenarios for the CSV adapter
 ├── extract_plant_states.sh         # Extract JSON plant states from a running GroIMP
 ├── run_mainV1.sh                   # Canonical static V1 + Isaac runner
-├── run_mainV2.sh                   # Active V2.2 runner
+├── run_mainV2.sh                   # Active V2.2 runner (no arguments: main scene)
 ├── run_debugV2.sh                  # V2 debug runner (per-organ profiles)
 └── src/
     ├── exporterV1/                 # Static baseline exporter
