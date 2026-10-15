@@ -121,7 +121,7 @@ def test_stem_stage_uses_segmented_meshes_and_explicit_frames(tmp_path, day10_st
     assert len(bodies) == 5
     assert sum(prim.GetTypeName() == "PhysicsFixedJoint" for prim in stage.Traverse()) == 5
     assert sum(prim.GetTypeName() == "PhysicsJoint" for prim in stage.Traverse()) == 0
-    assert sum(prim.IsA(UsdGeom.Mesh) for prim in stage.Traverse()) == 5
+    assert sum(prim.IsA(UsdGeom.Mesh) for prim in stage.Traverse()) == 1  # welded trunk: one mesh
     assert sum(prim.IsA(UsdGeom.Capsule) for prim in stage.Traverse()) == 10
     assert sum(prim.IsA(UsdGeom.Cylinder) for prim in stage.Traverse()) == 0
     assert bodies[0].GetName() == "trunk_Link_01_Internode_g421092"
