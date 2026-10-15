@@ -165,3 +165,25 @@ def test_every_visual_switch_exports(tmp_path, visuals):
     result = _export(tmp_path, visuals=visuals)
     assert result.manifest["errors"] == []
     assert result.manifest["authored"]["rigid_bodies"] == 16
+
+
+def test_fruit_size_and_calyx_are_visual_only(tmp_path):
+    def spheres(result):
+        stage = Usd.Stage.Open(str(result.usd_path))
+        return {
+            prim.GetParent().GetName(): (UsdGeom.Sphere(prim).GetRadiusAttr().Get(), prim.GetParent().GetChild("Calyx").IsValid())
+            for prim in stage.Traverse()
+            if prim.IsA(UsdGeom.Sphere)
+        }
+
+    physical = {"fruits": {"mode": "physical"}}
+    default = _export(tmp_path, physics=physical, name="default.usda")
+    true_size = _export(tmp_path, physics=physical, visuals={"fruits": {"size_scale": 1.0, "calyx": False}}, name="true.usda")
+    assert default.manifest["authored"]["calyces"] == 3
+    assert true_size.manifest["authored"]["calyces"] == 0
+    for name, (radius, has_calyx) in spheres(default).items():
+        full_radius, full_calyx = spheres(true_size)[name]
+        assert radius == pytest.approx(full_radius * 0.5)
+        assert has_calyx and not full_calyx
+    masses = lambda result: sorted(body["mass_kg"] for body in result.manifest["physics"]["body_masses"])
+    assert masses(default) == pytest.approx(masses(true_size))

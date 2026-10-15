@@ -14,7 +14,8 @@ Physics never depends on these meshes; colliders are simple capsules built in
 | Leaflet blade, `real_leaves` / `real_leaves_i3` | Shapes sampled from scanned tomato leaflets by the `external/real_leaves` submodule, run in a separate Python worker | `leaf_shapes/` (client, worker, `config.py`), settings in `profiles/leaf_shape.yaml` | `leaves.generator`, `leaves.seed` |
 | Truss rachis colour | Truss material on the organic mesh | `visuals/trusses.py` | none |
 | Pedicel curve | Curved "gravity elbow" tube replacing the straight pedicel mesh | `core/usd/pedicel_geometry.py` (`create_gravity_elbow_mesh`), applied by `visuals/trusses.py` | `pedicels.gravity_curve` |
-| Tomato | Sphere coloured by ripeness | `core/usd/terminal_bodies.py` (`build_terminal_bodies`) | `fruits.generator` (only `sphere`) |
+| Tomato | Sphere coloured by ripeness | `core/usd/terminal_bodies.py` (`build_terminal_bodies`) | `fruits.generator` (only `sphere`), `fruits.size_scale` (drawn size only; mass keeps the skeleton radius) |
+| Tomato calyx (decoration) | Five small sepals facing the pedicel, no collider | `visuals/fruits.py` (`author_calyces`) | `fruits.calyx` |
 | Materials | Shared PBR materials for leaves, stems, truss and 8 ripeness buckets for tomatoes | `core/usd/materials.py` | none |
 
 The orchestration (which generator runs for which part) is in

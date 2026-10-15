@@ -30,6 +30,7 @@ from .joint_budget import optimize_branches
 from .joint_budget_merges import MAX_ARTICULATION_LINKS, count_bodies, count_d6, merged_links
 from .skeleton_branches import BranchPlan, build_branch_plan
 from .visuals.leaves import author_leaf_visuals
+from .visuals.fruits import author_calyces
 from .visuals.trusses import author_truss_visuals
 
 
@@ -177,6 +178,7 @@ def export_plant(
     _author_metadata(stage, skeleton, plan, scale)
     leaf_visuals = author_leaf_visuals(stage, plan.rigid_leaf_visuals, plan.branches[0]["visual_profile"], leaf_shapes)
     truss_visuals = author_truss_visuals(stage, plan.branches)
+    calyces = author_calyces(stage) if visuals.fruits["calyx"] else []
     filters = []
     if physics.collisions["initial_overlaps"] == "filter":
         filters = auto_filter_initial_overlaps(stage)
@@ -186,6 +188,7 @@ def export_plant(
     stage.GetRootLayer().Save()
 
     manifest = audit_stage(stage, skeleton, plan, scale, leaf_visuals, truss_visuals, filters)
+    manifest["authored"]["calyces"] = len(calyces)
     manifest["metadata"].update(
         usd=str(destination),
         physics_config=physics.source,

@@ -91,6 +91,10 @@ DEFAULT_VISUALS: dict[str, Any] = {
     },
     "fruits": {
         "generator": "sphere",
+        # Visual only: GroIMP radii x global_scale look too big next to the
+        # plant, so the default draws them at half size with a calyx.
+        "size_scale": 0.5,
+        "calyx": True,
     },
 }
 
@@ -266,6 +270,16 @@ def visuals_config_from_dict(data: Mapping[str, Any] | None = None, source: str 
     _check_choices(values, _VISUALS_CHOICES, "visuals")
     if type(values["leaves"]["seed"]) is not int or values["leaves"]["seed"] < 0:
         raise ConfigError("visuals: leaves.seed must be a non-negative integer")
+    size_scale = values["fruits"]["size_scale"]
+    if isinstance(size_scale, str):
+        try:
+            size_scale = values["fruits"]["size_scale"] = float(size_scale)
+        except ValueError:
+            pass
+    if isinstance(size_scale, bool) or not isinstance(size_scale, (int, float)) or size_scale <= 0:
+        raise ConfigError(f"visuals: fruits.size_scale must be a positive number, got {size_scale!r}")
+    if not isinstance(values["fruits"]["calyx"], bool):
+        raise ConfigError("visuals: fruits.calyx must be true or false")
     return VisualsConfig(values, source)
 
 

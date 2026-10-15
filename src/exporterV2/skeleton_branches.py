@@ -375,7 +375,7 @@ def build_branch_plan(skeleton: PlantSkeleton, physics: PhysicsConfig, visuals: 
         branches.append(branch)
 
     leaf_visuals = _leaf_visuals(skeleton, graph, pose)
-    terminal_bodies = _fruit_bodies(skeleton, rest_frames, physics, location, pose)
+    terminal_bodies = _fruit_bodies(skeleton, rest_frames, physics, location, pose, float(visuals.fruits["size_scale"]))
     return BranchPlan(
         branches=tuple(branches),
         rigid_leaf_visuals=tuple(leaf_visuals),
@@ -427,7 +427,9 @@ def _leaf_visuals(skeleton: PlantSkeleton, graph: _Graph, pose: str) -> list[dic
     return records
 
 
-def _fruit_bodies(skeleton, rest_frames, physics: PhysicsConfig, location, pose: str) -> list[dict[str, Any]]:
+def _fruit_bodies(
+    skeleton, rest_frames, physics: PhysicsConfig, location, pose: str, size_scale: float = 1.0
+) -> list[dict[str, Any]]:
     fruits = physics.fruits
     mode = fruits["mode"]
     if mode == "none":
@@ -436,13 +438,15 @@ def _fruit_bodies(skeleton, rest_frames, physics: PhysicsConfig, location, pose:
     detachable = physical and bool(fruits["detachable"])
     bodies = []
     for fruit in skeleton.fruits:
-        radius = float(fruit.radius)
+        source_radius = float(fruit.radius)
+        radius = source_radius * size_scale  # visuals.fruits.size_scale is cosmetic
         body = {
             "id": f"Fruit_{_safe(fruit.id)}",
             "shape": "sphere",
             "parent_branch_id": location[fruit.node][0],
             "radius": radius,
-            "mass": (4.0 / 3.0) * math.pi * radius**3 * float(fruits["density"]),
+            # Mass always comes from the skeleton radius, not the drawn size.
+            "mass": (4.0 / 3.0) * math.pi * source_radius**3 * float(fruits["density"]),
             "maturation": float(fruit.ripeness),
             "physical": physical,
             "detachment_enabled": detachable,
