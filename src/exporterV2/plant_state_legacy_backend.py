@@ -35,7 +35,7 @@ from .core.skinning.leaf_blade import (
     LEAF_TIP_SAG_FRACTION,
     author_leaf_blade,
 )
-from .core.skinning.visual_segmented import author_segmented_visual_axis
+from .core.skinning.visual_segmented import author_segmented_visual_axis, is_rigid_axis
 from .core.tree_config import (
     GLOBAL_SCALE,
     PhysicsRuntimeConfig,
@@ -966,9 +966,17 @@ def _audit_stage(
         errors.append(f"fixed joints {len(fixed_joints)} != expected {expected_fixed}")
     if len(d6_joints) != expected_d6:
         errors.append(f"D6 joints {len(d6_joints)} != expected {expected_d6}")
-    if len(organic_meshes) != expected_support_count - standard_count:
+    # A visual axis welded by fixed joints (the rigid trunk) is one continuous
+    # mesh on its first link, see core/skinning/visual_segmented.py.
+    welded_links = sum(
+        len(axis.link_paths) - 1
+        for axis in resolved_axes
+        if len(axis.link_paths) > 1 and is_rigid_axis(axis)
+    )
+    expected_organic = expected_support_count - standard_count - welded_links
+    if len(organic_meshes) != expected_organic:
         errors.append(
-            f"organic meshes {len(organic_meshes)} != expected {expected_support_count}"
+            f"organic meshes {len(organic_meshes)} != expected {expected_organic}"
         )
     if len(capsules) != (expected_support_count - standard_count) * 2:
         errors.append(
@@ -1147,7 +1155,7 @@ def _audit_stage(
         "fixed_joints": expected_fixed,
         "d6_joints": expected_d6,
         "capsule_colliders": expected_support_count * 2,
-        "organic_meshes": expected_support_count,
+        "organic_meshes": expected_organic + standard_count,
         "visual_axes": expected_axes,
     }
     if adapter.debug_profile in {
@@ -1196,6 +1204,7 @@ def _audit_stage(
                 "petiolule_visual_meshes": expected_visual_only_petiolules,
                 "leaf_blades": len(adapter.rigid_leaf_visuals),
                 "total_meshes": expected_support_count
+                - welded_links
                 + expected_visual_only_petiolules
                 + len(adapter.rigid_leaf_visuals),
                 "terminal_forks": expected_terminal_forks,

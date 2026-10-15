@@ -20,6 +20,31 @@ materials and optionally equipped with articulated PhysX dynamics. Static V1
 and the current V2 `--day` runner consume canonical `plant_state/1.0` snapshots.
 The older CSV adapter remains available for historical workflows.
 
+## Thesis Scene (start here)
+
+The scene used in the thesis: the day-160 plant with the five tested trusses on
+the main stem (ranks 6-10, 40 tomatoes), small tomatoes with calyces, slender
+pedicels and a continuous stem. It runs at 60 Hz with PGS on the CPU and the
+tomatoes detach when pulled (Shift+click drag).
+
+```bash
+./run_thesis.sh                  # build once into output/thesis/ and open Isaac Sim
+./run_thesis.sh --rebuild        # rebuild after changing the exporter, then open
+./run_thesis.sh --generate-only  # rebuild only, no Isaac Sim
+```
+
+How it is built (`src/exporterV2/thesis_scene.py`): the exporter writes the
+plant with placeholder trusses, the placeholders are replaced by the five
+trusses stored in `assets/thesis_trusses/` (lateral trusses are removed), then
+two visual-only steps thin the pedicels and add calyces. Leaves, stems and
+everything else come from the exporter, so changes there show up after
+`--rebuild`; the truss bodies, masses and drives are the tested ones and are
+not recomputed. Side trusses are a known limitation (they sag and can drop
+fruit), which is why only main-stem trusses are kept.
+
+A simpler, plant-agnostic exporter that reads a generic plant skeleton lives on
+branch `claude/project-thread-eryl3b`.
+
 ## Visual Comparison
 
 Exporter V2 introduced articulated branch dynamics, physical trusses, rigid

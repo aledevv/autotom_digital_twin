@@ -158,7 +158,7 @@ def test_day50_flexible_leaf_support_stage_and_manifest(tmp_path, day50_state):
     assert sum(prim.GetTypeName() == "PhysicsFixedJoint" for prim in stage.Traverse()) == 10
     assert sum(prim.GetTypeName() == "PhysicsJoint" for prim in stage.Traverse()) == 71
     assert sum(prim.IsA(UsdGeom.Capsule) for prim in stage.Traverse()) == 162
-    assert sum(prim.IsA(UsdGeom.Mesh) for prim in stage.Traverse()) == 81
+    assert sum(prim.IsA(UsdGeom.Mesh) for prim in stage.Traverse()) == 72  # 10 trunk links, one mesh
     assert sum(prim.IsA(UsdGeom.Cylinder) for prim in stage.Traverse()) == 0
     assert stage.GetPrimAtPath(
         "/World/Stem/Vegetative/Leaf_r9_o0_g421489"
@@ -175,7 +175,7 @@ def test_day50_flexible_leaf_support_stage_and_manifest(tmp_path, day50_state):
         "leaf_organs": 28,
         "leaf_support_links": 55,
         "leaf_visual_axes": 27,
-        "organic_meshes": 81,
+        "organic_meshes": 72,
         "rigid_bodies": 81,
         "visual_axes": 32,
     }

@@ -151,13 +151,13 @@ def test_day50_leaves_are_visual_only_and_do_not_expand_physics(
     assert sum(prim.GetName() == "LeafBlade" for prim in stage.Traverse()) == 131
     assert sum(prim.GetName() == "TerminalForkYoungShoot" for prim in stage.Traverse()) == 4
     assert sum(prim.GetName() == "TerminalForkYoungLeaf" for prim in stage.Traverse()) == 4
-    assert sum(prim.IsA(UsdGeom.Mesh) for prim in stage.Traverse()) == 351
+    assert sum(prim.IsA(UsdGeom.Mesh) for prim in stage.Traverse()) == 342  # 10 trunk links, one mesh
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["schema_version"] == "exporter_v2_leaves_checkpoint/1.0"
     assert manifest["expected"]["rigid_leaf_visuals"] == 131
     assert manifest["expected"]["leaf_blades"] == 131
-    assert manifest["expected"]["total_meshes"] == 351
+    assert manifest["expected"]["total_meshes"] == 342
     assert manifest["expected"]["terminal_forks"] == 4
     # Every vegetative axis uses the actual historical V2 organic renderer.
     assert 85_000 < manifest["authored"]["mesh_complexity"]["all"]["triangles"] < 100_000
@@ -171,7 +171,7 @@ def test_day50_leaves_are_visual_only_and_do_not_expand_physics(
     assert manifest["metadata"]["visual_renderer"] == (
         "historical_v2_skinned_segmented"
     )
-    assert manifest["authored"]["mesh_complexity"]["organic"]["triangles"] == 50_624
+    assert manifest["authored"]["mesh_complexity"]["organic"]["triangles"] == 48_888  # welded trunk is one mesh
     assert manifest["authored"]["mesh_complexity"]["petiolules"]["triangles"] == 30_688
     assert manifest["collisions"]["active_overlaps"] == []
     assert manifest["errors"] == []

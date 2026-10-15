@@ -89,7 +89,7 @@ def test_day50_flexible_stage_counts_pose_and_collisions(tmp_path, day50_state):
     assert sum(prim.GetTypeName() == "PhysicsFixedJoint" for prim in stage.Traverse()) == 10
     assert sum(prim.GetTypeName() == "PhysicsJoint" for prim in stage.Traverse()) == 16
     assert sum(prim.IsA(UsdGeom.Capsule) for prim in stage.Traverse()) == 52
-    assert sum(prim.IsA(UsdGeom.Mesh) for prim in stage.Traverse()) == 26
+    assert sum(prim.IsA(UsdGeom.Mesh) for prim in stage.Traverse()) == 17  # 10 trunk links, one mesh
     assert sum(prim.IsA(UsdGeom.Cylinder) for prim in stage.Traverse()) == 0
     expected_path = (
         "/World/Stem/Vegetative/Branch_s2_o0_g421238/"
@@ -104,7 +104,7 @@ def test_day50_flexible_stage_counts_pose_and_collisions(tmp_path, day50_state):
         "d6_joints": 16,
         "fixed_joints": 10,
         "internodes": 26,
-        "organic_meshes": 26,
+        "organic_meshes": 17,
         "rigid_bodies": 26,
         "visual_axes": 5,
     }

@@ -52,6 +52,8 @@ Rigid link
 
 A short tapered tongue extends a parent visual into the next link to hide cracks during joint rotation. The tongue is visual-only and does not add collision shapes, rigid bodies, joints, or prim-level physics.
 
+An axis whose links are all joined by fixed joints never bends, so it gets one continuous `OrganicVisual_01` on its first link instead of one mesh per link. With the default rigid trunk (`RIGID_TRUNK`), the main stem is a single smooth mesh with no visible steps in diameter at the nodes.
+
 ## Terminal Leaf Junctions
 
 A vegetative petiole attached near the end of a structural lateral can be marked as its centered terminal continuation. The rendered host tip narrows toward the actual petiole contact radius, while the petiole root extends slightly inside the host. This keeps the junction visually closed without changing attachment physics.
