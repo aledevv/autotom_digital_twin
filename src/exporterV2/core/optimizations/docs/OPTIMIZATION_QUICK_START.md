@@ -56,7 +56,7 @@ branches, json_path = parse_csv_to_branches(day=50, optimize=True)
 
 ```bash
 # Run with optimization flag
-./run_mainV2.sh --day 50 --optimize
+./run_main.sh --day 50 --optimize
 
 # Output includes optimization report prior to USD generation
 ```

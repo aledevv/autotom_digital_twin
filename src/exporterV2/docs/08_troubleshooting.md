@@ -28,12 +28,12 @@ a line to get the default written in the file.
 
 The exporter authors and validates physics at `simulation.physics_hz`
 (default `480`), while the Isaac Sim GUI runs at
-`simulation.interactive_physics_hz` (default `60`). `./run_mainV2.sh` reads
+`simulation.interactive_physics_hz` (default `60`). `./run_main.sh` reads
 both from the manifest written next to the USDA:
 
 ```bash
-./run_mainV2.sh                          # GUI at interactive_physics_hz
-./run_mainV2.sh --headless --duration 5  # finite check at physics_hz
+./run_main.sh                          # GUI at interactive_physics_hz
+./run_main.sh --headless --duration 5  # finite check at physics_hz
 ```
 
 Interactive alternatives are `120`, `240` and `480 Hz`. Increasing the GUI
@@ -157,4 +157,4 @@ sphere-capsule and sphere-cylinder tests before adding more filters.
 ## Demo Paths
 
 Small Isaac and leaf-shape demos live under `src/exporterV2/demos/`. The only
-root runner is `run_mainV2.sh`.
+root runner is `run_main.sh`.

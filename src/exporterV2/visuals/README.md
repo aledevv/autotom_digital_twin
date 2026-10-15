@@ -34,7 +34,7 @@ The orchestration (which generator runs for which part) is in
   (`_VISUALS_CHOICES`) and branch on it where `terminal_bodies.py` authors the
   sphere (`create_sphere_rigid_body` in `core/usd/geometry.py`).
 
-After a change, run `./run_mainV2.sh --generate-only` and open
+After a change, run `./run_main.sh --generate-only` and open
 `output/plant.usda`, then the visual tests:
 
 ```bash

@@ -12,7 +12,7 @@
 - Regression test: the day-160 GroIMP scene matches the old exporter (216 bodies, 206 D6, 10 fixed joints).
 
 #### Changed
-- `./run_mainV2.sh` is the only runner and accepts only `--input`, `--output`, `--generate-only`, `--headless` and `--duration`.
+- `./run_main.sh` (formerly `run_mainV2.sh`) is the only runner and accepts only `--input`, `--output`, `--generate-only`, `--headless` and `--duration`.
 - The exporter always uses the skinned vegetative backend with segmented visuals.
 - The CSV builder moved from `adapters/groimp_csv` to `legacy_csv/` and is kept only as a fixture for core tests.
 

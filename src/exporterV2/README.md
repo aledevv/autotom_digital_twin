@@ -13,10 +13,10 @@ config/visuals.yaml ─┘
 ## Quick start
 
 ```bash
-./run_mainV2.sh                       # build output/plant.usda and open it in Isaac Sim
-./run_mainV2.sh --generate-only       # build only, no Isaac Sim
-./run_mainV2.sh --headless            # 5 s physics check without GUI
-./run_mainV2.sh --input input/examples/small_plant.json
+./run_main.sh                       # build output/plant.usda and open it in Isaac Sim
+./run_main.sh --generate-only       # build only, no Isaac Sim
+./run_main.sh --headless            # 5 s physics check without GUI
+./run_main.sh --input input/examples/small_plant.json
 ```
 
 Or without the launcher:
@@ -68,7 +68,7 @@ Every key is optional, and unknown keys are rejected so typos are caught.
    the plan; the manifest JSON records counts, poses, masses and settings.
 
 `isaac_app.py` opens the USDA in Isaac Sim with the physics rates stored in
-the stage and the interactive drag tools; `run_mainV2.sh` calls it.
+the stage and the interactive drag tools; `run_main.sh` calls it.
 
 ## Folder map
 
@@ -121,7 +121,7 @@ Key tests:
 - `tests/test_config.py`: the commented YAML files equal the built-in defaults.
 
 The Isaac Sim GUI (dragging, bending, fruit detachment) can only be checked by
-hand on a machine with Isaac Sim: `./run_mainV2.sh`.
+hand on a machine with Isaac Sim: `./run_main.sh`.
 
 ## Known limits
 

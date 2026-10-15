@@ -19,7 +19,7 @@ from exporterV2.core.optimizations.techniques.base import count_d6_joints
 
 def test_cli_workflow_no_optimize():
     """Test the workflow: parse → (no optimize) → verify."""
-    # Simulate: ./run_mainV2.sh --day 100
+    # Simulate: ./run_main.sh --day 100
     branches, _ = parse_csv_to_branches(day=100, plant_id=1)
     
     original_joints = count_d6_joints(branches)
@@ -35,7 +35,7 @@ def test_cli_workflow_no_optimize():
 
 def test_cli_workflow_with_optimize():
     """Test the workflow: parse → optimize → verify."""
-    # Simulate: ./run_mainV2.sh --day 100 --optimize
+    # Simulate: ./run_main.sh --day 100 --optimize
     branches, _ = parse_csv_to_branches(day=100, plant_id=1)
     
     original_joints = count_d6_joints(branches)

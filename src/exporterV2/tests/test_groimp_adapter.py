@@ -62,7 +62,7 @@ def test_cli_writes_the_default_input_file(tmp_path):
 
 
 def test_committed_input_is_groimp_day_160(tmp_path):
-    # input/skeleton.json is what run_mainV2.sh opens by default.
+    # input/skeleton.json is what run_main.sh opens by default.
     fresh = tmp_path / "day160.json"
     save_skeleton(skeleton_for_day(160), fresh)
     assert (PROJECT_ROOT / "input" / "skeleton.json").read_text() == fresh.read_text()

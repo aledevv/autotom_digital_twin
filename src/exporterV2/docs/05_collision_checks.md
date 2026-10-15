@@ -24,4 +24,4 @@ The skeleton is used as given; the exporter does not move branches to avoid coll
 
 ## Validation
 
-The overlap audit runs during every export in the regular `uv` environment (it only needs `pxr`). Runtime contact behavior can only be checked in Isaac Sim, for example with `./run_mainV2.sh --headless`.
+The overlap audit runs during every export in the regular `uv` environment (it only needs `pxr`). Runtime contact behavior can only be checked in Isaac Sim, for example with `./run_main.sh --headless`.

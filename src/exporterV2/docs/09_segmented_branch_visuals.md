@@ -95,8 +95,8 @@ Realtime generation uses `UsdPreviewSurface`. Optional OmniSurface presets remai
 ## Running
 
 ```bash
-./run_mainV2.sh                  # segmented visuals, settings from config/visuals.yaml
-./run_mainV2.sh --generate-only  # only write output/plant.usda
+./run_main.sh                  # segmented visuals, settings from config/visuals.yaml
+./run_main.sh --generate-only  # only write output/plant.usda
 ```
 
 The invariant across visual modes is physical equivalence: visual implementation changes must not redefine rigid bodies, joints, collision proxies, masses, detachment or filters.

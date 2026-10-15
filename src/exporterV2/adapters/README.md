@@ -6,7 +6,7 @@ exporter reads. Everything specific to a source (its ids, its quirks, its
 units) belongs in the adapter, so the exporter stays the same for every plant.
 
 ```text
-your module's output  --adapter-->  input/skeleton.json  --run_mainV2.sh-->  output/plant.usda  -->  Isaac Sim
+your module's output  --adapter-->  input/skeleton.json  --run_main.sh-->  output/plant.usda  -->  Isaac Sim
 ```
 
 If the other module can write `plant_skeleton/1.0` directly, no adapter is
@@ -20,7 +20,7 @@ needed: save the file as `input/skeleton.json`.
 ```bash
 uv run python -m exporterV2.adapters.groimp --day 160      # writes input/skeleton.json
 uv run python -m exporterV2.adapters.groimp --day 50 --output input/day50.json
-./run_mainV2.sh --input input/day50.json
+./run_main.sh --input input/day50.json
 ```
 
 What it does, in order (`plant_state_to_skeleton`):
@@ -65,8 +65,8 @@ per day, counts per kind, leaflet sides, and a check that the committed
 
 ```bash
 uv run python -m exporterV2.adapters.<source> --output input/skeleton.json
-./run_mainV2.sh --generate-only      # writes output/plant.usda and prints the counts
-./run_mainV2.sh                      # opens it in Isaac Sim
+./run_main.sh --generate-only      # writes output/plant.usda and prints the counts
+./run_main.sh                      # opens it in Isaac Sim
 ```
 
 Minimal skeleton built in Python:

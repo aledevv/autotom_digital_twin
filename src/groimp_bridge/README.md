@@ -196,7 +196,7 @@ input:
 ```bash
 uv run python -m exporterV2.adapters.groimp --day 160            # -> input/skeleton.json
 uv run python -m exporterV2.adapters.groimp --day 50 --output input/day50.json
-./run_mainV2.sh --input input/day50.json
+./run_main.sh --input input/day50.json
 ```
 
 See `src/exporterV2/adapters/README.md` for the conversion rules.

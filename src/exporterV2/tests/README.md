@@ -55,7 +55,7 @@ cd /home/alessandro/isaacsim/autotom_digital_twin
 ./src/exporterV2/tests/test_refactoring.sh
 
 # Test 2: Generate day 100 (requires Isaac Sim)
-./run_mainV2.sh --day 100
+./run_main.sh --day 100
 
 # Test 3: Collision check
 python3 src/exporterV2/tests/test_collision_geometry.py output/day_100/branches_v2_day_100.json

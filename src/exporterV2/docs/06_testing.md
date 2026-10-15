@@ -49,8 +49,8 @@ Tests that need `PhysxSchema` run with Isaac Sim's Python:
 ## Manual checks in Isaac Sim
 
 ```bash
-./run_mainV2.sh                    # GUI: Shift+drag a branch, a leaf and a truss
-./run_mainV2.sh --headless         # 5 s physics run, prints the stability check
+./run_main.sh                    # GUI: Shift+drag a branch, a leaf and a truss
+./run_main.sh --headless         # 5 s physics run, prints the stability check
 ```
 
 ## Performance comparison

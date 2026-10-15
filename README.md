@@ -19,9 +19,9 @@ the reference source and its adapter is the example to copy.
 ```bash
 git clone --recurse-submodules https://github.com/aledevv/autotom_digital_twin
 cd autotom_digital_twin
-./run_mainV2.sh                    # input/skeleton.json -> output/plant.usda -> Isaac Sim
-./run_mainV2.sh --generate-only    # only write the USDA
-./run_mainV2.sh --headless         # short physics check without the GUI
+./run_main.sh                    # input/skeleton.json -> output/plant.usda -> Isaac Sim
+./run_main.sh --generate-only    # only write the USDA
+./run_main.sh --headless         # short physics check without the GUI
 ```
 
 | File | Role |
@@ -154,7 +154,7 @@ branch. `main` keeps only the working pipeline.
 ├── model/                          # GroIMP model (RGG sources, inputs, params)
 ├── tests/                          # synthetic CSV scenarios for the legacy builder tests
 ├── extract_plant_states.sh         # extract plant states from a running GroIMP
-├── run_mainV2.sh                   # build the plant and open it in Isaac Sim
+├── run_main.sh                   # build the plant and open it in Isaac Sim
 └── src/
     ├── plant_skeleton/             # input format: model, JSON I/O, validation
     ├── exporterV2/                 # exporter, adapters, mesh generators, Isaac launcher
@@ -196,7 +196,7 @@ uv run pytest -q \
 
 `src/exporterV2/tests/test_exporter.py` locks the GroIMP day-160 plant to the
 bodies, joints, poses, masses and drive gains of the previous exporter.
-Interaction in the Isaac Sim GUI is checked by hand with `./run_mainV2.sh`.
+Interaction in the Isaac Sim GUI is checked by hand with `./run_main.sh`.
 
 ## Documentation
 

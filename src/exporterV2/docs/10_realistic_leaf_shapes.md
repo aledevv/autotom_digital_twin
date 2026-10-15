@@ -15,7 +15,7 @@ All three use the same supports, placement, materials and physics.
 From the repository root:
 
 ```bash
-./run_mainV2.sh --generate-only     # uses leaves.generator and leaves.seed
+./run_main.sh --generate-only     # uses leaves.generator and leaves.seed
 ```
 
 Set the generator and the global seed in `config/visuals.yaml`:
@@ -48,7 +48,7 @@ and the external package declares Python 3.12 support. A dedicated uv project
 under `leaf_shapes/runtime` locks Python 3.12-compatible NumPy and Triangle.
 The main command automatically prepares/reuses its environment. The first
 run needs network access to download missing dependencies/interpreter; once
-prepared, `UV_OFFLINE=1 ./run_mainV2.sh` works without package access.
+prepared, `UV_OFFLINE=1 ./run_main.sh` works without package access.
 No manual environment activation or change to Isaac's packages is needed.
 
 The worker imports the production `create_leaf_shape_generator` API directly

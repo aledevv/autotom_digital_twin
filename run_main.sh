@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Build the plant USDA and open it in Isaac Sim.
 #
-#   ./run_mainV2.sh                  input/skeleton.json -> output/plant.usda -> Isaac Sim GUI
-#   ./run_mainV2.sh --generate-only  only write the USDA (no Isaac Sim)
-#   ./run_mainV2.sh --headless       run a short physics check without the GUI
+#   ./run_main.sh                  input/skeleton.json -> output/plant.usda -> Isaac Sim GUI
+#   ./run_main.sh --generate-only  only write the USDA (no Isaac Sim)
+#   ./run_main.sh --headless       run a short physics check without the GUI
 #
 # Settings live in config/physics.yaml and config/visuals.yaml.
 # To convert a GroIMP day first: uv run python -m exporterV2.adapters.groimp --day 160

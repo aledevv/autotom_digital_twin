@@ -4,7 +4,7 @@ The input format of the Isaac Sim exporter. A plant is a **graph of straight
 segments** (nodes), plus the **leaflets** hanging from leaves and the
 **fruits** hanging from pedicels. Nothing in the format is specific to GroIMP.
 
-`run_mainV2.sh` reads `input/skeleton.json` by default. The smallest complete
+`run_main.sh` reads `input/skeleton.json` by default. The smallest complete
 example is [`input/examples/small_plant.json`](../../input/examples/small_plant.json)
 (16 segments, 6 leaflets, 3 tomatoes, written by hand).
 
