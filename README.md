@@ -200,6 +200,9 @@ Interaction in the Isaac Sim GUI is checked by hand with `./run_main.sh`.
 
 ## Documentation
 
+- [`docs/DEVELOPER_GUIDE.md`](docs/DEVELOPER_GUIDE.md): ten-minute tour for new developers (start here).
+- [`docs/AGENTS_GUIDE.md`](docs/AGENTS_GUIDE.md): code map, checks and rules for coding agents.
+- [`docs/GROIMP_BATCH_EXTRACTION.md`](docs/GROIMP_BATCH_EXTRACTION.md): extracting new plant states from GroIMP.
 - [`src/plant_skeleton/README.md`](src/plant_skeleton/README.md): input format with examples.
 - [`src/exporterV2/README.md`](src/exporterV2/README.md): pipeline, folder map, what to edit.
 - [`src/exporterV2/adapters/README.md`](src/exporterV2/adapters/README.md): writing an adapter.
