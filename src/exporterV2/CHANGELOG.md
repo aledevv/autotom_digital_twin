@@ -1,5 +1,27 @@
 # Exporter V2 Changelog
 
+## Skeleton input (2026-10-14)
+
+### Generic plant input, config files and a single runner
+
+#### Added
+- The exporter reads a generic `plant_skeleton/1.0` JSON (`src/plant_skeleton/`): segments with kind, radius and parent, leaflets and fruits. Default input is `input/skeleton.json` (GroIMP day 160).
+- GroIMP adapter as the reference example of producing that input: `uv run python -m exporterV2.adapters.groimp --day N [--output PATH]` converts a PlantState snapshot from `data/plant_states/`.
+- `config/physics.yaml` and `config/visuals.yaml` hold every setting that used to be a CLI flag (simulation rates, per-segment mechanics, joint budget and optimization, fruit mode, initial-overlap policy, visual quality, pose, stem dressing, leaf generator and seed, pedicel curve). Every key is optional and unknown keys are rejected.
+- `uv run python -m exporterV2 [--input] [--output] [--physics] [--visuals]` for direct generation; the manifest records the configs used.
+- Regression test: the day-160 GroIMP scene matches the old exporter (216 bodies, 206 D6, 10 fixed joints).
+
+#### Changed
+- `./run_main.sh` (formerly `run_mainV2.sh`) is the only runner and accepts only `--input`, `--output`, `--generate-only`, `--headless` and `--duration`.
+- The exporter always uses the skinned vegetative backend with segmented visuals.
+- The CSV builder moved from `adapters/groimp_csv` to `legacy_csv/` and is kept only as a fixture for core tests.
+
+#### Removed
+- Exporter V1, `run_mainV1.sh` and `run_debugV2.sh`.
+- The PlantState exporter path and its flags (`--day`, `--organ` debug profiles, `--leaf-joint-policy`, `--physical-petiolules`, `--allow-experimental-fruit-physics`, `--branch-backend`, `--skinning-visual-mode`, truss calibration presets).
+- `profiles/*.py` (only `profiles/leaf_shape.yaml` remains), the truss and optimization visual demos, `groimp_bridge` migration validation and comparison tools, and `src/experiments` (kept on the `thesis-archive` branch).
+- `docs/03_vs_v1.md` and `docs/04_csv_modifications.md`.
+
 ## [2.4.0] - 2026-08-14
 
 ### Repository Cleanup and Documentation

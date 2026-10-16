@@ -8,9 +8,10 @@ from pxr import Usd, UsdPhysics
 
 from exporterV2.fruit_diagnostics import attachment_errors, evaluate_tail, json_finite, motion_rates, performance_summary, unexpected_breaks
 from exporterV2.fruit_experiments import audit, prepare_stage
-from exporterV2.plant_state_branches import build_truss_branches
-from exporterV2.plant_state_legacy_backend import export_incremental_checkpoint
-from exporterV2.core.tree_config import TrussPhysicsConfig
+from exporterV2.adapters.groimp import plant_state_to_skeleton
+from exporterV2.config import physics_config_from_dict, visuals_config_from_dict
+from exporterV2.exporter import export_plant
+from exporterV2.skeleton_branches import build_branch_plan
 from plant_state import load_plant_state
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -91,23 +92,31 @@ def test_motion_rates_accept_isaac_singleton_com_tensor_without_cross_body_broad
     assert angular == pytest.approx([0, 0])
 
 
-def test_terminal_config_reaches_plant_state_adapter(monkeypatch):
-    state = load_plant_state(ROOT / "data/plant_states/plant_state_day_25.json")
-    monkeypatch.setattr(TrussPhysicsConfig, "TOMATO_DETACHMENT_BREAK_FORCE_N", 8.5)
-    monkeypatch.setattr(TrussPhysicsConfig, "TOMATO_DETACHMENT_EXCLUDE_FROM_ARTICULATION", False)
-    result = build_truss_branches(state, include_fruits=True, physical_fruits=True)
-    assert result.terminal_bodies
-    assert all(b["break_force"] == 8.5 and not b["exclude_from_articulation"] for b in result.terminal_bodies)
-    monkeypatch.setattr(TrussPhysicsConfig, "TOMATO_DETACHMENT_ENABLED", False)
-    result = build_truss_branches(state, include_fruits=True, physical_fruits=True)
-    assert all(b["break_force"] is None and not b["detachment_enabled"] for b in result.terminal_bodies)
+def _skeleton(day):
+    return plant_state_to_skeleton(load_plant_state(ROOT / f"data/plant_states/plant_state_day_{day}.json"))
+
+
+def test_fruit_config_reaches_terminal_bodies():
+    skeleton = _skeleton(25)
+    visuals = visuals_config_from_dict()
+    physics = physics_config_from_dict({"fruits": {"mode": "physical", "break_force_n": 8.5}})
+    bodies = build_branch_plan(skeleton, physics, visuals).terminal_bodies
+    assert bodies
+    assert all(b["break_force"] == 8.5 and b["exclude_from_articulation"] for b in bodies)
+    physics = physics_config_from_dict({"fruits": {"mode": "physical", "detachable": False}})
+    bodies = build_branch_plan(skeleton, physics, visuals).terminal_bodies
+    assert all(b["break_force"] is None and not b["detachment_enabled"] for b in bodies)
 
 
 @pytest.fixture(scope="module")
 def source(tmp_path_factory):
     path = tmp_path_factory.mktemp("fruit-source") / "source.usda"
-    state = load_plant_state(ROOT / "data/plant_states/plant_state_day_50.json")
-    export_incremental_checkpoint(state, path, debug_profile="full", physics_preset="flexible", allow_experimental_fruit_physics=True)
+    export_plant(
+        _skeleton(50),
+        path,
+        physics_config_from_dict({"fruits": {"mode": "physical"}}),
+        visuals_config_from_dict({"leaves": {"generator": "simple"}}),
+    )
     return path
 
 

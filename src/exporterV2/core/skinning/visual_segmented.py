@@ -187,8 +187,16 @@ def _append_centered_host_dome(
 
 
 def _build_segmented_link_mesh(
-    axis: VisualAxisData, link_index: int, *, terminal_tip_scale: float = 1.0
+    axis: VisualAxisData,
+    link_index: int,
+    *,
+    terminal_tip_scale: float = 1.0,
+    last_link_index: int = None,
 ):
+    """Mesh for one link, or for links ``link_index..last_link_index`` as one
+    continuous tube expressed in the frame of ``link_index``."""
+    if last_link_index is None:
+        last_link_index = link_index
     radial_segments = axis.profile.radial_segments
     if radial_segments < 3:
         raise ValueError(
@@ -200,12 +208,15 @@ def _build_segmented_link_mesh(
         )
 
     core_start = axis.bone_starts[link_index]
-    core_end = min(axis.total_length, core_start + axis.bone_lengths[link_index])
+    core_end = min(
+        axis.total_length,
+        axis.bone_starts[last_link_index] + axis.bone_lengths[last_link_index],
+    )
     root_overlap = _centered_fork_root_overlap(axis, link_index)
     visual_start = core_start - root_overlap
-    overlap = _segment_overlap(axis, link_index)
+    overlap = _segment_overlap(axis, last_link_index)
     tongue_end = min(axis.total_length, core_end + overlap)
-    taper_start = _terminal_taper_start(axis, link_index, terminal_tip_scale)
+    taper_start = _terminal_taper_start(axis, last_link_index, terminal_tip_scale)
     arcs = _segment_sample_arcs(
         axis,
         visual_start,
@@ -242,7 +253,7 @@ def _build_segmented_link_mesh(
 
     _append_centered_host_dome(
         axis,
-        link_index,
+        last_link_index,
         core_end,
         radial_segments,
         world_to_link,
@@ -253,13 +264,40 @@ def _build_segmented_link_mesh(
     return points, face_counts, face_indices, overlap
 
 
+def is_rigid_axis(axis: VisualAxisData) -> bool:
+    """True when every link of the axis is welded to the next (fixed joints)."""
+    return all(member.locked_joints for member in axis.members)
+
+
 def author_segmented_visual_axis(
     stage, axis: VisualAxisData, *, terminal_tip_scale: float = 1.0
 ) -> dict:
-    """Author one organic rigid mesh per PhysX link, with no UsdSkel."""
+    """Author one organic rigid mesh per PhysX link, with no UsdSkel.
+
+    An axis whose links are all joined by fixed joints never bends, so it gets
+    a single continuous mesh on its first link instead (no seams at nodes).
+    """
     segment_count = 0
     tongue_count = 0
     material = get_or_create_tomato_stem_material(stage)
+
+    if len(axis.link_paths) > 1 and is_rigid_axis(axis):
+        points, face_counts, face_indices, _ = _build_segmented_link_mesh(
+            axis,
+            0,
+            terminal_tip_scale=terminal_tip_scale,
+            last_link_index=len(axis.link_paths) - 1,
+        )
+        author_plain_mesh(
+            stage,
+            f"{axis.link_paths[0]}/OrganicVisual_01",
+            points,
+            face_counts,
+            face_indices,
+            _axis_color(axis),
+            material=material,
+        )
+        return {"segments": 1, "tongues": 0}
 
     for link_index, link_path in enumerate(axis.link_paths):
         points, face_counts, face_indices, overlap = _build_segmented_link_mesh(

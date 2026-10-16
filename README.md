@@ -6,39 +6,51 @@
 [![Isaac Sim](https://img.shields.io/badge/Isaac%20Sim-PhysX-nvidia.svg)](https://developer.nvidia.com/isaac-sim)
 [![Dependency Manager](https://img.shields.io/badge/dependency_manager-uv-purple.svg)](https://github.com/astral-sh/uv)
 
-AutoTom Digital Twin converts GroIMP dwarf-tomato growth simulations into
-OpenUSD scenes for inspection and physics simulation in NVIDIA Isaac Sim. The
-repository contains two exporter generations: V1 is retained as a static visual
-baseline, while **Exporter V2.2** is the active physics-oriented and
-appearance-oriented pipeline used for current experiments, videos, and final
-reporting.
+AutoTom Digital Twin turns a tomato plant skeleton into an articulated
+OpenUSD plant for NVIDIA Isaac Sim: rigid links joined by bending joints,
+organic stems, leaflets and tomatoes that can be pushed and dragged.
 
-The central research goal is to preserve the organ-level topology produced by
-the plant model while making the result usable in an interactive simulator:
-stems, leaves, trusses, pedicels, and tomatoes are assigned USD geometry and
-materials and optionally equipped with articulated PhysX dynamics. Static V1
-and the current V2 `--day` runner consume canonical `plant_state/1.0` snapshots.
-The older CSV adapter remains available for historical workflows.
+The input is a simple graph of segments (`plant_skeleton/1.0`), so any growth
+model can feed it through a small adapter. The GroIMP dwarf-tomato model is
+the reference source and its adapter is the example to copy.
 
-## Visual Comparison
+## Quick start
 
-Exporter V2 introduced articulated branch dynamics, physical trusses, rigid
-tomato bodies, detachment joints, collision filtering, joint-budget
-optimization, and organic branch rendering. **V2.2 extends that pipeline with a
-visual-realism pass**: more organic vegetative geometry, 3D leaflet blades,
-procedural gravity-shaped pedicels, and shared PBR materials for leaves, stems,
-and fruits.
+```bash
+git clone --recurse-submodules https://github.com/aledevv/autotom_digital_twin
+cd autotom_digital_twin
+./run_main.sh                    # input/skeleton.json -> output/plant.usda -> Isaac Sim
+./run_main.sh --generate-only    # only write the USDA
+./run_main.sh --headless         # short physics check without the GUI
+```
 
-| Exporter | Role | Main capabilities |
-| --- | --- | --- |
-| V1, `src/exporterV1` | Canonical static baseline | `plant_state/1.0`, complete organ/topology manifest, colored static geometry |
-| V2.2, `src/exporterV2` | Active pipeline | PlantState articulated plant, Gaussian/I3 compound leaflets, organic branch visuals, dynamic truss supports, PBR materials, runtime PhysX settings; physical fruits remain experimental |
+| File | Role |
+| --- | --- |
+| `input/skeleton.json` | The plant (GroIMP day 160 by default). Format: [`src/plant_skeleton/README.md`](src/plant_skeleton/README.md) |
+| `input/examples/small_plant.json` | Smallest hand-written example |
+| `config/physics.yaml` | Stiffness, damping, masses, joints, fruits, scale; every option commented |
+| `config/visuals.yaml` | Mesh density, leaf generator, decorations, pose; every option commented |
+| `output/plant.usda` | Generated scene plus `plant.manifest.json` (not tracked) |
+
+To use another day of the GroIMP simulation:
+
+```bash
+uv run python -m exporterV2.adapters.groimp --day 80    # rewrites input/skeleton.json
+```
+
+To connect another growth model, write an adapter:
+[`src/exporterV2/adapters/README.md`](src/exporterV2/adapters/README.md).
+
+## Demo
+
+Exporter V2 brought articulated branch dynamics, physical trusses, tomato
+bodies with detachment joints, collision filtering, joint-budget optimization
+and organic branch rendering. **V2.2 added a visual-realism pass**: organic
+stems, 3D leaflet blades, gravity-shaped pedicels and shared PBR materials.
+The static V1 exporter is preserved on the `thesis-archive` branch.
 
 ### Exporter V2.0 Demo
 https://github.com/user-attachments/assets/357638f1-c9d2-485e-94ee-cd6e2d5e7535
-
-### Exporter V1 / V1.5 Baseline
-https://github.com/user-attachments/assets/ab07fde7-d866-470d-9056-e0a2215c22d8
 
 ## V2.2 — Realism Upgrade
 
@@ -93,224 +105,114 @@ https://github.com/user-attachments/assets/e33f672d-72b8-41b2-9b4d-43bf5656226e
 
 ## Pipeline
 
-The diagram below describes the historical CSV route. Current `--day` runs
-read PlantState snapshots; realistic blade generation uses the isolated shape
-worker described in the [leaf integration notes](src/exporterV2/docs/10_realistic_leaf_shapes.md).
-
 ```mermaid
 graph LR
-    A[GroIMP growth simulation] --> B[Daily CSV graph export]
-    B --> C[Exporter V2.2 CSV adapter]
-    C --> D[Branch, leaf, truss, tomato model]
+    A[Growth model, e.g. GroIMP] --> B[Adapter]
+    B --> C[input/skeleton.json<br/>plant_skeleton/1.0]
+    C --> D[Branch chains + poses]
+    P[config/physics.yaml] --> D
+    V[config/visuals.yaml] --> G
     D --> E[Optional joint-budget optimizer]
-    E --> F[PhysX branch graph]
-    F --> G[Organic visual + material backend]
-    G --> H[OpenUSD / Isaac Sim scene]
+    E --> F[PhysX rigid links + D6 joints]
+    F --> G[Organic meshes, leaflets, tomatoes]
+    G --> H[output/plant.usda]
+    H --> I[Isaac Sim]
 ```
 
-1. GroIMP exports daily graph data under `data/simulation_output/dynamic_output/graphs/`.
-2. Exporter V2.2 reads each CSV once, reconstructs topology, and converts the graph into a profile-driven branch representation.
-3. Leaf and truss builders add compound 3D leaflets, rachis links, one-link pedicels, tomato sizing, maturity colors, and debug switches.
-4. The USD stage authoring layer creates articulated physics links, joints, collision proxies, terminal tomato bodies, shared organ materials, and the selected visual representation.
-5. The visual layer adds organic branch shaping and, where relevant, higher-fidelity visual-only geometry such as gravity-curved pedicels.
-6. The optimizer can reduce the number of simulated joints while preserving a compatible USD structure and an optimizer-independent visual profile.
+1. An adapter converts the growth model's output into a skeleton: one node per
+   straight segment (stem, branch, petiole, leaf rachis, truss rachis, pedicel)
+   plus leaflets and fruits.
+2. The exporter groups nodes into branches and gives each node one rigid link
+   with capsule colliders and a D6 joint whose drive comes from the segment's
+   Young's modulus, radius and length.
+3. Above about 220 joints the optimizer can lock or merge the least important
+   ones.
+4. Organic meshes, leaflet blades (procedural or from the `real_leaves`
+   generator), curved pedicels and ripeness-coloured tomato spheres are added
+   as visuals; physics never depends on them.
+5. Overlapping colliders at rest are filtered pairwise, scene settings are
+   written, and a manifest records counts, poses and masses.
 
-## Realtime Organic Branch Rendering
-
-V2.2 keeps physical links and collision proxies independent from organic branch
-surfaces. The preserved visual choices are:
-
-| Mode | Role |
-| --- | --- |
-| `segmented` | Current realtime default; one organic mesh per rigid link |
-| `skinned` | Continuous UsdSkel deformation reference |
-| `static` | Smooth geometry benchmark |
-| `rigid-single` | One-link runtime diagnostic |
-| `legacy` backend | Original cylinder branch representation |
-
-The modes share botanical taper, radius transitions, leaf blades, and material
-authoring without changing plant physics. See
-`src/exporterV2/docs/09_segmented_branch_visuals.md` for geometry, performance
-rationale, terminal leaf junctions, and module ownership.
+The full description is in [`src/exporterV2/README.md`](src/exporterV2/README.md).
 
 ## Repository Layout
 
-Thesis material (physics experiments in `src/experiments/`, `model_randomized/`,
-demo videos, historical notes and generated outputs) lives on the
+Thesis material (exporter V1, physics experiments, `model_randomized/`, demo
+videos, historical notes and generated outputs) lives on the
 [`thesis-archive`](https://github.com/aledevv/autotom_digital_twin/tree/thesis-archive)
 branch. `main` keeps only the working pipeline.
 
 ```text
 .
-├── assets/gallery/                 # V2.2 screenshots used in the README
-├── data/
-│   ├── plant_states/               # plant_state/1.0 JSON input (one file per day)
-│   ├── simulation_output/          # GroIMP CSV exports (CSV adapter and its tests)
-│   └── usd_models/                 # Generated USD (not tracked)
-├── external/real_leaves/           # Leaf-shape generator submodule
+├── input/                          # skeleton.json (default input) and examples/
+├── config/                         # physics.yaml, visuals.yaml (commented defaults)
+├── output/                         # generated USDA + manifest (not tracked)
+├── assets/gallery/                 # screenshots used in this README
+├── data/plant_states/              # GroIMP plant_state/1.0 snapshots (GroIMP adapter input)
+├── data/simulation_output/         # GroIMP CSV exports (legacy test fixtures)
+├── external/real_leaves/           # leaf-shape generator submodule
 ├── model/                          # GroIMP model (RGG sources, inputs, params)
-├── tests/                          # Synthetic CSV scenarios for the CSV adapter
-├── extract_plant_states.sh         # Extract JSON plant states from a running GroIMP
-├── run_mainV1.sh                   # Canonical static V1 + Isaac runner
-├── run_mainV2.sh                   # Active V2.2 runner
-├── run_debugV2.sh                  # V2 debug runner (per-organ profiles)
+├── tests/                          # synthetic CSV scenarios for the legacy builder tests
+├── extract_plant_states.sh         # extract plant states from a running GroIMP
+├── run_main.sh                   # build the plant and open it in Isaac Sim
 └── src/
-    ├── exporterV1/                 # Static baseline exporter
-    ├── exporterV2/                 # Active modular exporter
-    ├── groimp_bridge/              # GroIMP API client and extraction
-    └── plant_state/                # plant_state/1.0 schema and helpers
+    ├── plant_skeleton/             # input format: model, JSON I/O, validation
+    ├── exporterV2/                 # exporter, adapters, mesh generators, Isaac launcher
+    ├── groimp_bridge/              # GroIMP API client and plant-state extraction
+    └── plant_state/                # GroIMP plant_state/1.0 schema
 ```
 
-Exporter V2.2 is organized around reusable layers:
+## Features
 
-- `adapters/groimp_csv/`: CSV parsing and conversion from GroIMP graph nodes.
-- `core/`: generic configuration, mechanics, USD stage construction, skinning/segmented visuals, material authoring, and optimization.
-- `profiles/`: tomato-specific biological and geometric assumptions.
-- `demos/`: manual visual validation scripts for videos, screenshots, and paper figures.
-- `docs/`: canonical technical documentation for architecture, physics, visuals, tests, and troubleshooting.
-
-## Current V2.2 Features
-
-| Category | Feature | Status |
-| --- | --- | :---: |
-| Architecture | Modular core/adapters/profiles pipeline | Done |
-| Parsing | Single-read CSV topology reconstruction | Done |
-| Geometry | Trunk, lateral branches, compound leaves, trusses, pedicels, tomatoes | Done |
-| Geometry | 3D leaflet blades with width profile, fold, arch, and gravity sag | Done |
-| Visuals | Organic swept branch geometry with taper, smooth radius transitions, root flare, and junction shaping | Done |
-| Visuals | Segmented realtime rendering with one organic mesh per physical link | Done |
-| Visuals | Optional continuous UsdSkel branch skinning | Done |
-| Visuals | Centered terminal leaf continuation and small deterministic visual fork | Done |
-| Visuals | Gravity-curved procedural pedicel mesh with deterministic visual variation | Done |
-| Materials | Shared realtime PBR materials for leaves, vegetative axes, and fruits | Done |
-| Materials | Optional OmniSurface look-development presets for leaves and stems | Done |
-| Materials | Maturation-aware tomato color with eight shared material buckets | Done |
-| Physics | Articulated branch links with PhysX D6 drives | Done |
-| Trusses | CSV-derived rachis, one-link pedicels, detachable terminal tomatoes | Done |
-| Detachment | Breakable FixedJoints under `/World/TerminalBodies` | Done |
-| Collision | Geometric validation plus runtime tomato-pedicel-rachis filters | Done |
-| Optimization | Joint-budget LOD techniques and visual validation demos | Done |
-| Runtime | Isaac Sim scene settings, GPU dynamics, solver iterations | Done |
-
-## Running
-
-Realistic leaflets come from the `external/real_leaves` submodule, pinned to a
-tested commit. Clone with `git clone --recurse-submodules`, or run
-`git submodule update --init` in an existing checkout; without it, use
-`--leaf-shape-backend legacy`.
-
-The current PlantState V2 runner supports realistic Gaussian leaflets by default
-and I3 as an alternative, with an individual deterministic seed per leaflet:
-
-```bash
-./run_mainV2.sh --day 50
-./run_mainV2.sh --day 50 --leaf-shape-backend i3 --leaf-shape-seed 42
-```
-
-Defaults live in `src/exporterV2/profiles/leaf_shape.yaml`; use
-`--leaf-shape-config PATH` for a custom file. The separate Python 3.12 shape
-environment is managed automatically. See the
-[setup and geometry notes](src/exporterV2/docs/10_realistic_leaf_shapes.md)
-for dependencies, reproduction, the explicit `legacy` option and validation.
-
-Generate canonical static V1 without Isaac Sim, or open the same stage
-interactively:
-
-```bash
-uv run python -m exporterV1 --day 25
-./run_mainV1.sh --day 25 --isaacsim
-```
-
-V1 reads `data/plant_states/plant_state_day_N.json`, never contacts GroIMP and
-has no CSV fallback. See `src/exporterV1/README.md` for custom paths, extraction
-of new snapshots, headless smoke tests and the completeness manifest.
-
-Use V2.2 for current work. The skinned branch backend and realtime segmented
-organic visuals are the current defaults:
-
-```bash
-./run_mainV2.sh --day 40
-./run_mainV2.sh --day 40 --optimize
-```
-
-The equivalent explicit command is:
-
-```bash
-./run_mainV2.sh \
-  --day 40 \
-  --branch-backend skinned \
-  --skinning-visual-mode segmented
-```
-
-For the continuous UsdSkel reference mode:
-
-```bash
-./run_mainV2.sh \
-  --day 40 \
-  --branch-backend skinned \
-  --skinning-visual-mode skinned
-```
-
-Diagnostic visual modes `static` and `rigid-single` are also available for
-isolating rendering/skinning behavior.
-
-Use V1 for the canonical static baseline:
-
-```bash
-./run_mainV1.sh --day 25 --isaacsim
-```
-
-Experiment-specific runners live beside their experiments, for example
-`src/experiments/cantilever_test/run_cantilever_test.sh` and
-`src/experiments/three_point_test/run_threepoint_test.sh`.
+| Category | Feature |
+| --- | --- |
+| Input | Generic `plant_skeleton/1.0` graph; GroIMP adapter as reference |
+| Configuration | Commented YAML for physics and visuals; defaults ready to use |
+| Geometry | Stem, side shoots, compound leaves, trusses, pedicels, tomatoes |
+| Visuals | Organic segmented stems with taper, root flare and junction bulge |
+| Visuals | 3D leaflets: procedural blade or scanned shapes from `real_leaves` |
+| Visuals | Gravity-curved pedicels, decorative terminal forks (switchable) |
+| Materials | Shared PBR materials; tomato colour from ripeness |
+| Physics | Articulated rigid links with PhysX D6 drives |
+| Fruits | None, visual (default) or physical with breakable joints (experimental) |
+| Collision | Pairwise filter for colliders overlapping at rest |
+| Optimization | Joint-budget lock/merge for large plants |
+| Runtime | Isaac Sim launcher with interactive drag tools and headless check |
 
 ## Testing
 
-Ordinary V2.2 tests can run in the project virtual environment:
+No CI: run the suite by hand before merging.
 
 ```bash
-uv run pytest \
-  src/exporterV2/adapters/groimp_csv/tests \
-  src/exporterV2/core/optimizations/tests \
+uv run pytest -q \
+  src/plant_skeleton/tests \
   src/exporterV2/tests \
-  -v
+  src/exporterV2/core/optimizations/tests \
+  src/exporterV2/core/skinning/tests \
+  src/exporterV2/legacy_csv/tests \
+  src/groimp_bridge/tests \
+  tests
 ```
 
-USD/PhysX tests that require Isaac Sim modules should run with Isaac's Python:
-
-```bash
-~/isaacsim/python.sh -m pytest \
-  src/exporterV2/core/usd/tests \
-  src/exporterV2/core/optimizations/tests/11_truss_static/test_truss_static_usd.py \
-  -v
-```
+`src/exporterV2/tests/test_exporter.py` locks the GroIMP day-160 plant to the
+bodies, joints, poses, masses and drive gains of the previous exporter.
+Interaction in the Isaac Sim GUI is checked by hand with `./run_main.sh`.
 
 ## Documentation
 
-The canonical V2.2 documentation is in `src/exporterV2/docs/` and the codebase
-itself now also contains the appearance/material implementation introduced by
-the realism pass:
-
-- `01_architecture.md`: data flow, parser, builders, USD stage, optimizer.
-- `02_physics_and_mechanics.md`: PhysX runtime, truss profile, detachment, filters.
-- `03_vs_v1.md`: technical comparison between the static baseline and V2.
-- `04_csv_modifications.md`: profile assumptions and CSV-derived organ generation.
-- `05_collision_checks.md`: geometric checks and runtime collision filtering.
-- `06_testing.md`: ordinary tests, Isaac tests, demos, and runners.
-- `07_implementation_notes.md`: refactor decisions and consolidated engineering notes.
-- `08_troubleshooting.md`: common stability, detachment, and import issues.
-- `09_segmented_branch_visuals.md`: organic sweep geometry, segmented realtime rendering, terminal leaf forks, and performance rationale.
-- `core/skinning/leaf_blade.py`: V2.2 3D leaflet geometry and gravity-shaped blade appearance.
-- `core/usd/pedicel_geometry.py`: V2.2 procedural gravity-curved pedicel visual geometry.
-- `core/usd/materials.py`: V2.2 shared leaf, stem, and fruit material authoring.
-
-The optimizer also has focused documentation under
-`src/exporterV2/core/optimizations/docs/`.
+- [`docs/DEVELOPER_GUIDE.md`](docs/DEVELOPER_GUIDE.md): ten-minute tour for new developers (start here).
+- [`docs/AGENTS_GUIDE.md`](docs/AGENTS_GUIDE.md): code map, checks and rules for coding agents.
+- [`docs/GROIMP_BATCH_EXTRACTION.md`](docs/GROIMP_BATCH_EXTRACTION.md): extracting new plant states from GroIMP.
+- [`src/plant_skeleton/README.md`](src/plant_skeleton/README.md): input format with examples.
+- [`src/exporterV2/README.md`](src/exporterV2/README.md): pipeline, folder map, what to edit.
+- [`src/exporterV2/adapters/README.md`](src/exporterV2/adapters/README.md): writing an adapter.
+- [`src/exporterV2/visuals/README.md`](src/exporterV2/visuals/README.md): where every mesh generator lives.
+- `src/exporterV2/docs/`: physics, collisions, segmented visuals, leaf shapes, troubleshooting.
+- `src/exporterV2/core/optimizations/docs/`: joint-budget optimizer.
 
 ## Notes for Reproducibility
 
-- Generated outputs under `output/` are preserved as artifacts, but code changes
-  should not silently alter them during cleanup or documentation work.
+- Generated outputs under `output/` are not tracked.
 - Python bytecode, cache directories, and scratch USDA files are ignored.
 - Manual demo scripts are intentionally outside normal pytest collection so
   paper/video assets do not interfere with automated validation.

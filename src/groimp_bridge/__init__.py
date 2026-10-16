@@ -30,7 +30,6 @@ from .geometry import (
     parse_obj,
     validate_rendered_geometry,
 )
-from .comparison import MigrationComparisonReport, compare_representations
 from plant_state import PlantState
 
 
@@ -59,27 +58,6 @@ def inspect_workbench(workbench: Any) -> GroIMPGraphSnapshot:
     from .inspector import inspect_workbench as _inspect_workbench
 
     return _inspect_workbench(workbench)
-
-
-def validate_project(
-    project_path: str | Path,
-    *,
-    steps: int,
-    plant_id: int = 1,
-    api_url: str = "http://localhost:58081/api/",
-    function_name: str = "Dynamic_Model",
-):
-    """Lazily run the combined Phase C/D validation pipeline."""
-
-    from .migration_validation import validate_project as _validate_project
-
-    return _validate_project(
-        project_path,
-        steps=steps,
-        plant_id=plant_id,
-        api_url=api_url,
-        function_name=function_name,
-    )
 
 
 def extract_plant_state(
@@ -148,7 +126,6 @@ __all__ = [
     "GeometryValidationReport",
     "GroIMPGraphSnapshot",
     "InspectionReport",
-    "MigrationComparisonReport",
     "ObjMesh",
     "ReconstructedGeometry",
     "StepResult",
@@ -159,7 +136,6 @@ __all__ = [
     "TurtleResolutionError",
     "WorldAnchor",
     "build_rendered_geometry",
-    "compare_representations",
     "extract_plant_state",
     "extract_project_state",
     "extract_workbench_state",
@@ -167,6 +143,5 @@ __all__ = [
     "inspect_workbench",
     "parse_obj",
     "resolve_turtle",
-    "validate_project",
     "validate_rendered_geometry",
 ]

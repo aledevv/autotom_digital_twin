@@ -122,6 +122,8 @@ def _find_terminal_existing_child(
             continue
         if child.get("disable_centered_terminal", False):
             continue
+        if child.get("disable_terminal_fork", False):
+            continue
         if not _is_supported_existing_organ(child):
             continue
 

@@ -1,23 +1,27 @@
 # Collision Checks
 
-V2 uses two collision-control layers: geometric checks while parsing/generating branch layout, and USD collision filters while authoring PhysX bodies.
+The exporter controls collisions in two layers: `FilteredPairs` authored together with the PhysX bodies, and an overlap audit of the finished stage (`collisions.py`).
 
-## Geometric Checks
+## Authored Filtered Pairs
 
-The CSV adapter validates lateral branch spacing to avoid obvious same-rank and adjacent-rank overlaps before simulation. The tomato profile keeps a conservative minimum angular separation and retries jittered orientations when branches are too close.
+While authoring the articulated structure, the exporter adds `FilteredPairs` relationships for:
 
-## USD Filtered Pairs
+- parent-child link pairs;
+- branch attachments that start close to the parent surface;
+- pedicel/truss connections;
+- detachable tomato to pedicel and to truss rachis (only with `fruits.mode: physical`).
 
-During USD generation V2 authors `FilteredPairs` relationships for dense articulated structures:
+The detachable tomato filters matter because the tomato is outside the articulation. Without them, contact resolution near the breakable FixedJoint can dominate the intended detachment behavior.
 
-- parent-child link pairs
-- branch attachments that start close to the parent surface
-- pedicel/truss connections
-- detachable tomato to pedicel
-- detachable tomato to truss rachis
+## Rest-Pose Overlap Audit
 
-The detachable tomato filters are important because the tomato is outside the articulation root. Without them, contact resolution near the breakable FixedJoint can dominate the intended detachment behavior.
+The skeleton is used as given; the exporter does not move branches to avoid collisions. After the stage is built, `collider_overlaps` tests every pair of colliders on different rigid bodies (AABB pre-check, then capsule segment distance against the summed radii). Colliders that already touch at rest would push each other apart when the simulation starts.
+
+`collisions.initial_overlaps` in `config/physics.yaml` decides what happens to overlaps that are not already filtered:
+
+- `filter` (default): `auto_filter_initial_overlaps` adds one permanent filter per overlapping body pair and records each pair, its depth and contacts in the manifest;
+- `error`: no extra filters are added, and the export fails the audit with "N collider overlaps at rest are not filtered".
 
 ## Validation
 
-Pure geometry checks can run in the regular Python environment. PhysX schema checks and runtime inspection require Isaac Sim or an environment with `pxr`/`PhysxSchema` available.
+The overlap audit runs during every export in the regular `uv` environment (it only needs `pxr`). Runtime contact behavior can only be checked in Isaac Sim, for example with `./run_main.sh --headless`.

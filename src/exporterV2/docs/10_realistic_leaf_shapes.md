@@ -1,42 +1,39 @@
-# Realistic leaflet shapes in PlantState V2
+# Realistic Leaflet Shapes
 
-The `--day` PlantState pipeline uses **Gaussian** leaflet outlines by default.
-`i3` selects the alternative role-conditioned generator; `legacy` explicitly
-selects the previous Merlice profile for regression/debugging. All three use
-the same plant supports, placement, materials, and physics. The static demo
-without `--day` retains its previous behavior.
+`leaves.generator` in `config/visuals.yaml` selects how leaflet blades are shaped:
 
-## Run and configure
+| `leaves.generator` | Worker backend | Shapes |
+| --- | --- | --- |
+| `real_leaves` (default) | `gaussian` | Sampled from scanned tomato leaflets (Gaussian EFD model) |
+| `real_leaves_i3` | `i3` | Same generator, alternative role-conditioned i3 model |
+| `simple` | `legacy` | Previous procedural (Merlice) profile, no extra dependencies |
+
+All three use the same supports, placement, materials and physics.
+
+## Run and Configure
 
 From the repository root:
 
 ```bash
-./run_mainV2.sh --day 50
-./run_mainV2.sh --day 50 --leaf-shape-backend i3
-./run_mainV2.sh --day 50 --leaf-shape-backend legacy
-./run_mainV2.sh --day 50 --leaf-shape-seed 123
-./run_debugV2.sh --day 50 --organ leaves --leaf-shape-backend gaussian
+./run_main.sh --generate-only     # uses leaves.generator and leaves.seed
 ```
 
-The central configuration is `src/exporterV2/profiles/leaf_shape.yaml`. Edit
-`backend` there or pass `--leaf-shape-config /absolute/path/leaves.yaml`.
-Overrides use this precedence: CLI backend/seed, selected YAML, default YAML.
-A custom YAML can override just a subset, for example:
+Set the generator and the global seed in `config/visuals.yaml`:
 
 ```yaml
-backend: i3
-seed: 42
-timeout_seconds: 600
-generator:
-  neighbours: 5
+leaves:
+  generator: real_leaves_i3
+  seed: 123
 ```
 
-The complete default file includes the model and bank settings for both
-methods. Relative resource paths resolve against the submodule's
-`src/tomato_leaf_generator/resources`, not the shell working directory.
-The same flags work with `uv run python -m exporterV2 --day 50`.
-`--generate-only` produces and audits the USD without starting Isaac Sim.
-Use distinct `--output` paths to retain comparisons between methods.
+`src/exporterV2/profiles/leaf_shape.yaml` still holds the worker settings:
+`timeout_seconds` and the `generator:` block (model, shape bank, neighbours,
+sampling limits). `leaf_shapes/config.py` loads it and then always replaces
+its `backend` and `seed` with the values from `config/visuals.yaml`, so edit
+the profile only for model or timeout changes. Relative resource paths
+resolve against the submodule's `src/tomato_leaf_generator/resources`, not
+the shell working directory. Use distinct `--output` paths to keep
+comparisons between generators.
 
 ## Runtime setup
 
@@ -51,7 +48,7 @@ and the external package declares Python 3.12 support. A dedicated uv project
 under `leaf_shapes/runtime` locks Python 3.12-compatible NumPy and Triangle.
 The main command automatically prepares/reuses its environment. The first
 run needs network access to download missing dependencies/interpreter; once
-prepared, `UV_OFFLINE=1 ./run_mainV2.sh --day 50` works without package access.
+prepared, `UV_OFFLINE=1 ./run_main.sh` works without package access.
 No manual environment activation or change to Isaac's packages is needed.
 
 The worker imports the production `create_leaf_shape_generator` API directly
@@ -76,13 +73,13 @@ Each leaflet receives a stable 63-bit seed from SHA-256 of the global seed,
 plant ID, canonical structural axis ID and explicit role. The hash policy is
 versioned as `autotom-leaf-seed-v1`; Python's randomized `hash()` is not used.
 The backend is excluded from that hash so matching leaflets receive matching
-seeds in Gaussian/I3 comparisons.
+seeds in `real_leaves` / `real_leaves_i3` comparisons.
 
-The same input snapshot, configuration, resources and locked runtime produce
-the same set on every run, regardless of request order. Changing the global
-seed gives a new set. Leaflets have individual seeds, rather than sharing
+The same input skeleton, configuration, resources and locked runtime produce
+the same set on every run, regardless of request order. Changing `leaves.seed`
+gives a new set. Leaflets have individual seeds, rather than sharing
 one copied outline; mathematical uniqueness of all possible draws is not
-guaranteed. Cross-snapshot identity is only preserved if structural IDs remain
+guaranteed. Cross-skeleton identity is only preserved if structural IDs remain
 the same; day-to-day biological tracking is outside this integration.
 
 The worker loads the model/bank once and generates all requested leaflets in
@@ -100,11 +97,10 @@ Triangle option `p`, preserving boundary segments without simplification,
 midrib insertion or extra refinement. The original generated contours are
 never mirrored based on left/right role.
 
-The existing V2 path computes physical blade length from petiolule length.
-That length scales both contour dimensions uniformly; the learned outline
-determines its own width. Existing length clamps and global scale semantics
-are retained in each exporter path. This does not introduce an area-matching
-rescaling or a fixed 6 cm production length.
+The exporter computes blade length from petiolule length. That length scales
+both contour dimensions uniformly; the learned outline determines its own
+width. Length clamps and `global_scale` apply as for the other organs. There
+is no area-matching rescaling or fixed 6 cm production length.
 
 The blade retains static arch, tip sag and fold parameters from `leaf_blade`.
 The approximate fold uses `abs(x)/max(abs(x))` and clamped normalized
@@ -135,8 +131,8 @@ UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q src/exporterV2/tests/test_real_leaf_
 
 Tests cover both generators/all roles, separate-process determinism, distinct
 sampled contours, configuration precedence, failures/timeouts, local attachment,
-materials, physical petiolules, four visual modes and unchanged non-blade prims.
-Compare full-plant outputs with identical snapshots, seed, physics and camera.
+materials and unchanged non-blade prims.
+Compare full-plant outputs with identical skeletons, seed, physics and camera.
 Generated artifacts should remain local; mesh counts or file size do not
 establish runtime FPS. Final GUI review must inspect the base connection,
 orientation, width/taper and static fold for both methods.

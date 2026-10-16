@@ -1,14 +1,11 @@
 """
-exporterV2 - Recursive Tree Model Exporter
+exporterV2 - plant skeleton -> articulated USDA for Isaac Sim
 
-Production-ready tree model generator with modular architecture:
-- core: Generic tree builder (works with any BRANCHES config)
-- adapters: Data source adapters (groIMP CSV, manual config, etc.)
-- profiles: Cultivar-specific configurations
-
-Quick Start:
-    from exporterV2.core.usd import build_stage
-    stage, stem_path = build_stage("tree.usda")
+- exporter.py / cli.py: the pipeline (``uv run python -m exporterV2``)
+- skeleton_branches.py: skeleton nodes -> branch chains
+- visuals/: where every mesh generator is (stems, leaves, trusses, fruits)
+- adapters/: convert other programs' plants into skeletons (GroIMP example)
+- core/: generic rigid-link / joint / mesh builder
 """
 
 # Re-export core functionality for convenience (tree_config only, no pxr)
@@ -30,12 +27,9 @@ def __getattr__(name):
     elif name == "apply_physx_scene_settings":
         from .core.physics import apply_physx_scene_settings
         return apply_physx_scene_settings
-    elif name == "build_v2_authoring_plan":
-        from .plant_state_adapter import build_v2_authoring_plan
-        return build_v2_authoring_plan
-    elif name == "export_plant_state_v2":
-        from .plant_state_usd import export_plant_state_v2
-        return export_plant_state_v2
+    elif name == "export_plant":
+        from .exporter import export_plant
+        return export_plant
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 __all__ = [
@@ -48,8 +42,7 @@ __all__ = [
     "print_tree_summary",
     "validate_branches",
     "apply_physx_scene_settings",
-    "build_v2_authoring_plan",
-    "export_plant_state_v2",
+    "export_plant",
 ]
 
 __version__ = "2.2.0"

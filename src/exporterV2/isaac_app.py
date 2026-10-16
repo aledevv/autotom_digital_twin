@@ -160,10 +160,10 @@ def _diagnostic_metadata(stage) -> dict:
     plants = [
         prim
         for prim in stage.Traverse()
-        if prim.GetAttribute("autotom:plantStateSchema").Get()
+        if prim.GetAttribute("autotom:skeletonSchema").Get()
     ]
     if len(plants) != 1:
-        return {"debug_profile": "unknown"}
+        return {"fruit_mode": "unknown"}
     plant = plants[0]
 
     def value(name, default=None):
@@ -172,13 +172,7 @@ def _diagnostic_metadata(stage) -> dict:
         return default if result is None else result
 
     return {
-        "debug_profile": str(value("autotom:debugProfile", "full")),
-        "lateral_joint_policy": str(
-            value("autotom:lateralJointPolicy", "dynamic")
-        ),
-        "truss_calibration_preset": str(
-            value("autotom:trussCalibrationPreset", "current")
-        ),
+        "fruit_mode": str(value("autotom:fruitMode", "physical")),
         "colliders_enabled": bool(value("autotom:collidersEnabled", True)),
         "drives_enabled": bool(value("autotom:drivesEnabled", True)),
         "articulation_enabled": bool(value("autotom:articulationEnabled", True)),
@@ -605,8 +599,7 @@ def _run_stability(stage, world, args: argparse.Namespace, authored_geometry) ->
     )
     lateral_tip_limit = 0.20
     if (
-        metadata.get("debug_profile") == "full"
-        and metadata.get("lateral_joint_policy") == "dynamic"
+        metadata.get("fruit_mode") == "physical"
         and max_lateral_tip_ratio > lateral_tip_limit
     ):
         errors.append(

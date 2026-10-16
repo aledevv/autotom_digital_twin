@@ -104,7 +104,7 @@ print(report)
 
 ```bash
 # From CLI
-./run_mainV2.sh --day 50 --optimize
+./run_main.sh --day 50 --optimize
 ```
 
 See [Quick Start](./OPTIMIZATION_QUICK_START.md) for full examples.

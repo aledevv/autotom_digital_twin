@@ -314,7 +314,7 @@ def test_scenario5_real_csv_plant():
     try:
         # Import CSV parser
         sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
-        from adapters.groimp_csv.parser import parse_csv_to_branches
+        from legacy_csv.parser import parse_csv_to_branches
     except ImportError as e:
         pytest.skip(f"Cannot import CSV parser: {e}")
     
