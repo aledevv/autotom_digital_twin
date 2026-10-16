@@ -1,3 +1,5 @@
+Project guide for coding agents (code map, checks, rules): [docs/AGENTS_GUIDE.md](docs/AGENTS_GUIDE.md).
+
 ### Task Execution & Autonomy
 - For implementation or fix requests, carry the authorized work through implementation and relevant verification. Do not stop at a proposed plan when you can proceed.
 - Make reasonable assumptions for routine, reversible decisions. Ask a focused question when missing information materially affects correctness, scope, or authorization.
